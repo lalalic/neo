@@ -4,30 +4,19 @@
   },
   "packages": [
     "npm:@lalalic/project-discovery",
+    "npm:@ericzhaozzz/wechat-channel",
     "npm:@lalalic/channel"
   ],
   "projectsCache": {
-    "timestamp": "2026-08-23T17:55:37.925Z",
+    "timestamp": "2026-08-24T00:41:35.861Z",
     "projects": [
       {
         "name": "courseware",
         "path": "/Users/lir/Documents/neo/markcut-projects/courseware"
       },
       {
-        "name": "deep-dive",
-        "path": "/Users/lir/Documents/neo/markcut-projects/deep-dive"
-      },
-      {
         "name": "illustrated-book",
         "path": "/Users/lir/Documents/neo/markcut-projects/illustrated-book"
-      },
-      {
-        "name": "short-film",
-        "path": "/Users/lir/Documents/neo/markcut-projects/short-film"
-      },
-      {
-        "name": "short-video",
-        "path": "/Users/lir/Documents/neo/markcut-projects/short-video"
       },
       {
         "name": "vlog",
