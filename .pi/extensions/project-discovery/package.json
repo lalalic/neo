@@ -1,0 +1,19 @@
+{
+  "name": "@lalalic/project-discovery",
+  "version": "1.0.0",
+  "description": "Discover pi projects",
+  "keywords": [
+    "pi-package"
+  ],
+  "license": "MIT",
+  "type": "module",
+  "pi": {
+    "extensions": [
+      "./project-discovery.js"
+    ]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "typebox": "*"
+  }
+}

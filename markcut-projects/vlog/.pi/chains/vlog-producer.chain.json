@@ -1,0 +1,58 @@
+{
+  "name": "vlog-producer",
+  "package": "vlog",
+  "description": "Vlog 全自动生产流水线：从原始媒体到可渲染的 vlog.md，含故事创作、BGM、美化、审查",
+  "chain": [
+    {
+      "agent": "vlog-initializer",
+      "phase": "准备",
+      "label": "创建 run 文件夹 + markcut vision",
+      "as": "initialState",
+      "cwd": "/Users/lir/Documents/neo/markcut-projects/vlog",
+      "task": "解析用户请求：{task}\n1. 找到媒体文件（默认 /Users/lir/Documents/neo/markcut-projects/vlog/media/）\n2. 从 EXIF/文件名提取日期\n3. 创建 /Users/lir/Documents/neo/markcut-projects/vlog/runs/{date}/ 文件夹及其 inputs/ assets/ outputs/ 子目录\n4. 移动媒体到 /Users/lir/Documents/neo/markcut-projects/vlog/runs/{date}/inputs/\n5. 在 /Users/lir/Documents/neo/markcut-projects/vlog/runs/{date}/ 内创建 .pi-subagents/ 目录，mkdir -p /Users/lir/Documents/neo/markcut-projects/vlog/runs/{date}/.pi-subagents/\n6. 运行 npx @lalalic/markcut vision /Users/lir/Documents/neo/markcut-projects/vlog/runs/{date}/inputs\n7. 输出结构化状态（run_folder, input_folder, metadata_path, vlog_topic, vlog_date, media_count）\n\n最后，更新 .chain.todo.md 将本步骤标记为完成。使用 python3 替换该步骤对应的 [ ] 为 [x]。",
+      "output": "init-state.md",
+      "outputMode": "file-only",
+      "progress": true
+    },
+    {
+      "agent": "vlog-storyteller",
+      "phase": "创作",
+      "label": "撰写 vlog.md 故事板",
+      "as": "storyboard",
+      "task": "根据上一阶段输出撰写 vlog.md。\n\n读取 {chain_dir}/init-state.md 获取 run_folder, input_folder, metadata_path, vlog_topic。\n\n1. 读取 metadata.json 理解媒体描述\n2. 读取 ~/.pi/agent/user.md 了解用户背景\n3. 设计故事弧写入 frontmatter\n4. 按时间线+情感弧分组媒体\n5. 有 GPS 则创建地图路线场景\n6. 撰写中文第一人称旁白（15-25秒/段）\n7. 写入 {run_folder}/vlog.md\n8. 输出 vlog_path, vlog_mood, run_folder\n\n注意：使用原始媒体文件路径 inputs/xxx，不要用 .normalized/\n\n最后，更新 .chain.todo.md 将本步骤标记为完成。使用 python3 替换该步骤对应的 [ ] 为 [x]。",
+      "output": "storyboard-state.md",
+      "outputMode": "file-only",
+      "progress": true
+    },
+    {
+      "agent": "markcut-bgm-sourcer",
+      "phase": "音频",
+      "label": "搜索并下载 BGM",
+      "as": "bgmResult",
+      "task": "根据故事板状态为 vlog 选择 BGM。\n\n读取 {chain_dir}/storyboard-state.md 获取 vlog_path, vlog_mood, run_folder。\n\nfile_path: {vlog_path}\nassets_dir: {run_folder}/assets/\nmood: {vlog_mood}\n\n1. 读取 vlog.md 了解场景和情感基调\n2. 搜索关键词：calm acoustic warm piano nature ambient\n3. 下载到 assets_dir，文件名 bgm.mp3\n4. 更新 vlog.md 中的 BGM 引用行\n5. 输出 bgm_path, vlog_path, run_folder\n\n最后，更新 .chain.todo.md 将本步骤标记为完成。使用 python3 替换该步骤对应的 [ ] 为 [x]。",
+      "output": "bgm-state.md",
+      "outputMode": "file-only",
+      "progress": true
+    },
+    {
+      "agent": "markcut-stylist",
+      "phase": "美化",
+      "label": "美化 vlog（SFX、CSS、effects、视觉增强）",
+      "as": "beautifyResult",
+      "task": "美化上一阶段输出的 vlog.md。\n\n读取 {chain_dir}/bgm-state.md 获取 vlog_path, run_folder。\n\nfile_path: {vlog_path}\n\n1. 读取 vlog.md 逐场景分析\n2. 根据场景类型搜索并下载 SFX 到 {run_folder}/assets/sfx/（森林、篝火、溪流、清晨鸟鸣等）\n3. 在 root 级添加 CSS stylesheet\n4. 片头/片尾 component 上加 effects 动画\n5. 一致性检查（BGM/SFX 音量层级、transition 同步、字幕样式）\n6. 运行 npx @lalalic/markcut verify {vlog_path}\n\n注意：使用 {run_folder} 中的绝对路径操作文件\n\n最后，更新 .chain.todo.md 将本步骤标记为完成。使用 python3 替换该步骤对应的 [ ] 为 [x]。",
+      "output": "beautify-state.md",
+      "outputMode": "file-only",
+      "progress": true
+    },
+    {
+      "agent": "markcut-reviewer",
+      "phase": "审查",
+      "label": "审查并修复 vlog.md",
+      "as": "reviewResult",
+      "task": "最终审查并修复 vlog.md。\n\n读取 {chain_dir}/beautify-state.md 获取 vlog_path, run_folder。\n\nfile_path: {vlog_path}\n\n1. 读取 vlog.md\n2. 审查故事完整性（Hook、Conflict、Resolution、Emotion、Ending）\n3. 审查技术规范（markcut 语法、字幕样式、BGM、transition 同步、媒体路径、SFX）\n4. 运行 npx @lalalic/markcut verify {vlog_path}\n5. 修复所有问题\n6. 重新 verify 确认零错误\n7. 输出审查报告\n\n最后：\n1. 更新 .chain.todo.md 将本步骤标记为完成（[ ] → [x]）\n2. 删除 .chain.todo.md 表示整条链成功完成：rm -f {chain_dir}/.chain.todo.md",
+      "output": "review-state.md",
+      "outputMode": "file-only",
+      "progress": true
+    }
+  ]
+}

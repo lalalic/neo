@@ -1,0 +1,57 @@
+{
+  "projectDiscovery": {
+    "cacheTTL": 3600
+  },
+  "packages": [
+    "npm:@lalalic/project-discovery",
+    "npm:@lalalic/channel"
+  ],
+  "projectsCache": {
+    "timestamp": "2026-08-23T17:55:37.925Z",
+    "projects": [
+      {
+        "name": "courseware",
+        "path": "/Users/lir/Documents/neo/markcut-projects/courseware"
+      },
+      {
+        "name": "deep-dive",
+        "path": "/Users/lir/Documents/neo/markcut-projects/deep-dive"
+      },
+      {
+        "name": "illustrated-book",
+        "path": "/Users/lir/Documents/neo/markcut-projects/illustrated-book"
+      },
+      {
+        "name": "short-film",
+        "path": "/Users/lir/Documents/neo/markcut-projects/short-film"
+      },
+      {
+        "name": "short-video",
+        "path": "/Users/lir/Documents/neo/markcut-projects/short-video"
+      },
+      {
+        "name": "vlog",
+        "path": "/Users/lir/Documents/neo/markcut-projects/vlog"
+      }
+    ]
+  },
+  "channels": [
+    {
+      "id": "disc-main",
+      "name": "Discord Main",
+      "type": "discord",
+      "enabled": false,
+      "channel": "",
+      "botToken": "",
+      "default": false
+    },
+    {
+      "id": "wechat-me",
+      "name": "My WeChat",
+      "type": "wechat",
+      "enabled": false,
+      "channel": "filehelper",
+      "default": false
+    }
+  ]
+}

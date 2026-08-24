@@ -1,0 +1,57 @@
+{
+  "name": "illustrated-book",
+  "package": "illustrated-book",
+  "description": "绘本视频全自动生产线：故事创作 → 插画提示词 → BGM → 美化 → 审查。输出：book.md + 渲染视频",
+  "chain": [
+    {
+      "agent": "storyboard-writer",
+      "phase": "创作",
+      "label": "撰写绘本故事板 book.md",
+      "as": "storyboard",
+      "task": "根据用户主题创作一个 5 页绘本故事板。\n\n用户主题（请严格按此主题创作）：{task}\n\n工作目录：{chain_dir}\n\n1. 分析用户主题、目标受众（~10岁儿童）、情感基调\n2. 设计故事弧（Hook, Conflict, Growth, Resolution, Call to Action）\n3. 确定主角名字和外观 \n4. 在 {chain_dir} 创建 book.md\n5. 5 个场景，每个场景有 description 和 script 旁白\n6. 旁白简洁，每页朗读 ~15-20 秒\n7. 图片 prompt 用占位符（后续由 illustrator 填充）\n8. 主角身份和外观清晰体现在各场景 description 中\n\n最后，更新 .chain.todo.md 将本步骤标记为完成。使用 python3 替换该步骤对应的 [ ] 为 [x]。",
+      "output": "storyboard-state.md",
+      "outputMode": "file-only",
+      "progress": true
+    },
+    {
+      "agent": "illustrator",
+      "phase": "插画",
+      "label": "添加 AI 图片提示词",
+      "as": "illustration",
+      "task": "为绘本故事板添加高质量、风格一致、有电影感的图片提示词。\n\n工作目录：{chain_dir}\n\n1. 读取 {chain_dir}/book.md\n2. 每个场景添加 `- image prompt:\"...\" isBackground:true`\n3. 主角保持一致（从故事中读取狗狗的名字、外观和品种，确保所有图片提示词使用同一主角描述）\n4. 风格统一：children's book illustration, digital painting, soft lighting\n5. 不设置 image 的 duration\n6. 原有 script 和场景结构不变\n\n最后，更新 .chain.todo.md 将本步骤标记为完成。使用 python3 替换该步骤对应的 [ ] 为 [x]。",
+      "output": "illustration-state.md",
+      "outputMode": "file-only",
+      "progress": true
+    },
+    {
+      "agent": "markcut-bgm-sourcer",
+      "phase": "音频",
+      "label": "搜索并下载 BGM",
+      "as": "bgmResult",
+      "task": "为绘本视频搜索并下载 BGM。\n\n工作目录：{chain_dir}\n\nfile_path: {chain_dir}/book.md\nassets_dir: {chain_dir}/assets/\nmood: 温馨励志，儿童绘本风格\n\n搜索关键词：children story gentle piano uplifting whimsical storybook\n下载后文件名 bgm.mp3\n在 book.md root 添加 BGM 引用行\n验证音频 >30 秒\n\n最后，更新 .chain.todo.md 将本步骤标记为完成。使用 python3 替换该步骤对应的 [ ] 为 [x]。",
+      "output": "bgm-state.md",
+      "outputMode": "file-only",
+      "progress": true
+    },
+    {
+      "agent": "markcut-stylist",
+      "phase": "美化",
+      "label": "美化视频（字幕、CSS、SFX、effects）",
+      "as": "styling",
+      "task": "为绘本视频添加视觉效果和字幕样式。\n\n工作目录：{chain_dir}\n\nfile_path: {chain_dir}/book.md\n\n这是一本儿童绘本：\n- 字幕 Comic Sans 字体，fontSize:52\n- 根据场景情感基调添加 SFX 音效（森林、溪流、夜晚等）\n- 封面和结尾使用 component 叠加文字\n- 运行 npx @lalalic/markcut verify book.md 验证\n\n最后，更新 .chain.todo.md 将本步骤标记为完成。使用 python3 替换该步骤对应的 [ ] 为 [x]。",
+      "output": "styling-state.md",
+      "outputMode": "file-only",
+      "progress": true
+    },
+    {
+      "agent": "markcut-reviewer",
+      "phase": "审查",
+      "label": "审查并修复 book.md",
+      "as": "reviewResult",
+      "task": "最终审查并修复绘本视频 book.md。\n\n工作目录：{chain_dir}\n\nfile_path: {chain_dir}/book.md\n\n这是儿童绘本，额外关注：\n- 角色一致性（同一只狗贯穿全文）\n- 字幕 Comic Sans 风格\n- 文字适合 10 岁儿童\n\n运行 npx @lalalic/markcut verify book.md\n修复所有问题\n输出审查报告\n\n最后：\n1. 更新 .chain.todo.md 将本步骤标记为完成（[ ] → [x]）\n2. 删除 .chain.todo.md 表示整条链成功完成：rm -f {chain_dir}/.chain.todo.md",
+      "output": "review-state.md",
+      "outputMode": "file-only",
+      "progress": true
+    }
+  ]
+}
