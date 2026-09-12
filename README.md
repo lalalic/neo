@@ -12,4 +12,5 @@ Start with [Vlog](vlog/README.md), the home-Mac video production workflow using 
 - `vlog/` — persisted production workflow, series, episodes, templates, styles, and personas.
 - Future projects live beside `vlog/` and share Neo's mission without depending on Vlog internals.
 
-Local bootstrap only: no Git remote or publishing account is configured.
+The repository is published privately on GitHub; local skill links remain
+deployment conveniences and are not tracked in this repository.
