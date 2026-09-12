@@ -6,9 +6,9 @@ set -u
 LOG_PATH="${CODEX_HANDOFF_NOTIFICATION_LOG:-/Users/chengli/.codex/handoff-notification.log}"
 
 usage() {
-  print "usage: $0 render --event done|failed --task HANDLE [--summary TEXT]"
-  print "       $0 notify --notification imessage|none --events LIST --event done|failed --task HANDLE [--summary TEXT]"
-  print "       $0 should-notify --notification imessage|none --events LIST --event done|failed"
+  print "usage: $0 render --event started|done|failed --task HANDLE [--summary TEXT]"
+  print "       $0 notify --notification imessage|none --events LIST --event started|done|failed --task HANDLE [--summary TEXT]"
+  print "       $0 should-notify --notification imessage|none --events LIST --event started|done|failed"
 }
 
 recipient() {
@@ -27,6 +27,7 @@ has_event() {
 message_for() {
   local event="${1:l}" task="$2" summary="${3:-}"
   local prefix="❌ Neo Handoff FAILED"
+  [[ "$event" == started ]] && prefix="🚀 Neo Handoff STARTED"
   [[ "$event" == done ]] && prefix="✅ Neo Handoff DONE"
   if [[ -n "$summary" ]]; then
     print -r -- "$prefix — $task — $summary"
@@ -80,14 +81,14 @@ done
 
 case "$command" in
   render)
-    [[ "$event" == done || "$event" == failed ]] && [[ -n "$task" ]] || { usage >&2; exit 2; }
+    [[ "$event" == started || "$event" == done || "$event" == failed ]] && [[ -n "$task" ]] || { usage >&2; exit 2; }
     message_for "$event" "$task" "$summary"
     ;;
   should-notify)
     should_notify "$notification" "$events" "$event"
     ;;
   notify)
-    [[ "$event" == done || "$event" == failed ]] && [[ -n "$task" ]] || { usage >&2; exit 2; }
+    [[ "$event" == started || "$event" == done || "$event" == failed ]] && [[ -n "$task" ]] || { usage >&2; exit 2; }
     if ! should_notify "$notification" "$events" "$event"; then exit 0; fi
     message="$(message_for "$event" "$task" "$summary")"
     if (( dry_run )); then print -r -- "$message"; exit 0; fi

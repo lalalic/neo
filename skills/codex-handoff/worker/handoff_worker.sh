@@ -4,6 +4,7 @@ set -u
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="/Users/chengli/Workspace/neo/skills/codex-handoff"
 NOTIFICATION_SCRIPT="$SCRIPT_DIR/handoff_notification.sh"
+DISPATCHER="$SCRIPT_DIR/persistent_dispatch.sh"
 LOCK_DIR="${TMPDIR:-/tmp}/codex-handoff-worker.lock"
 
 if ! mkdir "$LOCK_DIR" 2>/dev/null; then
@@ -34,19 +35,58 @@ On every run:
 11. If no NEW task exists, exit without changing anything.
 
 Terminal notification protocol:
-- Parse Notification, Notification events, and Notification recipient from HANDOFF.md.
-- After STATUS.md is written, terminal STATE is persisted, the task is moved to done/ or failed/, and final Drive parent/state are verified, invoke $NOTIFICATION_SCRIPT notify with the parsed notification, events, terminal event, task handle, and a short summary.
-- Notification: imessage enables the adapter; absent/none disables it. Empty events means done,failed. `worker-configured default` uses the local-only recipient inherited as CODEX_HANDOFF_IMESSAGE_RECIPIENT. Never put that recipient in Drive, git, STATUS.md, or logs.
-- If no recipient is configured, run the same command with --dry-run for verification and record that setup is required. Never guess a recipient.
+- Notifications are unconditional and do not depend on HANDOFF.md fields. The shell sends STARTED immediately after preflight claims the task. After STATUS.md is written, terminal STATE is persisted, the task is moved to done/ or failed/, and final Drive parent/state are verified, invoke $NOTIFICATION_SCRIPT notify with `--notification imessage --events started,done,failed` and the terminal event. Use the local-only recipient inherited as CODEX_HANDOFF_IMESSAGE_RECIPIENT; never put it in Drive, git, STATUS.md, or logs.
 - Notification delivery errors are non-authoritative: leave the already-finalized task state unchanged and record only a local delivery error.
 
 Use the connected Google Drive tools for Drive operations directly; do not use browser-harness or browser UI automation for Drive operations. Verify final state and folder parent after every task. Do not ask the user questions during an unattended run; record blockers in STATUS.md and mark the task FAILED when necessary. Return a concise run summary.'
 
 cd "$PROJECT_ROOT" || exit 1
- /Users/chengli/.local/bin/codex exec --ephemeral --skip-git-repo-check \
-  --dangerously-bypass-approvals-and-sandbox \
-  --add-dir /Users/chengli/Workspace \
-  --json "$PROMPT" </dev/null
-exit_code=$?
+PREFLIGHT_PROMPT='You are the preflight phase of the scheduled Codex handoff worker. Use connected Google Drive tools directly. Inspect only the inbox folder under the handoff root in the task contract, process at most one task directory whose STATE is exactly NEW, atomically move it to processing using verified parent IDs, immediately set STATE to RUNNING, read HANDOFF.md completely, and output exactly one compact JSON object as your final response: {"task":"<Task ID>","persistent":true|false,"task_name":"<normalized name or empty>"}. If there is no NEW task, output {"none":true}. Persistent is true only for an explicit yes value; missing/no means false. For persistent=true, task_name must be non-empty or output {"invalid":"persistent task name is missing"}. Do not modify any local repository and do not process a second task.'
+TMP_DIR="$(mktemp -d -t codex-handoff-dispatch)"
+trap 'rm -rf "$TMP_DIR"' EXIT
+PREFLIGHT_LAST="$TMP_DIR/preflight-last"
+if ! /Users/chengli/.local/bin/codex exec --ephemeral --skip-git-repo-check \
+  --dangerously-bypass-approvals-and-sandbox --add-dir /Users/chengli/Workspace \
+  -o "$PREFLIGHT_LAST" "$PREFLIGHT_PROMPT" </dev/null; then
+  exit 1
+fi
+PREFLIGHT="$(tr -d '\r\n' < "$PREFLIGHT_LAST")"
+[[ "$PREFLIGHT" == *'"none":true'* ]] && exit 0
+[[ "$PREFLIGHT" == *'"invalid"'* ]] && exit 1
+PERSISTENT="$(print -r -- "$PREFLIGHT" | jq -r '.persistent // false' 2>/dev/null)" || exit 1
+TASK_NAME="$(print -r -- "$PREFLIGHT" | jq -r '.task_name // empty' 2>/dev/null)" || exit 1
+if [[ "$PERSISTENT" == true && -z "$TASK_NAME" ]]; then exit 1; fi
+TASK_ID="$(print -r -- "$PREFLIGHT" | jq -r '.task // empty' 2>/dev/null)" || exit 1
+if [[ -n "$TASK_ID" ]]; then
+  "$NOTIFICATION_SCRIPT" notify --notification imessage --events started,done,failed --event started --task "$TASK_ID" --summary "task claimed" || true
+fi
+
+EXEC_PROMPT="The preflight phase has already claimed exactly one task, moved it to processing, set its STATE to RUNNING, and read its HANDOFF.md. Continue that claimed processing task now. Do not inspect inbox or claim another task.\n\n$PROMPT"
+if [[ "$PERSISTENT" == true ]]; then
+  LOCK="$("$DISPATCHER" lock "$TASK_NAME" 2>/dev/null)" || exit 1
+  trap 'rmdir "$LOCK" 2>/dev/null || true; rm -rf "$TMP_DIR"' EXIT
+  THREAD="$("$DISPATCHER" lookup "$TASK_NAME")"
+  if [[ -n "$THREAD" ]]; then
+    /Users/chengli/.local/bin/codex exec resume "$THREAD" --skip-git-repo-check \
+      --dangerously-bypass-approvals-and-sandbox --add-dir /Users/chengli/Workspace \
+      "$EXEC_PROMPT" </dev/null
+    exit_code=$?
+  else
+    EXEC_LOG="$TMP_DIR/execution"
+    /Users/chengli/.local/bin/codex exec --skip-git-repo-check \
+      --dangerously-bypass-approvals-and-sandbox --add-dir /Users/chengli/Workspace \
+      --json -o "$TMP_DIR/last" "$EXEC_PROMPT" >"$EXEC_LOG" 2>&1
+    exit_code=$?
+    if (( exit_code == 0 )); then
+      NEW_THREAD="$(rg -o '"thread_id":"[^"]+"' "$EXEC_LOG" | head -1 | sed 's/^"thread_id":"//;s/"$//')"
+      [[ -n "$NEW_THREAD" ]] && "$DISPATCHER" store "$TASK_NAME" "$NEW_THREAD"
+    fi
+  fi
+else
+  /Users/chengli/.local/bin/codex exec --ephemeral --skip-git-repo-check \
+    --dangerously-bypass-approvals-and-sandbox --add-dir /Users/chengli/Workspace \
+    "$EXEC_PROMPT" </dev/null
+  exit_code=$?
+fi
 rmdir "$LOCK_DIR" 2>/dev/null || true
 exit $exit_code

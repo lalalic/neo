@@ -12,3 +12,9 @@ direct-child repository match and an origin identity match.
 Terminal states are persisted in Drive before notification. Notification
 delivery is non-authoritative; a delivery error is recorded locally and does
 not reopen or alter the Drive task.
+
+Persistent continuation is opt-in: missing metadata or `Persistent thread: no`
+means one-shot execution. `Persistent thread: yes` requires a normalized,
+non-empty `Task name`; the worker stores the name-to-thread mapping locally and
+uses a per-name lock. A stored mapping is never silently replaced when resume
+fails.
