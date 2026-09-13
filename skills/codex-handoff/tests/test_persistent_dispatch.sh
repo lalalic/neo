@@ -8,8 +8,8 @@ export CODEX_HANDOFF_STATE_DIR="$STATE"
 [[ -z "$($SCRIPT lookup missing)" ]]
 $SCRIPT store alpha thread-1
 [[ "$($SCRIPT lookup alpha)" == thread-1 ]]
-$SCRIPT store alpha thread-2
-[[ "$($SCRIPT lookup alpha)" == thread-2 ]]
+! $SCRIPT store alpha thread-2 >/dev/null 2>&1
+[[ "$($SCRIPT lookup alpha)" == thread-1 ]]
 $SCRIPT store beta thread-3
 [[ "$($SCRIPT lookup beta)" == thread-3 ]]
 LOCK="$($SCRIPT lock alpha)"

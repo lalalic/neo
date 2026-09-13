@@ -14,6 +14,8 @@ print 'CODEX_HANDOFF_IMESSAGE_RECIPIENT=local-test-alias' > "$TMP_CONFIG"
 [[ "$("$SCRIPT" render --event done --task task-123 --summary 'all good')" == '✅ Neo Handoff DONE — task-123 — all good' ]]
 [[ "$("$SCRIPT" render --event failed --task task-123)" == '❌ Neo Handoff FAILED — task-123' ]]
 [[ "$($SCRIPT render --event started --task task-123)" == '🚀 Neo Handoff STARTED — task-123' ]]
+[[ "$($SCRIPT render --event review --task task-123)" == '📝 Neo Handoff REVIEW — task-123' ]]
+[[ "$($SCRIPT render --event accepted --task task-123)" == '✅ Neo Handoff ACCEPTED — task-123' ]]
 "$SCRIPT" should-notify --notification imessage --events started,done,failed --event started
 "$SCRIPT" should-notify --notification imessage --events done,failed --event done
 ! "$SCRIPT" should-notify --notification imessage --events done --event failed

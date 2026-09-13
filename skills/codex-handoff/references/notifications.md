@@ -1,7 +1,8 @@
 # Notifications
 
-The adapter is worker/handoff_notification.sh. The worker always sends
-`started`, `done`, or `failed`; HANDOFF.md notification fields are ignored.
+The adapter is worker/handoff_notification.sh. The worker sends `started`,
+`review`, `done`, `accepted`, or `failed` as appropriate; HANDOFF.md
+notification fields are ignored.
 The recipient comes only from the inherited
 CODEX_HANDOFF_IMESSAGE_RECIPIENT environment variable. Never write that
 private value to Drive, Git, STATUS.md, or logs.
