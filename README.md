@@ -6,7 +6,7 @@ This repository is the shared Neo workspace: orchestration rules, reusable agent
 
 ## Repository
 
-- `neo.json` — Neo character and mission configuration.
+- `MISSION.md` — canonical Neo identity and mission context for agents and projects.
 - `AGENTS.md` — workspace-wide agent operating rules.
 - `skills/` — canonical editable Neo skills, including orchestration, events, model routing, social posting, and skill authoring.
 - `.bin/` — local discovery and packaging helpers used by Web ChatGPT and other harnesses.

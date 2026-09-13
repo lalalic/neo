@@ -1,6 +1,6 @@
 # Working on Neo
 
-Identify the user's intention before implementation. Neo is an AI character pursuing $1M in one year; Vlog is the first project. The mission is not permission to spend, publish, or claim earnings.
+Read `MISSION.md` at the start of every Neo session and treat it as the canonical Neo identity/mission context. Identify the user's intention before implementation. The mission is not permission to spend, publish, accept commitments, or claim earnings.
 
 Use the strongest model for architecture, ambiguous decisions, and integration review. Delegate bounded implementation, extraction, and tests to cheaper models when available. Role and model profile are separate concepts. The user explicitly requests cost-conscious subagent use.
 
