@@ -50,6 +50,36 @@ npx pm2 delete <service>
 npx pm2 save
 ```
 
+## First-time boot persistence
+
+When PM2 is first used on a machine, configure its startup integration before
+handing off a long-running service. Inspect first, then run:
+
+```bash
+npx pm2 startup
+```
+
+PM2 prints a platform-specific command, usually requiring elevated privileges.
+Review that command and ask for authorization immediately before running it;
+do not execute the printed `sudo` command silently. After the startup hook is
+installed, save the current process list:
+
+```bash
+npx pm2 save
+```
+
+Verify the result by checking that the startup integration is registered and
+that `npx pm2 resurrect` can restore the intended process list. On macOS this
+normally creates a per-user launchd service; on Linux it normally uses
+systemd. If startup integration is already present, do not recreate it—run
+`npx pm2 save` after adding or changing services.
+
+For a remote host, run both the inspection and setup through the same SSH
+alias. Keep the PM2 process list and startup integration on the same user
+account that owns the services. A PM2 process started from an agent session
+can survive that session only after PM2 startup integration has been enabled
+and the process list has been saved.
+
 Before stop, restart, delete, log deletion, or startup changes, confirm the target and that the requested mutation is authorized. Do not recreate a missing service blindly; inspect its expected command and working directory first.
 
 For reboot persistence, use PM2's supported startup integration and `npx pm2 save`. Do not silently execute privileged commands printed by `npx pm2 startup`; surface them for authorization.
