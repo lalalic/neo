@@ -1,6 +1,6 @@
 # Notifications
 
-The adapter is worker/handoff_notification.sh. The worker sends `started`,
+The adapter is `node worker/handoff.js notification`. The worker sends `started`,
 `review`, `done`, `accepted`, or `failed` as appropriate; HANDOFF.md
 notification fields are ignored.
 The recipient comes only from the inherited

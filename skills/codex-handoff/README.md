@@ -34,7 +34,7 @@ handle.
 
 ## Local PM2 lifecycle
 
-    ./scripts/install-pm2.sh
+    node ./scripts/install-pm2.js
     npx pm2 status codex-handoff-worker
     npx pm2 logs codex-handoff-worker
     npx pm2 restart codex-handoff-worker
