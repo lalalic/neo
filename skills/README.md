@@ -12,6 +12,7 @@ are deployment and distribution targets, not source of truth.
   migration only.
 - daemon-service-manage — inspection and PM2 lifecycle guidance for persistent
   daemons and services.
+- devmacbridge — end-to-end Mac Developer Bridge bootstrap, ChatGPT MCP connection, browser setup, events federation, and verification.
 - events-bus — correlated lifecycle/progress protocol and orchestrator display
   contract for long-running Neo jobs, including its internal event-bus transport.
 - model-router — choose among configured model profiles using capability,
