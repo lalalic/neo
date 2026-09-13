@@ -11,7 +11,7 @@ ChatGPT owns the loop. The local Codex process is the implementation worker. Git
 
 ## Capability discovery
 
-At the start of each orchestration task, discover the currently available local skills by running `~/Workspace/neo/bin/list-web-chatgpt-skills`. Select auxiliary skills from their names and descriptions, then read only the relevant `SKILL.md` files before planning or delegating work. Do not assume a fixed skill set and do not preload every skill body. Explicit `#skill-name` selections from the user take precedence.
+At the start of each orchestration task, discover the currently available local skills by running `~/Workspace/neo/.bin/list-web-chatgpt-skills`. Select auxiliary skills from their names and descriptions, then read only the relevant `SKILL.md` files before planning or delegating work. Do not assume a fixed skill set and do not preload every skill body. Explicit `#skill-name` selections from the user take precedence.
 
 ## Operating invariants
 

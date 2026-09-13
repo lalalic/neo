@@ -1,6 +1,6 @@
 # Web ChatGPT Skill Bootstrap
 
-Web ChatGPT is the top-level orchestrator. Use this file as the copy/paste bootstrap instruction for Web ChatGPT. Local skills are discovered dynamically. When a skill must be uploaded manually, package it on demand with `bin/package-web-chatgpt-skill`; generated ZIPs are temporary artifacts and are not stored in this repository.
+Web ChatGPT is the top-level orchestrator. Use this file as the copy/paste bootstrap instruction for Web ChatGPT. Local skills are discovered dynamically. When a skill must be uploaded manually, package it on demand with `.bin/package-web-chatgpt-skill`; generated ZIPs are temporary artifacts and are not stored in this repository.
 
 ## Mandatory bootstrap skills
 
@@ -13,7 +13,7 @@ Canonical local skill:
 If a ZIP upload is needed temporarily, generate it outside the repository or under the ignored `web-chatgpt/bootstrap/` directory, for example:
 
 ```bash
-/Users/chengli/Workspace/neo/bin/package-web-chatgpt-skill \
+/Users/chengli/Workspace/neo/.bin/package-web-chatgpt-skill \
   /Users/chengli/Workspace/neo/skills/events-bus \
   /tmp/events-bus.zip
 ```
@@ -24,7 +24,7 @@ If a ZIP upload is needed temporarily, generate it outside the repository or und
 
 1. Load every skill listed under **Mandatory bootstrap skills** before delegating work.
 2. Read `/Users/chengli/Workspace/neo/skills/chatgpt-orchestrator/SKILL.md`.
-3. Run `/Users/chengli/Workspace/neo/bin/list-web-chatgpt-skills` through DevMacBridge to discover currently available non-bootstrap skills.
+3. Run `/Users/chengli/Workspace/neo/.bin/list-web-chatgpt-skills` through DevMacBridge to discover currently available non-bootstrap skills.
 4. Select relevant skills from each skill's `name`, `description`, and absolute `path`; read only the selected `SKILL.md` files before executing them.
 5. If the user writes `#skill-name`, explicitly load that skill first. Explicit selection takes precedence over automatic matching.
 6. Re-run discovery when the environment may have changed. Do not load every non-bootstrap skill body into context.

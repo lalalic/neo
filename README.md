@@ -9,7 +9,7 @@ This repository is the shared Neo workspace: orchestration rules, reusable agent
 - `neo.json` — Neo character and mission configuration.
 - `AGENTS.md` — workspace-wide agent operating rules.
 - `skills/` — canonical editable Neo skills, including orchestration, events, model routing, social posting, and skill authoring.
-- `bin/` — local discovery and packaging helpers used by Web ChatGPT and other harnesses.
+- `.bin/` — local discovery and packaging helpers used by Web ChatGPT and other harnesses.
 - `web-chatgpt-skills.md` — bootstrap instructions for Web ChatGPT.
 - `markcut-projects/` — legacy Pi/Markcut project material retained from the original `main` history.
 - `.pi/`, `.user/`, and `package.json` — legacy workspace configuration retained during repository-history consolidation.
