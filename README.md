@@ -12,6 +12,6 @@ This repository is the shared Neo workspace: orchestration rules, reusable agent
 - `.bin/` — local discovery and packaging helpers used by Web ChatGPT and other harnesses.
 - `web-chatgpt-skills.md` — bootstrap instructions for Web ChatGPT.
 - `markcut-projects/` — legacy Pi/Markcut project material retained from the original `main` history.
-- `.pi/`, `.user/`, and `package.json` — legacy workspace configuration retained during repository-history consolidation.
+- `package.json` — legacy workspace metadata retained during repository-history consolidation.
 
 Nested repositories such as `vlog/`, `markcut/`, `neox/`, `wechat-bro/`, and `mac-developer-bridge/` are managed independently and are not committed through this repository.
