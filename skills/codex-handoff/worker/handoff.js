@@ -1,8 +1,7 @@
 #!/usr/bin/env node
 'use strict';
 
-// The shell files in this directory are intentionally tiny compatibility
-// launchers. Keep protocol behavior here so every worker path uses Node.
+// Keep the queue protocol and worker behavior in one Node implementation.
 const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
@@ -132,7 +131,8 @@ function notification(args) {
 }
 
 function codex(args, output) {
-  return spawnSync(process.env.CODEX_HANDOFF_CODEX_BIN || 'codex', args, { cwd: path.resolve(__dirname, '..'), input: '', encoding: 'utf8', stdio: output ? ['pipe', 'pipe', 'pipe'] : 'inherit' });
+  const timeout = Number(process.env.CODEX_HANDOFF_PREFLIGHT_TIMEOUT_MS || 45_000);
+  return spawnSync(process.env.CODEX_HANDOFF_CODEX_BIN || 'codex', args, { cwd: path.resolve(__dirname, '..'), input: '', timeout: output === 'preflight' ? timeout : undefined, killSignal: 'SIGTERM', encoding: 'utf8', stdio: output ? ['pipe', 'pipe', 'pipe'] : 'inherit' });
 }
 function worker() {
   const root = path.resolve(__dirname, '..'), temp = fs.mkdtempSync(path.join(os.tmpdir(), 'codex-handoff-dispatch-'));
@@ -142,8 +142,9 @@ function worker() {
     claim = claimMutex();
     const preflight = `You are the preflight phase of the scheduled Codex handoff worker. Use connected Google Drive tools directly. Inspect only the inbox folder under the handoff root in the task contract, process at most one task directory whose STATE is exactly NEW or REVISION_REQUESTED, atomically move it to processing using verified parent IDs, immediately set STATE to RUNNING, and read HANDOFF.md completely. Output exactly one compact JSON object as your final response: {"task":"<Task ID>","persistent":true|false,"task_name":"<normalized name or empty>","thread_id":"<package THREAD_ID or empty>","lock_scope":"workspace|repo","workspace":"<normalized logical workspace>","repo":"<normalized logical repo or empty>"}. If the package contains THREAD_ID, return it exactly and treat it as authoritative. Derive workspace from HANDOFF.md; use its explicit Lock scope when present, otherwise workspace. For older tasks, derive a safe workspace from the resolved target or use unknown. If there is no eligible task, output {"none":true}. Persistent is true only for an explicit yes value; missing/no means false. For persistent=true, task_name must be non-empty or output {"invalid":"persistent task name is missing"}. Do not modify any local repository and do not process a second task.`;
     const preflightFile = path.join(temp, 'preflight-last');
-    const result = codex(['exec', '--ephemeral', '--skip-git-repo-check', '--dangerously-bypass-approvals-and-sandbox', '--add-dir', workspaceRoot, '-o', preflightFile, preflight]);
+    const result = codex(['exec', '--ephemeral', '--skip-git-repo-check', '--dangerously-bypass-approvals-and-sandbox', '--add-dir', workspaceRoot, '-o', preflightFile, preflight], 'preflight');
     rm(claim); claim = undefined;
+    if (result.error?.code === 'ETIMEDOUT') console.error('preflight timed out; claim mutex released for the next polling cycle');
     if (result.status !== 0) process.exitCode = result.status || 1;
     if (process.exitCode) return;
     const data = JSON.parse(read(preflightFile));
