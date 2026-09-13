@@ -9,6 +9,10 @@ Use this skill when the user invokes `@orchestrator` or asks ChatGPT to drive a 
 
 ChatGPT owns the loop. The local Codex process is the implementation worker. GitHub is the durable process state. The Mac Developer Bridge is the control channel for local execution and authenticated `gh` writes.
 
+## Capability discovery
+
+At the start of each orchestration task, discover the currently available local skills by running `~/Workspace/neo/bin/list-web-chatgpt-skills`. Select auxiliary skills from their names and descriptions, then read only the relevant `SKILL.md` files before planning or delegating work. Do not assume a fixed skill set and do not preload every skill body. Explicit `#skill-name` selections from the user take precedence.
+
 ## Operating invariants
 
 - A PR represents one coherent objective. Do not mix unrelated features in a new PR.
@@ -19,9 +23,23 @@ ChatGPT owns the loop. The local Codex process is the implementation worker. Git
 
 ## Closed-loop protocol
 
+### Progress event contract
+
+For delegated or background work that can outlive an immediate tool call, apply the `events-bus` skill. Create one `job_id` and subscribe to `neo.events.job.<job_id>.>` before starting the worker. Pass the correlation variables in the environment **and include the exact literal `job_id` and task-specific `task_id` in the worker prompt**; never write only `inherited` or a placeholder. Sandboxed Codex workers must publish task events through MCP `macdevbridge.events__publish`, with that single tool configured as pre-approved; do not disable approvals globally and do not make the worker connect directly to NATS. Direct non-sandbox workers may use the absolute `NEO_EVENTS_EMIT` helper. Proactively surface `visibility=user` milestones while the worker runs. A background log that the user cannot see is not a progress report. Always surface blocked/failure states, terminal results, and resource-release events such as `phone.released` immediately.
+
 ### 1. Resolve and preflight
 
 Resolve the canonical `owner/name`, PR number, head branch, local repository root, and task worktree. Verify that the local remote and branch match the PR. If any target is ambiguous, stop and ask.
+
+Repository layout may contain nested Git repositories, especially under `~/Workspace/neo/<repo>`. Treat the innermost checkout whose configured remote matches the target `owner/name` as the repository root. Never infer the root merely from the first parent directory containing `.git`, and never run child-repository Git mutations from the outer `~/Workspace/neo` repository.
+
+For local repository discovery, use this order:
+
+1. An explicit path supplied by the user or already recorded for the task.
+2. A clean exact match found by remote URL under the user's normal workspace roots, including both `~/Workspace/<repo>` and `~/Workspace/neo/<repo>`.
+3. If starting from an arbitrary cwd, inspect candidate nested repositories and compare their remotes to `owner/name`; do not accept a parent checkout whose remote does not match.
+
+Use `git -C <repo_root> ...` for all repository operations after resolution so later cwd changes cannot silently switch the target repository. When creating an isolated worktree, create it from the resolved child repository, not from an enclosing repository.
 
 Before mutation, check:
 
@@ -43,7 +61,7 @@ Maintain one small machine-readable marker in a PR comment or body. Update the e
 <!-- chatgpt-orchestrator:v1 {"repo":"owner/name","pr":1,"branch":"task/example","thread_id":"…","iteration":1,"state":"IMPLEMENTING","next":"review"} -->
 ```
 
-The marker may contain repository, PR, branch, thread ID, iteration, state, next action, and a run/lease ID. It must not contain credentials, tokens, or private configuration. Treat the exact recorded thread ID as authoritative.
+The marker may contain repository, PR, branch, thread ID, iteration, state, next action, run/lease ID, and the selected worker profile/provider/model. It must not contain credentials, tokens, or private configuration. Treat the exact recorded thread ID and worker profile binding as authoritative.
 
 Use these workflow states when communicating progress:
 
@@ -58,6 +76,26 @@ Use these workflow states when communicating progress:
 - `CLOSED`
 
 Do not use GitHub's broad `open` state as proof that implementation is active, approved, or ready to merge.
+
+### 2.5 Route new worker execution
+
+Before creating a new Codex worker thread, apply the `model-router` skill. Dynamically discover the configured Codex profiles and select the weakest profile that comfortably satisfies the task. Treat already-paid subscription capacity and credits as positive routing signals; when quality and capability are materially equivalent, prefer suitable already-paid capacity such as the configured `zai` profile over consuming additional metered resources.
+
+Record the selected worker profile, provider, and model in the orchestrator marker, for example:
+
+```text
+<!-- chatgpt-orchestrator:v1 {"repo":"owner/name","pr":1,"branch":"task/example","thread_id":"…","worker_profile":"zai","worker_provider":"zai","worker_model":"glm-5.3-flash","iteration":1,"state":"IMPLEMENTING","next":"review"} -->
+```
+
+Start a new worker with the selected profile using the installed CLI syntax, normally:
+
+```text
+codex exec -p <PROFILE> -C <REPO_OR_WORKTREE> <PROMPT> --json
+```
+
+The selected profile is sticky for the lifetime of that worker thread. Do not reroute on ordinary review/revision iterations or silently change the identity of a resumed thread. Reroute only when the bound profile is unavailable or exhausted, lacks a newly required capability, is demonstrably inadequate after a failed cycle, or the user explicitly requests a switch. If rerouting requires a different profile, fork or create an appropriate new worker thread and record why continuity was broken.
+
+For independent jobs, route independently. For example, implementation may use `zai` while a separate high-risk architecture or review job may use a stronger configured profile. Do not hard-code provider choices beyond explicit user policy; the router must still discover and gate candidates dynamically.
 
 ### 3. Start or resume Codex
 
