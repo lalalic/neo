@@ -1,0 +1,13 @@
+{
+  "id": "neo",
+  "kind": "ai-character",
+  "mission": {
+    "target_amount": 1000000,
+    "currency": null,
+    "duration_years": 1,
+    "start_date": null,
+    "accounting_basis": null,
+    "status": "planning"
+  },
+  "projects": [{"id": "vlog", "path": "vlog", "status": "bootstrap"}]
+}

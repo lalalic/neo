@@ -1,0 +1,8 @@
+{
+  "name": "events-bus-skill",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@nats-io/transport-node": "^3.4.0"
+  }
+}

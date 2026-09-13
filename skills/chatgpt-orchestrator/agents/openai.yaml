@@ -1,0 +1,18 @@
+interface:
+  display_name: "ChatGPT Orchestrator"
+  short_description: "Drive coding tasks through PR completion"
+  default_prompt: "Use @orchestrator ($chatgpt-orchestrator) to drive this repository task through implementation, review, and completion."
+
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "github"
+      description: "Read pull requests, reviews, comments, patches, and checks."
+      transport: "streamable_http"
+    - type: "mcp"
+      value: "devmacbridge"
+      description: "Run authenticated gh commands and local Codex work on the Mac."
+      transport: "streamable_http"
+
+policy:
+  allow_implicit_invocation: true

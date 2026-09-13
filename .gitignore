@@ -1,11 +1,39 @@
+.DS_Store
+.env
+.env.*
+!.env.example
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+.pytest_cache/
 node_modules/
 dist/
-.env
 .pi-subagents/
 .markcut
-.DS_Store
+.markcut/
 npm/
-inputs
-outputs
+inputs/
+outputs/
 assets/
 extensions/
+*.sqlite*
+*.mp4
+*.mov
+*.mp3
+*.wav
+
+# Nested project repositories managed independently
+vlog/
+neo-build-log/
+mac-developer-bridge/
+markcut/
+neox/
+wechat-bro/
+team-mate/
+
+# Local one-off skill export; canonical skill sources are tracked below.
+skills/Archive.zip
+
+# Temporary Web ChatGPT packaging output.
+web-chatgpt/bootstrap/

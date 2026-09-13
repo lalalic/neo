@@ -1,0 +1,123 @@
+{
+  "version": 1,
+  "source": "migrated browser-harness adapters plus verified local implementation behavior",
+  "platforms": {
+    "xhs": {
+      "display_name": "Xiaohongshu",
+      "aliases": ["xiaohongshu"],
+      "media": {
+        "modes": ["video", "images"],
+        "video": {"required_when_mode": "video", "formats": ["mp4"]},
+        "images": {"required_when_mode": "images", "formats": ["jpg", "png", "webp"], "max_count": 18},
+        "mutually_exclusive": ["video", "images"]
+      },
+      "fields": {
+        "title": {"cli": "--title", "required": true, "type": "string", "max_chars": 20, "implemented": true},
+        "body": {"cli": "--body", "required": true, "type": "string", "max_chars": 1000, "implemented": true},
+        "tags": {"cli": "--tags", "required": false, "type": "string_list", "max_count": 5, "implemented": true, "render": "append as #tag"},
+        "publish": {"cli": "--publish", "required": false, "type": "boolean", "default": false, "implemented": true}
+      },
+      "capabilities": {
+        "draft": true,
+        "publish": true,
+        "visibility": false,
+        "custom_thumbnail": false,
+        "series_or_collection": false
+      },
+      "content_mapping": {
+        "headline": "title",
+        "main_text": "body",
+        "discovery_terms": "tags"
+      },
+      "notes": [
+        "Without --publish, the adapter saves a draft.",
+        "The current adapter does not expose the Neo Vlog collection/series field even though a prior manual browser-harness session created and attached a collection."
+      ]
+    },
+    "wechat-channels": {
+      "display_name": "WeChat Channels",
+      "aliases": ["wechat", "channels"],
+      "media": {
+        "modes": ["video"],
+        "video": {"required": true, "formats": ["mp4"], "codec_hint": "H.264", "max_size_gb": 20, "max_duration_hours": 8}
+      },
+      "fields": {
+        "desc": {"cli": "--desc", "required": true, "type": "string", "max_chars": 1000, "implemented": true},
+        "title": {"cli": "--title", "required": false, "type": "string", "min_chars": 6, "max_chars": 16, "implemented": true, "meaning": "short title"},
+        "tags": {"cli": "--tags", "required": false, "type": "string_list", "implemented": true, "render": "append as #tag"},
+        "publish": {"cli": "--publish", "required": false, "type": "boolean", "default": false, "implemented": true},
+        "draft": {"cli": "--draft", "required": false, "type": "boolean", "default": true, "implemented": true, "note": "default behavior already saves draft when --publish is absent"}
+      },
+      "capabilities": {
+        "draft": true,
+        "publish": true,
+        "visibility": false,
+        "custom_thumbnail": false
+      },
+      "content_mapping": {
+        "headline": "title",
+        "main_text": "desc",
+        "discovery_terms": "tags"
+      }
+    },
+    "tiktok": {
+      "display_name": "TikTok",
+      "aliases": [],
+      "media": {
+        "modes": ["video"],
+        "video": {"required": true, "formats": ["mp4"], "max_size_gb": 10, "max_duration_minutes": 10}
+      },
+      "fields": {
+        "caption": {"cli": "--caption", "required": true, "type": "string", "max_chars_including_tags": 4000, "implemented": true},
+        "tags": {"cli": "--tags", "required": false, "type": "string_list", "max_count": 10, "implemented": true, "render": "append as #tag"},
+        "cover": {"cli": "--cover", "required": false, "type": "file", "implemented": false, "status": "cli_only", "note": "The migrated CLI validates the file but the browser body does not currently apply it."},
+        "visibility": {"cli": "--visibility", "required": false, "type": "enum", "values": ["public", "friends", "private"], "default": "public", "implemented": true},
+        "allow_comments": {"cli": "--no-comments", "required": false, "type": "boolean", "default": true, "implemented": true},
+        "allow_duets": {"cli": "--no-duets", "required": false, "type": "boolean", "default": true, "implemented": true},
+        "allow_stitch": {"cli": "--no-stitch", "required": false, "type": "boolean", "default": true, "implemented": true}
+      },
+      "capabilities": {
+        "draft": false,
+        "publish": true,
+        "visibility": true,
+        "custom_thumbnail": false,
+        "social_interaction_controls": true
+      },
+      "content_mapping": {
+        "headline": null,
+        "main_text": "caption",
+        "discovery_terms": "tags"
+      },
+      "notes": ["The current adapter performs the final Post action; it has no draft mode."]
+    },
+    "youtube": {
+      "display_name": "YouTube",
+      "aliases": ["yt"],
+      "media": {
+        "modes": ["video"],
+        "video": {"required": true}
+      },
+      "fields": {
+        "title": {"cli": "--title", "required": true, "type": "string", "max_chars": 100, "implemented": true},
+        "desc": {"cli": "--desc", "required": false, "type": "string", "max_chars": 5000, "implemented": true},
+        "tags": {"cli": "--tags", "required": false, "type": "string_list", "max_total_chars": 500, "max_chars_each": 30, "implemented": true},
+        "thumbnail": {"cli": "--thumbnail", "required": false, "type": "file", "formats": ["jpg", "png"], "max_size_mb": 2, "implemented": true},
+        "visibility": {"cli_group": ["--private", "--unlisted", "--public"], "required": false, "type": "enum", "values": ["PRIVATE", "UNLISTED", "PUBLIC"], "default": "PRIVATE", "implemented": true},
+        "made_for_kids": {"cli": "--made-for-kids", "required": false, "type": "boolean", "default": false, "implemented": true}
+      },
+      "capabilities": {
+        "draft": false,
+        "publish": true,
+        "visibility": true,
+        "custom_thumbnail": true,
+        "audience_made_for_kids": true
+      },
+      "content_mapping": {
+        "headline": "title",
+        "main_text": "desc",
+        "discovery_terms": "tags",
+        "visual_packaging": "thumbnail"
+      }
+    }
+  }
+}

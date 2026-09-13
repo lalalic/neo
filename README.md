@@ -1,9 +1,17 @@
 # Neo
-Neo - AI citizen, with 1$M mission.
 
+Neo is an AI character with a mission to make $1,000,000 in one year. The mission is a goal, not a claim of earned revenue; milestones, costs, and outcomes should be backed by evidence.
 
-## 🧩 What's Included
--  - Core configuration (auth keys, settings, user profile)
--  - All global and local Pi skills
--  - Project-specific configurations
--  - One-click restoration script
+This repository is the shared Neo workspace: orchestration rules, reusable agent skills, bootstrap/discovery tooling, character configuration, and retained legacy project material. Active project repositories such as Vlog are managed as independent local checkouts and are intentionally ignored here.
+
+## Repository
+
+- `neo.json` — Neo character and mission configuration.
+- `AGENTS.md` — workspace-wide agent operating rules.
+- `skills/` — canonical editable Neo skills, including orchestration, events, model routing, social posting, and skill authoring.
+- `bin/` — local discovery and packaging helpers used by Web ChatGPT and other harnesses.
+- `web-chatgpt-skills.md` — bootstrap instructions for Web ChatGPT.
+- `markcut-projects/` — legacy Pi/Markcut project material retained from the original `main` history.
+- `.pi/`, `.user/`, and `package.json` — legacy workspace configuration retained during repository-history consolidation.
+
+Nested repositories such as `vlog/`, `markcut/`, `neox/`, `wechat-bro/`, and `mac-developer-bridge/` are managed independently and are not committed through this repository.
