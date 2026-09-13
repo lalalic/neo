@@ -17,3 +17,15 @@ neo-build-log/
 *.mp3
 *.wav
 
+# Nested project repositories managed independently
+mac-developer-bridge/
+markcut/
+neox/
+wechat-bro/
+team-mate/
+
+# Local one-off skill export; canonical skill sources are tracked below.
+skills/Archive.zip
+
+# Temporary Web ChatGPT packaging output.
+web-chatgpt/bootstrap/
