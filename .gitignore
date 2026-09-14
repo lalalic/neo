@@ -23,9 +23,11 @@ extensions/
 *.mp3
 *.wav
 
+# Local runtime logs from Codex, previews, capture, and orchestration.
+/logs/
+
 # Nested project repositories managed independently
 vlog/
-neo-build-log/
 mac-developer-bridge/
 markcut/
 neox/

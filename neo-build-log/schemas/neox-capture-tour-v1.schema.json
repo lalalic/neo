@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://neo.local/schemas/neox-capture-tour-v1.schema.json",
+  "title": "NeoX Capture Tour v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "tour_id", "title", "shots"],
+  "properties": {
+    "version": { "const": 1 },
+    "tour_id": { "type": "string", "minLength": 1 },
+    "title": { "type": "string", "minLength": 1 },
+    "shots": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/shot" }
+    }
+  },
+  "$defs": {
+    "shot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "title": { "type": "string", "minLength": 1 },
+        "kind": { "type": "string", "default": "talking_head" },
+        "instruction": { "type": "string" },
+        "script": { "type": "string" },
+        "target_duration_s": { "type": "number", "minimum": 0 },
+        "camera": { "type": "string", "default": "front" },
+        "orientation": { "type": "string", "default": "portrait" },
+        "lens": { "type": "string", "default": "default" },
+        "framing": { "$ref": "#/$defs/framing" },
+        "quality": { "$ref": "#/$defs/quality" },
+        "notes": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        }
+      }
+    },
+    "framing": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "subject": { "type": "string" },
+        "guide": { "type": "string" },
+        "position": { "type": "string" }
+      }
+    },
+    "quality": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "face_required": { "type": "boolean" },
+        "warn_if_too_near": { "type": "boolean" },
+        "warn_if_too_far": { "type": "boolean" },
+        "warn_if_dark": { "type": "boolean" },
+        "warn_if_soft": { "type": "boolean" }
+      }
+    }
+  }
+}
