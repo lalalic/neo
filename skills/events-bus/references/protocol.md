@@ -148,6 +148,7 @@ Required behavior:
 - establish the watch/subscription before delegated work starts so early events are not lost;
 - maintain a cursor (or equivalent transport position) and advance it only from observed events;
 - render every relevant `visibility=user` milestone as a normal assistant-visible progress message as soon as practical;
+- enforce a **render-before-next-tool-call barrier**: once a `wait` result contains a `visibility:user` event, the owning orchestrator must emit the human-readable assistant progress message before issuing any later tool call, including another `wait`;
 - never treat the tool-call trace itself as user-visible progress;
 - do not expose raw JSON unless the user asks for diagnostics;
 - a `wait`/long-poll timeout means only “no new event in this window” and MUST NOT terminate an otherwise-active job;
@@ -179,6 +180,10 @@ It MUST NOT:
 - claim progress that was not observed;
 - infer success from process exit alone when the task has a domain-level success signal;
 - wait for a follow-up user message before reporting an already-observed important milestone.
+
+### Supplemental rich UI
+
+An orchestrator may render an events-bus job snapshot through `events__progress` when the host supports MCP Apps UI resources. This is an enhancement, not the delivery contract. `visibility:user` events still require ordinary assistant-visible progress messages, and the render-before-next-tool-call barrier still applies.
 
 ## Sub-agent contract
 

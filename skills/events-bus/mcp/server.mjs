@@ -13,6 +13,9 @@ const DATA_DIR = process.env.EVENTS_BUS_DATA_DIR || path.join(os.homedir(), "Lib
 const HISTORY_FILE = path.join(DATA_DIR, "events.jsonl");
 const MAX_MEMORY_EVENTS = 20_000;
 const MAX_WAIT_MS = 30_000;
+const PROGRESS_RESOURCE_URI = "ui://events-bus/job-progress-v1.html";
+const PROGRESS_MIME_TYPE = "text/html;profile=mcp-app";
+const PROGRESS_HTML = fs.readFileSync(new URL("./job-progress.html", import.meta.url), "utf8");
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
@@ -139,6 +142,45 @@ function processLiveness(jobId) {
   }
 }
 
+function progressSnapshot(jobId) {
+  const rows = rowsForJob(jobId, 0, 500);
+  const latest = rows.at(-1)?.event ?? null;
+  const terminal = latestTerminalForJob(jobId)?.event ?? null;
+  const visible = rows
+    .map((row) => row.event)
+    .filter((event) => event?.visibility === "user")
+    .slice(-8)
+    .map((event) => ({
+      event_id: event.event_id,
+      task_id: event.task_id,
+      type: event.type,
+      status: event.status,
+      timestamp: event.timestamp,
+      level: event.level,
+      message: event.message,
+      ...(event.progress && typeof event.progress === "object" ? { progress: event.progress } : {}),
+    }));
+  const progressEvent = [...rows].reverse().map((row) => row.event).find((event) => event?.progress && typeof event.progress === "object");
+  return {
+    job_id: jobId,
+    status: terminal?.status ?? latest?.status ?? "queued",
+    terminal: Boolean(terminal),
+    latest_message: latest?.message ?? "No event received yet.",
+    updated_at: latest?.timestamp ?? null,
+    event_count: rows.length,
+    worker_liveness: processLiveness(jobId),
+    progress: progressEvent?.progress ?? null,
+    milestones: visible,
+  };
+}
+
+function structuredResult(value) {
+  return {
+    content: [{ type: "text", text: JSON.stringify(value) }],
+    structuredContent: value,
+  };
+}
+
 function textResult(value, isError = false) {
   return { content: [{ type: "text", text: JSON.stringify(value) }], ...(isError ? { isError: true } : {}) };
 }
@@ -152,7 +194,12 @@ const TOOLS = [
   },
   {
     name: "wait",
+    title: "Watch job progress",
     description: "Long-poll for new events belonging to one job after a cursor. Returns immediately on matching events, timeout, or when the registered worker process exits.",
+    _meta: {
+      "openai/toolInvocation/invoking": "Watching job progress…",
+      "openai/toolInvocation/invoked": "Job progress checked",
+    },
     inputSchema: {
       type: "object",
       properties: {
@@ -189,6 +236,40 @@ const TOOLS = [
       properties: { job_id: { type: "string" } },
       required: ["job_id"],
       additionalProperties: false,
+    },
+    annotations: { readOnlyHint: true },
+  },
+  {
+    name: "progress",
+    title: "Show job progress",
+    description: "Render a compact visual snapshot of one events-bus job.",
+    inputSchema: {
+      type: "object",
+      properties: { job_id: { type: "string" } },
+      required: ["job_id"],
+      additionalProperties: false,
+    },
+    outputSchema: {
+      type: "object",
+      properties: {
+        job_id: { type: "string" },
+        status: { type: "string" },
+        terminal: { type: "boolean" },
+        latest_message: { type: "string" },
+        updated_at: { type: ["string", "null"] },
+        event_count: { type: "integer" },
+        worker_liveness: { type: "object" },
+        progress: { type: ["object", "null"] },
+        milestones: { type: "array", items: { type: "object" } },
+      },
+      required: ["job_id", "status", "terminal", "latest_message", "updated_at", "event_count", "worker_liveness", "progress", "milestones"],
+      additionalProperties: false,
+    },
+    _meta: {
+      ui: { resourceUri: PROGRESS_RESOURCE_URI },
+      "openai/outputTemplate": PROGRESS_RESOURCE_URI,
+      "openai/toolInvocation/invoking": "Building job progress…",
+      "openai/toolInvocation/invoked": "Job progress ready",
     },
     annotations: { readOnlyHint: true },
   },
@@ -293,7 +374,7 @@ async function callTool(name, args = {}) {
     await nc.flush();
     return textResult({ ok: true, server: nc.getServer(), buffered_events: events.length, next_cursor: nextCursor });
   }
-  if (name === "wait" || name === "history" || name === "status") {
+  if (name === "wait" || name === "history" || name === "status" || name === "progress") {
     if (!safeJobId(args.job_id)) return textResult({ error: "job_id must contain only letters, digits, _ or -" }, true);
   }
   if (name === "history") {
@@ -314,6 +395,9 @@ async function callTool(name, args = {}) {
       end_reason: terminal ? "terminal_event" : (result.processExited ? "worker_exited" : null),
       terminal_event: terminal,
     });
+  }
+  if (name === "progress") {
+    return structuredResult(progressSnapshot(args.job_id));
   }
   if (name === "status") {
     const rows = rowsForJob(args.job_id, 0, 500);
@@ -348,12 +432,35 @@ rl.on("line", async (line) => {
     return;
   }
   if (method === "initialize") {
-    send({ jsonrpc: "2.0", id, result: { protocolVersion: "2025-06-18", capabilities: { tools: {} }, serverInfo: { name: SERVER_NAME, version: SERVER_VERSION } } });
+    send({ jsonrpc: "2.0", id, result: { protocolVersion: "2025-06-18", capabilities: { tools: {}, resources: { listChanged: false } }, serverInfo: { name: SERVER_NAME, version: SERVER_VERSION } } });
     return;
   }
   if (method === "notifications/initialized" || method === "notifications/cancelled") return;
   if (method === "ping") {
     send({ jsonrpc: "2.0", id, result: {} });
+    return;
+  }
+  if (method === "resources/list") {
+    send({ jsonrpc: "2.0", id, result: { resources: [{ uri: PROGRESS_RESOURCE_URI, name: "Neo Job Progress", mimeType: PROGRESS_MIME_TYPE }] } });
+    return;
+  }
+  if (method === "resources/read") {
+    if (params?.uri !== PROGRESS_RESOURCE_URI) {
+      send({ jsonrpc: "2.0", id, error: { code: -32602, message: `Unknown resource: ${params?.uri}` } });
+      return;
+    }
+    send({
+      jsonrpc: "2.0",
+      id,
+      result: {
+        contents: [{
+          uri: PROGRESS_RESOURCE_URI,
+          mimeType: PROGRESS_MIME_TYPE,
+          text: PROGRESS_HTML,
+          _meta: { ui: { prefersBorder: true } },
+        }],
+      },
+    });
     return;
   }
   if (method === "tools/list") {

@@ -36,7 +36,7 @@ For noisy numeric progress, coalesce updates; never suppress milestones, warning
 
 ## Sub-agent workflow
 
-A sub-agent uses the caller-provided job/task correlation; it does not mint replacements for the same job. A Codex worker running in the normal sandbox MUST use MCP `events__publish`, because the sandbox can deny direct TCP access to the local NATS port. The orchestrator must include the exact literal `job_id` and `task_id` in the worker prompt, and the worker must copy those exact values into every publish call. Do not pass strings such as `inherited`, `current`, or `<job-id>` as event IDs. Configure `macdevbridge.events__publish` as a per-tool pre-approved action rather than disabling approvals globally. Direct non-sandbox local workers may use `NEO_EVENTS_EMIT`.
+A sub-agent uses the caller-provided job/task correlation; it does not mint replacements for the same job. A Codex worker running in the normal sandbox MUST use MCP `events__publish`, because the sandbox can deny direct TCP access to the local NATS port. The orchestrator must include the exact literal `job_id` and `task_id` in the worker prompt, and the worker must copy those exact values into every publish call. Do not pass strings such as `inherited`, `current`, or `<job-id>` as event IDs. Direct non-sandbox local workers may use `NEO_EVENTS_EMIT`.
 
 At minimum emit:
 
@@ -83,7 +83,8 @@ The owning orchestrator must treat event consumption as a loop, not as a one-sho
 1. establish event consumption before child work starts;
 2. call `wait(job_id, after_cursor, timeout_ms)` (or the transport-equivalent);
 3. for each returned event, advance the cursor and immediately render any `visibility=user` event as a normal assistant-visible progress message;
-4. do not expose raw event JSON unless the user explicitly asks for diagnostics;
+4. **render barrier:** after `wait` returns one or more `visibility=user` events, emit the corresponding assistant progress message **before making any subsequent tool call**, including the next `events__wait`; tool traces such as “Called `events__wait`” never satisfy this barrier;
+5. do not expose raw event JSON unless the user explicitly asks for diagnostics;
 5. continue waiting after non-terminal task events and after wait timeouts;
 6. stop when either a top-level terminal job event is observed, or the registered worker process is no longer alive. If the process ended without a terminal event, treat the outcome as abnormal/uncertain rather than continuing to wait.
 
@@ -137,8 +138,15 @@ If the current harness cannot push messages after a turn has ended, keep the orc
 - `events__history` — replay stored events for one job
 - `events__status` — latest/terminal job state
 - `events__publish` — publish an event when the caller has MCP but no native event-bus client
+- `events__progress` — return a compact structured job snapshot and, on MCP Apps-capable hosts, render the bundled Job Progress Card
 
 For hosted ChatGPT, sandboxed Codex workers, and other MCP clients, use these MCP tools rather than requiring the client to connect to NATS directly. `events__publish` requires the semantic fields `job_id`, `task_id`, `type`, `status`, `visibility`, and `message`; the relay validates their enums/shape and fills `version`, `event_id`, `timestamp`, `level`, `source`, and `data` when omitted. `wait(job_id, after_cursor, timeout_ms)` is the subscription-equivalent for request/response agent platforms.
+
+### Rich progress card
+
+The MCP server also exposes `events__progress(job_id)` with a bundled `text/html;profile=mcp-app` UI resource. Use it when a compact visual snapshot materially helps the user understand a longer job. It is supplemental presentation only: the owning orchestrator MUST still satisfy the render barrier and emit normal assistant-visible messages for `visibility=user` events. A card, tool invocation label, or hidden structured result never replaces those messages.
+
+When `events-bus` is federated through MacDevBridge, the bridge must proxy `resources/list`, `resources/read`, and UI resource URIs together with the tool metadata.
 
 ## Transport
 

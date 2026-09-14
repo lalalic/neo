@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Neo Job Progress</title>
+  <style>
+    :root { color-scheme: light dark; font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    body { margin: 0; padding: 14px; background: transparent; }
+    .card { border: 1px solid color-mix(in srgb, currentColor 18%, transparent); border-radius: 14px; padding: 14px; }
+    .top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+    h1 { font-size: 15px; line-height: 1.3; margin: 0; font-weight: 650; }
+    .job { margin-top: 3px; opacity: .65; font-size: 11px; overflow-wrap: anywhere; }
+    .badge { font-size: 11px; border: 1px solid color-mix(in srgb, currentColor 20%, transparent); border-radius: 999px; padding: 3px 8px; white-space: nowrap; }
+    .latest { margin: 12px 0 9px; font-size: 13px; line-height: 1.45; }
+    .bar { height: 6px; border-radius: 999px; overflow: hidden; background: color-mix(in srgb, currentColor 10%, transparent); margin: 8px 0 12px; }
+    .fill { height: 100%; width: 0; background: currentColor; opacity: .7; transition: width .2s ease; }
+    .list { display: grid; gap: 7px; }
+    .row { display: grid; grid-template-columns: 16px 1fr; gap: 7px; align-items: start; font-size: 12px; line-height: 1.4; }
+    .dot { width: 8px; height: 8px; margin-top: 4px; border-radius: 50%; border: 1.5px solid currentColor; opacity: .72; box-sizing: border-box; }
+    .row[data-terminal="true"] .dot { background: currentColor; }
+    .meta { opacity: .55; font-size: 10px; margin-top: 1px; }
+    .empty { opacity: .62; font-size: 12px; margin-top: 12px; }
+  </style>
+</head>
+<body>
+  <section class="card" aria-live="polite">
+    <div class="top">
+      <div>
+        <h1>Neo Job Progress</h1>
+        <div class="job" id="job">Waiting for job data…</div>
+      </div>
+      <div class="badge" id="status">waiting</div>
+    </div>
+    <div class="latest" id="latest"></div>
+    <div class="bar" id="bar" hidden><div class="fill" id="fill"></div></div>
+    <div class="list" id="events"></div>
+    <div class="empty" id="empty">No user-visible milestones yet.</div>
+  </section>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const terminal = new Set(["job.completed", "job.failed", "job.blocked", "job.cancelled", "task.completed", "task.failed", "task.blocked", "task.cancelled"]);
+
+    function render(snapshot) {
+      if (!snapshot || typeof snapshot !== "object") return;
+      $("job").textContent = snapshot.job_id || "unknown job";
+      $("status").textContent = snapshot.status || "unknown";
+      $("latest").textContent = snapshot.latest_message || "No event received yet.";
+
+      const progress = snapshot.progress;
+      const bar = $("bar");
+      const fill = $("fill");
+      if (progress && Number.isFinite(progress.current) && Number.isFinite(progress.total) && progress.total > 0) {
+        const pct = Math.max(0, Math.min(100, progress.current / progress.total * 100));
+        fill.style.width = `${pct}%`;
+        bar.hidden = false;
+      } else {
+        bar.hidden = true;
+      }
+
+      const list = $("events");
+      list.replaceChildren();
+      const milestones = Array.isArray(snapshot.milestones) ? snapshot.milestones : [];
+      $("empty").hidden = milestones.length > 0;
+      for (const item of milestones) {
+        const row = document.createElement("div");
+        row.className = "row";
+        row.dataset.terminal = String(terminal.has(item.type));
+        const dot = document.createElement("span");
+        dot.className = "dot";
+        const body = document.createElement("div");
+        const message = document.createElement("div");
+        message.textContent = item.message || item.type || "event";
+        const meta = document.createElement("div");
+        meta.className = "meta";
+        const bits = [item.task_id, item.type, item.status].filter(Boolean);
+        meta.textContent = bits.join(" · ");
+        body.append(message, meta);
+        row.append(dot, body);
+        list.append(row);
+      }
+    }
+
+    function fromToolResult(result) {
+      const snapshot = result?.structuredContent || result?.structured_content || result;
+      render(snapshot);
+    }
+
+    window.addEventListener("message", (event) => {
+      const message = event.data;
+      if (!message || typeof message !== "object") return;
+      if (message.method === "ui/notifications/tool-result") {
+        fromToolResult(message.params?.result ?? message.params);
+      }
+    });
+
+    // Compatibility fallback for hosts that still expose the legacy global.
+    if (window.openai?.toolOutput) fromToolResult(window.openai.toolOutput);
+  </script>
+</body>
+</html>

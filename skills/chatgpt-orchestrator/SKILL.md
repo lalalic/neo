@@ -25,7 +25,7 @@ At the start of each orchestration task, discover the currently available local 
 
 ### Progress event contract
 
-For delegated or background work that can outlive an immediate tool call, apply the `events-bus` skill. Create one `job_id` and subscribe to `neo.events.job.<job_id>.>` before starting the worker. Pass the correlation variables in the environment **and include the exact literal `job_id` and task-specific `task_id` in the worker prompt**; never write only `inherited` or a placeholder. Sandboxed Codex workers must publish task events through MCP `macdevbridge.events__publish`, with that single tool configured as pre-approved; do not disable approvals globally and do not make the worker connect directly to NATS. Direct non-sandbox workers may use the absolute `NEO_EVENTS_EMIT` helper. Proactively surface `visibility=user` milestones while the worker runs. A background log that the user cannot see is not a progress report. Always surface blocked/failure states, terminal results, and resource-release events such as `phone.released` immediately.
+For delegated or background work that can outlive an immediate tool call, apply the `events-bus` skill. Create one `job_id` and subscribe to `neo.events.job.<job_id>.>` before starting the worker. Pass the correlation variables in the environment **and include the exact literal `job_id` and task-specific `task_id` in the worker prompt**; never write only `inherited` or a placeholder. Sandboxed Codex workers must publish task events through MCP `macdevbridge.events__publish`; Direct non-sandbox workers may use the absolute `NEO_EVENTS_EMIT` helper. Proactively surface `visibility=user` milestones while the worker runs. After an event wait returns a user-visible event, emit its human-readable assistant progress message before making the next tool call; another `events__wait` may only happen after that visible message. A background log or tool-call trace that the user cannot read as progress is not a progress report. Always surface blocked/failure states, terminal results, and resource-release events such as `phone.released` immediately.
 
 ### 1. Resolve and preflight
 
@@ -152,8 +152,7 @@ Never merge around required checks or review rules. Never force-push or modify t
 - Count failed implementation/review cycles. After three unsuccessful iterations using one approach, change approach or ask the user.
 - Stop for ambiguous scope, repository or branch mismatch, missing credentials, permission failure, unexpected concurrent changes, unsafe/destructive consequences, or inability to validate.
 - If the bridge is unhealthy, report the exact failing capability and do not pretend the worker ran.
-- Do not change global Codex approval or sandbox settings merely to force a run. Use a dedicated, isolated automation profile only when unattended execution is explicitly desired.
-
+- Do not change global Codex approval or sandbox settings merely to force a run.
 ## Completion report
 
 At each loop boundary, report the PR URL/number, state, head SHA, worker thread, validations, unresolved risks, and next action. At termination, state clearly whether the PR was merged, intentionally closed, blocked, awaiting the user, or left ready for merge.
