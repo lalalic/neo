@@ -8,7 +8,7 @@ type: worker
 
 Resolve the directory containing this skill as `<skill-folder>`. Do not assume a workspace path.
 
-1. Read the current `<skill-folder>/mac-developer-bridge/README.md` when the checkout exists.
+1. Read the current `<skill-folder>/devmacbridge/README.md` when the checkout exists.
 2. Run `<skill-folder>/scripts/setup-local.sh status`.
 3. Run `setup` when installation or services are missing; otherwise repair only the failed service.
 4. Run `info` and use [../references/chatgpt-connection.md](../references/chatgpt-connection.md) to configure ChatGPT.

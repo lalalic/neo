@@ -38,4 +38,5 @@ skills/Archive.zip
 # Temporary Web ChatGPT packaging output.
 web-chatgpt/bootstrap/
 skills/devmacbridge/.state/
-skills/devmacbridge/cloudflared.log
+skills/devmacbridge/devmacbridge/
+skills/devmacbridge/devmacbridge-tunnel.log

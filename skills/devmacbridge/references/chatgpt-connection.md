@@ -1,4 +1,4 @@
-# ChatGPT connection
+# ChatGPT and Grok connection
 
 Resolve the skill directory as `<skill-folder>`.
 
@@ -7,6 +7,10 @@ Run:
 ```bash
 <skill-folder>/scripts/setup-local.sh info
 ```
+
+The local deployment is expected to expose the named public endpoint printed as `server_url` and one stable OAuth client id. The same OAuth client can be used by both ChatGPT and Grok because MacDevBridge validates each callback independently and issues separate OAuth grants/tokens.
+
+## ChatGPT
 
 Configure the ChatGPT MCP connector with:
 
@@ -22,14 +26,43 @@ Configure the ChatGPT MCP connector with:
 | Default scopes | `mcp` |
 | OIDC enabled | off |
 
-When the local consent page requests the bridge token, run:
+ChatGPT's built-in callback forms are supported by the upstream bridge.
+
+## Grok
+
+Create a custom MCP connector with:
+
+| Grok field | Value |
+|---|---|
+| Server URL | printed `server_url` |
+| Authentication | OAuth |
+| OAuth Client ID | printed `oauth_client_id` |
+| OAuth Client Secret | blank |
+
+This deployment explicitly allows Grok's callback:
+
+```text
+https://grok.com/connectors-oauth-exchange-code/
+```
+
+## Claude
+
+Create a custom MCP connector with the same printed `server_url` and `oauth_client_id`. Leave the OAuth Client Secret blank. This deployment explicitly allows Claude's callback:
+
+```text
+https://claude.ai/api/mcp/auth_callback
+```
+
+## Consent token
+
+When either client opens the local MacDevBridge consent page and requests the bridge token, run:
 
 ```bash
 <skill-folder>/scripts/setup-local.sh copy-token
 ```
 
-Paste from the clipboard. Never print the token.
+Paste from the clipboard. Never print the token. The skill deployment owns its protected token file in `.state/http-token`; setup generates it securely if it is missing.
 
-A Quick Tunnel hostname changes when `macdevbridge-tunnel` is recreated. After `restart-tunnel`, run `info` and update the connector's Server URL.
+## Verification
 
-Setup is complete only after ChatGPT successfully calls `bridge_status` and one read-only MacDevBridge tool.
+The named tunnel is stable; restarting `devmacbridge-tunnel` does not change the public hostname. Setup is complete only after the target client successfully calls `bridge_status` and one additional read-only MacDevBridge tool.
