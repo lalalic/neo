@@ -22,6 +22,12 @@ Capability tree:
 
 The canonical protocol is `references/protocol.md` inside this skill. Read it before implementing or changing event behavior.
 
+## Event ownership guideline
+
+`events-bus` defines the common event envelope, transport, visibility, lifecycle/status vocabulary, delivery semantics, and display contract. It does **not** centrally enumerate every domain-specific event type. The skill or component that owns a semantic action owns the event names and payloads for that action, and SHOULD document its supported events in an `Events` section in its own `SKILL.md` or a referenced event contract. Those events MUST still conform to the events-bus envelope and protocol.
+
+As a general transparency rule, whenever an agent/worker is selected or started, the component that owns that selection or launch MUST publish a user-visible event identifying the model and reasoning/thinking level when those values are known. The exact semantic event name and `data` shape belong to that component/skill, not to events-bus. Never invent a model or thinking level that was not actually selected.
+
 ## Orchestrator workflow
 
 1. Generate one unique `job_id` before starting any child work.

@@ -144,6 +144,7 @@ Prefer a compact machine-readable result such as:
   "profile": "<configured-profile-name>",
   "provider": "<provider-or-unknown>",
   "model": "<model-or-unknown>",
+  "thinking_effort": "<configured-thinking-level-or-unknown>",
   "confidence": "high|medium|low",
   "task_class": "<short classification>",
   "resource_status": {
@@ -179,6 +180,32 @@ If discovery is not possible:
 ```
 
 The caller decides how to create the task/sub-agent/thread using the returned profile. This skill does not itself require a particular orchestration mechanism.
+
+## Events
+
+This skill owns the semantic events for model-routing decisions. Events MUST use the events-bus envelope and follow its visibility/display rules.
+
+When a routing decision selects a model for a new agent/worker, publish a user-visible routing event before or as that worker is launched. The event MUST report the actually selected model and configured reasoning/thinking level when known. A recommended event is `model.selected`; callers should not duplicate or reinterpret this decision into a second orchestration-specific event.
+
+Recommended user-visible message:
+
+```text
+Selected <model> · thinking <level>
+```
+
+Recommended event-specific `data`:
+
+```json
+{
+  "profile": "<configured-profile-name>",
+  "provider": "<provider-or-unknown>",
+  "model": "<model-or-unknown>",
+  "thinking_effort": "<configured-thinking-level-or-unknown>",
+  "decision": "route|keep_current"
+}
+```
+
+If the model or thinking level is unavailable, report `unknown`; never infer it from provider defaults or model family names. Persistent-thread reuse does not require a new routing event unless a routing decision is actually made again or the execution profile changes.
 
 ## 7. Failure and safety behavior
 

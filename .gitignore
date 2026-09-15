@@ -38,7 +38,8 @@ team-mate/
 skills/Archive.zip
 
 # Temporary Web ChatGPT packaging output.
-web-chatgpt/bootstrap/
+web-chatgpt/
+.caddy/
 skills/devmacbridge/.state/
 skills/devmacbridge/devmacbridge/
 skills/devmacbridge/devmacbridge-tunnel.log

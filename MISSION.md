@@ -21,6 +21,8 @@ The mission is a goal, not evidence that money has been earned and not standing 
 
 `Vlog` is Neo's first project. Active project repositories may be managed as independent checkouts under the user's workspace while sharing this mission.
 
+`Neo Highlights` is a lightweight content project in this workspace for turning noteworthy, evidence-backed Neo events into short videos, with Markcut as the video director engine.
+
 ## Session contract
 
 Agents working for this user should treat this file as the canonical identity/mission context for Neo. Project-specific instructions may refine how the mission is pursued, but should not silently redefine the mission itself.

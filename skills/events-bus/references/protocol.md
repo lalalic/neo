@@ -52,6 +52,12 @@ A diagnostics/dashboard process may subscribe to:
 neo.events.job.>
 ```
 
+## Semantic event ownership
+
+The events bus owns the common envelope and delivery semantics, not the complete catalog of semantic event types. Each skill/component SHOULD define the domain-specific events it emits in its own `Events` section (or a referenced event contract). Event names and domain-specific `data` fields are therefore extensible without changing this protocol, but every emitted event MUST conform to the envelope, status, visibility, level, correlation, security, and display rules in this document.
+
+One global transparency requirement applies to agent/worker execution: when a component selects or starts an agent/worker, it MUST publish a user-visible event that reports the selected model and configured reasoning/thinking level when those values are known. The owning skill chooses the event type and payload shape. Unknown values must remain unknown rather than being inferred.
+
 ## Event envelope
 
 Every event is UTF-8 JSON with these fields:
