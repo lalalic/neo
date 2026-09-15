@@ -26,7 +26,8 @@ def usage() -> str:
         "usage: post.py <platform> [platform arguments...]\n"
         "platforms: xhs, wechat-channels, tiktok, youtube\n"
         "inspect: post.py --profile <platform>\n"
-        "example: post.py xhs --video clip.mp4 --title 'Title' --body 'Body' --publish"
+        "example: post.py xhs --video clip.mp4 --title 'Title' --body 'Body' --publish\n"
+        "manage: post.py xhs status|comments|comment|reply ..."
     )
 
 
@@ -55,7 +56,11 @@ def main(argv: list[str]) -> int:
         print(usage(), file=sys.stderr)
         return 2
 
-    entry = HERE / "platforms" / platform / "post.py"
+    management_ops = {"status", "comments", "comment", "reply"}
+    if platform == "xhs" and len(argv) > 1 and argv[1] in management_ops:
+        entry = HERE / "platforms" / platform / "manage.py"
+    else:
+        entry = HERE / "platforms" / platform / "post.py"
     return subprocess.run([sys.executable, str(entry), *argv[1:]]).returncode
 
 

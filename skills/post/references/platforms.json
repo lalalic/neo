@@ -22,7 +22,11 @@
         "publish": true,
         "visibility": false,
         "custom_thumbnail": false,
-        "series_or_collection": false
+        "series_or_collection": false,
+        "post_status": true,
+        "read_comments": true,
+        "write_comment": true,
+        "reply_comments": true
       },
       "content_mapping": {
         "headline": "title",
@@ -31,6 +35,9 @@
       },
       "notes": [
         "Without --publish, the adapter saves a draft.",
+        "After --publish, the XHS adapter automatically verifies the created note in creator note manager and reports published/reviewing/rejected state.",
+        "comments/comment/reply resolve the post from the signed-in My Posts profile list and use that card's live xsec detail route.",
+        "The opened post detail view is the canonical place to read comments, write a top-level comment, and reply to comments.",
         "The current adapter does not expose the Neo Vlog collection/series field even though a prior manual browser-harness session created and attached a collection."
       ]
     },
@@ -52,7 +59,11 @@
         "draft": true,
         "publish": true,
         "visibility": false,
-        "custom_thumbnail": false
+        "custom_thumbnail": false,
+        "post_status": false,
+        "read_comments": false,
+        "write_comment": false,
+        "reply_comments": false
       },
       "content_mapping": {
         "headline": "title",
@@ -81,7 +92,11 @@
         "publish": true,
         "visibility": true,
         "custom_thumbnail": false,
-        "social_interaction_controls": true
+        "social_interaction_controls": true,
+        "post_status": false,
+        "read_comments": false,
+        "write_comment": false,
+        "reply_comments": false
       },
       "content_mapping": {
         "headline": null,
@@ -110,7 +125,11 @@
         "publish": true,
         "visibility": true,
         "custom_thumbnail": true,
-        "audience_made_for_kids": true
+        "audience_made_for_kids": true,
+        "post_status": false,
+        "read_comments": false,
+        "write_comment": false,
+        "reply_comments": false
       },
       "content_mapping": {
         "headline": "title",

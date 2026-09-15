@@ -42,6 +42,12 @@ if mode == "video":
     time.sleep(1)
 
     next_step("Uploading video: " + video)
+    # Wait for the upload input; XHS can render the tab shell before mounting the file input.
+    for _ in range(20):
+        ready = js('document.querySelector(".upload-input,input[type=file]") ? "ready" : "wait"')
+        if ready == "ready":
+            break
+        time.sleep(0.5)
     # Try upload_file first, fall back to DOM.performSearch for hidden inputs
     try:
         upload_file(".upload-input,input[type=file][accept*=video],input[type=file]", video)
@@ -134,9 +140,19 @@ if CFG["action"] == "publish":
     next_step("Publishing...")
     publish_result = js('var btn=[...document.querySelectorAll("button,[role=button]")].find(function(b){return b.offsetParent && (b.innerText||b.textContent||"").trim()==="发布"}) || document.querySelector(".publishBtn,.publish-btn,button.css-k01wfk,[class*=submit]");if(btn){btn.scrollIntoView({block:"center"});btn.click();"clicked"}else{"missing"}')
     if publish_result != "clicked":
-        print("ERROR: publish button not found")
-        capture_screenshot()
-        raise SystemExit(1)
+        # XHS may expose the publish control only through the accessibility tree.
+        nodes = cdp("Accessibility.getFullAXTree")["nodes"]
+        target = next((n for n in nodes if (n.get("role") or {}).get("value") == "button" and (n.get("name") or {}).get("value") == "发布" and n.get("backendDOMNodeId")), None)
+        if target:
+            box = cdp("DOM.getBoxModel", backendNodeId=target["backendDOMNodeId"])["model"]["content"]
+            x = sum(box[0::2]) / 4
+            y = sum(box[1::2]) / 4
+            click_at_xy(x, y)
+            publish_result = "clicked"
+        else:
+            print("ERROR: publish button not found")
+            capture_screenshot()
+            raise SystemExit(1)
     verified = False
     for _ in range(20):
         time.sleep(1)

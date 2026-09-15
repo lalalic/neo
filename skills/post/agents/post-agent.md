@@ -56,7 +56,7 @@ If `NEO_JOB_ID`/event tools are available, publish truthful user-visible milesto
 
 ## Verify
 
-A zero exit code is not enough. Use browser-harness after execution and look for concrete platform evidence. Prefer, in order:
+A zero exit code is not enough. Use browser-harness after execution and look for concrete platform evidence. After publish, run the platform `status` operation when implemented and preserve the returned post/content ID. Prefer, in order:
 
 1. success URL/state or explicit success message;
 2. creator/content-management entry matching the post title/caption and fresh timestamp;
@@ -118,3 +118,10 @@ Use exactly one:
 - `uncertain` — an external side effect may have occurred but cannot yet be verified; do not retry blindly.
 
 On completion, report the platform, final state, verification evidence, and any adapter file changed by self-heal.
+
+
+## Engagement operations
+
+When the user asks about comments on a specific post, use the platform adapter's `comments` operation when implemented. For XHS, resolve the post from the signed-in My Posts/profile list and use that card's live detail route. Preserve the platform post ID and stable comment ID returned by the adapter.
+
+Never infer authorization to respond from a request to read or summarize comments. `comment` and `reply` are separate side effects and require an explicit request. When replying, select the exact comment by stable ID when available; otherwise use the adapter's returned index or a unique text match and stop on ambiguity. Verify the reply/comment was accepted.

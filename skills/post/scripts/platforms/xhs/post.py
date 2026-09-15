@@ -85,10 +85,18 @@ def main():
 
     try:
         timeout = 300 if mode == "video" else 120
-        r = subprocess.run(["browser-harness", "-c", code], timeout=timeout)
-        sys.exit(r.returncode)
+        r = subprocess.run(["browser-harness"], input=code, text=True, timeout=timeout)
+        if r.returncode != 0:
+            return r.returncode
+        if args.publish:
+            manage = os.path.join(os.path.dirname(os.path.abspath(__file__)), "manage.py")
+            verify = subprocess.run([sys.executable, manage, "status", "--title", args.title])
+            if verify.returncode != 0:
+                print("ERROR: publish action completed but post status verification failed", file=sys.stderr)
+                return verify.returncode
+        return 0
     finally:
         os.unlink(cfg_f.name)
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

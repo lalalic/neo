@@ -16,8 +16,11 @@ Capability tree:
 3. validate media and platform-specific fields before touching the browser;
 4. run the existing deterministic browser-harness posting code;
 5. verify the platform-side result instead of trusting a click or exit code;
-6. classify failures and self-heal UI drift when safe;
-7. persist a minimal adapter repair so the next post reuses it.
+6. verify the post's platform-side status after submission;
+7. read comments/engagement for a specific post when the platform adapter supports it;
+8. write a comment or reply to a specific comment only when the user explicitly requests that side effect;
+9. classify failures and self-heal UI drift when safe;
+10. persist a minimal adapter repair so the next post reuses it.
 
 The bundled adapters were migrated from `~/Workspace/.browser-harness.zip`. They are the first choice. Do not manually re-drive a known platform unless its adapter failed or verification is inconclusive.
 
@@ -53,9 +56,35 @@ python3 ~/Workspace/neo/skills/post/scripts/post.py --profile xhs
 3. Run the platform adapter once.
 4. Treat exit code `0` as **execution success, not publication proof**.
 5. Use browser-harness to verify a platform-side success state, created content entry, matching title/caption, or other concrete evidence.
-6. Report success only after verification.
+6. After a publish submit, check the platform-side status when the adapter supports it. Distinguish `published`, `reviewing`, `rejected`, `draft`, `unknown`, and `not_found`; "submitted" alone is not final verification.
+7. Report success only after verification. A platform may be successfully submitted while still `reviewing`; report both facts.
 
 For long-running/delegated posting, follow the `events-bus` skill: surface upload, submit, verification, blocked/failure, and completion milestones when event tools are available.
+
+## Post status and engagement
+
+Publishing and engagement are separate operations. A post adapter may support any of:
+
+- `status` — verify the exact post in the creator/content manager and return its current platform status;
+- `comments` — read comments/replies associated with the exact post;
+- `comment` — write a new top-level comment;
+- `reply` — reply to an existing comment/reply.
+
+For XHS the current CLI is:
+
+```bash
+python3 ~/Workspace/neo/skills/post/scripts/post.py xhs status --note-id NOTE_ID
+python3 ~/Workspace/neo/skills/post/scripts/post.py xhs comments --note-id NOTE_ID --limit 50
+python3 ~/Workspace/neo/skills/post/scripts/post.py xhs comment --note-id NOTE_ID --text "..."
+python3 ~/Workspace/neo/skills/post/scripts/post.py xhs reply --note-id NOTE_ID --comment-id COMMENT_ID --text "..."
+python3 ~/Workspace/neo/skills/post/scripts/post.py xhs reply --note-id NOTE_ID --comment-index 0 --text "..."
+# or select a unique comment by text
+python3 ~/Workspace/neo/skills/post/scripts/post.py xhs reply --note-id NOTE_ID --contains "unique substring" --text "..."
+```
+
+`status` and `comments` are read-only. `comment` and `reply` create external side effects and require an explicit user request to write/reply; a general request to inspect comments is not authorization to respond. After writing/replying, verify the UI accepted the action rather than trusting the click.
+
+XHS engagement uses the signed-in **My Posts** profile list. Locate the target note there, follow that card's live `xsec` route, and operate inside the opened post detail overlay/page. That detail view is the canonical place to read comments, write a top-level comment, and reply to an existing comment. Do not construct a raw `/explore/<note_id>` URL because XHS may reject it without the live route token.
 
 ## Failure classification
 
@@ -90,6 +119,7 @@ Do not "self-heal" by bypassing login, CAPTCHA, MFA, policy checks, audience con
 ## Safety and side effects
 
 - A user's explicit request to post/publish specific content to specific platform(s) is sufficient authorization for that publication.
+- Reading post status/comments is read-only. Writing a top-level comment or replying to a comment requires explicit user intent for that comment/reply action. Do not auto-reply merely because comments were fetched.
 - A request to prepare, preview, or draft is not authorization to publish.
 - TikTok's bundled adapter posts directly; do not invoke it for draft-only requests.
 - XHS and WeChat Channels can remain draft unless `--publish` is supplied.

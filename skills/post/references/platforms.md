@@ -9,6 +9,11 @@ Entry:
 ```bash
 python3 scripts/post.py xhs --video clip.mp4 --title "标题" --body "正文" --tags "旅行,日常" --publish
 python3 scripts/post.py xhs --image a.jpg --image b.jpg --title "标题" --body "正文" --publish
+python3 scripts/post.py xhs status --note-id NOTE_ID
+python3 scripts/post.py xhs comments --note-id NOTE_ID --limit 50
+python3 scripts/post.py xhs comment --note-id NOTE_ID --text "新的评论"
+python3 scripts/post.py xhs reply --note-id NOTE_ID --comment-id COMMENT_ID --text "回复内容"
+python3 scripts/post.py xhs reply --note-id NOTE_ID --comment-index 0 --text "回复内容"
 ```
 
 Behavior:
@@ -19,7 +24,11 @@ Behavior:
 - up to 18 images;
 - up to 5 tags;
 - without `--publish`, saves as draft;
-- uses the authenticated `creator.xiaohongshu.com` session.
+- uses the authenticated `creator.xiaohongshu.com` session;
+- after `--publish`, automatically checks creator note manager and reports the exact note status;
+- management commands: `status`, `comments`, `comment`, `reply`;
+- `comments`/`comment`/`reply` resolve the target in the signed-in My Posts profile list and then use the card's live `xsec` detail route;
+- comments are read from the opened post detail view; top-level comments and replies are written in that same detail view.
 
 ## WeChat Channels / 视频号
 
