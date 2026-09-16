@@ -4,6 +4,7 @@ import { Client, Events, GatewayIntentBits } from 'discord.js';
 import { loadConfig } from './config.mjs';
 import { DevMacBridgeChatGPT } from './backends/devmacbridge.mjs';
 import { collectImageAttachments, understandImages } from './vision.mjs';
+import { isAudioAttachment, transcribeAudioAttachments } from './asr.mjs';
 
 const configFile=process.env.FAMILY_TUTOR_CONFIG;
 if(!configFile) throw new Error('FAMILY_TUTOR_CONFIG is required');
@@ -78,18 +79,30 @@ async function handleChildMessage(message,child){
   const attachments=collectAttachments(message);
   if(!incoming && !attachments.length) return;
   await message.channel.sendTyping();
-  const studentMessage=incoming || 'Please help me understand the attached file(s).';
+  const audioAttachments=attachments.filter(isAudioAttachment);
+  const nonAudioAttachments=attachments.filter(a=>!isAudioAttachment(a));
+  let voiceTranscript=null;
+  if(audioAttachments.length){
+    try{
+      voiceTranscript=await transcribeAudioAttachments(audioAttachments);
+    }catch(error){
+      console.error(`[family-tutor] ${child.id} local ASR failed`,error);
+      return message.reply('I received your voice message, but I could not transcribe it locally. Please try again or send it as text.');
+    }
+  }
+  const voiceBlock=voiceTranscript?`[VOICE MESSAGE TRANSCRIPT — preserve the student's spoken meaning; do not judge grammar or writing quality from this transcript]\n${voiceTranscript}\n[/VOICE MESSAGE TRANSCRIPT]`:'';
+  const studentMessage=[incoming,voiceBlock].filter(Boolean).join('\n\n') || 'Please help me understand the attached file(s).';
   const conversationId=state.conversations[child.id]||child.conversationId||null;
   let result;
   try{
     result=await backendTurn({
       prompt:conversationId?studentMessage:bootstrapPrompt(child,studentMessage),
       conversationId,
-      attachments,
+      attachments:nonAudioAttachments,
     });
   }catch(error){
     const imageAttachments=collectImageAttachments(message);
-    const onlyImages=attachments.length>0 && imageAttachments.length===attachments.length;
+    const onlyImages=nonAudioAttachments.length>0 && imageAttachments.length===nonAudioAttachments.length;
     if(!onlyImages) throw error;
     console.warn(`[family-tutor] ${child.id} direct ChatGPT attachment failed; using local image fallback`,error?.message||error);
     let imageContext;
