@@ -109,7 +109,7 @@ Top-level terminal job events are:
 
 If the worker exits or becomes unreachable without a terminal job event, reconcile that mismatch explicitly, surface it to the user, and terminate the job as failed/blocked rather than silently ending the wait loop.
 
-For MCP clients such as Web ChatGPT, the intended pattern is:
+For MCP clients such as web ChatGPT, Grok, or Claude, the intended pattern is:
 
 ```text
 cursor = 0
@@ -130,6 +130,8 @@ The visible assistant message is part of the contract. A tool trace such as “C
 ## Display contract — mandatory
 
 When acting as the owning orchestrator, **important user-visible events MUST be actively shown to the user as they arrive**. Logging an event without surfacing it does not satisfy this skill.
+
+If the current orchestrator itself publishes an event with `visibility=user`, it MUST immediately render that event's human-readable `message` in the conversation before making any subsequent tool call. Do not wait for the same event to come back through `events__wait` or another subscriber before showing it. This self-publish rule applies equally to events defined by any skill.
 
 The orchestrator should render a human sentence, not raw event JSON. A good default is one short line per milestone. If many numeric updates arrive, show the first, meaningful deltas, and completion.
 

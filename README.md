@@ -9,8 +9,8 @@ This repository is the shared Neo workspace: orchestration rules, reusable agent
 - `MISSION.md` — canonical Neo identity and mission context for agents and projects.
 - `AGENTS.md` — workspace-wide agent operating rules.
 - `skills/` — canonical editable Neo skills, including orchestration, events, model routing, social posting, and skill authoring.
-- `.bin/` — local discovery and packaging helpers used by Web ChatGPT and other harnesses.
-- `web-chatgpt-skills.md` — bootstrap instructions for Web ChatGPT.
+- `.bin/` — compatibility and packaging helpers; canonical XChat discovery/resolution scripts live under `skills/xchat-orchestrator/scripts/`.
+- `skills/xchat-orchestrator/` — self-contained XChat bootstrap, orchestrator protocol, dynamic project discovery, and skill discovery for ChatGPT, Grok, Claude, and other web orchestrators.
 - `neo-highlights/` — selective event-to-video content project; source truth and evidence live here while the installed Markcut skill acts as the director engine.
 - `markcut-projects/` — legacy Pi/Markcut project material retained from the original `main` history.
 - `package.json` — legacy workspace metadata retained during repository-history consolidation.

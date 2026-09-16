@@ -1,15 +1,15 @@
 ---
 name: devmacbridge
-description: Set up, run, stop, repair, and verify Mac Developer Bridge so ChatGPT can connect to and operate the user's home Mac through an MCP Server URL.
+description: Set up, run, stop, repair, and verify DevMacBridge so XChat clients such as ChatGPT, Grok, and Claude can connect to and operate the user's Mac through an MCP Server URL.
 ---
 
 # DevMacBridge
 
-Use this skill when the user wants to set up MacDevBridge, reconnect ChatGPT to the Mac, inspect its connection details, or manage its two PM2 services.
+Use this skill when the user wants to set up DevMacBridge, connect or reconnect an XChat client such as ChatGPT, Grok, or Claude to the Mac, inspect its connection details, or manage its two PM2 services.
 
 ## Goal
 
-Complete only when ChatGPT can make a real MacDevBridge tool call. A healthy local process alone is not completion.
+Complete only when the target XChat client can make a real DevMacBridge tool call. A healthy local process alone is not completion.
 
 ## Layout
 
@@ -54,12 +54,12 @@ A normal code change requires only `restart`. The named tunnel has a stable host
 Read the exact fields from these sources:
 
 - Server URL: the configured `MAC_DEV_BRIDGE_PUBLIC_URL` (local default `https://bridge.qili2.com`), plus `/mcp`.
-- OAuth Client ID: `client.id` in `<skill-folder>/.state/oauth-state.json`; the same client id can be configured in ChatGPT and Grok.
+- OAuth Client ID: `client.id` in `<skill-folder>/.state/oauth-state.json`; the same client id can be configured in ChatGPT, Grok, and Claude.
 - Consent token: `<skill-folder>/.state/http-token`; is owned by this skill deployment and generated securely when missing. Use `copy-token` and never print it.
 
 The `info` command prints the Server URL and OAuth Client ID but never the token.
 
-Configure ChatGPT or Grok using [references/chatgpt-connection.md](references/chatgpt-connection.md). The deployment preserves upstream ChatGPT callback support and adds Grok's exact OAuth callback through `MAC_DEV_BRIDGE_OAUTH_REDIRECT_URIS`.
+Configure ChatGPT, Grok, or Claude using [references/xchat-connection.md](references/xchat-connection.md). The deployment supports the required OAuth callbacks for each configured XChat client through `MAC_DEV_BRIDGE_OAUTH_REDIRECT_URIS`.
 
 ## Repository safety
 
@@ -73,7 +73,7 @@ After setup:
 2. Confirm `http://127.0.0.1:8788/healthz` succeeds.
 3. Confirm the named public URL `/healthz` succeeds.
 4. Confirm `info` returns a concrete Server URL and OAuth Client ID.
-5. Configure or update the ChatGPT or Grok connector.
+5. Configure or update the target ChatGPT, Grok, or Claude connector.
 6. From that client, call `bridge_status`, then one read-only tool such as `fs_stat`.
 
 If the final remote call is not observed, report the setup as incomplete and identify the failing layer.
