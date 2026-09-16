@@ -8,9 +8,9 @@ From `vlog/`:
 
 ```sh
 npx @lalalic/markcut verify templates/travel-day.md
-npx @lalalic/markcut preview runs/<run-id>/vlog.md --storyboard
-npx @lalalic/markcut preview runs/<run-id>/vlog.md
-npx @lalalic/markcut render runs/<run-id>/vlog.md --output runs/<run-id>/output/vlog.mp4
+npx @lalalic/markcut preview runs/<series-name>/<YYYY-MM-DD[-slug]>/vlog.md --storyboard
+npx @lalalic/markcut preview runs/<series-name>/<YYYY-MM-DD[-slug]>/vlog.md
+npx @lalalic/markcut render runs/<series-name>/<YYYY-MM-DD[-slug]>/vlog.md --output runs/<series-name>/<YYYY-MM-DD[-slug]>/output/vlog.mp4
 ```
 
 The sample episode uses silent components so verification does not require generated speech or images. The travel template contains placeholders that must be replaced with a real story and selected media before production. Preview may add a deterministic seed to the source and starts its editing interface. Stop the preview process when review is finished.

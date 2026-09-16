@@ -10,7 +10,7 @@ The current user request and recovered `idea` conversation establish the scope. 
 - Storyboard Preview loaded with Overview, Mission, FirstProject, and NextStep.
 - Final Preview loaded the three scenes and its play control was exercised through the browser. No browser errors were returned.
 - The requested CDP endpoint `127.0.0.1:64086` refused connections. An isolated `neo-bootstrap` browser was used and closed afterward.
-- Markcut rendered `runs/<run-id>/output/vlog.mp4`: H.264, 1080×1920, 30 fps, 360 video frames. Container duration is approximately 12.05 seconds including audio padding.
+- Markcut rendered `runs/<series-name>/<YYYY-MM-DD[-slug]>/output/vlog.mp4`: H.264, 1080×1920, 30 fps, 360 video frames. Container duration is approximately 12.05 seconds including audio padding.
 - A contact sheet sampled all three rendered cards. Text and visuals are present, legible, and uncropped. The demo is deliberately silent; this does not validate generated speech, subtitles, or real footage ingestion.
 - Markcut added a seed to the episode source during preview. Its caches and generated outputs were preserved and excluded from Git.
 
@@ -18,7 +18,7 @@ The current user request and recovered `idea` conversation establish the scope. 
 
 - Four regression tests pass: CLI/config routing, event idempotency and restart/context, interrupted recovery with a three-attempt ceiling, and a complete review-to-ready lifecycle.
 - Revision tests reject an old approval during re-review, altered storyboard bytes before approval, and altered approved bytes before claiming a render.
-- Direct CLI verification initialized `runs/<run-id>/state/vlog.sqlite`, submitted `demo-arrival-001` twice, and confirmed one event, one episode, and one queued analysis job. This synthetic job remains unclaimed and has zero approvals.
+- Direct CLI verification initialized `runs/<series-name>/<YYYY-MM-DD[-slug]>/state/vlog.sqlite`, submitted `demo-arrival-001` twice, and confirmed one event, one episode, and one queued analysis job. This synthetic job remains unclaimed and has zero approvals.
 - File evidence is hashed as a stream so large videos need not be loaded entirely into memory.
 
 ## Audio and voice checks

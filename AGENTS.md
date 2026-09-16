@@ -17,18 +17,46 @@ A Neo project is a top-level directory containing both `README.md` and `AGENTS.m
 ├── agents/       # optional project-specific roles
 ├── config/       # reusable non-secret configuration
 ├── docs/         # reusable documentation
-├── templates/    # reusable templates
+├── templates/    # reusable templates, including optional series templates
 ├── scripts/      # reusable automation
-└── runs/         # every execution instance; ignored and never committed
+└── runs/         # every execution/series instance; ignored and never committed
 ```
 
 Projects may add other durable source directories, but actual executions must stay under `runs/`.
 
+### Universal run contract
+
+Every Neo project supports the same two execution forms.
+
+Standalone work:
+
+```text
+runs/<YYYY-MM-DD[-slug]>/
+```
+
+Series work:
+
+```text
+runs/<series-name>/
+├── series.json          # optional private/mutable series state
+├── config/              # optional private series-level configuration
+├── state/               # optional private series-level state
+├── <YYYY-MM-DD[-slug]>/
+├── <YYYY-MM-DD[-slug]>/
+└── ...
+```
+
+Use lowercase kebab-case for `<series-name>` and put the ISO date first in every actual run directory. Do not create canonical run names such as `current`, `local`, `latest`, `legacy`, or bare sequence numbers such as `001`; those are pointers/labels, not stable run identities.
+
+Series-level directories may hold private mutable context that genuinely spans multiple runs. Generated media, episode/storyboard content, logs, reviews, receipts, and outputs for one execution belong in that execution's dated child directory.
+
+If a project needs a reusable public definition of a series, keep it under tracked `templates/` (for example `templates/series/<name>.json`). Actual series state belongs under `runs/<series-name>/`.
+
 ### Git boundary
 
-Git stores the reusable system. `<project>/runs/<run-id>/` stores actual executions. Anything produced, selected, downloaded, captured, generated, rendered, or mutated while using a project belongs in the run: episodes, instantiated prompts, private/user inputs, transcripts, generated media, intermediate files, caches, reviews, logs, delivery receipts, and final outputs.
+Git stores the reusable system. `runs/` stores actual executions and private series state. Anything produced, selected, downloaded, captured, generated, rendered, or mutated while using a project belongs in `runs/`: episodes, instantiated prompts, private/user inputs, transcripts, generated media, intermediate files, caches, reviews, logs, delivery receipts, and final outputs.
 
-Do not create tracked top-level `episodes/`, `generated/`, `output/`, or instance-specific `data/` directories. If a run artifact becomes reusable source, promote it deliberately after review and sanitization. Never auto-promote private/generated run content.
+Do not create tracked top-level `episodes/`, `series/`, `generated/`, `output/`, or instance-specific `data/` directories. If a run artifact becomes reusable source, promote it deliberately after review and sanitization. Never auto-promote private/generated run content.
 
 Because Neo is public, secrets, personal data, customer data, private identifiers, unpublished user content, and authenticated runtime state must stay in ignored `runs/` or another private store.
 

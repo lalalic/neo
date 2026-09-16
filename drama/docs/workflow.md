@@ -7,7 +7,7 @@ Machine-readable routing lives in `config/workflow.json`.
 ## Core principles
 
 - One production run uses one top-level `job_id`. A repair is a state transition inside the same run, not a new top-level workflow.
-- `runs/<run_id>/*.json` is durable business state. Event Bus is live telemetry. `runs/<run-id>/generated/manifest.json` is artifact-stage provenance.
+- `runs/<series-name>/<YYYY-MM-DD[-slug]>/*.json` is durable business state. Event Bus is live telemetry. `runs/<series-name>/<YYYY-MM-DD[-slug]>/generated/manifest.json` is artifact-stage provenance.
 - Agent role and model are separate. Choose the specialist agent first, then apply `model-router` for a new delegated model worker.
 - Generation providers execute; they do not approve their own output.
 - `generated != accepted`, `rendered != approved`, and `sent != delivered`.
@@ -22,7 +22,7 @@ flowchart TD
     O --> SP[Studio Producer\nproduction lead]
     O --> MR[Model Router]
     O --> EB[Event Bus]
-    O --> RS[Run State\nruns/run_id]
+    O --> RS[Run State\nruns/series-name/YYYY-MM-DD-run]
 
     SP --> ND[Narrative Designer]
     SP --> IP[Image Prompt Engineer]
@@ -179,14 +179,14 @@ A model saying `PASS` is not enough. QA should combine deterministic media check
 flowchart LR
     RUN[Run state\nwhat is true] --> ORCH[Orchestrator]
     EVT[Event Bus\nwhat is happening] --> ORCH
-    MAN[runs/<run-id>/generated/manifest.json\nwhat artifacts were produced] --> ORCH
+    MAN[runs/<series-name>/<YYYY-MM-DD[-slug]>/generated/manifest.json\nwhat artifacts were produced] --> ORCH
     SIDE[Artifact sidecars\nprovenance + hash + evidence] --> ORCH
 
     ORCH --> RUN
     ORCH --> EVT
 ```
 
-Do not infer durable success from an event alone. Do not use `runs/<run-id>/generated/manifest.json` as the whole workflow state. Do not reconstruct live progress from state files when the Event Bus is available.
+Do not infer durable success from an event alone. Do not use `runs/<series-name>/<YYYY-MM-DD[-slug]>/generated/manifest.json` as the whole workflow state. Do not reconstruct live progress from state files when the Event Bus is available.
 
 ## 8. Event Bus lifecycle
 
@@ -239,7 +239,7 @@ This sequence is not part of the Drama core state machine. Drama remains `APPROV
 
 ## Artifact identity
 
-Working renders may remain at `runs/<run-id>/generated/video/<episode>-render.mp4`, but anything handed to a reviewer or external destination should have an unambiguous identity:
+Working renders may remain at `runs/<series-name>/<YYYY-MM-DD[-slug]>/generated/video/<episode>-render.mp4`, but anything handed to a reviewer or external destination should have an unambiguous identity:
 
 ```text
 taotao-ep04-r001-a1b2c3d4.mp4
@@ -254,7 +254,7 @@ A future request such as “generate 004” should be interpreted as a new episo
 1. Run `./drama.sh status` and `./drama.sh workflow`.
 2. Create one `run_id` and one top-level Event Bus `job_id`; establish event consumption before delegation.
 3. Route story work to `narrative-designer`, with `narratologist` review.
-4. Add `ep04` to `runs/<run-id>/story/series.json`, then create `runs/<run-id>/episodes/ep04/script.json`, `shots.json`, and `storyboard.md`.
+4. Add `ep04` to `runs/<series-name>/<YYYY-MM-DD[-slug]>/story/series.json`, then create `runs/<series-name>/<YYYY-MM-DD[-slug]>/episodes/ep04/script.json`, `shots.json`, and `storyboard.md`.
 5. Use continuity fields in `shots.json` where adjacent shots should preserve composition or character state.
 6. Run `./drama.sh prepare`.
 7. Generate only missing assets. Reuse approved canonical assets.

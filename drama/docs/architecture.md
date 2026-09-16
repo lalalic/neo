@@ -42,7 +42,7 @@ series/character/location assets
 After `APPROVED`, the Drama core workflow is complete. Optional delivery is a separate adapter workflow that consumes an approved artifact identity.
 ```
 
-Each generated artifact stage is identified in `runs/<run-id>/generated/manifest.json` and may be retried independently. Successful media outputs and their sidecars cause later invocations to skip work unless `--force` is deliberately used. Workflow state for an orchestrated run belongs under `runs/<run_id>/`; repairs remain in the same run.
+Each generated artifact stage is identified in `runs/<series-name>/<YYYY-MM-DD[-slug]>/generated/manifest.json` and may be retried independently. Successful media outputs and their sidecars cause later invocations to skip work unless `--force` is deliberately used. Workflow state for an orchestrated run belongs under `runs/<series-name>/<YYYY-MM-DD[-slug]>/`; repairs remain in the same run.
 
 ## Routing architecture
 
@@ -66,31 +66,31 @@ The installed agent definitions live under `~/.codex/agents`. `./drama.sh workfl
 
 Three stores answer different questions:
 
-1. `runs/<run_id>/run.json` and episode state files — **what is true now** for a production run.
+1. `runs/<series-name>/<YYYY-MM-DD[-slug]>/run.json` and episode state files — **what is true now** for a production run.
 2. Event Bus — **what is happening now** while workers execute.
-3. `runs/<run-id>/generated/manifest.json` and artifact sidecars — **what was produced**, by which provider, from which inputs, and with which technical evidence.
+3. `runs/<series-name>/<YYYY-MM-DD[-slug]>/generated/manifest.json` and artifact sidecars — **what was produced**, by which provider, from which inputs, and with which technical evidence.
 
 Do not collapse them. A future orchestration layer may automate run-state mutation, but every XChat session must already follow the separation contract.
 
 ## Asset contracts
 
-### Series: `runs/<run-id>/story/series.json`
+### Series: `runs/<series-name>/<YYYY-MM-DD[-slug]>/story/series.json`
 
 Title, language, logline, episodes, canonical output size, and fps. Episode IDs are stable and extensible. Valid IDs use the form `ep01`, `ep02`, `ep03`, `ep04`, and so on. The validator no longer assumes exactly three episodes.
 
-### Character: `runs/<run-id>/characters/<id>/character.yaml`
+### Character: `runs/<series-name>/<YYYY-MM-DD[-slug]>/characters/<id>/character.yaml`
 
-Stable identity, appearance, personality, audio direction, continuity rules, canonical image prompt, and reference note. Canonical concept image path is run-scoped, for example `runs/<run-id>/generated/images/taotao-concept.png`.
+Stable identity, appearance, personality, audio direction, continuity rules, canonical image prompt, and reference note. Canonical concept image path is run-scoped, for example `runs/<series-name>/<YYYY-MM-DD[-slug]>/generated/images/taotao-concept.png`.
 
-### Locations: `runs/<run-id>/locations/<id>/location.yaml`
+### Locations: `runs/<series-name>/<YYYY-MM-DD[-slug]>/locations/<id>/location.yaml`
 
 Visual continuity constraints, lighting, camera feeling, and prompts. Location prompts constrain shots; they do not replace character identity.
 
-### Episode: `runs/<run-id>/episodes/<id>/script.json`
+### Episode: `runs/<series-name>/<YYYY-MM-DD[-slug]>/episodes/<id>/script.json`
 
 Ordered lines containing `id`, `speaker`, `text`, `voice_direction`, and optional target shot.
 
-### Shot plan: `runs/<run-id>/episodes/<id>/shots.json`
+### Shot plan: `runs/<series-name>/<YYYY-MM-DD[-slug]>/episodes/<id>/shots.json`
 
 Ordered shots containing `id`, `duration_sec`, camera/subject/action/location, image/video prompts, and generated asset IDs.
 
@@ -103,11 +103,11 @@ A shot may additionally declare:
 }
 ```
 
-`continuity_from` must reference an earlier shot in the same episode. During generation, Drama extracts the prior shot's end frame under `runs/<run-id>/generated/continuity/` and uses it as the Agnes image-to-video input. This creates an explicit continuity chain instead of relying only on repeated prompt text.
+`continuity_from` must reference an earlier shot in the same episode. During generation, Drama extracts the prior shot's end frame under `runs/<series-name>/<YYYY-MM-DD[-slug]>/generated/continuity/` and uses it as the Agnes image-to-video input. This creates an explicit continuity chain instead of relying only on repeated prompt text.
 
-### Markcut storyboard: `runs/<run-id>/episodes/<id>/storyboard.md`
+### Markcut storyboard: `runs/<series-name>/<YYYY-MM-DD[-slug]>/episodes/<id>/storyboard.md`
 
-A `# video` document with 1080×1920, 24 fps canvas. Prompt-driven nodes support pre-generation planning; the resolved generated storyboard under `runs/<run-id>/generated/` references concrete video/audio files for render.
+A `# video` document with 1080×1920, 24 fps canvas. Prompt-driven nodes support pre-generation planning; the resolved generated storyboard under `runs/<series-name>/<YYYY-MM-DD[-slug]>/generated/` references concrete video/audio files for render.
 
 ### Generated artifact sidecar
 
@@ -163,7 +163,7 @@ Repairs such as dependency fixes, regenerated audio, rerenders, QA repairs, and 
 
 ## Artifact identity and delivery
 
-Working render paths remain convenient and stable, such as `runs/<run-id>/generated/video/ep04-render.mp4`. A review/delivery package must use a unique identity that includes revision and content hash, for example:
+Working render paths remain convenient and stable, such as `runs/<series-name>/<YYYY-MM-DD[-slug]>/generated/video/ep04-render.mp4`. A review/delivery package must use a unique identity that includes revision and content hash, for example:
 
 ```text
 taotao-ep04-r001-a1b2c3d4.mp4

@@ -1,0 +1,17 @@
+{
+  "id": "neo-build-log",
+  "title": "Building Neo",
+  "premise": "Document the experiments and evidence behind Neo's one-year mission.",
+  "persona": "neo",
+  "style": "documentary",
+  "template": "travel-day",
+  "recurring_characters": [
+    "neo"
+  ],
+  "ongoing_threads": [
+    "Vlog is Neo's first project"
+  ],
+  "avoid_repeating": [
+    "Do not repeat the entire mission introduction every episode"
+  ]
+}

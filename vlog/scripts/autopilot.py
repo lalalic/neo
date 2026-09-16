@@ -49,7 +49,7 @@ def handoff_instruction(message: str) -> Optional[str]:
 
 def prompt(phone: str, run_id: str, instruction: str) -> str:
     date = datetime.now().astimezone().date().isoformat()
-    run_root = ROOT / "runs" / run_id
+    run_root = ROOT / "runs" / "neo-vlog" / f"{date}-{run_id}"
     return f"""You are the unattended Neo/Vlog producer. A validated local phone handoff supplied the user's complete instruction.
 
 Today: {date}
@@ -93,7 +93,8 @@ def run(message: str) -> int:
         print("ignored handoff: unsupported or invalid vlog intent", flush=True)
         return 0
     run_id = hashlib.sha256(message.encode()).hexdigest()[:12]
-    run_root = ROOT / "runs" / run_id
+    date = datetime.now().astimezone().date().isoformat()
+    run_root = ROOT / "runs" / "neo-vlog" / f"{date}-{run_id}"
     run_root.mkdir(parents=True, exist_ok=True)
     final = run_root / "report.md"
     command = [

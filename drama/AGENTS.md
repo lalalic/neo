@@ -11,9 +11,9 @@
 - Keep delegated cost bounded: route leaf specialists economy-first to the weakest suitable configured profile, pass bounded stage context, and reserve stronger/high-reasoning workers for ambiguous integration review or evidence-backed escalation.
 - For one series or episode production run, create one top-level Event Bus `job_id` and keep repairs/retries inside that job. Do not create a new top-level job for dependency repair, rerender, QA repair, or delivery retry.
 - Follow the global `events-bus` protocol: subscribe before launching work, keep consuming until a reconciled top-level terminal event, and proactively surface every meaningful `visibility=user` milestone. A wait timeout or `task.completed` is not top-level completion.
-- Durable run state under `runs/<run_id>/` answers what is true; Event Bus answers what is happening; `runs/<run-id>/generated/manifest.json` records artifact-stage provenance. Do not substitute one for another.
+- Durable run state under `runs/<series-name>/<YYYY-MM-DD[-slug]>/` answers what is true; Event Bus answers what is happening; `runs/<series-name>/<YYYY-MM-DD[-slug]>/generated/manifest.json` records artifact-stage provenance. Do not substitute one for another.
 - Keep story, world, character, episode, shot, continuity, and prompt changes in durable text assets.
-- Series/story state, characters, locations, episodes, generated media, caches, reviews, and runtime state all belong under `runs/<run-id>/` and are excluded from Git.
+- Series/story state, characters, locations, episodes, generated media, caches, reviews, and runtime state all belong under `runs/<series-name>/<YYYY-MM-DD[-slug]>/` and are excluded from Git.
 - Every generated media artifact must have adjacent metadata describing its provider, prompt, source inputs, command log, status, size, and SHA-256. Video success additionally requires deterministic decode/duration evidence.
 - Providers are fixed by `config/providers.json`: local `mlx-audio` for TTS, local `mlx-vlm` for understanding, Agnes for image/video generation, and Markcut for timelines/rendering.
 - Never print provider keys or other secrets. Report key presence and resolution source only.
