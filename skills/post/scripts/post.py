@@ -57,7 +57,7 @@ def main(argv: list[str]) -> int:
         return 2
 
     management_ops = {"status", "update", "comments", "comment", "reply"}
-    if platform == "xhs" and len(argv) > 1 and argv[1] in management_ops:
+    if platform in {"xhs", "wechat-channels"} and len(argv) > 1 and argv[1] in management_ops:
         entry = HERE / "platforms" / platform / "manage.py"
     else:
         entry = HERE / "platforms" / platform / "post.py"

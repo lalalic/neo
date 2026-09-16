@@ -84,11 +84,21 @@ python3 ~/Workspace/neo/skills/post/scripts/post.py xhs reply --note-id NOTE_ID 
 
 `status` and `comments` are read-only. `comment` and `reply` create external side effects and require an explicit user request to write/reply; a general request to inspect comments is not authorization to respond. After writing/replying, verify the UI accepted the action rather than trusting the click.
 
+For WeChat Channels, only `status` management is implemented:
+
+```bash
+python3 ~/Workspace/neo/skills/post/scripts/post.py wechat-channels status --post-id POST_ID
+python3 ~/Workspace/neo/skills/post/scripts/post.py wechat-channels status --title "唯一短标题"
+python3 ~/Workspace/neo/skills/post/scripts/post.py wechat-channels status --desc "唯一描述片段"
+```
+
+WeChat Channels reuses one existing `channels.weixin.qq.com` tab for publish/draft and status. After the final action it verifies the creator manager; `unknown` or `not_found` is authoritative uncertainty, not permission to retry. Update/edit and engagement operations are not enabled until their exact creator UI is observed and implemented.
+
 XHS engagement uses the signed-in **My Posts** profile list. Locate the target note there, follow that card's live `xsec` route, and operate inside the opened post detail overlay/page. That detail view is the canonical place to read comments, write a top-level comment, and reply to an existing comment. Do not construct a raw `/explore/<note_id>` URL because XHS may reject it without the live route token.
 
 ### Browser tab lifecycle
 
-For Xiaohongshu, reuse an existing `xiaohongshu.com` tab for the whole operation. Navigate that tab between creator manager, publish/update, profile, and detail routes as needed. Only create a new XHS tab when no XHS tab exists at all. Do not create one tab per status check, update, comment read, or reply. A normal XHS workflow should leave at most the already-existing XHS workspace tab behind.
+For Xiaohongshu, reuse an existing `xiaohongshu.com` tab for the whole operation. Navigate that tab between creator manager, publish/update, profile, and detail routes as needed. Only create a new XHS tab when no XHS tab exists at all. Do not create one tab per status check, update, comment read, or reply. A normal XHS workflow should leave at most the already-existing XHS workspace tab behind. Apply the same single-tab rule to `channels.weixin.qq.com` for WeChat Channels publish/draft and status.
 
 ## Failure classification
 
