@@ -78,21 +78,30 @@ After setup:
 
 If the final remote call is not observed, report the setup as incomplete and identify the failing layer.
 
-## Rich event progress UI
+## Upstream capability extensions
 
-Neo `events-bus` exposes `events__progress` with an MCP App resource (`text/html;profile=mcp-app`) for a richer live progress card. DevMacBridge must federate MCP resources as well as tools for that UI to reach XChat clients: child `resources/list` and `resources/read` must be proxied, and tool UI resource URIs must be rewritten through the parent bridge.
+This deployment currently relies on two generalized DevMacBridge capability extensions that are being proposed upstream. Treat them as DevMacBridge features, not as application-specific patches.
 
-The upstream implementation is proposed in `alexanderradahl/mac-developer-bridge` PR #17, **Proxy federated MCP resources for app UIs**, targeted at upstream base `fea70d1`. Prefer the upstream implementation whenever it is merged or equivalent resource-federation support is present.
+### Federated MCP resources and UI metadata
 
-As a fallback, this skill retains the exact tested upstream patch in:
+Upstream PR #17, **feat: federate MCP resources and UI metadata**, extends child MCP federation beyond tools:
 
-```text
-<skill-folder>/patches/events-bus-ui/devmacbridge-federated-ui-fea70d1.zip
-```
+- proxy child `resources/list` and `resources/read`
+- namespace resource URIs per provider
+- rewrite `_meta.ui.resourceUri` and `openai/outputTemplate` through the parent bridge
+- use the bridge data-directory `mcp-servers.json` as the default child-provider registry when no explicit registry is configured
 
-The archive contains a `git format-patch` plus a manifest recording the upstream base/head and validation. Before applying it, first inspect the current upstream checkout for equivalent `resources/list` / `resources/read` federation. Do not apply the fallback on top of an upstream implementation that already provides those capabilities. If the fallback is still needed, unpack it outside the repository and apply the contained patch with `git am --3way`; resolve or stop on conflicts rather than forcing it.
+Use this capability for any federated MCP provider that exposes MCP App/UI resources. Prefer the upstream implementation once merged or when equivalent support is present. Do not maintain a ZIP or copied patch artifact for this feature inside the skill.
 
-After enabling resource federation, verify both layers: `events__progress` must still return normal structured/text progress data, and an MCP Apps-capable XChat client should be able to load the associated UI resource. The rich card is supplemental; user-visible event messages remain mandatory.
+### ChatGPT conversation attachments
+
+Upstream PR #18, **feat: support attachments in ChatGPT browser conversations**, extends `chatgpt_conversation_start` with application-agnostic file transport:
+
+- accept bounded HTTPS-backed attachments and mount them through ChatGPT's native composer
+- return persisted assistant-generated files/images as structured `assistant_outputs`
+- keep browser credentials and ChatGPT proof/session material inside the signed-in browser runtime
+
+Consumers should use this generic attachment contract rather than adding file-type handling to each downstream application.
 
 ## Chrome native messaging note
 
