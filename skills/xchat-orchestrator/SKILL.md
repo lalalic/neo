@@ -1,17 +1,21 @@
 ---
-name: chatgpt-orchestrator
-description: Orchestrate a closed-loop coding task through a GitHub pull request and a local Codex worker on the user's Mac. Use when ChatGPT should inspect, implement, review, revise, validate, and optionally merge repository changes.
+name: xchat-orchestrator
+description: Orchestrate a closed-loop coding task through a GitHub pull request and a local Codex worker on the user's Mac. Use when the active XChat assistant should inspect, implement, review, revise, validate, and optionally merge repository changes.
 ---
 
-# ChatGPT Orchestrator
+# XChat Orchestrator
 
-Use this skill when the user invokes `@orchestrator` or asks ChatGPT to drive a repository task through a pull request until it is merged, intentionally closed, blocked, or awaiting a user decision.
+Use this skill when the user invokes `@orchestrator` or asks the current XChat assistant to drive a repository task through a pull request until it is merged, intentionally closed, blocked, or awaiting a user decision.
 
-ChatGPT owns the loop. The local Codex process is the implementation worker. GitHub is the durable process state. The Mac Developer Bridge is the control channel for local execution and authenticated `gh` writes.
+The active XChat assistant owns the loop. The local Codex process is the implementation worker. GitHub is the durable process state. DevMacBridge is the control channel for local execution and authenticated `gh` writes.
+
+## Session project binding
+
+At session start, follow `xchat-bootstrap.md`. When Project/Space instructions provide `xchat_project`, resolve it with `scripts/list-xchat-projects --resolve <xchat_project>` before project-dependent work. Use the returned `local_path` as the project context root and read its existing `AGENTS.md` / `README.md`; do not require a separate XChat metadata file or central JSON registry. Keep the resolved project/repository binding sticky for the conversation unless the user explicitly switches it.
 
 ## Capability discovery
 
-At the start of each orchestration task, discover the currently available local skills by running `~/Workspace/neo/.bin/list-web-chatgpt-skills`. Select auxiliary skills from their names and descriptions, then read only the relevant `SKILL.md` files before planning or delegating work. Do not assume a fixed skill set and do not preload every skill body. Explicit `#skill-name` selections from the user take precedence.
+At the start of each orchestration task, discover the currently available local skills by running `~/Workspace/neo/skills/xchat-orchestrator/scripts/list-xchat-skills`. Select auxiliary skills from their names and descriptions, then read only the relevant `SKILL.md` files before planning or delegating work. Do not assume a fixed skill set and do not preload every skill body. Explicit `#skill-name` selections from the user take precedence.
 
 ## Operating invariants
 
@@ -57,8 +61,10 @@ Prefer a fresh isolated worktree for the worker. Use an existing checkout only w
 
 Maintain one small machine-readable marker in a PR comment or body. Update the existing marker instead of creating duplicates:
 
+Recognize legacy `<!-- chatgpt-orchestrator:v1 ... -->` markers from older runs. When continuing such a task, preserve their recorded state and migrate the marker to `xchat-orchestrator:v1` on the next metadata update rather than creating a duplicate.
+
 ```text
-<!-- chatgpt-orchestrator:v1 {"repo":"owner/name","pr":1,"branch":"task/example","thread_id":"…","iteration":1,"state":"IMPLEMENTING","next":"review"} -->
+<!-- xchat-orchestrator:v1 {"repo":"owner/name","pr":1,"branch":"task/example","thread_id":"…","iteration":1,"state":"IMPLEMENTING","next":"review"} -->
 ```
 
 The marker may contain repository, PR, branch, thread ID, iteration, state, next action, run/lease ID, and the selected worker profile/provider/model. It must not contain credentials, tokens, or private configuration. Treat the exact recorded thread ID and worker profile binding as authoritative.
@@ -84,7 +90,7 @@ Before creating a new Codex worker thread, apply the `model-router` skill. Dynam
 Record the selected worker profile, provider, and model in the orchestrator marker, for example:
 
 ```text
-<!-- chatgpt-orchestrator:v1 {"repo":"owner/name","pr":1,"branch":"task/example","thread_id":"…","worker_profile":"zai","worker_provider":"zai","worker_model":"glm-5.3-flash","iteration":1,"state":"IMPLEMENTING","next":"review"} -->
+<!-- xchat-orchestrator:v1 {"repo":"owner/name","pr":1,"branch":"task/example","thread_id":"…","worker_profile":"zai","worker_provider":"zai","worker_model":"glm-5.3-flash","iteration":1,"state":"IMPLEMENTING","next":"review"} -->
 ```
 
 Start a new worker with the selected profile using the installed CLI syntax, normally:

@@ -1,0 +1,146 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import re
+import subprocess
+from pathlib import Path
+
+WORKSPACE = Path.home() / "Workspace"
+CONTEXT_FILES = ("AGENTS.md", "README.md")
+SKIP_DIRS = {
+    ".git", ".backup", ".venv", "venv", "node_modules", "dist", "build",
+    ".next", "target", "vendor", ".cache", ".state", "coverage",
+}
+MAX_DEPTH = 4
+
+
+def git_root(path: Path) -> Path | None:
+    cur = path.resolve()
+    while cur != cur.parent and cur.is_relative_to(WORKSPACE):
+        if (cur / ".git").exists():
+            return cur
+        cur = cur.parent
+    return None
+
+
+def origin_repo(root: Path) -> tuple[str | None, str | None]:
+    try:
+        origin = subprocess.check_output(
+            ["git", "-C", str(root), "remote", "get-url", "origin"],
+            text=True,
+            stderr=subprocess.DEVNULL,
+        ).strip()
+    except (subprocess.CalledProcessError, OSError):
+        return None, None
+
+    patterns = (
+        r"^git@github\.com:(?P<repo>[^/]+/[^/]+?)(?:\.git)?$",
+        r"^ssh://git@github\.com/(?P<repo>[^/]+/[^/]+?)(?:\.git)?$",
+        r"^https?://github\.com/(?P<repo>[^/]+/[^/]+?)(?:\.git)?/?$",
+    )
+    for pattern in patterns:
+        m = re.match(pattern, origin)
+        if m:
+            return m.group("repo"), origin
+    return origin, origin
+
+
+def candidate_dirs() -> list[Path]:
+    found: set[Path] = set()
+    base_depth = len(WORKSPACE.parts)
+    for dirpath, dirnames, filenames in os.walk(WORKSPACE):
+        current = Path(dirpath)
+        depth = len(current.parts) - base_depth
+        dirnames[:] = [
+            d for d in dirnames
+            if d not in SKIP_DIRS and not d.startswith(".") and depth < MAX_DEPTH
+        ]
+        if any(name in filenames for name in CONTEXT_FILES):
+            found.add(current.resolve())
+    return sorted(found, key=lambda p: str(p).casefold())
+
+
+def projects() -> list[dict[str, object]]:
+    rows: list[dict[str, object]] = []
+    for path in candidate_dirs():
+        root = git_root(path)
+        if root is None:
+            continue
+        repo, origin = origin_repo(root)
+        if not repo:
+            continue
+        rel = path.relative_to(WORKSPACE).as_posix()
+
+        # Preserve normal AGENTS.md inheritance: repo-root instructions first,
+        # then any more-specific AGENTS.md files down to the project folder.
+        context_paths: list[str] = []
+        chain: list[Path] = []
+        cur = path
+        while True:
+            chain.append(cur)
+            if cur == root:
+                break
+            cur = cur.parent
+        for folder in reversed(chain):
+            agents = folder / "AGENTS.md"
+            if agents.is_file():
+                context_paths.append(str(agents))
+        readme = path / "README.md"
+        if readme.is_file():
+            context_paths.append(str(readme))
+
+        rows.append({
+            "xchat_project": rel,
+            "name": path.name,
+            "local_path": str(path),
+            "git_root": str(root),
+            "repo": repo,
+            "origin": origin,
+            "context_files": context_paths,
+        })
+    return rows
+
+
+def resolve(rows: list[dict[str, object]], query: str) -> dict[str, object]:
+    q = query.strip().strip("/").casefold()
+    exact = [r for r in rows if str(r["xchat_project"]).casefold() == q]
+    if len(exact) == 1:
+        return exact[0]
+    basename = [r for r in rows if str(r["name"]).casefold() == q]
+    if len(basename) == 1:
+        return basename[0]
+    if len(basename) > 1:
+        keys = ", ".join(str(r["xchat_project"]) for r in basename)
+        raise SystemExit(f"ambiguous xchat project '{query}'; use workspace-relative path: {keys}")
+    raise SystemExit(f"xchat project not found: {query}")
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(
+        description="Dynamically discover XChat projects from ~/Workspace using existing AGENTS.md/README.md context files."
+    )
+    ap.add_argument("--resolve", metavar="PROJECT", help="resolve one project by workspace-relative path or unique folder name")
+    ap.add_argument("--markdown", action="store_true", help="print a compact Markdown table")
+    args = ap.parse_args()
+
+    rows = projects()
+    if args.resolve:
+        print(json.dumps(resolve(rows, args.resolve), ensure_ascii=False, indent=2))
+        return 0
+
+    if args.markdown:
+        print("| XChat project | Local path | Repository | Context |")
+        print("|---|---|---|---|")
+        for row in rows:
+            context = ", ".join(Path(x).name for x in row["context_files"])
+            print(f"| `{row['xchat_project']}` | `{row['local_path']}` | `{row['repo']}` | {context} |")
+    else:
+        print(json.dumps(rows, ensure_ascii=False, indent=2))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

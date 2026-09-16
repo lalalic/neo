@@ -174,6 +174,7 @@ It MUST:
 - subscribe before starting the first sub-agent so early events are not lost;
 - keep the subscription alive until a terminal job event is observed or the job is explicitly abandoned;
 - actively surface `visibility: user` milestones instead of waiting for the user to ask for status;
+- when the current orchestrator itself publishes a `visibility: user` event, immediately render that event's human-readable `message` before making any subsequent tool call; do not wait for the event to return through the bus;
 - turn structured events into concise natural language rather than dumping raw JSON;
 - always surface `blocked`, `failed`, and terminal events immediately;
 - explicitly surface `phone.released` so the user knows the phone can be used again;

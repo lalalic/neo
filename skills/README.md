@@ -1,12 +1,12 @@
 # Neo skills
 
 This directory is the canonical editable source for skills maintained with the
-Neo workspace. Installed copies under ~/.codex and packaged Web ChatGPT bootstrap artifacts
+Neo workspace. Installed copies under ~/.codex and packaged XChat bootstrap artifacts
 are deployment and distribution targets, not source of truth.
 
 ## Skills
 
-- chatgpt-orchestrator — closed-loop ChatGPT orchestration of local Codex work
+- xchat-orchestrator — closed-loop cross-web-chat orchestration of local Codex work
   through GitHub pull requests.
 - codex-handoff — deprecated Drive handoff protocol retained temporarily for
   migration only.

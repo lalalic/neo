@@ -1,4 +1,4 @@
-# ChatGPT and Grok connection
+# XChat connections: ChatGPT, Grok, and Claude
 
 Resolve the skill directory as `<skill-folder>`.
 
@@ -8,7 +8,7 @@ Run:
 <skill-folder>/scripts/setup-local.sh info
 ```
 
-The local deployment is expected to expose the named public endpoint printed as `server_url` and one stable OAuth client id. The same OAuth client can be used by both ChatGPT and Grok because MacDevBridge validates each callback independently and issues separate OAuth grants/tokens.
+The local deployment is expected to expose the named public endpoint printed as `server_url` and one stable OAuth client id. The same OAuth client can be used by ChatGPT, Grok, and Claude because DevMacBridge validates each callback independently and issues separate OAuth grants/tokens.
 
 ## ChatGPT
 
@@ -55,7 +55,7 @@ https://claude.ai/api/mcp/auth_callback
 
 ## Consent token
 
-When either client opens the local MacDevBridge consent page and requests the bridge token, run:
+When a client opens the local DevMacBridge consent page and requests the bridge token, run:
 
 ```bash
 <skill-folder>/scripts/setup-local.sh copy-token

@@ -1,7 +1,7 @@
 interface:
-  display_name: "ChatGPT Orchestrator"
+  display_name: "XChat Orchestrator"
   short_description: "Drive coding tasks through PR completion"
-  default_prompt: "Use @orchestrator ($chatgpt-orchestrator) to drive this repository task through implementation, review, and completion."
+  default_prompt: "Use @orchestrator ($xchat-orchestrator) to drive this repository task through implementation, review, and completion."
 
 dependencies:
   tools:
