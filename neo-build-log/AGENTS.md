@@ -4,8 +4,8 @@ This directory is a content project inside Neo. When the working directory is
 `neo-build-log/` or one of its episode folders, follow this file in addition to
 the parent Neo instructions.
 
-Read `README.md` and `DIRECTOR.md` before creating or revising an episode.
-`DIRECTOR.md` is the canonical editorial contract. Markcut owns video syntax,
+Read `README.md` and `agents/director.md` before creating or revising an episode.
+`agents/director.md` is the canonical editorial contract. Markcut owns video syntax,
 validation, preview, and rendering; do not duplicate Markcut implementation
 rules here.
 
@@ -29,14 +29,15 @@ Every Neo Build Log episode must be shaped from real work and normally contain:
 
 ## Fixed presentation rules
 
-- Every episode has background music. Choose music that supports the pacing and
-  does not compete with speech; lower it under narration. Use the local
-  `audio-sourcing` skill when suitable music is not already available.
+- Every episode follows `AUDIO_STYLE.md`: the `Neo Builder` narration contract and
+  recurring `Neo Build Pulse` BGM are part of the series identity. Prefer the
+  user's accepted voice clone when available; otherwise use the documented
+  fallback. Narration must duck BGM rather than compete with it.
 - Real desktop/screen material is the primary visual language of the series.
   Prefer screen recording for actions and motion; use screenshots for static
   state or proof. Never fabricate evidence to fill a visual gap.
 - Presenter footage is part of the visual mix. The default treatment is the
-  small lower-right presenter overlay described in `DIRECTOR.md`; use a larger
+  small lower-right presenter overlay described in `agents/director.md`; use a larger
   human shot only when it genuinely improves the story.
 - The first screen must work as a hook even before the viewer understands the
   project. Branding is support, not the hook itself.
@@ -65,7 +66,7 @@ required project flow is:
 
 `source.md → story/episode draft → RECORDING_PLAN.md → capture-tour.json (camera subset) → Capture Agent → CAPTURE_REVIEW.md → accepted-media episode.md → Markcut preview → user review`
 
-- Read `CAPTURE_AGENT.md` before executing capture work.
+- Read `agents/capture-agent.md` before executing capture work.
 - `RECORDING_PLAN.md` is the complete recording list across desktop and camera.
 - `capture-tour.json` is only the NeoX human/presenter subset, using the same shot IDs.
 - Validate NeoX manifests against `schemas/neox-capture-tour-v1.schema.json` and
@@ -81,9 +82,9 @@ Treat `neo-build-log/` as the project working directory. The parent Neo
 
 Tracked project state belongs here:
 
-- `README.md`, `AGENTS.md`, `DIRECTOR.md`, `CAPTURE_AGENT.md`;
+- `README.md`, `AGENTS.md`, `agents/director.md`, `agents/capture-agent.md`, `AUDIO_STYLE.md`;
 - `schemas/` contracts;
-- `episodes/<NNN>/source.md`, `episode.md`, `RECORDING_PLAN.md`,
+- `runs/<run-id>/source.md`, `episode.md`, `RECORDING_PLAN.md`,
   `capture-tour.json`, and `CAPTURE_REVIEW.md`.
 
 Runtime state does **not** belong in the project tree. Write Codex transcripts,
@@ -92,7 +93,7 @@ other run artifacts to the ignored Neo-root directory:
 
 `../logs/neo-build-log/<episode>/<run-id>/`
 
-Binary episode media may live under `episodes/<NNN>/assets/`; the parent Neo
+Binary run media belongs under `runs/<run-id>/assets/`; the parent Neo
 `.gitignore` intentionally excludes `assets/` and media extensions. Markcut
 cache remains in ignored `.markcut/` state. Never use runtime logs as durable
 story source; promote any important conclusion back into the tracked episode

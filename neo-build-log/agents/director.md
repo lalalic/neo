@@ -17,10 +17,11 @@
 - Use a repeatable ending package of about 2–4 seconds: series identity,
   concise payoff/closing line, and a next-episode teaser/question when there is
   a credible continuation. Never end accidentally on an arbitrary work frame.
-- Every episode uses background music. Music supports pacing and emotion but
-  stays below narration; duck it under speech and let it rise only when useful.
-  Reuse a series motif when appropriate. If suitable music is missing, use the
-  local `audio-sourcing` skill rather than choosing unlicensed material.
+- Every episode follows `AUDIO_STYLE.md` for narration identity and BGM. Use the
+  `Neo Builder` delivery contract and the recurring `Neo Build Pulse` motif.
+  Music supports pacing and emotion but stays below narration; narration ducks
+  it automatically. If a story needs additional music/SFX, use the local
+  `audio-sourcing` skill rather than choosing unlicensed material.
 - A small circular presenter camera/avatar sits lower-right by default during
   explanation. It fades or hides only when it blocks important UI; it never
   requires full-screen talking-head footage and never substitutes for the

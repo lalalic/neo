@@ -21,7 +21,7 @@ project_dir="${script_dir:h}"
 day="${HIGHLIGHT_DATE:-$(date +%Y%m%d)}"
 occurred_at="${HIGHLIGHT_OCCURRED_AT:-$(date +%Y-%m-%d)}"
 event_id="${day}-${slug}"
-event_dir="$project_dir/events/$event_id"
+event_dir="$project_dir/runs/$event_id"
 
 if [[ -e "$event_dir" ]]; then
   echo "highlight already exists: $event_dir" >&2

@@ -1,0 +1,170 @@
+{
+  "version": 3,
+  "agent_registry": "~/.codex/agents",
+  "model_router": "model-router",
+  "orchestration": {
+    "owner": "xchat-top-level-orchestrator",
+    "production_lead": "studio-producer",
+    "workflow_advisor": "multi-agent-systems-architect",
+    "rules": [
+      "one series or episode production run uses one top-level job_id",
+      "repairs stay inside the same run and job_id",
+      "events are live telemetry; durable run state is the source of truth",
+      "a generator never certifies its own output",
+      "agent role and model selection are separate decisions",
+      "apply model-router before starting a new delegated model worker",
+      "core production ends at APPROVED; channel delivery runs as a separate adapter job and must not mutate the Drama production state machine"
+    ],
+    "event_bus_ownership": {
+      "consumer": "xchat-top-level-orchestrator",
+      "workers": "publish-only",
+      "rule": "leaf specialists and the studio producer never block production by attempting Event Bus wait/history/progress/health; only the owning XChat orchestrator consumes the stream"
+    },
+    "execution_policy": {
+      "stage_mutation": "single-writer lease",
+      "default_stage_order": "serial gates",
+      "nested_agent_spawning": false,
+      "rule": "parallelize independent provider work only when files and continuity dependencies do not overlap; never run competing writers against the same durable episode assets"
+    },
+    "routing_policy": {
+      "default": "weakest suitable configured profile",
+      "leaf_specialists": "economy-first",
+      "integration_review": "strong model only when ambiguity or failed evidence justifies escalation",
+      "repair": "reuse the same suitable profile/thread where possible; do not upgrade merely because a retry exists",
+      "context": "give each specialist only the bounded source files and evidence needed for its stage"
+    }
+  },
+  "states": [
+    "DRAFT",
+    "PREPARED",
+    "GENERATING",
+    "ASSETS_READY",
+    "ASSEMBLING",
+    "RENDERED",
+    "TECH_QA",
+    "VISUAL_QA",
+    "REVIEW_READY",
+    "APPROVED",
+    "REPAIRING",
+    "BLOCKED",
+    "FAILED"
+  ],
+  "runtime_state": {
+    "root": "runs",
+    "run_file": "runs/<run_id>/run.json",
+    "episode_file": "runs/<run_id>/<episode>.json",
+    "principle": "state files record durable business truth; runs/<run-id>/generated/manifest.json remains artifact-stage provenance"
+  },
+  "stages": {
+    "story": {
+      "primary_agent": "narrative-designer",
+      "reviewer_agent": "narratologist",
+      "executor": "durable story and episode assets",
+      "success_evidence": [
+        "episode script exists",
+        "shot intent exists",
+        "story beat and dialogue review completed"
+      ]
+    },
+    "concept": {
+      "primary_agent": "image-prompt-engineer",
+      "reviewer_agent": "brand-guardian",
+      "executor": "provider:image",
+      "success_evidence": [
+        "image artifact exists",
+        "sidecar records prompt and source inputs",
+        "canonical character and style constraints are reviewable"
+      ]
+    },
+    "dialogue": {
+      "primary_agent": "narrative-designer",
+      "reviewer_agent": "short-video-editing-coach",
+      "executor": "provider:tts",
+      "success_evidence": [
+        "audio artifact is a valid WAV",
+        "spoken content matches the durable script",
+        "voice direction is acceptable for the scene"
+      ]
+    },
+    "shot": {
+      "primary_agent": "image-prompt-engineer",
+      "continuity_agent": "short-video-editing-coach",
+      "reviewer_agent": "evidence-collector",
+      "executor": "provider:video",
+      "success_evidence": [
+        "video artifact is decodable and has positive duration",
+        "sidecar records prompt, references, and hash",
+        "sampled evidence supports character and location continuity",
+        "previous-shot continuity reference is used when available"
+      ]
+    },
+    "assembly": {
+      "primary_agent": "short-video-editing-coach",
+      "reviewer_agent": "evidence-collector",
+      "executor": "provider:render",
+      "success_evidence": [
+        "resolved storyboard verifies",
+        "rendered artifact is decodable",
+        "duration and streams are measured rather than assumed"
+      ]
+    },
+    "episode_qa": {
+      "primary_agent": "reality-checker",
+      "evidence_agent": "evidence-collector",
+      "executor": "local vision plus deterministic media checks",
+      "success_evidence": [
+        "technical QA evidence exists",
+        "visual continuity evidence exists",
+        "narrative beat coverage is checked",
+        "review decision is based on artifacts, not command exit codes"
+      ]
+    }
+  },
+  "continuity": {
+    "required_references": [
+      "canonical character reference",
+      "location reference",
+      "episode visual bible",
+      "previous shot end frame when available"
+    ],
+    "principle": "reduce generation freedom between adjacent shots instead of relying on prompt text alone"
+  },
+  "artifact_identity": {
+    "working_render": "runs/<run-id>/generated/video/<episode>-render.mp4",
+    "delivery_name_template": "taotao-<episode>-r<revision>-<sha256_8>.mp4",
+    "required_receipt_fields": [
+      "episode",
+      "revision",
+      "sha256",
+      "duration_sec",
+      "created_at",
+      "source_manifest_version"
+    ]
+  },
+  "quality_gates": {
+    "generated_is_not_accepted": true,
+    "rendered_is_not_approved": true,
+    "sent_is_not_delivered": true,
+    "repair_policy": "repair the smallest failed stage, preserve accepted upstream artifacts, then re-enter the failed gate"
+  },
+  "external_delivery": {
+    "coupled_to_core_workflow": false,
+    "input_contract": "an APPROVED artifact identity plus explicit destination/channel authorization",
+    "primary_agent": "studio-operations",
+    "reviewer_agent": "evidence-collector",
+    "adapters": {
+      "wechat": {
+        "executor": "wechat-bro",
+        "video_command": "send-video",
+        "file_command": "send-file",
+        "rule": "MP4/video artifacts use send-video; send-file is for non-video attachments only"
+      }
+    },
+    "success_evidence": [
+      "exact approved artifact identity is recorded before send",
+      "transport reports success",
+      "destination-side evidence verifies the sent video/message",
+      "delivery receipt records destination, channel, artifact hash, and destination message identity"
+    ]
+  }
+}

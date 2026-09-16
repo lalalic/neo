@@ -41,7 +41,7 @@ neo-highlights/
   templates/
     source.md
     review.md
-  events/
+  runs/
     YYYYMMDD-slug/
       source.md
       assets/          # local source/capture media; ignored by Git
@@ -80,7 +80,7 @@ From this directory:
 ./scripts/new-highlight.sh markcut-director
 ```
 
-That creates `events/YYYYMMDD-markcut-director/source.md` and `REVIEW.md` from
+That creates `runs/YYYYMMDD-markcut-director/source.md` and `REVIEW.md` from
 the templates. Fill `source.md` with facts and evidence, then ask an agent to
 make the video with `#markcut`.
 
@@ -88,14 +88,14 @@ For an event already containing media, put the files in its `assets/` folder
 and let Markcut inspect them before story decisions:
 
 ```sh
-npx @lalalic/markcut vision events/<event-id>/assets
+npx @lalalic/markcut vision runs/<event-id>/assets
 ```
 
 Once `video.md` exists, the normal technical checks are:
 
 ```sh
-npx @lalalic/markcut verify events/<event-id>/video.md
-npx @lalalic/markcut preview events/<event-id>/video.md --storyboard
+npx @lalalic/markcut verify runs/<event-id>/video.md
+npx @lalalic/markcut preview runs/<event-id>/video.md --storyboard
 ```
 
 Rendering or publishing is not proof of truth. The final video must remain

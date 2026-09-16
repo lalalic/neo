@@ -1,5 +1,49 @@
 # Working on Neo
 
+## Monorepo project contract
+
+Neo is a public monorepo containing multiple top-level projects plus shared skills and infrastructure.
+
+### Project discovery
+
+A Neo project is a top-level directory containing both `README.md` and `AGENTS.md`. Root `AGENTS.md` applies first. Then read the selected project's `AGENTS.md`. If that project has an `agents/` directory, load only the role files relevant to the current task.
+
+### Standard project layout
+
+```text
+<project>/
+├── README.md
+├── AGENTS.md
+├── agents/       # optional project-specific roles
+├── config/       # reusable non-secret configuration
+├── docs/         # reusable documentation
+├── templates/    # reusable templates
+├── scripts/      # reusable automation
+└── runs/         # every execution instance; ignored and never committed
+```
+
+Projects may add other durable source directories, but actual executions must stay under `runs/`.
+
+### Git boundary
+
+Git stores the reusable system. `<project>/runs/<run-id>/` stores actual executions. Anything produced, selected, downloaded, captured, generated, rendered, or mutated while using a project belongs in the run: episodes, instantiated prompts, private/user inputs, transcripts, generated media, intermediate files, caches, reviews, logs, delivery receipts, and final outputs.
+
+Do not create tracked top-level `episodes/`, `generated/`, `output/`, or instance-specific `data/` directories. If a run artifact becomes reusable source, promote it deliberately after review and sanitization. Never auto-promote private/generated run content.
+
+Because Neo is public, secrets, personal data, customer data, private identifiers, unpublished user content, and authenticated runtime state must stay in ignored `runs/` or another private store.
+
+### Agent and skill placement
+
+- `AGENTS.md` is the project routing/discovery entrypoint.
+- Project-only roles live in `<project>/agents/<role>.md`.
+- Cross-project reusable capabilities live in `skills/<skill>/`.
+- Do not duplicate a reusable skill as a project agent.
+- A project must not depend on another project's `runs/` directory.
+
+### Runtime hygiene
+
+Root `.gitignore` ignores `**/runs/`. Project code must write runtime artifacts there by construction rather than depending on media-extension ignores.
+
 Read `MISSION.md` at the start of every Neo session and treat it as the canonical Neo identity/mission context. Identify the user's intention before implementation. The mission is not permission to spend, publish, accept commitments, or claim earnings.
 
 Use the strongest model for architecture, ambiguous decisions, and integration review. Delegate bounded implementation, extraction, and tests to cheaper models when available. Role and model profile are separate concepts. The user explicitly requests cost-conscious subagent use.

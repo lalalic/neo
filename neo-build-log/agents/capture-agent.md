@@ -48,6 +48,10 @@ Execution:
 6. export/download only accepted media needed by the episode;
 7. add the accepted file/path, take count, duration, and quality warnings to
    `CAPTURE_REVIEW.md`.
+8. if the accepted presenter audio is clean enough for voice cloning, extract an
+   8–15 second dry speech segment, keep its exact transcript, and record the
+   local reference path in `CAPTURE_REVIEW.md`. This reference is personal media
+   and stays out of Git. `AUDIO_STYLE.md` defines how the TTS adapter consumes it.
 
 Target duration and quality warnings are guidance, not hard rejection rules.
 
