@@ -93,3 +93,7 @@ As a fallback, this skill retains the exact tested upstream patch in:
 The archive contains a `git format-patch` plus a manifest recording the upstream base/head and validation. Before applying it, first inspect the current upstream checkout for equivalent `resources/list` / `resources/read` federation. Do not apply the fallback on top of an upstream implementation that already provides those capabilities. If the fallback is still needed, unpack it outside the repository and apply the contained patch with `git am --3way`; resolve or stop on conflicts rather than forcing it.
 
 After enabling resource federation, verify both layers: `events__progress` must still return normal structured/text progress data, and an MCP Apps-capable XChat client should be able to load the associated UI resource. The rich card is supplemental; user-visible event messages remain mandatory.
+
+## Chrome native messaging note
+
+For Chrome extension/native-host installation and debugging, especially with non-default state directories, read `references/chrome-native-messaging.md`. Chrome-launched native hosts do not reliably inherit the interactive shell environment, so installer-generated wrappers must carry resolved runtime configuration explicitly.

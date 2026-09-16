@@ -15,7 +15,6 @@ This repository is the public Neo monorepo: root orchestration rules, reusable a
 - `neo-highlights/` — selective event-to-video project; each highlight execution lives under ignored `runs/`.
 - `drama/` — reusable AI drama production engine; series/episode/media executions live under ignored `runs/`.
 - `family-tutor/` — public tutoring project surface; real family instances and learner data live under ignored `runs/`.
-- `markcut-projects/` — legacy Pi/Markcut project material retained from the original `main` history.
 - `package.json` — legacy workspace metadata retained during repository-history consolidation.
 
 Nested repositories such as `vlog/`, `markcut/`, `neox/`, `wechat-bro/`, and `mac-developer-bridge/` are managed independently and are not committed through this repository.
