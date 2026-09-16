@@ -124,4 +124,6 @@ On completion, report the platform, final state, verification evidence, and any 
 
 When the user asks about comments on a specific post, use the platform adapter's `comments` operation when implemented. For XHS, resolve the post from the signed-in My Posts/profile list and use that card's live detail route. Preserve the platform post ID and stable comment ID returned by the adapter.
 
+For WeChat Channels, use the implemented `status` operation to resolve the exact post and preserve its stable platform ID when available. Do not construct update or engagement side effects; those operations are intentionally unimplemented until their creator UI is verified.
+
 Never infer authorization to respond from a request to read or summarize comments. `comment` and `reply` are separate side effects and require an explicit request. When replying, select the exact comment by stable ID when available; otherwise use the adapter's returned index or a unique text match and stop on ambiguity. Verify the reply/comment was accepted.

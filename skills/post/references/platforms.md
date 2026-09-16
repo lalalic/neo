@@ -36,6 +36,9 @@ Entry:
 
 ```bash
 python3 scripts/post.py wechat-channels --video clip.mp4 --desc "描述" --title "短标题" --tags "话题1,话题2" --publish
+python3 scripts/post.py wechat-channels status --post-id POST_ID
+python3 scripts/post.py wechat-channels status --title "唯一短标题"
+python3 scripts/post.py wechat-channels status --desc "唯一描述片段"
 ```
 
 Behavior:
@@ -45,6 +48,12 @@ Behavior:
 - optional short title is 6-16 characters;
 - without `--publish`, saves as draft;
 - uses the authenticated `channels.weixin.qq.com` session and its wujie shadow DOM.
+- reuses an existing `channels.weixin.qq.com` tab and creates one only if none exists;
+- after submit/draft, inspects the creator manager and returns structured status JSON;
+- status targets a stable platform id first, otherwise a unique title or description fragment;
+- status is one of `published`, `reviewing`, `rejected`, `draft`, `unknown`, or `not_found`;
+- an uncertain submit returns without retrying; inspect `status` before any deliberate retry;
+- update/edit, comment reading, top-level comments, and replies are intentionally unimplemented until their exact creator UI is observed.
 
 ## TikTok
 
