@@ -25,3 +25,8 @@
 - `prepare` and `render` are validation commands. `--media` is the only flag that invokes Markcut's full render.
 - Drama core production ends at `APPROVED`. Delivery to a reviewer/chat is a separate external adapter job, not a Drama state transition and not social publication. It must consume an exact approved artifact identity and record destination-side verification. For WeChat video, use `send-video`; reserve `send-file` for non-video attachments.
 - Publishing to social platforms is not part of this pipeline and still requires explicit publication authorization.
+
+## Project learnings
+
+- 2026-09-15: Generated media is not accepted media. Keep provider generation, deterministic technical validation, and independent narrative/visual review as separate gates; a successful generator call cannot certify its own output.
+- 2026-09-15: Continuity repairs should preserve accepted upstream work and repair the smallest failed stage. Rebuilding unrelated shots increases cost and can introduce new continuity drift.

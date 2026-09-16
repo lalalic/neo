@@ -68,6 +68,19 @@ Because Neo is public, secrets, personal data, customer data, private identifier
 - Do not duplicate a reusable skill as a project agent.
 - A project must not depend on another project's `runs/` directory.
 
+### Project learning contract
+
+Every Neo project must learn from real work. After a meaningful implementation, failure, review, production run, or user correction, reflect on whether the experience produced a durable lesson that would improve future work in that project.
+
+- Record valuable, reusable project-specific lessons in `<project>/AGENTS.md` under a `## Project learnings` section.
+- Write learnings as concise dated rules or observations: what was learned and how future agents should behave differently.
+- Promote only durable lessons. Do not turn `AGENTS.md` into a run diary, changelog, transcript, incident log, or list of one-off facts.
+- Evidence and detailed run history remain in ignored `runs/`; the learning is the distilled reusable conclusion.
+- If a lesson applies to multiple Neo projects, promote it to root `AGENTS.md` instead of duplicating it across projects.
+- If a lesson is specific to one project agent role, put the detailed guidance in `agents/<role>.md` and keep only the routing-level consequence in the project `AGENTS.md` when needed.
+- Update or remove an older learning when later evidence shows it is wrong or obsolete. Do not preserve contradictory folklore.
+- Reflection is part of the normal workflow: `intent → implement → audit → verify → reflect → capture durable learning`.
+
 ### Runtime hygiene
 
 Root `.gitignore` ignores `**/runs/`. Project code must write runtime artifacts there by construction rather than depending on media-extension ignores.
@@ -90,6 +103,3 @@ Publishing is handled through `skills/post` when the user explicitly asks to pos
 
 - 2026-09-11: Preserve the distinction between a durable workflow and an autonomous worker. A queued command plan is not evidence that a producer, phone trigger, or model call ran.
 - 2026-09-11: Agree on the CLI/config contract before parallel implementation, and request small reviewable patches early. Bind review approval to file bytes, not just filenames or a prose report.
-- 2026-09-12: Verify Bonjour discovery and the full handoff contract separately. A bridge can advertise successfully while still lacking the queue endpoints that a producer needs.
-- 2026-09-12: An unattended worker must validate a narrow intent before dispatching and peek before claiming shared handoff queues. An empty date-filtered media search is a valid, auditable completion—not a reason to invent a vlog.
-- 2026-09-12: Keep content projects inside the containing Neo workspace; a small Director contract plus Markcut-compatible episode Markdown is enough to start a build log without creating another repository or renderer.
