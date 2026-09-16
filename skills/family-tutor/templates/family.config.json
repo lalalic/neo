@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "serviceName": "family-tutor-bridge",
+  "chatgpt": {
+    "backend": "devmacbridge",
+    "projectId": "",
+    "model": "gpt-5-6-thinking",
+    "thinkingEffort": "standard",
+    "maxRuntimeSeconds": 600
+  },
+  "discord": {
+    "parentChannelId": ""
+  },
+  "children": [
+    {
+      "id": "kid1",
+      "name": "Kid 1",
+      "grade": "",
+      "discordChannelId": "",
+      "conversationId": "",
+      "gender": "",
+      "school": "",
+      "location": ""
+    },
+    {
+      "id": "kid2",
+      "name": "Kid 2",
+      "grade": "",
+      "discordChannelId": "",
+      "conversationId": "",
+      "gender": "",
+      "school": "",
+      "location": ""
+    }
+  ],
+  "runtime": {
+    "stateFile": "../data/runtime.json"
+  },
+  "parents": [
+    {
+      "id": "parent1",
+      "name": "Parent 1",
+      "role": "parent"
+    }
+  ]
+}

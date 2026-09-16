@@ -1,0 +1,64 @@
+{
+  "version": 1,
+  "providers": {
+    "tts": {
+      "id": "local-mlx-audio",
+      "kind": "tts",
+      "local": true,
+      "command": [
+        "uvx",
+        "--from",
+        "mlx-audio",
+        "mlx_audio.tts.generate"
+      ],
+      "model": "mlx-community/Qwen3-TTS-12Hz-1.7B-CustomVoice-8bit",
+      "voice": "Vivian",
+      "lang_code": "chinese"
+    },
+    "vision": {
+      "id": "local-mlx-vlm",
+      "kind": "understanding",
+      "local": true,
+      "status": "reserved-for-v2"
+    },
+    "image": {
+      "id": "agnes-image",
+      "kind": "image_generation",
+      "local": false,
+      "command": [
+        "uvx",
+        "python3",
+        "/Users/chengli/.agents/skills/create-image-video/scripts/agnes-image.py"
+      ],
+      "auth_sources": [
+        "AGNES_API_KEY",
+        "~/.pi/agent/auth.json",
+        "~/.pi/agent/models.json"
+      ]
+    },
+    "video": {
+      "id": "agnes-video",
+      "kind": "video_generation",
+      "local": false,
+      "command": [
+        "uvx",
+        "python3",
+        "/Users/chengli/.agents/skills/create-image-video/scripts/agnes-video.py"
+      ],
+      "auth_sources": [
+        "AGNES_API_KEY",
+        "~/.pi/agent/auth.json",
+        "~/.pi/agent/models.json"
+      ]
+    },
+    "render": {
+      "id": "markcut-local",
+      "kind": "timeline_render",
+      "local": true,
+      "command": [
+        "node",
+        "/Users/chengli/Workspace/markcut/bin/markcut"
+      ]
+    }
+  }
+}

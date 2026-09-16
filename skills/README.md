@@ -15,6 +15,7 @@ are deployment and distribution targets, not source of truth.
 - devmacbridge — end-to-end Mac Developer Bridge bootstrap, ChatGPT MCP connection, browser setup, events federation, and verification.
 - events-bus — correlated lifecycle/progress protocol and orchestrator display
   contract for long-running Neo jobs, including its internal event-bus transport.
+- family-tutor — reusable Discord/ChatGPT tutoring runtime and behavior contract for run-local family instances.
 - model-router — choose among configured model profiles using capability,
   continuity, paid capacity, quota, cost, and reliability signals.
 - post — reusable browser-harness posting adapters and self-healing post agent

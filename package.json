@@ -1,13 +1,12 @@
 {
   "name": "neo",
   "version": "1.0.1",
-  "description": "This private repo contains the exact configuration and API credentials needed to synchronize your Pi environment across devices.",
+  "description": "Neo public monorepo for AI-native projects, shared skills, and reusable workflows.",
   "license": "ISC",
   "author": "",
   "type": "commonjs",
   "main": "index.js",
   "scripts": {
     "push": "GIT_SSH_COMMAND=\"ssh -i ~/.ssh/id_ed25519_1 -o IdentitiesOnly=yes\" git push"
-
   }
 }

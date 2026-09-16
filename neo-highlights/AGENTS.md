@@ -48,7 +48,7 @@ Markcut decides **how the video tells it**.
 
 ## Runtime and media
 
-- Event media: `events/<event-id>/assets/` (ignored by Git).
+- Event media: `runs/<event-id>/assets/` (ignored by Git).
 - Markcut cache/generated state: `.markcut/` (ignored by Git).
 - Run logs/temp diagnostics: `../logs/neo-highlights/<event-id>/<run-id>/`.
 - Durable tracked state: source, `video.md`, and review decisions only.

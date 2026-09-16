@@ -7,11 +7,13 @@ Markdown.
 
 ## Layout
 
-- `episodes/001/` — Episode 001 source notes and storyboard.
+- `runs/<run-id>/` — Episode 001 source notes and storyboard.
 - `AGENTS.md` — project-level rules automatically applied when an agent works
   from this directory.
-- `DIRECTOR.md` — repeatable process for turning a solved problem into an episode.
-- `CAPTURE_AGENT.md` — executes desktop + NeoX capture and owns the capture review gate.
+- `agents/director.md` — repeatable process for turning a solved problem into an episode.
+- `agents/capture-agent.md` — executes desktop + NeoX capture and owns the capture review gate.
+- `AUDIO_STYLE.md` — canonical narration voice, BGM identity, mix, and local TTS contract.
+- `scripts/audio/` — reproducible local TTS adapter and original BGM generator.
 - `schemas/neox-capture-tour-v1.schema.json` — repository copy of the NeoX v1
   Capture Tour manifest contract.
 
@@ -29,7 +31,7 @@ main visual evidence, presenter footage supports the explanation, and every
 episode uses background music.
 
 `AGENTS.md` is the short enforcement layer for Codex/agents working in this
-folder. `DIRECTOR.md` is the canonical detailed editorial specification.
+folder. `agents/director.md` is the canonical detailed editorial specification.
 
 ## Runtime layout
 
@@ -37,7 +39,7 @@ folder. `DIRECTOR.md` is the canonical detailed editorial specification.
 runtime output is intentionally separate: use Neo-root
 `logs/neo-build-log/<episode>/<run-id>/` for command logs, preview logs, and
 temporary diagnostics. That root `logs/` directory is ignored by Git. Episode
-media lives under `episodes/<NNN>/assets/` and is also ignored, while the story,
+media lives under `runs/<NNN>/assets/` and is also ignored, while the story,
 recording plan, capture tour, review decisions, and schemas stay tracked.
 
 ## End-to-end flow
@@ -55,5 +57,5 @@ in the final storyboard.
 From the Neo repository root:
 
 ```sh
-npx @lalalic/markcut preview neo/neo-build-log/episodes/001/episode.md --storyboard
+npx @lalalic/markcut preview neo/neo-build-log/runs/<run-id>/episode.md --storyboard
 ```
