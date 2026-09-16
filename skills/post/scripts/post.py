@@ -27,7 +27,7 @@ def usage() -> str:
         "platforms: xhs, wechat-channels, tiktok, youtube\n"
         "inspect: post.py --profile <platform>\n"
         "example: post.py xhs --video clip.mp4 --title 'Title' --body 'Body' --publish\n"
-        "manage: post.py xhs status|comments|comment|reply ..."
+        "manage: post.py xhs status|update|comments|comment|reply ..."
     )
 
 
@@ -56,7 +56,7 @@ def main(argv: list[str]) -> int:
         print(usage(), file=sys.stderr)
         return 2
 
-    management_ops = {"status", "comments", "comment", "reply"}
+    management_ops = {"status", "update", "comments", "comment", "reply"}
     if platform == "xhs" and len(argv) > 1 and argv[1] in management_ops:
         entry = HERE / "platforms" / platform / "manage.py"
     else:

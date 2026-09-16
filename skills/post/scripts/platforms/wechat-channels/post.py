@@ -39,18 +39,22 @@ def main():
     if len(args.desc) > MAX_DESC:
         sys.exit(f"Description too long: {len(args.desc)} chars (max {MAX_DESC})")
 
+    # WeChat Channels rejects vertical-bar separators in short titles.
+    # Normalize the common Xiaohongshu separator to the supported Chinese colon.
+    title = args.title.replace("｜", "：").replace("|", "：")
+
     # Validate short title
-    if args.title:
-        if len(args.title) < MIN_TITLE:
-            sys.exit(f"Short title too short: {len(args.title)} chars (min {MIN_TITLE})")
-        if len(args.title) > MAX_TITLE:
-            sys.exit(f"Short title too long: {len(args.title)} chars (max {MAX_TITLE})")
+    if title:
+        if len(title) < MIN_TITLE:
+            sys.exit(f"Short title too short: {len(title)} chars (min {MIN_TITLE})")
+        if len(title) > MAX_TITLE:
+            sys.exit(f"Short title too long: {len(title)} chars (max {MAX_TITLE})")
 
     # Parse tags
     tags = [t.strip() for t in args.tags.split(",") if t.strip()] if args.tags else []
 
     cfg = {
-        "video": video, "desc": args.desc, "title": args.title,
+        "video": video, "desc": args.desc, "title": title,
         "tags": tags, "publish": args.publish,
     }
     cfg_f = tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False)
@@ -60,7 +64,7 @@ def main():
         code = f.read().replace("__CFG_PATH__", cfg_f.name)
 
     try:
-        r = subprocess.run(["browser-harness", "-c", code], timeout=900)
+        r = subprocess.run(["browser-harness"], input=code, text=True, timeout=900)
         sys.exit(r.returncode)
     finally:
         os.unlink(cfg_f.name)
