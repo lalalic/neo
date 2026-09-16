@@ -77,3 +77,19 @@ After setup:
 6. From that client, call `bridge_status`, then one read-only tool such as `fs_stat`.
 
 If the final remote call is not observed, report the setup as incomplete and identify the failing layer.
+
+## Rich event progress UI
+
+Neo `events-bus` exposes `events__progress` with an MCP App resource (`text/html;profile=mcp-app`) for a richer live progress card. DevMacBridge must federate MCP resources as well as tools for that UI to reach XChat clients: child `resources/list` and `resources/read` must be proxied, and tool UI resource URIs must be rewritten through the parent bridge.
+
+The upstream implementation is proposed in `alexanderradahl/mac-developer-bridge` PR #17, **Proxy federated MCP resources for app UIs**, targeted at upstream base `fea70d1`. Prefer the upstream implementation whenever it is merged or equivalent resource-federation support is present.
+
+As a fallback, this skill retains the exact tested upstream patch in:
+
+```text
+<skill-folder>/patches/events-bus-ui/devmacbridge-federated-ui-fea70d1.zip
+```
+
+The archive contains a `git format-patch` plus a manifest recording the upstream base/head and validation. Before applying it, first inspect the current upstream checkout for equivalent `resources/list` / `resources/read` federation. Do not apply the fallback on top of an upstream implementation that already provides those capabilities. If the fallback is still needed, unpack it outside the repository and apply the contained patch with `git am --3way`; resolve or stop on conflicts rather than forcing it.
+
+After enabling resource federation, verify both layers: `events__progress` must still return normal structured/text progress data, and an MCP Apps-capable XChat client should be able to load the associated UI resource. The rich card is supplemental; user-visible event messages remain mandatory.
