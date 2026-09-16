@@ -7,7 +7,7 @@ Markdown.
 
 ## Layout
 
-- `runs/<run-id>/` — Episode 001 source notes and storyboard.
+- `runs/neo-build-log/<YYYY-MM-DD[-slug]>/` — Episode 001 source notes and storyboard.
 - `AGENTS.md` — project-level rules automatically applied when an agent works
   from this directory.
 - `agents/director.md` — repeatable process for turning a solved problem into an episode.
@@ -35,12 +35,21 @@ folder. `agents/director.md` is the canonical detailed editorial specification.
 
 ## Runtime layout
 
-`neo-build-log/` is tracked as part of the Neo repository. Codex and production
-runtime output is intentionally separate: use Neo-root
-`logs/neo-build-log/<episode>/<run-id>/` for command logs, preview logs, and
-temporary diagnostics. That root `logs/` directory is ignored by Git. Episode
-media lives under `runs/<NNN>/assets/` and is also ignored, while the story,
-recording plan, capture tour, review decisions, and schemas stay tracked.
+Neo Build Log is a series project. Reusable project contracts are tracked here; each actual episode/build execution is private run data:
+
+```text
+runs/neo-build-log/<YYYY-MM-DD[-slug]>/
+├── source.md
+├── episode.md
+├── RECORDING_PLAN.md
+├── capture-tour.json
+├── CAPTURE_REVIEW.md
+├── assets/
+├── logs/
+└── output/
+```
+
+Do not split one episode across root-level log/output folders. All execution-specific content stays inside its dated run and is ignored by Git.
 
 ## End-to-end flow
 
@@ -57,5 +66,5 @@ in the final storyboard.
 From the Neo repository root:
 
 ```sh
-npx @lalalic/markcut preview neo/neo-build-log/runs/<run-id>/episode.md --storyboard
+npx @lalalic/markcut preview neo/neo-build-log/runs/neo-build-log/<YYYY-MM-DD[-slug]>/episode.md --storyboard
 ```

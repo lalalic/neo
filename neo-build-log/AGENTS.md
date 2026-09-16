@@ -84,17 +84,7 @@ Tracked project state belongs here:
 
 - `README.md`, `AGENTS.md`, `agents/director.md`, `agents/capture-agent.md`, `AUDIO_STYLE.md`;
 - `schemas/` contracts;
-- `runs/<run-id>/source.md`, `episode.md`, `RECORDING_PLAN.md`,
+- `runs/neo-build-log/<YYYY-MM-DD[-slug]>/source.md`, `episode.md`, `RECORDING_PLAN.md`,
   `capture-tour.json`, and `CAPTURE_REVIEW.md`.
 
-Runtime state does **not** belong in the project tree. Write Codex transcripts,
-command output, preview server logs, capture diagnostics, temporary JSON, and
-other run artifacts to the ignored Neo-root directory:
-
-`../logs/neo-build-log/<episode>/<run-id>/`
-
-Binary run media belongs under `runs/<run-id>/assets/`; the parent Neo
-`.gitignore` intentionally excludes `assets/` and media extensions. Markcut
-cache remains in ignored `.markcut/` state. Never use runtime logs as durable
-story source; promote any important conclusion back into the tracked episode
-files.
+All execution state belongs inside the dated series run at `runs/neo-build-log/<YYYY-MM-DD[-slug]>/`, including logs, diagnostics, Markcut state, captured media, review files, and final output. Only reusable project rules, agents, schemas, docs, templates, and scripts stay tracked.

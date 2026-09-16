@@ -30,7 +30,7 @@ The orchestration contract is documented in [`docs/workflow.md`](docs/workflow.m
 
 `render` compiles configured episode storyboards. `render --media --episode ep01` delegates that episode to Markcut and validates the resulting video before recording success.
 
-All real production content—series/story state, characters, locations, episodes, prompts instantiated for a run, generated media, caches, reviews, and outputs—lives under `runs/<run-id>/` and stays out of Git. The tracked project contains only the reusable engine, contracts, scripts, routing configuration, and workflow documentation.
+All real production content—series/story state, characters, locations, episodes, prompts instantiated for a run, generated media, caches, reviews, and outputs—lives under `runs/<series-name>/<YYYY-MM-DD[-slug]>/` and stays out of Git. The tracked project contains only the reusable engine, contracts, scripts, routing configuration, and workflow documentation.
 
 ## Production model
 
@@ -48,9 +48,9 @@ The top-level XChat orchestrator owns lifecycle and Event Bus consumption. Agent
 
 The workflow deliberately separates three concerns:
 
-- `runs/<run_id>/*.json`: durable business state — what is true now.
+- `runs/<series-name>/<YYYY-MM-DD[-slug]>/*.json`: durable business state — what is true now.
 - Event Bus: live telemetry — what is happening now.
-- `runs/<run-id>/generated/manifest.json` + artifact sidecars: provenance — what artifacts were produced and validated.
+- `runs/<series-name>/<YYYY-MM-DD[-slug]>/generated/manifest.json` + artifact sidecars: provenance — what artifacts were produced and validated.
 
 Do not equate command completion with business success. In particular:
 
@@ -64,7 +64,7 @@ Repairs stay inside the same run and top-level `job_id`; repair the smallest fai
 
 ## Creating the next episode
 
-A request such as “generate 004” means starting an `ep04` production run, not directly calling Agnes. The orchestrator should inspect `status` and `workflow`, create one run/job, route story creation to the configured specialist agents, append `ep04` to `runs/<run-id>/story/series.json`, create the episode's durable files, then move through generation, QA, and approval. If delivery is explicitly requested, start a separate channel-adapter job from the approved artifact.
+A request such as “generate 004” means starting an `ep04` production run, not directly calling Agnes. The orchestrator should inspect `status` and `workflow`, create one run/job, route story creation to the configured specialist agents, append `ep04` to `runs/<series-name>/<YYYY-MM-DD[-slug]>/story/series.json`, create the episode's durable files, then move through generation, QA, and approval. If delivery is explicitly requested, start a separate channel-adapter job from the approved artifact.
 
 See [`docs/workflow.md`](docs/workflow.md) for Mermaid diagrams of the routing layers, state machine, continuity chain, QA loop, Event Bus lifecycle, and delivery verification flow.
 

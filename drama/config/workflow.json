@@ -51,9 +51,9 @@
   ],
   "runtime_state": {
     "root": "runs",
-    "run_file": "runs/<run_id>/run.json",
-    "episode_file": "runs/<run_id>/<episode>.json",
-    "principle": "state files record durable business truth; runs/<run-id>/generated/manifest.json remains artifact-stage provenance"
+    "run_file": "runs/<series-name>/<YYYY-MM-DD[-slug]>/run.json",
+    "episode_file": "runs/<series-name>/<YYYY-MM-DD[-slug]>/<episode>.json",
+    "principle": "state files record durable business truth; runs/<series-name>/<YYYY-MM-DD[-slug]>/generated/manifest.json remains artifact-stage provenance"
   },
   "stages": {
     "story": {
@@ -130,7 +130,7 @@
     "principle": "reduce generation freedom between adjacent shots instead of relying on prompt text alone"
   },
   "artifact_identity": {
-    "working_render": "runs/<run-id>/generated/video/<episode>-render.mp4",
+    "working_render": "runs/<series-name>/<YYYY-MM-DD[-slug]>/generated/video/<episode>-render.mp4",
     "delivery_name_template": "taotao-<episode>-r<revision>-<sha256_8>.mp4",
     "required_receipt_fields": [
       "episode",

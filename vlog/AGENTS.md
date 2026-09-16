@@ -9,7 +9,7 @@ Turn real phone/desktop media and real Neo work into evidence-backed short-form 
 ## Project boundary
 
 - Reusable code, docs, routing config, templates, styles, series definitions, sanitized personas, and tests are tracked here.
-- Every real production execution belongs under `runs/<run-id>/` and is ignored by Git.
+- Every real production execution belongs under `runs/<series-name>/<YYYY-MM-DD[-slug]>/` and is ignored by Git.
 - A run contains its own imported media, episode/storyboard, generated narration/BGM, workflow database, logs, previews, reviews, publish receipts, and final renders.
 - Do not create tracked top-level `episodes/`, `runtime/`, `assets/`, `output/`, or instance-specific `data/` directories.
 - Never commit personal media, voice recordings, private URLs/IDs, LAN addresses, local account paths, credentials, or unpublished content.
@@ -23,7 +23,7 @@ Vlog currently does not require project-only role files. Reusable capabilities c
 Use one run root per production execution:
 
 ```text
-runs/<run-id>/
+runs/<series-name>/<YYYY-MM-DD[-slug]>/
 ├── source-manifest.json
 ├── assets/
 ├── vlog.md

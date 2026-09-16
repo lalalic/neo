@@ -21,4 +21,4 @@ This repository is the public Neo monorepo: root orchestration rules, reusable a
 Nested repositories such as `markcut/`, `neox/`, `wechat-bro/`, and `mac-developer-bridge/` are managed independently and are not committed through this repository.
 ## Repository model
 
-Neo is a public **monorepo**. Each Neo-owned top-level project has its own `README.md` and `AGENTS.md`; shared reusable capabilities live under `skills/`. Project executions are private/local by default and must live under `<project>/runs/<run-id>/`, which is ignored globally. See root `AGENTS.md` for the canonical project contract.
+Neo is a public **monorepo**. Each Neo-owned top-level project has its own `README.md` and `AGENTS.md`; shared reusable capabilities live under `skills/`. Project executions are private/local by default and use either `<project>/runs/<YYYY-MM-DD[-slug]>/` for standalone work or `<project>/runs/<series-name>/<YYYY-MM-DD[-slug]>/` for series work. `runs/` is ignored globally. See root `AGENTS.md` for the canonical project contract.

@@ -52,7 +52,7 @@ contract unchanged when switching identities so pacing and tone remain consisten
 From `neo-build-log/`, pass the adapter as Markcut's TTS CLI override:
 
 ```sh
-npx @lalalic/markcut render runs/<run-id>/episode.md \
+npx @lalalic/markcut render runs/neo-build-log/<YYYY-MM-DD[-slug]>/episode.md \
   --tts './audio/tts-build-log.sh "{input}" "{output}"'
 ```
 
@@ -95,7 +95,7 @@ It creates continuity between episodes without becoming the subject.
 From `neo-build-log/`:
 
 ```sh
-./scripts/audio/build-theme.sh runs/<run-id>/assets/bgm/neo-build-log-theme-v1.mp3
+./scripts/audio/build-theme.sh runs/neo-build-log/<YYYY-MM-DD[-slug]>/assets/bgm/neo-build-log-theme-v1.mp3
 ```
 
 The generator is deterministic and uses no external samples. The wrapper uses

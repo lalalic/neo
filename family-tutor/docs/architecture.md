@@ -17,4 +17,4 @@ flowchart LR
   P --> PD[Parent Discord]
 ```
 
-The reusable implementation lives in `skills/family-tutor`; this project contains only public architecture/docs; each real family instance lives under `runs/<run-id>/`.
+The reusable implementation lives in `skills/family-tutor`; this project contains only public architecture/docs; each real family instance lives under `runs/family/`.

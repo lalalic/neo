@@ -1,7 +1,7 @@
 #!/bin/zsh
 set -euo pipefail
 
-output="${1:-runs/current/assets/bgm/neo-build-log-theme-v1.mp3}"
+output="${1:-runs/neo-build-log/$(date +%Y-%m-%d)-local/assets/bgm/neo-build-log-theme-v1.mp3}"
 work="$(mktemp -d "${TMPDIR:-/tmp}/neo-build-log-bgm.XXXXXX")"
 trap 'rm -rf "$work"' EXIT
 

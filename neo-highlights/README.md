@@ -42,16 +42,14 @@ neo-highlights/
     source.md
     review.md
   runs/
-    YYYYMMDD-slug/
+    YYYY-MM-DD-slug/
       source.md
       assets/          # local source/capture media; ignored by Git
       video.md         # Markcut-authored storyboard/video source
       REVIEW.md        # evidence + Markcut preview/review record
 ```
 
-Runtime logs and temporary artifacts belong under Neo-root
-`logs/neo-highlights/<event-id>/<run-id>/`. Markcut-generated state remains in
-`.markcut/`. Both are ignored by Git.
+Runtime logs, temporary artifacts, and Markcut-generated state belong inside the same ignored run directory. A run is self-contained and portable; do not split one execution across root-level log folders.
 
 ## End-to-end flow
 
@@ -80,7 +78,7 @@ From this directory:
 ./scripts/new-highlight.sh markcut-director
 ```
 
-That creates `runs/YYYYMMDD-markcut-director/source.md` and `REVIEW.md` from
+That creates `runs/YYYY-MM-DD-markcut-director/source.md` and `REVIEW.md` from
 the templates. Fill `source.md` with facts and evidence, then ask an agent to
 make the video with `#markcut`.
 
@@ -88,15 +86,17 @@ For an event already containing media, put the files in its `assets/` folder
 and let Markcut inspect them before story decisions:
 
 ```sh
-npx @lalalic/markcut vision runs/<event-id>/assets
+npx @lalalic/markcut vision runs/<YYYY-MM-DD[-slug]>/assets
 ```
 
 Once `video.md` exists, the normal technical checks are:
 
 ```sh
-npx @lalalic/markcut verify runs/<event-id>/video.md
-npx @lalalic/markcut preview runs/<event-id>/video.md --storyboard
+npx @lalalic/markcut verify runs/<YYYY-MM-DD[-slug]>/video.md
+npx @lalalic/markcut preview runs/<YYYY-MM-DD[-slug]>/video.md --storyboard
 ```
 
 Rendering or publishing is not proof of truth. The final video must remain
 consistent with `source.md` and observable evidence.
+
+For recurring highlight series, use `./scripts/new-highlight.sh --series <series-name> <slug>`; this creates `runs/<series-name>/<YYYY-MM-DD-slug>/`. Standalone highlights stay directly under `runs/<YYYY-MM-DD-slug>/`.

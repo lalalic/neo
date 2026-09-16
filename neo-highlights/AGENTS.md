@@ -40,7 +40,7 @@ Markcut decides **how the video tells it**.
 - `source.md` is the durable truth boundary for the event.
 - Separate observed facts from interpretation/story angle.
 - Reference evidence instead of copying secrets, credentials, private prompts,
-  or unnecessary personal data into tracked files.
+  or unnecessary personal data into run files.
 - If required evidence is missing, say so and leave an explicit capture or
   sourcing need. Do not fabricate screenshots, results, quotes, or metrics.
 - Neo `events-bus` messages may nominate candidates, but completion/progress
@@ -48,7 +48,7 @@ Markcut decides **how the video tells it**.
 
 ## Runtime and media
 
-- Event media: `runs/<event-id>/assets/` (ignored by Git).
+- Event media: `runs/<YYYY-MM-DD[-slug]>/assets/` (ignored by Git).
 - Markcut cache/generated state: `.markcut/` (ignored by Git).
-- Run logs/temp diagnostics: `../logs/neo-highlights/<event-id>/<run-id>/`.
-- Durable tracked state: source, `video.md`, and review decisions only.
+- Run logs/temp diagnostics belong inside the same dated run directory.
+- `source.md`, `video.md`, review decisions, media, caches, and diagnostics are all run-local and ignored; only reusable templates/rules stay tracked.
