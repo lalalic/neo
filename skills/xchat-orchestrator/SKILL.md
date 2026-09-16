@@ -61,7 +61,7 @@ Prefer a fresh isolated worktree for the worker. Use an existing checkout only w
 
 Maintain one small machine-readable marker in a PR comment or body. Update the existing marker instead of creating duplicates:
 
-Recognize legacy `<!-- chatgpt-orchestrator:v1 ... -->` markers from older runs. When continuing such a task, preserve their recorded state and migrate the marker to `xchat-orchestrator:v1` on the next metadata update rather than creating a duplicate.
+Recognize pre-XChat orchestrator v1 metadata markers from older runs by their recorded fields and schema. When continuing such a task, preserve the recorded state and migrate the marker to `xchat-orchestrator:v1` on the next metadata update rather than creating a duplicate.
 
 ```text
 <!-- xchat-orchestrator:v1 {"repo":"owner/name","pr":1,"branch":"task/example","thread_id":"…","iteration":1,"state":"IMPLEMENTING","next":"review"} -->
