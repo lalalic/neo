@@ -86,6 +86,10 @@ python3 ~/Workspace/neo/skills/post/scripts/post.py xhs reply --note-id NOTE_ID 
 
 XHS engagement uses the signed-in **My Posts** profile list. Locate the target note there, follow that card's live `xsec` route, and operate inside the opened post detail overlay/page. That detail view is the canonical place to read comments, write a top-level comment, and reply to an existing comment. Do not construct a raw `/explore/<note_id>` URL because XHS may reject it without the live route token.
 
+### Browser tab lifecycle
+
+For Xiaohongshu, reuse an existing `xiaohongshu.com` tab for the whole operation. Navigate that tab between creator manager, publish/update, profile, and detail routes as needed. Only create a new XHS tab when no XHS tab exists at all. Do not create one tab per status check, update, comment read, or reply. A normal XHS workflow should leave at most the already-existing XHS workspace tab behind.
+
 ## Failure classification
 
 Classify before changing code:

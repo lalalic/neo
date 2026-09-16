@@ -6,6 +6,23 @@ CFG = json.load(open("__CFG_PATH__"))
 # Use js() for scalar returns only; use .click() instead of click_at_xy with rects.
 
 mode = CFG.get("mode", "image")
+
+def open_or_reuse_xhs(url):
+    current=current_tab()
+    current_url=current.get("url","")
+    if "xiaohongshu.com" in current_url:
+        target=current
+    else:
+        tabs=[t for t in list_tabs() if "xiaohongshu.com" in (t.get("url") or "")]
+        target=tabs[0] if tabs else None
+    if target:
+        switch_tab(target)
+        if page_info()["url"] != url:
+            goto_url(url)
+    else:
+        new_tab(url)
+    return current_tab()
+
 images = CFG.get("images", [CFG.get("image", "")])
 video = CFG.get("video", "")
 tags = CFG.get("tags", [])
@@ -26,7 +43,7 @@ def next_step(label):
     print(f"[{step[0]}/{total_steps}] {label}")
 
 next_step("Navigating to XHS creator...")
-new_tab("https://creator.xiaohongshu.com/publish/publish")
+open_or_reuse_xhs("https://creator.xiaohongshu.com/publish/publish")
 wait_for_load()
 time.sleep(3)
 

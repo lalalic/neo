@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Manage published Xiaohongshu notes: status, comments, comment, and reply."""
+"""Manage published Xiaohongshu notes: status, update, comments, comment, and reply."""
 from __future__ import annotations
 
 import argparse
@@ -26,6 +26,14 @@ def parser() -> argparse.ArgumentParser:
     s = sub.add_parser("status", help="Verify platform-side post status")
     target(s)
 
+    u = sub.add_parser("update", help="Edit an existing published post and optionally replace same-type media")
+    u.add_argument("--note-id", required=True, help="Stable note id of the published post to edit")
+    u.add_argument("--title", dest="new_title", help="New post title")
+    u.add_argument("--body", help="New post body")
+    media = u.add_mutually_exclusive_group()
+    media.add_argument("--video", help="Replacement video; existing post must be a video post")
+    media.add_argument("--image", action="append", dest="images", help="Replacement image; repeat for multiple images; existing post must be an image post")
+
     c = sub.add_parser("comments", help="Read recent comment/reply notifications for one post")
     target(c)
     c.add_argument("--limit", type=int, default=50)
@@ -49,6 +57,26 @@ def main() -> int:
     cfg = vars(args)
     if cfg.get("limit", 1) < 1 or cfg.get("limit", 1) > 200:
         raise SystemExit("--limit must be between 1 and 200")
+    if cfg.get("operation") == "update":
+        if not any(cfg.get(k) for k in ("new_title", "body", "video", "images")):
+            raise SystemExit("update requires at least one of --title, --body, --video, or --image")
+        if cfg.get("new_title") and len(cfg["new_title"]) > 20:
+            raise SystemExit("XHS title must be 20 characters or fewer")
+        if cfg.get("body") and len(cfg["body"]) > 1000:
+            raise SystemExit("XHS body must be 1000 characters or fewer")
+        if cfg.get("video"):
+            path = Path(cfg["video"]).expanduser().resolve()
+            if not path.is_file():
+                raise SystemExit(f"video not found: {path}")
+            cfg["video"] = str(path)
+        if cfg.get("images"):
+            resolved=[]
+            for item in cfg["images"]:
+                path = Path(item).expanduser().resolve()
+                if not path.is_file():
+                    raise SystemExit(f"image not found: {path}")
+                resolved.append(str(path))
+            cfg["images"] = resolved
 
     fd = tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False)
     try:

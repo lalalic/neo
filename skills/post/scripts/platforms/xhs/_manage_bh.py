@@ -6,14 +6,42 @@ TARGET_NOTE_ID = CFG.get("note_id")
 TARGET_TITLE = CFG.get("title")
 
 
+
+def open_or_reuse_xhs(url):
+    current=current_tab()
+    current_url=current.get("url","")
+    if "xiaohongshu.com" in current_url:
+        target=current
+    else:
+        tabs=[t for t in list_tabs() if "xiaohongshu.com" in (t.get("url") or "")]
+        target=tabs[0] if tabs else None
+    if target:
+        switch_tab(target)
+        if page_info()["url"] != url:
+            goto_url(url)
+    else:
+        new_tab(url)
+    return current_tab()
+
 def out(payload):
     print(json.dumps(payload, ensure_ascii=False, separators=(",", ":")))
 
 
 def resolve_manager_card():
-    new_tab("https://creator.xiaohongshu.com/new/note-manager")
-    wait_for_load(); time.sleep(2)
-    raw = js('Array.from(document.querySelectorAll(".note-card")).map(function(c){var t=c.querySelector(".note-card__title"); return JSON.stringify({title:t?(t.innerText||t.textContent||"").trim():"", impression:c.dataset.impression||"", text:(c.innerText||"").trim()})}).join("\\n")')
+    open_or_reuse_xhs("https://creator.xiaohongshu.com/new/note-manager")
+    try:
+        wait_for_load()
+    except Exception:
+        pass
+    raw=""
+    for _ in range(20):
+        time.sleep(.5)
+        try:
+            raw = js('Array.from(document.querySelectorAll(".note-card")).map(function(c){var t=c.querySelector(".note-card__title"); return JSON.stringify({title:t?(t.innerText||t.textContent||"").trim():"", impression:c.dataset.impression||"", text:(c.innerText||"").trim()})}).join("\\n")') or ""
+        except Exception:
+            raw=""
+        if raw:
+            break
     rows=[]
     for line in (raw or "").splitlines():
         try:
@@ -36,6 +64,11 @@ def card_exists_in_current_tab(note_id, title):
 
 
 def resolve_status(row):
+    text=row.get("text") or ""
+    if "审核中" in text:
+        return "reviewing","审核中"
+    if "未通过" in text:
+        return "rejected","未通过"
     for label,status in [("审核中","reviewing"),("未通过","rejected"),("已发布","published")]:
         clicked=js('var es=Array.from(document.querySelectorAll("*")).filter(function(e){return e.children.length===0 && e.offsetParent && (e.innerText||e.textContent||"").trim()==='+json.dumps(label)+'}); if(es.length){es[0].click();"yes"}else{"no"}')
         if clicked=="yes":
@@ -45,8 +78,114 @@ def resolve_status(row):
     return "unknown","unknown"
 
 
+def open_update_editor(row):
+    note_id=row.get("note_id") or ""
+    title=row.get("title") or ""
+    clicked=js('var cards=Array.from(document.querySelectorAll(".note-card")); var c=cards.find(function(c){var t=c.querySelector(".note-card__title"); var ttl=t?(t.innerText||t.textContent||"").trim():""; var imp=c.dataset.impression||""; return '+json.dumps(bool(note_id))+' ? imp.indexOf('+json.dumps(note_id)+')>=0 : ttl==='+json.dumps(title)+'}); if(!c){"missing-card"}else{var a=c.querySelectorAll(".note-card__action-btn")[3]; if(a){a.click();"clicked"}else{"missing-edit"}}')
+    if clicked!="clicked":
+        return None, clicked
+    for _ in range(30):
+        time.sleep(.5)
+        url=page_info()["url"]
+        if "/publish/update" in url:
+            tab=current_tab()
+            return {"update_url":url,"target_id":tab.get("targetId") or tab.get("target_id")}, None
+    return None,"update_editor_timeout"
+
+
+def editor_media_kind():
+    accepts=""
+    for _ in range(30):
+        try:
+            accepts=js('Array.from(document.querySelectorAll("input[type=file]")).map(function(e){return e.accept||""}).join("|")') or ""
+        except Exception:
+            accepts=""
+        if accepts:
+            break
+        time.sleep(.5)
+    if any(ext in accepts for ext in (".mp4",".mov",".mkv",".mpeg")):
+        return "video"
+    if any(ext in accepts for ext in (".jpg",".jpeg",".png",".webp")):
+        return "image"
+    return "unknown"
+
+
+def set_update_fields(editor):
+    target_id=editor.get("target_id")
+    if target_id:
+        switch_tab(target_id)
+    if CFG.get("video"):
+        if editor_media_kind()!="video":
+            return False,"media_type_mismatch_video"
+        upload_file('input[type=file][accept*=".mp4"],input.upload-input', CFG["video"])
+        if target_id:
+            switch_tab(target_id)
+        for _ in range(120):
+            time.sleep(1)
+            text=js('(document.body.innerText||"").slice(0,1800)') or ""
+            # Once the editor is usable again and no obvious upload-progress copy is visible,
+            # proceed; final publish button enabled state is checked below.
+            if "上传中" not in text and "处理中" not in text:
+                break
+    if CFG.get("images"):
+        if editor_media_kind()!="image":
+            return False,"media_type_mismatch_image"
+        selector='input[type=file][accept*=".jpg"],input[type=file][accept*=".jpeg"],input[type=file][accept*=".png"]'
+        # Browser-harness upload_file accepts one file per call; replacing one image is
+        # enough for current Vlog use. Multiple-image update remains explicit and bounded.
+        first=True
+        for image in CFG["images"]:
+            upload_file(selector, image)
+            if target_id:
+                switch_tab(target_id)
+            time.sleep(1.5)
+            first=False
+    if target_id:
+        switch_tab(target_id)
+    if CFG.get("new_title") is not None:
+        fill_input('input[placeholder="填写标题会有更多赞哦"]', CFG["new_title"], clear_first=True, timeout=20)
+    if CFG.get("body") is not None:
+        fill_input('.tiptap.ProseMirror,[contenteditable=true]', CFG["body"], clear_first=True, timeout=20)
+    return True,None
+
+
+def submit_update():
+    # Upload processing can keep the publish control disabled for a while. Wait for
+    # the real control to become enabled rather than failing immediately.
+    clicked=False
+    for _ in range(180):
+        try:
+            state=js('var b=Array.from(document.querySelectorAll("button,[role=button]")).find(function(e){return e.offsetParent && (e.innerText||e.textContent||"").trim()==="发布"}); if(!b){"missing"}else if(b.disabled || (b.getAttribute("aria-disabled")||"false")==="true"){"disabled"}else{b.click();"clicked"}')
+            if state=="clicked":
+                clicked=True
+                break
+            if state=="missing":
+                nodes=cdp("Accessibility.getFullAXTree")["nodes"]
+                target=next((n for n in nodes if (n.get("role") or {}).get("value")=="button" and (n.get("name") or {}).get("value")=="发布" and n.get("backendDOMNodeId")),None)
+                if target:
+                    obj=cdp("DOM.resolveNode", backendNodeId=target["backendDOMNodeId"])["object"]["objectId"]
+                    value=cdp("Runtime.callFunctionOn", objectId=obj, functionDeclaration='function(){if(this.disabled||this.getAttribute("aria-disabled")==="true")return "disabled";this.click();return "clicked"}', returnByValue=True)["result"].get("value")
+                    if value=="clicked":
+                        clicked=True
+                        break
+        except Exception:
+            pass
+        time.sleep(1)
+    if not clicked:
+        return False,"publish_button_missing_or_disabled"
+    for _ in range(30):
+        time.sleep(1)
+        try:
+            url=js('location.href') or ""
+            if "/publish/success" in url or "published=true" in url:
+                return True,None
+        except Exception:
+            pass
+    return False,"update_submit_unverified"
+
+
 def own_profile_url():
-    new_tab("https://www.xiaohongshu.com")
+    open_or_reuse_xhs("https://www.xiaohongshu.com")
     time.sleep(3)
     href=js('var a=Array.from(document.querySelectorAll("a[href*=\\"/user/profile/\\"]")).find(function(a){return (a.innerText||a.textContent||"").trim()==="我"}); a?a.href:""')
     return href or None
@@ -138,6 +277,30 @@ if OP=="status":
     status,label=resolve_status(row)
     out({"ok":True,"operation":"status","note_id":row.get("note_id"),"title":row.get("title"),"status":status,"status_label":label,"card_text":row.get("text")})
     raise SystemExit(0)
+
+if OP=="update":
+    editor,err=open_update_editor(row)
+    if err:
+        out({"ok":False,"operation":"update","error":err,"note_id":row.get("note_id"),"title":row.get("title")}); raise SystemExit(5)
+    ok,err=set_update_fields(editor)
+    if not ok:
+        out({"ok":False,"operation":"update","error":err,"note_id":row.get("note_id"),"title":row.get("title"),"media_kind":editor_media_kind()}); raise SystemExit(4)
+    submit_ok,submit_err=submit_update()
+    # XHS edits sometimes apply without a stable success redirect. Platform-side
+    # note-manager verification is authoritative and prevents unsafe blind retries.
+    open_or_reuse_xhs("https://creator.xiaohongshu.com/new/note-manager")
+    try:
+        wait_for_load()
+    except Exception:
+        pass
+    time.sleep(2)
+    new_title=CFG.get("new_title") or row.get("title")
+    found=card_exists_in_current_tab(row.get("note_id"), new_title)
+    if found:
+        out({"ok":True,"operation":"update","note_id":row.get("note_id"),"old_title":row.get("title"),"title":new_title,"media_replaced":bool(CFG.get("video") or CFG.get("images")),"verified":True,"submit_redirect_verified":submit_ok})
+        raise SystemExit(0)
+    out({"ok":False,"operation":"update","error":submit_err or "platform_verification_failed","note_id":row.get("note_id"),"old_title":row.get("title"),"title":new_title,"verified":False})
+    raise SystemExit(8)
 
 route,err=open_post_detail(row.get("note_id"))
 if err:
