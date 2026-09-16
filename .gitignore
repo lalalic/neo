@@ -21,7 +21,6 @@ extensions/
 /logs/
 
 # Nested project repositories managed independently
-vlog/
 mac-developer-bridge/
 markcut/
 neox/
