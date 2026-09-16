@@ -44,3 +44,10 @@ A series can span many runs, but one run must not write into another run's direc
 3. Build the run-local storyboard and audio plan.
 4. Verify observable storyboard/render behavior rather than trusting command exit status.
 5. Keep publication separate and require explicit authorization through `skills/post`.
+
+## Project learnings
+
+- 2026-09-12: Verify service discovery and the actual handoff API separately. Bonjour advertisement can succeed while required queue endpoints are still missing.
+- 2026-09-12: A shared handoff worker must validate Vlog intent before claiming a queue item; peek first so it does not consume another producer's work.
+- 2026-09-12: An empty, correctly filtered media search is a valid auditable outcome. Do not invent a Vlog or widen the user's requested time window just to produce content.
+- 2026-09-16: Keep one production execution self-contained in its dated run. Splitting episodes, SQLite state, renders, logs, and publish receipts across top-level folders makes provenance and cleanup harder.

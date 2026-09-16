@@ -52,3 +52,8 @@ Markcut decides **how the video tells it**.
 - Markcut cache/generated state: `.markcut/` (ignored by Git).
 - Run logs/temp diagnostics belong inside the same dated run directory.
 - `source.md`, `video.md`, review decisions, media, caches, and diagnostics are all run-local and ignored; only reusable templates/rules stay tracked.
+
+## Project learnings
+
+- 2026-09-16: A completed task or Event Bus terminal event is only a candidate signal, not proof that something deserves a highlight. Require audience value plus observable evidence before investing in a video.
+- 2026-09-16: Keep highlight truth/evidence decisions in this project and let Markcut own story direction; duplicating a second director framework creates conflicting production rules.

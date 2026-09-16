@@ -88,3 +88,8 @@ Tracked project state belongs here:
   `capture-tour.json`, and `CAPTURE_REVIEW.md`.
 
 All execution state belongs inside the dated series run at `runs/neo-build-log/<YYYY-MM-DD[-slug]>/`, including logs, diagnostics, Markcut state, captured media, review files, and final output. Only reusable project rules, agents, schemas, docs, templates, and scripts stay tracked.
+
+## Project learnings
+
+- 2026-09-12: A build-log story should be derived from observable work, not reconstructed as a generic tutorial. The first screen needs the concrete gap/payoff, while branding supports rather than delays the hook.
+- 2026-09-12: `episode.md` is not evidence that required footage exists. Keep recording planning, actual capture, and `CAPTURE_REVIEW.md` as a gate before treating an episode as Markcut-ready.
