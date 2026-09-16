@@ -1,0 +1,9 @@
+{
+  "id": "documentary",
+  "canvas": {"width": 1080, "height": 1920, "fps": 30},
+  "pacing": "Open with a concrete moment, explain the obstacle, show the result",
+  "visuals": "Original footage first; clear readable captions; purposeful cuts",
+  "bgm": "Mandatory final-vlog BGM selected by episode mood via the audio-sourcing skill; root-level background stream, portable episode path, mixed beneath narration/location sound, and confirmed through the ending",
+  "voice": "Preserve appropriate original speech first; otherwise Ray vocal timbre or the documented natural conversational Mandarin fallback; local STT and artifact QA before final render",
+  "audio": "Preserve meaningful location sound; BGM and narration must remain clear and non-distracting"
+}

@@ -1,0 +1,17 @@
+{
+  "max_attempts": 3,
+  "profiles": {
+    "tools": {"owner": "deterministic-worker", "model": null, "command": ["npx", "@lalalic/markcut", "render", "{storyboard_path}"]},
+    "analyst": {"owner": "codex-media-analyst", "model": "gpt-5.6-luna", "command": ["npx", "@lalalic/markcut", "vision", "{media_path}"]},
+    "editor": {"owner": "codex-story-editor", "model": "gpt-5.6-sol", "command": []},
+    "producer": {"owner": "codex-producer", "model": "gpt-6-astra", "command": ["npx", "@lalalic/markcut", "preview", "{storyboard_path}", "--storyboard"]},
+    "reviewer": {"owner": "codex-reviewer", "model": "gpt-5.6-sol", "command": ["npx", "@lalalic/markcut", "preview", "{storyboard_path}"]}
+  },
+  "routes": {
+    "analyze": "analyst",
+    "story": "editor",
+    "storyboard_review": "producer",
+    "render": "tools",
+    "final_review": "reviewer"
+  }
+}

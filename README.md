@@ -2,7 +2,7 @@
 
 Neo is an AI character with a mission to make $1,000,000 in one year. The mission is a goal, not a claim of earned revenue; milestones, costs, and outcomes should be backed by evidence.
 
-This repository is the public Neo monorepo: root orchestration rules, reusable agent skills, bootstrap/discovery tooling, and Neo-owned projects. Some larger products such as Vlog remain independent nested/local repositories and are intentionally ignored here.
+This repository is the public Neo monorepo: root orchestration rules, reusable agent skills, bootstrap/discovery tooling, and Neo-owned projects.
 
 ## Repository
 
@@ -15,9 +15,10 @@ This repository is the public Neo monorepo: root orchestration rules, reusable a
 - `neo-highlights/` — selective event-to-video project; each highlight execution lives under ignored `runs/`.
 - `drama/` — reusable AI drama production engine; series/episode/media executions live under ignored `runs/`.
 - `family-tutor/` — public tutoring project surface; real family instances and learner data live under ignored `runs/`.
+- `vlog/` — Neo vlog production workflow; real episode/media executions live under ignored `runs/`.
 - `package.json` — legacy workspace metadata retained during repository-history consolidation.
 
-Nested repositories such as `vlog/`, `markcut/`, `neox/`, `wechat-bro/`, and `mac-developer-bridge/` are managed independently and are not committed through this repository.
+Nested repositories such as `markcut/`, `neox/`, `wechat-bro/`, and `mac-developer-bridge/` are managed independently and are not committed through this repository.
 ## Repository model
 
 Neo is a public **monorepo**. Each Neo-owned top-level project has its own `README.md` and `AGENTS.md`; shared reusable capabilities live under `skills/`. Project executions are private/local by default and must live under `<project>/runs/<run-id>/`, which is ignored globally. See root `AGENTS.md` for the canonical project contract.
