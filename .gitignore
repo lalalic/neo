@@ -36,3 +36,6 @@ web-chatgpt/
 skills/devmacbridge/.state/
 skills/devmacbridge/devmacbridge/
 skills/devmacbridge/devmacbridge-tunnel.log
+
+# Vlog runtime output
+/vlog/runtime/
