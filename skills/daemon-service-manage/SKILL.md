@@ -28,17 +28,18 @@ Resolve unknown hosts or services from existing environment registries or config
 
 ## PM2 lifecycle
 
-Prefer a globally installed `pm2` when available; otherwise use `npx pm2` so a global installation is not required. Keep the supervised command in the foreground. Examples include:
+Use `npx pm2` for PM2 operations so lifecycle management does not depend on a locally installed repository copy of PM2. More importantly, a PM2-managed application service must run from its distributable package launcher rather than directly from a developer checkout: use `npx` for Node/npm services and `uvx` for Python/PyPI services. Do not restart a managed production/persistent service by invoking source files from a local repository path.
+
+Keep the supervised package command in the foreground. Examples include:
 
 ```bash
-npx pm2 start server.py --name api --interpreter python3
-npx pm2 start app.js --name web
-npx pm2 start ./run-service.sh --name worker
 npx pm2 start npx --name cli-service -- <package-or-command> <args>
 npx pm2 start uvx --name python-service -- <package-or-command> <args>
 ```
 
 `npx` and `uvx` launchers are valid when the launched program remains a foreground, long-running process. Do not use `nohup`, a naked `&`, or an agent session as the service owner.
+
+When updating or restarting an existing service, inspect `npx pm2 describe <service>` first. If its executable/script points into a local repository checkout, replace that PM2 definition with the package-backed `npx`/`uvx` command, verify the process is healthy, then `npx pm2 save`. A code checkout is for development and inspection; it is not the executable source of truth for a PM2-managed service.
 
 Common lifecycle operations:
 

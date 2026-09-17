@@ -15,7 +15,7 @@ At session start, follow `xchat-bootstrap.md`. When Project/Space instructions p
 
 ## Capability discovery
 
-At the start of each orchestration task, discover the currently available local skills by running `~/Workspace/neo/skills/xchat-orchestrator/scripts/list-xchat-skills`. Select auxiliary skills from their names and descriptions, then read only the relevant `SKILL.md` files before planning or delegating work. Do not assume a fixed skill set and do not preload every skill body. Explicit `#skill-name` selections from the user take precedence.
+At the start of each orchestration task, discover the currently available local skills by running `~/Workspace/neo/skills/xchat-orchestrator/scripts/list-xchat-skills --project <local_path>` when a project is bound. Project-local skills under `<local_path>/skills/` override same-named shared/global skills for that project. Select auxiliary skills from their names and descriptions, then read only the relevant `SKILL.md` files before planning or delegating work. Do not assume a fixed skill set and do not preload every skill body. Explicit `#skill-name` selections from the user take precedence.
 
 ## Operating invariants
 
@@ -152,6 +152,20 @@ Use an explicit merge policy for each task:
 
 Never merge around required checks or review rules. Never force-push or modify the default branch directly. Other terminal outcomes are intentional close, blocked, or awaiting user decision.
 
+### 7. Verify post-merge package publication
+
+After **every merged PR**, inspect the repository's GitHub Actions workflows for an npm publication path (for example a workflow that runs `npm publish`, publishes through npm provenance, or otherwise releases the repository's npm package). If no npm-publish workflow exists, record that the check is not applicable.
+
+When an npm-publish workflow exists:
+
+- identify the package name and expected version from the merged repository state; do not guess from the PR title or branch;
+- verify the post-merge publish workflow/run reached its expected terminal state;
+- query the npm registry for the published package version and compare it with the merged package version;
+- treat a missing, stale, or mismatched registry version as an unresolved post-merge release issue and report the exact workflow/run and observed npm version;
+- do not report the orchestration as fully complete until this publication check has been performed, even though the PR itself is already merged.
+
+Use the public registry/package metadata for verification rather than trusting a successful local build or a workflow trigger alone.
+
 ## Recovery and stopping rules
 
 - Retry transport failures without counting them as implementation iterations.
@@ -161,4 +175,4 @@ Never merge around required checks or review rules. Never force-push or modify t
 - Do not change global Codex approval or sandbox settings merely to force a run.
 ## Completion report
 
-At each loop boundary, report the PR URL/number, state, head SHA, worker thread, validations, unresolved risks, and next action. At termination, state clearly whether the PR was merged, intentionally closed, blocked, awaiting the user, or left ready for merge.
+At each loop boundary, report the PR URL/number, state, head SHA, worker thread, validations, unresolved risks, and next action. At termination, state clearly whether the PR was merged, intentionally closed, blocked, awaiting the user, or left ready for merge. For a merged PR, also report whether npm publication was applicable and, when applicable, the expected merged package version, observed npm registry version, and publish-workflow result.

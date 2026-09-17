@@ -2,6 +2,9 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { Agent } from 'undici';
+
+function repoDataDir(){ return path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../../../../devmacbridge/.state'); }
 
 function readConfigEnv(file){
   try {
@@ -46,20 +49,27 @@ function resolveToken(){
 }
 
 export class DevMacBridgeChatGPT{
-  constructor(config){ this.config=config; }
-  async turn({prompt,conversationId,attachments=[]}){
+  constructor(config){
+    this.config=config;
+    const maxRuntimeSeconds=this.config.maxRuntimeSeconds||600;
+    const transportTimeoutMs=(maxRuntimeSeconds+30)*1000;
+    this.dispatcher=new Agent({
+      headersTimeout:transportTimeoutMs,
+      bodyTimeout:transportTimeoutMs,
+      connectTimeout:30000,
+    });
+  }
+  async turn({prompt,projectId,tabId,attachments=[]}){
     const payload={prompt,transport:'runtime',model:this.config.model||'gpt-5-6-thinking',thinking_effort:this.config.thinkingEffort||'standard',max_runtime_seconds:this.config.maxRuntimeSeconds||600};
     if(Array.isArray(attachments)&&attachments.length){
       payload.attachments=attachments.slice(0,4).map(a=>({url:a.url,name:a.name,mime_type:a.mimeType||a.contentType||'',size:Number(a.size||0)}));
     }
-    if(conversationId) payload.conversation_id=conversationId; else if(this.config.projectId) payload.project_id=this.config.projectId;
-    if(Number.isInteger(this.config.tabId)) payload.tab_id=this.config.tabId;
-    const response=await fetch(ENDPOINT,{method:'POST',headers:{authorization:`Bearer ${resolveToken()}`,'content-type':'application/json'},body:JSON.stringify(payload),signal:AbortSignal.timeout((payload.max_runtime_seconds+30)*1000)});
+    payload.project_id=projectId;
+    payload.tab_id=tabId;
+    const response=await fetch(ENDPOINT,{method:'POST',headers:{authorization:`Bearer ${resolveToken()}`,'content-type':'application/json'},body:JSON.stringify(payload),signal:AbortSignal.timeout((payload.max_runtime_seconds+30)*1000),dispatcher:this.dispatcher});
     const text=await response.text(); let body; try{body=JSON.parse(text)}catch{body={raw:text}}
     if(!response.ok) throw new Error(`DevMacBridge ChatGPT request failed (${response.status}): ${body.error||body.message||text}`);
-    const conversationIdOut=body.conversation_id||body.conversationId||body.result?.conversation_id||body.result?.conversationId;
     const answer=body.assistant_text||body.text||body.output_text||body.response||body.result?.assistant_text||body.result?.text||body.result?.output_text||body.result?.response;
-    if(!conversationIdOut) throw new Error(`ChatGPT backend returned no conversation id: ${JSON.stringify(body)}`);
     if(typeof answer!=='string'||!answer) throw new Error(`ChatGPT backend returned no assistant text: ${JSON.stringify(body)}`);
     const outputs=(body.assistant_outputs||body.outputs||body.result?.assistant_outputs||[]).filter(o=>o&&typeof o==='object').map(o=>({
       type:o.type||'file',
@@ -68,6 +78,14 @@ export class DevMacBridgeChatGPT{
       size:Number(o.size||0),
       data:typeof o.data_base64==='string'?Buffer.from(o.data_base64,'base64'):null,
     })).filter(o=>o.data?.length);
-    return {conversationId:conversationIdOut,text:answer,outputs};
+    return {text:answer,outputs};
   }
+  async newThread({projectId,tabId}){
+    const endpoint=new URL('/experimental/chatgpt/new-thread',ENDPOINT).href;
+    const payload={project_id:projectId,tab_id:tabId,model:this.config.model||'gpt-5-6-thinking',thinking_effort:this.config.thinkingEffort||'standard'};
+    const response=await fetch(endpoint,{method:'POST',headers:{authorization:`Bearer ${resolveToken()}`,'content-type':'application/json'},body:JSON.stringify(payload),signal:AbortSignal.timeout(30000)});
+    const text=await response.text(); let body; try{body=JSON.parse(text)}catch{body={raw:text}}
+    if(!response.ok||body.error) throw new Error(`DevMacBridge new-thread navigation failed: ${body.error||text}`);
+  }
+
 }

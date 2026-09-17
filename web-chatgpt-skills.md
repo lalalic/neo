@@ -1,1 +1,0 @@
-skills/xchat-orchestrator/xchat-bootstrap.md

@@ -3,13 +3,27 @@
 Use `../skills/family-tutor/SKILL.md` as the reusable tutoring/runtime contract.
 
 - This top-level directory is a public Neo project definition, not a family instance.
-- Use `runs/family/` as the private series root. Put actual tutoring sessions/exports under `runs/family/<YYYY-MM-DD[-slug]>/`.
-- Keep real learner names/details, Discord IDs, ChatGPT conversation/project IDs, transcripts, parent observations, secrets, and runtime state inside the run or another private store.
+- Use `runs/family/` as the private family root. Keep each learner's durable tutoring memory at `runs/family/<child-id>/AGENTS.md`; ChatGPT owns tutor threads/history, so do not mirror them into local session folders.
+- Keep real learner names/details, Discord IDs, ChatGPT Project/tab bindings, parent observations, secrets, and learner memory inside the run or another private store. Do not persist ChatGPT conversation ids or transcripts locally.
 - Do not copy instance-specific configuration into tracked `config/` or `data/` directories.
 - The project `AGENTS.md` is the entrypoint; tutoring behavior itself is reusable skill behavior, so it stays in `skills/family-tutor/` rather than a duplicated project `agents/` role.
 
+## NotebookLM-assisted study contract
+
+- The project-local `skills/notebooklm/SKILL.md` is the preferred NotebookLM integration for Family Tutor. Use it when NotebookLM can materially improve source-grounded learning, study planning, review, practice, or synthesis.
+- Neo remains the child-facing tutor and relationship layer. NotebookLM is a background study/research capability; do not hand the conversation over to NotebookLM or dump raw NotebookLM output into the child channel.
+- Good uses include turning course/school materials into a focused study plan, explaining a topic from supplied sources, generating revision notes, practice questions or quizzes, identifying likely gaps, producing summaries/mind maps, and preparing an exam-review sequence.
+- Organize notebooks around a learner and subject/course when persistent source context is useful rather than putting every subject for a child into one giant notebook. Keep the notebook mapping and any learner-specific identifiers in private runtime state under `runs/family/`, not in tracked project files.
+- Neo decides when NotebookLM is useful, selects the relevant sources/notebook, checks the result against the learner's actual question and level, and rewrites it into a concise, age-appropriate tutoring response.
+- Prefer active learning over passive content generation: use NotebookLM output to help Neo ask questions, create short exercises, check understanding, plan spaced review, and adapt the next step from the child's response.
+- Treat NotebookLM as source-grounded assistance, not as authority. For consequential current facts such as course prerequisites, school policies, admissions requirements, or deadlines, verify against current official sources before presenting them as fact.
+- Minimize learner personal data sent to NotebookLM. Prefer course materials and de-identified learning context; do not upload private child conversations, family secrets, Discord identifiers, or unrelated personal data merely to improve a study answer.
+- NotebookLM authentication/session state is local runtime state and must never be committed to this public repository. Follow the credential-handling rules in the project-local NotebookLM skill.
+
 ## Project learnings
 
+- 2026-09-16: End-to-end tutor verification must exercise the real Discord child channels with distinct per-child probe messages and verify the reply returns to the same channel; service status or direct backend probes alone are not sufficient. Keep child backend work isolated so one stalled child turn cannot block another child.
+- 2026-09-16: Long-lived tutoring continuity should be anchored in one child-specific ChatGPT Project plus that child folder's `AGENTS.md`; let ChatGPT own rotating thread history and rollover an overlong/noisy thread only after durable learner facts are captured in memory.
 - 2026-09-16: Keep the child-facing tutor conversational, but move longitudinal mastery, review timing, recurring misconceptions, and learner commitments into deterministic state. Proactive nudges should be justified by learner state or an open commitment, not by timers alone.
 - 2026-09-16: Children speak more naturally when child tutor channels are not routine parent-observation channels. Parent visibility should be concise learning telemetry, with minimum-necessary escalation for serious safety concerns.
 - 2026-09-16: Academic/career direction works better as longitudinal discovery through small experiments and reflections than repeated pressure to choose a university, major, or career early.
@@ -24,7 +38,7 @@ Use `../skills/family-tutor/SKILL.md` as the reusable tutoring/runtime contract.
 - Serious safety concerns are the exception. When escalation is necessary, surface only the minimum information needed for a parent to respond appropriately.
 - Discord permissions should mirror tutor-context separation: one child must not gain access to another child's tutor channel, and parent roles should not implicitly grant access to child tutor channels.
 - Dedicated child and parent channels should treat ordinary messages as addressed to Neo; `@Neo` should not be required there. Mentions are only needed in shared/general channels where routing is ambiguous.
-- Maintain one persistent tutor conversation per child channel and a separate persistent parent/Neo conversation for the parent channel. Do not merge these contexts.
+- Maintain one persistent child-specific ChatGPT Project per child channel, with rotating threads inside that Project when needed. Keep parent/Neo context separate; do not merge child contexts or parent context.
 
 ## Child-facing privacy transparency contract
 

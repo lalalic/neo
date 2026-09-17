@@ -4,7 +4,7 @@ Family Tutor is the Neo monorepo project surface for a parent-visible Discord tu
 
 ## Create a private/local instance
 
-All real family configuration, learner details, Discord identifiers, transcripts, and runtime state belong under an ignored run directory:
+All real family configuration, learner details, Discord identifiers, and durable learner memory belong under an ignored run directory:
 
 ```bash
 node ../skills/family-tutor/scripts/init-instance.mjs runs/family
@@ -15,4 +15,4 @@ node ../skills/family-tutor/scripts/service.mjs start runs/family
 
 Never place real family configuration in tracked project paths. `runs/` is the execution boundary for this public monorepo project.
 
-Tutoring sessions and exported session artifacts belong under `runs/family/<YYYY-MM-DD[-slug]>/`; private family configuration/state may live at the `runs/family/` series root because it spans sessions.
+Each learner keeps one durable `runs/family/<child-id>/AGENTS.md`. ChatGPT owns tutor threads and conversation history; Family Tutor does not duplicate them into local session/transcript directories or a conversation state file.

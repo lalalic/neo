@@ -4,50 +4,28 @@ This is the account-level bootstrap for **XChat**: web AI orchestrators such as 
 
 Keep this bootstrap small. Do not copy the whole local skill library or repository context into account-level Custom Instructions. Resolve project context and load skills dynamically through DevMacBridge.
 
-## Mandatory bootstrap skills
-
-### events-bus
-
-Canonical local skill:
-
-`/Users/chengli/Workspace/neo/skills/events-bus/SKILL.md`
-
-**Load `events-bus` first in every orchestration session.** For every delegated or background job, follow its bundled `references/protocol.md`: create and propagate one `job_id`, establish event consumption before launching sub-agents, and proactively surface `visibility=user` milestones, blocked/failure states, resource-release events such as `phone.released`, and completion in the current web conversation. A progress event that exists only in a child process log is not user-visible progress and does not satisfy the contract.
-
 ## Bootstrap workflow
 
 Run this workflow at the start of **every XChat session**, before the first project-dependent answer:
 
-1. Read `/Users/chengli/Workspace/neo/MISSION.md` so Neo's identity and mission are available.
-2. Load `/Users/chengli/Workspace/neo/skills/events-bus/SKILL.md` before delegating/background work.
-3. Read `/Users/chengli/Workspace/neo/skills/xchat-orchestrator/SKILL.md`.
-4. If Project/Space instructions contain `xchat_project`, resolve it with:
+1. Read `/Users/chengli/Workspace/neo/skills/xchat-orchestrator/SKILL.md`.
+2. Determine the project folder identifier. Prefer an explicit `xchat_project` from Project/Space instructions; otherwise use the current Project/Space name itself. Project/Space names are expected to match a folder under `~/Workspace` (a nested project may use its workspace-relative path). Resolve it with:
 
-   `/Users/chengli/Workspace/neo/skills/xchat-orchestrator/scripts/list-xchat-projects --resolve <xchat_project>`
+   `/Users/chengli/Workspace/neo/skills/xchat-orchestrator/scripts/list-xchat-projects --resolve <project-folder>`
 
-5. Bind the returned `local_path`, `git_root`, and `repo` to the conversation. The binding stays sticky unless the user explicitly switches project/path/repository.
-6. Read every path returned in `context_files` in order. This includes applicable `AGENTS.md` files from Git root down to the project folder, followed by the project folder’s `README.md` when present. Then read task-relevant docs/source on demand; do not recursively ingest the whole project.
-7. Run `/Users/chengli/Workspace/neo/skills/xchat-orchestrator/scripts/list-xchat-skills` to discover non-bootstrap local skills. Load only relevant `SKILL.md` files. Explicit `#skill-name` selection takes precedence.
+3. Bind the returned `local_path`, `git_root`, and `repo` to the conversation. The binding stays sticky unless the user explicitly switches project/path/repository.
+4. Read every path returned in `context_files` in order. The resolver builds the same instruction hierarchy used by local agents: `~/.agents/AGENTS.md`, then every existing `AGENTS.md` from `~/Workspace` down through the bound project folder, skipping parent levels that do not contain one, followed by the project folder's `README.md` when present. Then read task-relevant docs/source on demand; do not recursively ingest the whole project.
+5. Run `/Users/chengli/Workspace/neo/skills/xchat-orchestrator/scripts/list-xchat-skills --project <local_path>` to discover non-bootstrap skills. The active skill layers are `~/.agents/skills/*`, `~/Workspace/neo/skills/*`, and `<local_path>/skills/*`. If a project-local skill has the same `name` as a Neo or global skill, the project-local skill wins; Neo skills win over `~/.agents` skills. Load only relevant `SKILL.md` files. Explicit `#skill-name` selection takes precedence. The global/project `AGENTS.md` instructions decide which discovered skills are mandatory for a task; the bootstrap must not duplicate those behavioral policies.
 
-The user must not need to repeat the project name, repository, or local folder when `xchat_project` was injected by the current Project/Space.
+The user must not need to repeat the project name, repository, or local folder. The web host's current Project/Space identity is project context, not user task text.
 
 ## Project binding
 
 There is **no central project registry file**. Project discovery is dynamic and derives truth from the filesystem and Git.
 
-Each ChatGPT/Grok/Claude Project or Space should put one stable workspace-relative folder identifier in its own Project Instructions:
+Name each ChatGPT/Grok/Claude Project or Space after its folder under `~/Workspace`, for example `neox`. For nested projects, use the workspace-relative path such as `neo/neo-build-log`. An explicit `xchat_project` in Project/Space instructions remains an override when the web-visible project name cannot match the folder.
 
-```text
-xchat_project: neox
-```
-
-For a nested project, use its path relative to `~/Workspace`:
-
-```text
-xchat_project: neo/neo-build-log
-```
-
-`list-xchat-projects` scans `~/Workspace` for project directories that already contain `AGENTS.md` and/or `README.md`, finds the nearest enclosing Git checkout, and reads that checkout's `origin`. It returns the project context root and canonical repository identity without maintaining a duplicate JSON mapping.
+`list-xchat-projects` resolves the Project/Space's workspace-relative folder under `~/Workspace`, finds the nearest enclosing Git checkout, and reads that checkout's `origin`. A project folder does not need its own `AGENTS.md` or `README.md`; missing instruction levels are skipped while existing parent instructions are inherited. Discovery output also lists folders that already expose project context files. No duplicate JSON registry is maintained.
 
 A unique folder basename such as `neo-build-log` is accepted as a convenience, but the workspace-relative path is canonical and avoids ambiguity.
 
@@ -56,7 +34,7 @@ The automatic chain is:
 ```text
 account Custom Instructions
   -> read xchat-bootstrap.md at session start
-  -> Project/Space injects xchat_project
+  -> current Project/Space name (or explicit xchat_project override)
   -> list-xchat-projects --resolve
   -> local_path + git_root + repo
   -> applicable AGENTS.md chain + project README.md
