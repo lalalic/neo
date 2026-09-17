@@ -12,7 +12,7 @@ const config=loadConfig(configFile);
 const discordToken=process.env.DISCORD_BOT_TOKEN?.trim();
 if(!discordToken) throw new Error('DISCORD_BOT_TOKEN is required');
 
-const backend=new CodexBackend(config.codex,{instanceDir:path.dirname(config.configPath)});
+const backend=new CodexBackend(config.codex,{instanceDir:path.resolve(path.dirname(config.configPath),'..')});
 const childByChannel=new Map(config.children.map(c=>[c.discordChannelId,c]));
 function agentsFile(child){ return path.resolve(path.dirname(config.configPath),'..',child.id,'AGENTS.md'); }
 function ensureAgents(child){ const file=agentsFile(child); if(fs.existsSync(file)) return; fs.mkdirSync(path.dirname(file),{recursive:true}); fs.writeFileSync(file,`# ${child.name} Agent Context\n\n`,{mode:0o600}); }
@@ -93,7 +93,7 @@ async function handleChildMessage(message,child){
     const imageAttachments=collectImageAttachments(message);
     const onlyImages=nonAudioAttachments.length>0 && imageAttachments.length===nonAudioAttachments.length;
     if(!onlyImages) throw error;
-    console.warn(`[family-tutor] ${child.id} direct ChatGPT attachment failed; using local image fallback`,error?.message||error);
+    console.warn(`[family-tutor] ${child.id} direct Codex attachment failed; using local image fallback`,error?.message||error);
     let imageContext;
     try{ imageContext=await understandImages(imageAttachments,incoming); }
     catch(visionError){

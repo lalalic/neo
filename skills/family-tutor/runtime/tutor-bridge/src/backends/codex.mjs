@@ -43,10 +43,11 @@ async function downloadImages(attachments){
 export class CodexBackend{
   constructor(config,{instanceDir}){this.config=config; this.instanceDir=instanceDir;}
   stateFile(childId){return path.join(this.instanceDir,childId,'.codex-thread.json');}
+  memoryFile(childId){return path.join(this.instanceDir,childId,'AGENTS.md');}
   readThread(childId){try{return JSON.parse(fs.readFileSync(this.stateFile(childId),'utf8')).threadId||null}catch{return null}}
   writeThread(childId,threadId){const file=this.stateFile(childId); fs.mkdirSync(path.dirname(file),{recursive:true}); const tmp=`${file}.tmp`; fs.writeFileSync(tmp,JSON.stringify({threadId},null,2)+'\n',{mode:0o600}); fs.renameSync(tmp,file);}
   async turn({childId,prompt,attachments=[]}){
-    const memoryFile=path.join(this.instanceDir,childId,'AGENTS.md');
+    const memoryFile=this.memoryFile(childId);
     const memory=fs.existsSync(memoryFile)?fs.readFileSync(memoryFile,'utf8'):'';
     const full=`You are the private tutor for child ${childId}. Use the durable learner context below. Never reveal runtime control markers.\n\n<DURABLE_LEARNER_CONTEXT>\n${memory}\n</DURABLE_LEARNER_CONTEXT>\n\n${prompt}`;
     const thread=this.readThread(childId);

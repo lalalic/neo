@@ -18,8 +18,14 @@ test('parses Codex JSONL thread and assistant message events',()=>{
 test('persists one thread per child and rollover clears only that child',async()=>{
   const instance=fs.mkdtempSync(path.join(os.tmpdir(),'family-tutor-test-'));
   const backend=new CodexBackend({}, {instanceDir:instance});
+  fs.mkdirSync(path.join(instance,'sammy'),{recursive:true});
+  fs.mkdirSync(path.join(instance,'config','sammy'),{recursive:true});
+  fs.writeFileSync(path.join(instance,'sammy','AGENTS.md'),'real learner memory');
+  fs.writeFileSync(path.join(instance,'config','sammy','AGENTS.md'),'wrong config memory');
+  assert.equal(backend.memoryFile('sammy'),path.join(instance,'sammy','AGENTS.md'));
   backend.writeThread('sammy','thread-s'); backend.writeThread('maggie','thread-m');
   assert.equal(backend.readThread('sammy'),'thread-s');
+  assert.equal(fs.readFileSync(backend.memoryFile('sammy'),'utf8'),'real learner memory');
   await backend.newThread({childId:'sammy'});
   assert.equal(backend.readThread('sammy'),null);
   assert.equal(backend.readThread('maggie'),'thread-m');
