@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "clippers/schemas/run-state-v1.schema.json",
+  "title": "Clippers Run State",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "run_id", "source_id", "state", "artifacts"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "run_id": {"type": "string", "minLength": 1},
+    "source_id": {"type": "string", "minLength": 1},
+    "state": {"enum": ["initiated", "source_authorized", "source_researched", "evidence_extracted", "candidates_extracted", "ranked", "qa_passed", "qa_failed", "markcut_ready", "blocked", "failed"]},
+    "artifacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["authorization"],
+      "properties": {
+        "authorization": {"type": "string", "minLength": 1},
+        "research": {"type": "string", "minLength": 1},
+        "transcript": {"type": "string", "minLength": 1},
+        "candidates": {"type": "string", "minLength": 1},
+        "selection": {"type": "string", "minLength": 1},
+        "qa": {"type": "string", "minLength": 1},
+        "markcut_spec": {"type": "string", "minLength": 1}
+      }
+    },
+    "blocked_reason": {"type": ["string", "null"]},
+    "history": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["state", "at", "actor"],
+        "properties": {
+          "state": {"type": "string", "minLength": 1},
+          "at": {"type": "string", "format": "date-time"},
+          "actor": {"type": "string", "minLength": 1},
+          "artifact": {"type": "string"}
+        }
+      }
+    }
+  }
+}

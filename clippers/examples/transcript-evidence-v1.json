@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "source_id": "authorized_example_source",
+  "segments": [
+    {
+      "start_ms": 9800,
+      "end_ms": 15400,
+      "text": "The rule is simple: prove where the moment begins.",
+      "speaker": "host"
+    },
+    {
+      "start_ms": 15500,
+      "end_ms": 40200,
+      "text": "If the timestamp is wrong, the edit is built on nothing.",
+      "speaker": "host"
+    }
+  ]
+}

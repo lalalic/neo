@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "qa_id": "qa_2026_09_17_example",
+  "source_id": "authorized_example_source",
+  "reviewer": "reality-checker",
+  "independent": true,
+  "decision": "pass",
+  "checks": [
+    {"id": "authorization_and_provenance", "result": "pass", "evidence": "Authorization and research refer to the same source."},
+    {"id": "timestamp_evidence", "result": "pass", "evidence": "Transcript and visual observations fit the candidate bounds."},
+    {"id": "ranking_eligibility", "result": "pass", "evidence": "Candidate status and weighted score match rubric-v1."},
+    {"id": "editorial_coherence", "result": "pass", "evidence": "Hook, payoff, and media support describe the same interval."}
+  ],
+  "blockers": []
+}
