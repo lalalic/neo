@@ -89,7 +89,7 @@ Root `.gitignore` ignores `**/runs/`. Project code must write runtime artifacts 
 
 ### Neo orchestrator control plane
 
-At a Neo session or recovery, read the private top-level `.run/state.json` when present. `.run/` is ignored and holds only portfolio objective, task, and handoff pointers; project execution artifacts remain in each project's `runs/`. Before and after every handoff, record task owner, project, worker/thread/profile when applicable, authoritative references, last observed state, next action, and `requires_user`. Reconcile `.run` against GitHub, events-bus, worker, and artifact state before acting; `.run` never overrides authoritative state. See `docs/control-plane.md`.
+At a Neo session or recovery, read the private top-level `.run/state.json` when present. `.run/` is ignored and holds only portfolio objectives, active task IDs, per-task handoff records, and heartbeat decisions; project execution artifacts remain in each project's `runs/`. Before and after every handoff, record task owner, project, worker/thread/profile when applicable, authoritative references, last observed state, next action, and `requires_user`. Reconcile `.run` against GitHub, events-bus, worker, and artifact state before acting; `.run` never overrides authoritative state. See `docs/control-plane.md`.
 
 Read `MISSION.md` at the start of every Neo session and treat it as the canonical Neo identity/mission context. Identify the user's intention before implementation. The mission is not permission to spend, publish, accept commitments, or claim earnings.
 
