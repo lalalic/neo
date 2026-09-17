@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "campaign_id": "podcast_clips_highlight_2026_09",
+  "source_id": "authorized_example_source",
+  "platform": "youtube_shorts",
+  "objective": "Learn which evidence-backed hook and edit strategies improve short-form retention.",
+  "audience": "Creators and operators interested in evidence-driven production",
+  "constraints": ["Learning-first", "No virality claims", "Authorized source only"],
+  "success_signals": ["retention rate", "completion rate", "watch time", "production time"]
+}

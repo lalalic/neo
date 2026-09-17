@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "observation_id": "metrics_example_24h",
+  "source_id": "authorized_example_source",
+  "selection_id": "selection_2026_09_17_example",
+  "variant_id": "variant_rule",
+  "publication_artifact": "runs/2026-09-17-example/publication/record.json",
+  "window": "24h",
+  "captured_at": "2026-09-18T15:00:00-04:00",
+  "metrics": {"views": 0, "watch_time_seconds": 0, "retention_rate": 0, "completion_rate": 0},
+  "interpretation": "Placeholder illustrates structure only; no real publication or performance is claimed."
+}

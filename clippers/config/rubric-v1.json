@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "rubric_id": "clippers-rubric-v1",
-  "version": 1,
+  "version": 2,
   "score_semantics": "relative_hypothesis_not_virality_claim",
   "hard_gates": [
     "valid_source_authorization",
@@ -15,15 +15,21 @@
   "limits": {
     "minimum_duration_ms": 5000,
     "maximum_duration_ms": 90000,
-    "weighted_score_scale": [0, 2]
+    "weighted_score_scale": [0, 2],
+    "text_candidates_target": 20,
+    "text_candidates_max": 25,
+    "ranked_shortlist_max": 10,
+    "experiment_variants": 3
   },
   "criteria": [
-    {"id": "hook_first_two_seconds", "weight": 0.28, "scale": [0, 2], "measurement": "Whether the first two seconds establish a concrete, understandable reason to keep watching."},
-    {"id": "narrative_payoff", "weight": 0.24, "scale": [0, 2], "measurement": "Whether the selected interval contains a complete claim, reveal, resolution, or useful takeaway."},
-    {"id": "attention_intensity", "weight": 0.18, "scale": [0, 2], "measurement": "Observed speech emphasis, reaction, conflict, surprise, motion, or demonstrable emotional shift."},
-    {"id": "visual_audio_support", "weight": 0.14, "scale": [0, 2], "measurement": "Whether picture and sound support the point and remain legible without private context."},
-    {"id": "platform_fit", "weight": 0.10, "scale": [0, 2], "measurement": "Whether format, duration, context, and call to action match the named target."},
-    {"id": "accessibility", "weight": 0.06, "scale": [0, 2], "measurement": "Whether caption/visual plan supports muted viewing and accessibility requirements."}
+    {"id": "hook_first_two_seconds", "weight": 0.22, "scale": [0, 2], "measurement": "Whether the first 1-3 seconds establish a concrete reason to keep watching."},
+    {"id": "standalone_completeness", "weight": 0.16, "scale": [0, 2], "measurement": "Whether the clip is understandable without private or long-form context."},
+    {"id": "payoff", "weight": 0.16, "scale": [0, 2], "measurement": "Whether it contains a complete claim, reveal, resolution, or useful takeaway."},
+    {"id": "campaign_platform_fit", "weight": 0.14, "scale": [0, 2], "measurement": "Whether topic, duration, and framing fit the authorized campaign/platform."},
+    {"id": "visual_support", "weight": 0.11, "scale": [0, 2], "measurement": "Whether picture, speakers, crops, and text support the point in 9:16."},
+    {"id": "emotion_reaction", "weight": 0.09, "scale": [0, 2], "measurement": "Observed emphasis, reaction, surprise, conflict, or emotional shift."},
+    {"id": "editability", "weight": 0.07, "scale": [0, 2], "measurement": "Whether clean cut boundaries, subjects, captions, and pacing make the edit feasible."},
+    {"id": "risk_control", "weight": 0.05, "scale": [0, 2], "measurement": "Higher means legal, contextual, privacy, accessibility, and claim risks are controlled."}
   ],
-  "ranking_rule": "weighted_sum_on_0_to_2_scale_then_descending_with_stable_candidate_id_tiebreak"
+  "ranking_rule": "weighted_sum_on_0_to_2_scale_then_descending_with_candidate_id_tiebreak; scores_are_relative_hypotheses"
 }

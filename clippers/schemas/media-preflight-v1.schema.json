@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "clippers/schemas/media-preflight-v1.schema.json",
+  "title": "Clippers Media Preflight",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "source_id", "normalized_media", "duration_ms", "video", "audio", "frame_index", "normalization"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "source_id": {"type": "string", "minLength": 1},
+    "normalized_media": {"type": "string", "minLength": 1},
+    "duration_ms": {"type": "integer", "minimum": 1},
+    "video": {
+      "type": "object", "additionalProperties": false,
+      "required": ["width", "height", "fps"],
+      "properties": {"width": {"type": "integer", "minimum": 1}, "height": {"type": "integer", "minimum": 1}, "fps": {"type": "number", "exclusiveMinimum": 0}}
+    },
+    "audio": {
+      "type": "object", "additionalProperties": false,
+      "required": ["codec", "channels", "sample_rate_hz"],
+      "properties": {"codec": {"type": "string", "minLength": 1}, "channels": {"type": "integer", "minimum": 1}, "sample_rate_hz": {"type": "integer", "minimum": 1}}
+    },
+    "frame_index": {
+      "type": "object", "additionalProperties": false,
+      "required": ["keyframes_artifact", "thumbnails_artifact", "cadence_ms"],
+      "properties": {"keyframes_artifact": {"type": "string", "minLength": 1}, "thumbnails_artifact": {"type": "string", "minLength": 1}, "cadence_ms": {"type": "integer", "minimum": 1}}
+    },
+    "normalization": {
+      "type": "object", "additionalProperties": false,
+      "required": ["command", "streaming_faststart"],
+      "properties": {"command": {"type": "string", "minLength": 1}, "streaming_faststart": {"type": "boolean"}}
+    }
+  }
+}

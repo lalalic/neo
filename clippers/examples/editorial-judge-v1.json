@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "source_id": "authorized_example_source",
+  "selection_id": "selection_2026_09_17_example",
+  "platform": "youtube_shorts",
+  "rubric_id": "clippers-rubric-v1",
+  "rubric_version": 2,
+  "campaign_brief_artifact": "runs/2026-09-17-example/campaign/brief.json",
+  "transcript_artifact": "runs/2026-09-17-example/evidence/transcript.json",
+  "entries": [{
+    "entry_id": "entry_001", "candidate_id": "candidate_example_001", "vision_artifact": "runs/2026-09-17-example/vision/vision.json",
+    "scores": {"hook_first_two_seconds": 1.7, "standalone_completeness": 1.8, "payoff": 1.8, "campaign_platform_fit": 1.5, "visual_support": 1.7, "emotion_reaction": 1.2, "editability": 1.8, "risk_control": 1.8},
+    "risk_notes": "No unsupported claims, privacy issue, or ambiguous context observed.",
+    "rationale": "The spoken rule, complete consequence, and clear camera subject form a self-contained learning payoff.",
+    "edit_recommendation": "Start at sentence onset, punch in at 15.5s, and caption only the observed key words."
+  }]
+}

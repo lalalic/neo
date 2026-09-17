@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "clippers/schemas/learning-record-v1.schema.json",
+  "title": "Clippers Learning Record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "learning_id", "source_id", "selection_id", "metrics_artifacts", "observations", "hypothesis_updates", "next_experiment"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "learning_id": {"type": "string", "minLength": 1},
+    "source_id": {"type": "string", "minLength": 1},
+    "selection_id": {"type": "string", "minLength": 1},
+    "metrics_artifacts": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+    "observations": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 12}},
+    "hypothesis_updates": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 12}},
+    "next_experiment": {"type": "string", "minLength": 12}
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "clippers/schemas/publication-authorization-v1.schema.json",
+  "title": "Clippers Publication Authorization",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "authorization_id", "source_id", "selection_id", "variant_id", "candidate_id", "platform", "authorizer", "authorized_at", "human_decision"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "authorization_id": {"type": "string", "minLength": 1},
+    "source_id": {"type": "string", "minLength": 1},
+    "selection_id": {"type": "string", "minLength": 1},
+    "variant_id": {"type": "string", "minLength": 1},
+    "candidate_id": {"type": "string", "minLength": 1},
+    "platform": {"type": "string", "minLength": 1},
+    "authorizer": {"type": "string", "minLength": 1},
+    "authorized_at": {"type": "string", "format": "date-time"},
+    "human_decision": {"const": "explicit_publish"},
+    "artifact_id": {"type": "string", "minLength": 1}
+  }
+}

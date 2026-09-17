@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "source_id": "authorized_example_source",
+  "selection_id": "selection_2026_09_17_example",
+  "input_media": "runs/2026-09-17-example/media/normalized.mp4",
+  "handoffs": [{
+    "variant_id": "variant_rule", "candidate_id": "candidate_example_001", "qa_id": "qa_example_rule", "target_platform": "youtube_shorts",
+    "source_interval": {"start_ms": 9800, "end_ms": 40200},
+    "hook_strategy": "Open with the complete rule.",
+    "edit_directives": ["Cut at sentence boundaries.", "Punch in at 15.5 seconds.", "Caption observed key words only."],
+    "deliverable": "9:16 preview",
+    "evidence_artifacts": ["runs/2026-09-17-example/vision/vision.json", "runs/2026-09-17-example/evidence/transcript.json"]
+  }]
+}

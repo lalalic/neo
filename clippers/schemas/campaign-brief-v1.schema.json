@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "clippers/schemas/campaign-brief-v1.schema.json",
+  "title": "Clippers Campaign Brief",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "campaign_id", "source_id", "platform", "objective", "audience", "success_signals"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "campaign_id": {"type": "string", "minLength": 1},
+    "source_id": {"type": "string", "minLength": 1},
+    "platform": {"type": "string", "minLength": 1},
+    "objective": {"type": "string", "minLength": 12},
+    "audience": {"type": "string", "minLength": 3},
+    "constraints": {"type": "array", "items": {"type": "string"}},
+    "success_signals": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 3}}
+  }
+}

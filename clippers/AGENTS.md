@@ -1,41 +1,35 @@
 # Clippers Project Rules
 
-Follow the root Neo `AGENTS.md` plus this contract. This project accepts only sources for which an authorizing human has supplied explicit, auditable rights for the exact use requested.
-
-## Delegation boundary
-
-- **Clippers owns**: source authorization and provenance, timestamped evidence intake, candidate moments, run state, rubric application, selection memory, QA readiness, and Markcut handoff.
-- **Global specialists own discipline-specific review**: use installed professional agents rather than recreating their prompts.
-- **Markcut owns**: story direction, preview, verification, editing execution, and rendering after an approved Clippers handoff.
-- **Neo `post` owns**: publication only after the user explicitly asks to publish.
+Follow root Neo `AGENTS.md`. Clippers accepts only explicitly authorized sources and promotes stages by artifacts, never prose claims or successful tool exits.
 
 ## Specialist routing
 
-- `short-video-editing-coach` is the **primary editorial specialist** for clip construction, pacing, captions, audio, visual support, and Markcut-spec readiness. Inspection found no better installed replacement for Clippers editorial ownership.
-- `video-optimization-specialist`, `social-media-strategist`, and `tiktok-strategist` review platform fit and audience-facing packaging for applicable targets.
-- `visual-storyteller` and `studio-producer` are optional supports for narrative clarity and production sequencing.
-- `growth-hacker` and `tracking-measurement-specialist` own experiment hypotheses, measurement definitions, and post-delivery learning. They do not certify pre-publication virality.
-- `reality-checker` is the mandatory independent gate for authorization, provenance, evidence, ranking eligibility, unsupported claims, and readiness.
-- Use `understand-image-video` and `tts-stt-sts` as evidence utilities; validate timestamps and claims rather than trusting model output.
-- Use `browser-harness` only for source/provenance research. It does not establish rights by itself.
-- Use `events-bus` for observable lifecycle progress, `model-router` for bounded specialist cost/routing, and `post` only for explicit publication authorization.
+- Bounded text/candidate extraction is a cheap filter, not editorial authority.
+- `understand-image-video` backs the model-agnostic structured Vision contract. Prefer the installed/local capability first. Changing the model is routing/configuration and requires benchmarking on a fixed evaluation set.
+- `short-video-editing-coach` is the primary Editorial Judge and editorial authority for pacing, construction, editability, risk notes, and recommendations.
+- `visual-storyteller`, `video-optimization-specialist`, and `tiktok-strategist` are consulted for narrative clarity or platform-specific fit; they do not replace the Judge.
+- `reality-checker` is the independent QA/promotion gate. Author and reviewer should differ when practical.
+- `tracking-measurement-specialist` owns 24h/72h/7d interpretation and learning. `growth-hacker` may frame experiments but does not certify performance.
+- Markcut owns director execution and rendering only after structured handoff. Neo `post` owns external publishing only after explicit human authorization.
+- `tts-stt-sts` and `browser-harness` are bounded utilities for transcript/provenance inputs. `events-bus` reports progress, and `model-router` selects configured execution profiles.
+
+Do not copy global agent prompts into project agents. Project-local authority is limited to rights intake, evidence and state contracts, selection rubric application, and handoff identity.
 
 ## State lifecycle
 
-`initiated` → `source_authorized` → `source_researched` → `evidence_extracted` → `candidates_extracted` → `ranked` → `qa_passed` → `markcut_ready`.
+`initiated → source_authorized → media_preflight → transcript_extracted → text_candidates_extracted → vision_reviewed → judge_ranked → variants_planned → qa_passed → markcut_ready`.
 
-`qa_failed` is a recovery state; it proves no Markcut-ready spec can be promoted. Remediation must create a new QA decision, return through `ranked`, and preserve accepted upstream artifacts. `blocked` records a hard stop that requires new human input. `failed` records terminal failure for the attempt.
+QA failure enters `qa_failed`, then must return to `judge_ranked → variants_planned` with a new QA decision. Later states are `publication_authorized → published → metrics_24h → metrics_72h → metrics_7d → learning_recorded`. Preserve history, accepted upstream artifacts, and exact artifact identities during repair. Never overwrite authorization, evidence, Judge, selection, QA, or publication history.
 
-Run repair stays inside the same run and top-level job. Repair the smallest failed gate, retain prior artifact versions, and do not overwrite authorization or evidence history. State advancement must point to the artifact that justifies the new state.
+## Evidence contract
 
-## Selection contract
+Text candidates use transcript evidence only. Vision evidence is structured and timestamped; it describes subjects, emotion, events, narrative, hook, weaknesses, vertical crop feasibility, and production opportunities without selecting a winner. Editorial Judge combines campaign brief, transcript, candidate, and Vision, assigns rubric scores plus rationale/edit guidance, and ranks hypotheses. QA verifies source rights, timestamp alignment, ranking, coherence, and all identity bindings before Markcut.
 
-Apply `config/rubric-v1.json` exactly. Scores are testable hypotheses about viewer attention and completion, not virality claims. Hard gates are authorization/provenance, bounded valid timestamps, source-matched evidence, eligible candidate status, complete measured editorial fields, and independent QA. Excluded candidates may remain in evidence but cannot enter a ranked selection.
+## Publication and learning
 
-## Publication boundary
-
-Preparation, preview, draft, and render requests are not publication authorization. Publishing requires an explicit user instruction, a specific ready spec/artifact identity, destination/platform scope, and the Neo `post` workflow. Engagement and replies remain deferred unless separately requested.
+The user must explicitly authorize publication of a specific artifact/variant/platform. Record destination identity and actual 24h/72h/7d metrics. Learning may revise hypotheses and benchmark plans; it must not silently rewrite old run evidence or claim business success.
 
 ## Project learnings
 
-- 2026-09-17: Evidence-backed candidate selection must remain project-owned because installed editors, platform strategists, and media tools support judgment but do not enforce source rights, timestamp provenance, or ranking eligibility.
+- 2026-09-17: Keep editorial selection separate from cheap candidate extraction and structured Vision description; expensive multimodal review after slicing protects cost while preserving evidence.
+- 2026-09-17: A Markcut handoff is an identity-bound JSON contract, not an arbitrary text brief; QA must bind source, selection, candidate, variant, and QA IDs.

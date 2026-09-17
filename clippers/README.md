@@ -1,42 +1,50 @@
 # Clippers
 
-Clippers turns one **explicitly authorized** long-form source into ranked, evidence-backed short-form clip specifications for Markcut. It is a capability experiment, not permission to use arbitrary copyrighted media.
+Clippers is a concrete, recoverable pipeline that turns one explicitly authorized long-form source into evidence-backed clip variants and measurable learning. It is a capability lab for Neo's video-growth judgment, not an automatic cutting service.
 
 ## Owned outcome
 
-Repeatedly produce source-aware, independently reviewed clip decisions with a defensible chain from source authorization through timestamped evidence, candidate selection, ranking, and QA. Clippers owns source rights intake, moment evidence, editorial judgment, run state, and selection learning. It does not own generic video direction or publication.
+Clippers owns source authorization/provenance, cheap text-first candidate discovery, structured Vision evidence, independent editorial judgment, variant planning, run state, QA identity, Markcut handoff, performance evidence, and learning. It does not own generic model prompting, rendering, external publishing, or copied global specialist prompts.
 
-## Pipeline
+## Stage contract
 
-1. **Authorized source** — explicit rights intake and machine-readable authorization.
-2. **Source research/provenance** — source identity, rights context, campaign constraints, and observable metadata.
-3. **Timestamped transcript/media evidence** — validated speech and media observations tied to source milliseconds.
-4. **Candidate moments** — evidence-backed, bounded moments with measured editorial attributes.
-5. **Specialist selection/ranking** — `rubric-v1` hypotheses ordered by configured weights.
-6. **Independent QA** — `reality-checker` reviews evidence, eligibility, claims, and readiness.
-7. **Markcut-ready specs** — approved handoff records only; rendering is a later gate.
+Every state advance must name the artifact that proves it. Paths must remain inside the dated run.
 
-Rendering and publication are later gates. No public posting, upload, campaign, or engagement action occurs without explicit user authorization through the Neo `post` flow.
+| Stage | Input | Promotion artifact | Owner |
+|---|---|---|---|
+| `source_authorized` | user-provided local source and rights record | `source-authorization-v1` | source intake |
+| `media_preflight` | normalized source + research/provenance | `media-preflight-v1` and ffmpeg-derived frame index | media utility |
+| `transcript_extracted` | normalized audio | `transcript-evidence-v1` | `tts-stt-sts` utility |
+| `text_candidates_extracted` | transcript slices | `text-candidates-v1`, target about 20 | bounded extraction |
+| `vision_reviewed` | candidates only | `vision-editorial-understanding-v1` JSON | `understand-image-video`, model-agnostic |
+| `judge_ranked` | campaign brief + transcript + candidate + Vision | `editorial-judge-v1` then `ranked-selection-v2` (about 10) | `short-video-editing-coach` |
+| `variants_planned` | ranked selection | `variant-plan-v1`, exactly 3 for the first experiment | primary editor with platform supports |
+| `qa_failed` / `qa_passed` | variants and evidence | `qa-decisions-v1` | `reality-checker` independently |
+| `markcut_ready` | passing QA identities | `markcut-handoffs-v1` JSON | Markcut receives a structured handoff |
+| `publication_authorized` | explicit human instruction | `publication-authorization-v1` | human + Neo `post` |
+| `published` | authorized publish result | `publication-record-v1` | Neo `post` |
+| metrics/learning | destination observations | 24h/72h/7d `metrics-observation-v1`, then `learning-record-v1` | `tracking-measurement-specialist` |
 
-## Run layout
+The first Podcast Clips Highlight campaign is learning-first: about ten ranked candidates, three materially different variants, human review before publication, recorded rationale, and real 24h/72h/7d observations. Scores and performance do not establish revenue or virality claims.
 
-Every execution stays under `runs/<YYYY-MM-DD[-slug]>/`, following the root Neo run contract. Inputs, transcripts, candidate JSON, QA records, specs, media, caches, logs, and generated outputs are private run artifacts. Durable rules, schemas, examples, and scripts remain tracked.
+## Hard rules
 
-## First source contract
+- Authorization must be current, exact, permit clip creation, and bind every campaign/variant/Markcut/publish platform.
+- A text candidate cites only transcript evidence. Vision runs only after the bounded shortlist and never makes the final selection.
+- Every Vision/Judge claim must resolve to a run artifact and fit candidate and transcript bounds.
+- State history must use legal adjacent transitions. QA failure repairs through `judge_ranked`, not directly to pass.
+- Ranking follows configured descending weighted score with stable `candidate_id` tie-break.
+- QA and Markcut bind source, selection, candidate, variant, and QA IDs.
+- Publishing is external and never inferred from render/preview/draft intent.
 
-The orchestrator must provide:
+## Orchestrator input
 
-- an existing local media path inside the dated run;
-- completed `schemas/source-authorization-v1.schema.json` with source, authorizer, scope, restrictions, authorization evidence, and expiry when applicable;
-- source title/URL/producer and campaign objective when the source is authorized;
-- whether transcription and redistribution are permitted for the requested platform.
+Provide an existing local media file, complete source authorization, source provenance, campaign brief, allowed platforms, restrictions/expiry, and the dated run ID. Missing rights, ambiguous platform scope, unavailable media, or unusable timestamps are hard stops.
 
-Missing authorization, ambiguous redistribution rights, unavailable local media, or absent word/sentence-level timestamps are hard stops—not prompts to substitute arbitrary media.
-
-## Contract commands
+## Commands
 
 ```bash
 python3 clippers/scripts/clippers.py validate authorization clippers/examples/source-authorization-v1.json
 python3 clippers/scripts/clippers.py status runs/<YYYY-MM-DD[-slug]>
-python3 -m unittest discover -s clippers/tests
+python3 -m unittest discover -s clippers/tests -v
 ```

@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "clippers/schemas/publication-record-v1.schema.json",
+  "title": "Clippers Publication Record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "publication_id", "source_id", "selection_id", "variant_id", "platform", "published_at", "destination_url"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "publication_id": {"type": "string", "minLength": 1},
+    "source_id": {"type": "string", "minLength": 1},
+    "selection_id": {"type": "string", "minLength": 1},
+    "variant_id": {"type": "string", "minLength": 1},
+    "platform": {"type": "string", "minLength": 1},
+    "published_at": {"type": "string", "format": "date-time"},
+    "destination_url": {"type": "string", "minLength": 1}
+  }
+}

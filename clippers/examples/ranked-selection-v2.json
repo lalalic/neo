@@ -1,0 +1,10 @@
+{
+  "schema_version": 2,
+  "selection_id": "selection_2026_09_17_example",
+  "source_id": "authorized_example_source",
+  "platform": "youtube_shorts",
+  "rubric_id": "clippers-rubric-v1",
+  "rubric_version": 2,
+  "judge_artifact": "runs/2026-09-17-example/selection/judge.json",
+  "rankings": [{"rank": 1, "candidate_id": "candidate_example_001", "judge_entry_id": "entry_001", "vision_artifact": "runs/2026-09-17-example/vision/vision.json", "status": "eligible", "weighted_score": 1.671}]
+}
