@@ -64,7 +64,9 @@ Because Neo is public, secrets, personal data, customer data, private identifier
 
 - `AGENTS.md` is the project routing/discovery entrypoint.
 - Project-only roles live in `<project>/agents/<role>.md`.
-- Cross-project reusable capabilities live in `skills/<skill>/`.
+- Project-only capabilities may live in `<project>/skills/<skill>/`; they are visible only when that project is the active XChat project.
+- Cross-project reusable capabilities live in root `skills/<skill>/`.
+- If a project-local skill and a shared/global skill declare the same skill `name`, the project-local skill takes precedence within that project.
 - Do not duplicate a reusable skill as a project agent.
 - A project must not depend on another project's `runs/` directory.
 
@@ -95,7 +97,7 @@ For delegated or background work, use the `events-bus` contract in `skills/event
 
 Audit sources: current user request, the accepted architecture in `vlog/docs/architecture.md`, installed Markcut/NeoX skills, local executable help, and observable artifacts. Do not replace an observable result with a successful exit code.
 
-For browser verification use `agent-browser` connected to the user's CDP port 64086 and close only the new testing tab. Keep manual assets in `assets/`; preserve Markcut caches. Use `npx` or `uvx` for missing Node/Python applications. Use `apply_patch` for edits.
+For browser verification use `agent-browser` connected to the user's CDP port 64086 and close only the new testing tab. Keep manual assets in `assets/`; preserve Markcut caches. Use `npx` or `uvx` for missing Node/Python applications. Any PM2-managed service must execute/restart from its package launcher (`npx` for npm/Node, `uvx` for PyPI/Python), not from a local repository checkout. Use `apply_patch` for edits.
 
 Publishing is handled through `skills/post` when the user explicitly asks to post or publish; a prepare/preview/draft request is not publication authorization. Engagement remains deferred unless explicitly requested. Keep personal media, workflow databases, generated media, and credentials out of Git.
 

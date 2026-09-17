@@ -5,9 +5,10 @@
   "type": "module",
   "scripts": {
     "start": "node src/index.mjs",
-    "check": "node --check src/index.mjs && node --check src/config.mjs && node --check src/backends/devmacbridge.mjs && node --check src/vision.mjs"
+    "check": "node --check src/index.mjs && node --check src/config.mjs && node --check src/backends/devmacbridge.mjs && node --check src/vision.mjs && node --check src/asr.mjs"
   },
   "dependencies": {
-    "discord.js": "^14.27.0"
+    "discord.js": "^14.27.0",
+    "undici": "^6.28.1"
   }
 }

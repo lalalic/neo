@@ -14,7 +14,7 @@ SKIP_DIRS = {
     ".git", ".backup", ".venv", "venv", "node_modules", "dist", "build",
     ".next", "target", "vendor", ".cache", ".state", "coverage",
 }
-MAX_DEPTH = 4
+MAX_DEPTH = 8
 
 
 def git_root(path: Path) -> Path | None:
@@ -74,14 +74,19 @@ def projects() -> list[dict[str, object]]:
             continue
         rel = path.relative_to(WORKSPACE).as_posix()
 
-        # Preserve normal AGENTS.md inheritance: repo-root instructions first,
-        # then any more-specific AGENTS.md files down to the project folder.
+        # Match local agent instruction inheritance. Global instructions come
+        # first, followed by every existing AGENTS.md from ~/Workspace down to
+        # the bound project. Missing levels are simply skipped.
         context_paths: list[str] = []
+        global_agents = Path.home() / ".agents" / "AGENTS.md"
+        if global_agents.is_file():
+            context_paths.append(str(global_agents))
+
         chain: list[Path] = []
         cur = path
-        while True:
+        while cur.is_relative_to(WORKSPACE):
             chain.append(cur)
-            if cur == root:
+            if cur == WORKSPACE:
                 break
             cur = cur.parent
         for folder in reversed(chain):
@@ -115,6 +120,43 @@ def resolve(rows: list[dict[str, object]], query: str) -> dict[str, object]:
     if len(basename) > 1:
         keys = ", ".join(str(r["xchat_project"]) for r in basename)
         raise SystemExit(f"ambiguous xchat project '{query}'; use workspace-relative path: {keys}")
+
+    # A Project/Space may identify a real Workspace folder before that folder
+    # has its own AGENTS.md or README.md. Resolve the explicit relative folder
+    # directly; inherited context still comes from existing parent files.
+    candidate = (WORKSPACE / query.strip().strip("/")).resolve()
+    if candidate.is_dir() and candidate.is_relative_to(WORKSPACE):
+        root = git_root(candidate)
+        if root is not None:
+            repo, origin = origin_repo(root)
+            if repo:
+                context_paths: list[str] = []
+                global_agents = Path.home() / ".agents" / "AGENTS.md"
+                if global_agents.is_file():
+                    context_paths.append(str(global_agents))
+                chain: list[Path] = []
+                cur = candidate
+                while cur.is_relative_to(WORKSPACE):
+                    chain.append(cur)
+                    if cur == WORKSPACE:
+                        break
+                    cur = cur.parent
+                for folder in reversed(chain):
+                    agents = folder / "AGENTS.md"
+                    if agents.is_file():
+                        context_paths.append(str(agents))
+                readme = candidate / "README.md"
+                if readme.is_file():
+                    context_paths.append(str(readme))
+                return {
+                    "xchat_project": candidate.relative_to(WORKSPACE).as_posix(),
+                    "name": candidate.name,
+                    "local_path": str(candidate),
+                    "git_root": str(root),
+                    "repo": repo,
+                    "origin": origin,
+                    "context_files": context_paths,
+                }
     raise SystemExit(f"xchat project not found: {query}")
 
 

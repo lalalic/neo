@@ -3,49 +3,39 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import re
 
 import yaml
 from pathlib import Path
 
 HOME = Path.home()
-ROOTS = [
-    HOME / ".agents" / "skills",
-    HOME / "Workspace" / "neo" / "skills",
-    HOME / "Workspace",
-]
-SKIP_DIRS = {".git", "node_modules", ".venv", "venv", "dist", "build", ".next", "target", "vendor"}
+GLOBAL_SKILLS = HOME / ".agents" / "skills"
+NEO_SKILLS = HOME / "Workspace" / "neo" / "skills"
+ROOTS = [GLOBAL_SKILLS, NEO_SKILLS]
 
-
-def candidate_files() -> list[Path]:
+def candidate_files(project_root: Path | None = None) -> list[Path]:
     found: dict[str, Path] = {}
 
     # Canonical agent/Neo registries: direct skill children.
-    for root in ROOTS[:2]:
+    for root in ROOTS:
         if root.is_dir():
             for p in root.glob("*/SKILL.md"):
                 try:
-                    found[str(p.resolve())] = p.resolve()
+                    found[str(p.resolve())] = p
                 except OSError:
                     pass
 
-    # Project-owned skills: */skills/*/SKILL.md, including projects nested under neo.
-    workspace = ROOTS[2]
-    if workspace.is_dir():
-        for dirpath, dirnames, filenames in os.walk(workspace):
-            dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS and not d.startswith(".")]
-            pdir = Path(dirpath)
-            if "SKILL.md" not in filenames:
-                continue
-            # Only treat files whose parent is a child of a directory named `skills` as skills.
-            if pdir.parent.name != "skills":
-                continue
-            p = pdir / "SKILL.md"
-            try:
-                found[str(p.resolve())] = p.resolve()
-            except OSError:
-                pass
+    # Project-owned skills. With an active project binding, only that project's
+    # local skills are visible. The three canonical layers are ~/.agents, Neo,
+    # and the bound project; unrelated Workspace projects are never imported.
+    if project_root is not None:
+        local_skills = project_root / "skills"
+        if local_skills.is_dir():
+            for p in local_skills.glob("*/SKILL.md"):
+                try:
+                    found[str(p.resolve())] = p
+                except OSError:
+                    pass
 
     return sorted(found.values(), key=lambda p: str(p).lower())
 
@@ -76,20 +66,28 @@ def parse_frontmatter(path: Path) -> dict[str, str] | None:
 def main() -> int:
     ap = argparse.ArgumentParser(description="Discover local skills usable by XChat orchestrators.")
     ap.add_argument("--markdown", action="store_true", help="output a compact Markdown table instead of JSON")
+    ap.add_argument("--project", help="active project root; project-local skills override same-named global skills")
     args = ap.parse_args()
 
-    parsed = [s for p in candidate_files() if (s := parse_frontmatter(p))]
+    project_root = None
+    if args.project:
+        try:
+            project_root = Path(args.project).expanduser().resolve()
+        except OSError:
+            project_root = Path(args.project).expanduser()
 
-    # One active entry per skill name. Prefer Neo-owned skills, then project-owned
-    # workspace skills, then the generic ~/.agents installation.
+    parsed = [s for p in candidate_files(project_root) if (s := parse_frontmatter(p))]
+
+    # One active entry per skill name. The active project gets first priority,
+    # then Neo-global skills, then ~/.agents.
     def priority(skill: dict[str, str]) -> tuple[int, str]:
         path = skill["path"]
         neo = str(HOME / "Workspace" / "neo" / "skills") + "/"
-        workspace = str(HOME / "Workspace") + "/"
         agents = str(HOME / ".agents" / "skills") + "/"
-        if path.startswith(neo):
+        project_skills = (str(project_root / "skills") + "/") if project_root else None
+        if project_skills and path.startswith(project_skills):
             rank = 0
-        elif path.startswith(workspace):
+        elif path.startswith(neo):
             rank = 1
         elif path.startswith(agents):
             rank = 2

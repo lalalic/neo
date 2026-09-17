@@ -36,8 +36,9 @@ try{const r=await fetch(`http://127.0.0.1:${mdbPort}/healthz`,{signal:AbortSigna
 if(fs.existsSync(config)){
   try{
     const cfg=JSON.parse(fs.readFileSync(config,'utf8'));
-    check(Boolean(cfg.chatgpt?.projectId),'ChatGPT Project id is configured');
     check(Array.isArray(cfg.children)&&cfg.children.every(c=>c.discordChannelId),'every child has a Discord channel id');
+    check(Array.isArray(cfg.children)&&cfg.children.every(c=>/^g-p-[A-Za-z0-9_-]{8,128}$/.test(c.projectId||'')),'every child has a ChatGPT Project id');
+    check(Array.isArray(cfg.children)&&cfg.children.every(c=>Number.isInteger(c.tabId)&&c.tabId>0),'every child has a dedicated ChatGPT tab id');
     check(Boolean(cfg.discord?.parentChannelId),'parent channel id is configured');
   }catch(e){check(false,`config parses: ${e.message}`)}
 }
