@@ -46,6 +46,18 @@ export function buildTutorPrompt(childId,memory,prompt,attachments=[]){
   return `${contract}${attachmentContext}\n\n${prompt}`;
 }
 
+export function buildCodexArgv({childDir,threadId=null,model=null,imageFiles=[]}){
+  const args=['exec','--json','--sandbox','read-only','--skip-git-repo-check','-C',childDir];
+  if(model) args.push('--model',model);
+  if(threadId){
+    args.push('resume',threadId);
+    for(const file of imageFiles) args.push('--image',file);
+  }else{
+    for(const file of imageFiles) args.push('--image',file);
+  }
+  return args;
+}
+
 export class CodexBackend{
   constructor(config,{instanceDir}){this.config=config; this.instanceDir=instanceDir;}
   childDir(childId){return path.join(this.instanceDir,childId);}
@@ -58,13 +70,11 @@ export class CodexBackend{
     const memory=fs.existsSync(memoryFile)?fs.readFileSync(memoryFile,'utf8'):'';
     fs.mkdirSync(this.childDir(childId),{recursive:true});
     const thread=this.readThread(childId);
-    const args=['exec','--json','--sandbox','read-only','--skip-git-repo-check','-C',this.childDir(childId)];
-    if(this.config.model) args.push('--model',this.config.model);
     let downloaded={dir:null,files:[],descriptions:[]};
     try{
       downloaded=await prepareAttachments(attachments,childId,this.childDir(childId));
-      for(const [i,file] of downloaded.files.entries()){if(String(attachments[i]?.mimeType||'').toLowerCase().startsWith('image/')) args.push('--image',file);}
-      if(thread) args.push('resume',thread);
+      const imageFiles=downloaded.files.filter((_,i)=>String(attachments[i]?.mimeType||'').toLowerCase().startsWith('image/'));
+      const args=buildCodexArgv({childDir:this.childDir(childId),threadId:thread,model:this.config.model,imageFiles});
       const result=await run(args,buildTutorPrompt(childId,memory,prompt,downloaded.descriptions),this.childDir(childId),(this.config.maxRuntimeSeconds||600)*1000+30_000);
       if(result.threadId) this.writeThread(childId,result.threadId);
       if(!result.text) throw new Error('Codex returned no assistant text');

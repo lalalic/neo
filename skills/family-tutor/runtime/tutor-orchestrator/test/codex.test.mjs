@@ -3,7 +3,15 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { parseJsonl, prepareAttachments, buildTutorPrompt, CodexBackend } from '../src/backends/codex.mjs';
+import { parseJsonl, prepareAttachments, buildTutorPrompt, buildCodexArgv, CodexBackend } from '../src/backends/codex.mjs';
+
+test('builds safe Codex argv for new/resumed text and image turns',()=>{
+  const base=['exec','--json','--sandbox','read-only','--skip-git-repo-check','-C','/instance/sammy'];
+  assert.deepEqual(buildCodexArgv({childDir:'/instance/sammy'}),base);
+  assert.deepEqual(buildCodexArgv({childDir:'/instance/sammy',threadId:'t1'}),[...base,'resume','t1']);
+  assert.deepEqual(buildCodexArgv({childDir:'/instance/sammy',model:'local-model',imageFiles:['/tmp/a.png']}),[...base,'--model','local-model','--image','/tmp/a.png']);
+  assert.deepEqual(buildCodexArgv({childDir:'/instance/sammy',threadId:'t1',imageFiles:['/tmp/a.png']}),[...base,'resume','t1','--image','/tmp/a.png']);
+});
 
 test('parses Codex JSONL thread and assistant message events',()=>{
   const parsed=parseJsonl([
