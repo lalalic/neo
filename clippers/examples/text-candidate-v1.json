@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "candidate_id": "candidate_example_001",
+  "source_id": "authorized_example_source",
+  "start_ms": 9800,
+  "end_ms": 40200,
+  "status": "candidate",
+  "title": "Timestamps are the proof layer",
+  "transcript_quote": "If the timestamp is wrong, the edit is built on nothing.",
+  "preliminary_reason": "Cheap transcript pass found a complete rule and consequence inside one bounded interval.",
+  "evidence": [{"kind": "transcript", "artifact": "runs/2026-09-17-example/evidence/transcript.json", "start_ms": 9800, "end_ms": 40200, "observation": "Host states the timestamp rule and consequence."}]
+}

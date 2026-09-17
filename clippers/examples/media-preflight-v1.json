@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "source_id": "authorized_example_source",
+  "normalized_media": "runs/2026-09-17-example/media/normalized.mp4",
+  "duration_ms": 7200000,
+  "video": {"width": 1920, "height": 1080, "fps": 29.97},
+  "audio": {"codec": "aac", "channels": 2, "sample_rate_hz": 48000},
+  "frame_index": {"keyframes_artifact": "runs/2026-09-17-example/media/keyframes.json", "thumbnails_artifact": "runs/2026-09-17-example/media/thumbs/", "cadence_ms": 1000},
+  "normalization": {"command": "ffmpeg -i input -map 0:v:0 -map 0:a:0 -c:v copy -c:a aac -movflags +faststart output", "streaming_faststart": true}
+}

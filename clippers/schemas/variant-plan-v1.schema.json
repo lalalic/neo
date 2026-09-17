@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "clippers/schemas/variant-plan-v1.schema.json",
+  "title": "Clippers Variant Plan",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "plan_id", "source_id", "selection_id", "variants"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "plan_id": {"type": "string", "minLength": 1},
+    "source_id": {"type": "string", "minLength": 1},
+    "selection_id": {"type": "string", "minLength": 1},
+    "variants": {
+      "type": "array", "minItems": 3, "maxItems": 5,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["variant_id", "candidate_id", "strategy_family", "hook_strategy", "edit_strategy", "material_difference", "target_platform"],
+        "properties": {
+          "variant_id": {"type": "string", "minLength": 1},
+          "candidate_id": {"type": "string", "minLength": 1},
+          "strategy_family": {"type": "string", "minLength": 3},
+          "hook_strategy": {"type": "string", "minLength": 12},
+          "edit_strategy": {"type": "string", "minLength": 12},
+          "material_difference": {"type": "string", "minLength": 20},
+          "target_platform": {"type": "string", "minLength": 1}
+        }
+      }
+    }
+  }
+}

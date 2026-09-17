@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "plan_id": "variants_2026_09_17_example",
+  "source_id": "authorized_example_source",
+  "selection_id": "selection_2026_09_17_example",
+  "variants": [
+    {"variant_id": "variant_rule", "candidate_id": "candidate_example_001", "strategy_family": "rule-first", "hook_strategy": "Open with the complete rule.", "edit_strategy": "Tight sentence cuts and one punch-in.", "material_difference": "Leads with instruction, not curiosity; removes setup framing.", "target_platform": "youtube_shorts"},
+    {"variant_id": "variant_consequence", "candidate_id": "candidate_example_001", "strategy_family": "negative-consequence", "hook_strategy": "Open at the failure consequence.", "edit_strategy": "Flash the payoff, then explain the rule.", "material_difference": "Changes narrative order and emotional stakes.", "target_platform": "youtube_shorts"},
+    {"variant_id": "variant_on_screen", "candidate_id": "candidate_example_001", "strategy_family": "text-led", "hook_strategy": "Caption carries the first hook while speech begins.", "edit_strategy": "Text-led pacing with keyword emphasis.", "material_difference": "Visual hook is written first rather than spoken first.", "target_platform": "youtube_shorts"}
+  ]
+}

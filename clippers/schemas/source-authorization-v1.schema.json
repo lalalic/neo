@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "clippers/schemas/source-authorization-v1.schema.json",
+  "title": "Clippers Source Authorization",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "authorization_id", "source_id", "authorizer", "authorized_at", "authorization_evidence", "scope"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "authorization_id": {"type": "string", "minLength": 1},
+    "source_id": {"type": "string", "minLength": 1},
+    "authorizer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "authority"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "authority": {"type": "string", "minLength": 1},
+        "contact": {"type": "string", "minLength": 1}
+      }
+    },
+    "authorized_at": {"type": "string", "format": "date-time"},
+    "expires_at": {"type": ["string", "null"], "format": "date-time"},
+    "authorization_evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["method", "reference"],
+      "properties": {
+        "method": {"enum": ["written_permission", "license_terms", "creator_request", "platform_export", "contract"]},
+        "reference": {"type": "string", "minLength": 1}
+      }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_research", "transcription", "clip_creation"],
+      "properties": {
+        "source_research": {"type": "boolean"},
+        "transcription": {"type": "boolean"},
+        "clip_creation": {"type": "boolean"},
+        "allowed_platforms": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "restrictions": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true}
+      }
+    }
+  }
+}

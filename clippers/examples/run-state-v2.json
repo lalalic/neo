@@ -1,0 +1,19 @@
+{
+  "schema_version": 2,
+  "run_id": "2026-09-17-example",
+  "source_id": "authorized_example_source",
+  "state": "judge_ranked",
+  "artifacts": {
+    "authorization": "inputs/source-authorization.json", "research": "evidence/source-research.json", "media": "media/preflight.json", "transcript": "evidence/transcript.json", "text_candidates": "candidates/text-candidates.json", "vision_reviews": "vision/vision.json", "campaign_brief": "campaign/brief.json", "judge": "selection/judge.json", "selection": "selection/selection.json"
+  },
+  "blocked_reason": null,
+  "history": [
+    {"state": "initiated", "at": "2026-09-17T09:00:00-04:00", "actor": "run-controller"},
+    {"state": "source_authorized", "at": "2026-09-17T09:01:00-04:00", "actor": "source-intake", "artifact": "inputs/source-authorization.json"},
+    {"state": "media_preflight", "at": "2026-09-17T09:02:00-04:00", "actor": "media-preflight"},
+    {"state": "transcript_extracted", "at": "2026-09-17T09:04:00-04:00", "actor": "tts-stt-sts"},
+    {"state": "text_candidates_extracted", "at": "2026-09-17T09:05:00-04:00", "actor": "bounded-extraction"},
+    {"state": "vision_reviewed", "at": "2026-09-17T09:20:00-04:00", "actor": "understand-image-video"},
+    {"state": "judge_ranked", "at": "2026-09-17T09:30:00-04:00", "actor": "short-video-editing-coach"}
+  ]
+}

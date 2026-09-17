@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "source_id": "authorized_example_source",
+  "selection_id": "selection_2026_09_17_example",
+  "reviewer": "reality-checker",
+  "independent": true,
+  "decision": "pass",
+  "decisions": [{
+    "qa_id": "qa_example_rule", "variant_id": "variant_rule", "candidate_id": "candidate_example_001", "decision": "pass",
+    "checks": [
+      {"id": "authorization_and_provenance", "result": "pass", "evidence": "Source and platform are authorized."},
+      {"id": "timestamp_evidence", "result": "pass", "evidence": "Quote and visual claims fit transcript bounds."},
+      {"id": "ranking_eligibility", "result": "pass", "evidence": "Selection binds the Judge entry and Vision review."},
+      {"id": "editorial_coherence", "result": "pass", "evidence": "Hook, payoff, and edit describe the same candidate."},
+      {"id": "identity_binding", "result": "pass", "evidence": "Selection, variant, candidate, and QA IDs match."}
+    ],
+    "blockers": []
+  }]
+}

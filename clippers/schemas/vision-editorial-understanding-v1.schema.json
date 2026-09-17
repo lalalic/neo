@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "clippers/schemas/vision-editorial-understanding-v1.schema.json",
+  "title": "Clippers Vision Editorial Understanding",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "vision_id", "source_id", "candidate_id", "start_ms", "end_ms", "topic", "summary", "speakers", "subjects", "signals", "narrative", "hook", "moments", "weak_regions", "cut_suggestion", "vertical_suitability", "production_suggestions", "evidence"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "vision_id": {"type": "string", "minLength": 1},
+    "source_id": {"type": "string", "minLength": 1},
+    "candidate_id": {"type": "string", "minLength": 1},
+    "start_ms": {"type": "integer", "minimum": 0},
+    "end_ms": {"type": "integer", "minimum": 1},
+    "topic": {"type": "string", "minLength": 3},
+    "summary": {"type": "string", "minLength": 12},
+    "speakers": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "key_quote": {
+      "type": "object", "additionalProperties": false,
+      "required": ["text", "start_ms", "end_ms", "artifact"],
+      "properties": {"text": {"type": "string", "minLength": 1}, "start_ms": {"type": "integer", "minimum": 0}, "end_ms": {"type": "integer", "minimum": 1}, "artifact": {"type": "string", "minLength": 1}}
+    },
+    "subjects": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["label", "position", "face_visibility", "clarity"],
+        "properties": {
+          "label": {"type": "string", "minLength": 1},
+          "position": {"type": "object", "additionalProperties": false, "required": ["x_percent", "y_percent"], "properties": {"x_percent": {"type": "number", "minimum": 0, "maximum": 100}, "y_percent": {"type": "number", "minimum": 0, "maximum": 100}}},
+          "face_visibility": {"enum": ["visible", "partial", "off_frame"]},
+          "clarity": {"enum": ["clear", "usable", "unclear"]}
+        }
+      }
+    },
+    "signals": {
+      "type": "object", "additionalProperties": false,
+      "required": ["emotions", "actions", "events", "on_screen_text", "visual_quality", "audio_quality", "shot_changes"],
+      "properties": {
+        "emotions": {"type": "array", "items": {"type": "string"}},
+        "actions": {"type": "array", "items": {"type": "string"}},
+        "events": {"type": "array", "items": {"type": "string"}},
+        "on_screen_text": {"type": "array", "items": {"type": "string"}},
+        "visual_quality": {"enum": ["strong", "usable", "weak"]},
+        "audio_quality": {"enum": ["strong", "usable", "weak"]},
+        "shot_changes": {"type": "array", "items": {"type": "integer", "minimum": 0}}
+      }
+    },
+    "narrative": {
+      "type": "object", "additionalProperties": false,
+      "required": ["setup", "tension", "turn", "payoff", "self_contained"],
+      "properties": {
+        "setup": {"type": "string"}, "tension": {"type": "string"}, "turn": {"type": "string"}, "payoff": {"type": "string"},
+        "self_contained": {"enum": ["yes", "partial", "no"]}
+      }
+    },
+    "hook": {
+      "type": "object", "additionalProperties": false,
+      "required": ["start_ms", "end_ms", "evidence"],
+      "properties": {"start_ms": {"type": "integer", "minimum": 0}, "end_ms": {"type": "integer", "minimum": 1}, "evidence": {"type": "string", "minLength": 3}}
+    },
+    "moments": {
+      "type": "array", "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["start_ms", "end_ms", "kind", "observation"],
+        "properties": {"start_ms": {"type": "integer", "minimum": 0}, "end_ms": {"type": "integer", "minimum": 1}, "kind": {"enum": ["emotional", "highlight", "context", "transition"]}, "observation": {"type": "string", "minLength": 3}}
+      }
+    },
+    "weak_regions": {
+      "type": "array", "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["start_ms", "end_ms", "reason"],
+        "properties": {"start_ms": {"type": "integer", "minimum": 0}, "end_ms": {"type": "integer", "minimum": 1}, "reason": {"enum": ["dead_air", "repetition", "low_visual_interest", "unclear_audio", "context_gap"]}}
+      }
+    },
+    "cut_suggestion": {
+      "type": "object", "additionalProperties": false,
+      "required": ["start_ms", "end_ms", "reason"],
+      "properties": {"start_ms": {"type": "integer", "minimum": 0}, "end_ms": {"type": "integer", "minimum": 1}, "reason": {"type": "string", "minLength": 3}}
+    },
+    "vertical_suitability": {
+      "type": "object", "additionalProperties": false,
+      "required": ["score", "crop_tracking_feasible", "subject_safety", "notes"],
+      "properties": {"score": {"enum": ["strong", "usable", "weak"]}, "crop_tracking_feasible": {"type": "boolean"}, "subject_safety": {"type": "string", "minLength": 3}, "notes": {"type": "string", "minLength": 3}}
+    },
+    "production_suggestions": {
+      "type": "object", "additionalProperties": false,
+      "required": ["punch_ins", "b_roll", "caption_emphasis"],
+      "properties": {"punch_ins": {"type": "array", "items": {"type": "string"}}, "b_roll": {"type": "array", "items": {"type": "string"}}, "caption_emphasis": {"type": "array", "items": {"type": "string"}}}
+    },
+    "evidence": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["claim", "artifact", "start_ms", "end_ms"],
+        "properties": {"claim": {"type": "string", "minLength": 3}, "artifact": {"type": "string", "minLength": 1}, "start_ms": {"type": "integer", "minimum": 0}, "end_ms": {"type": "integer", "minimum": 1}}
+      }
+    }
+  }
+}

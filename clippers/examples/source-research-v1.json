@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "source_id": "authorized_example_source",
+  "title": "Example Long-Form Interview",
+  "producer": "Example Studio",
+  "provenance": "Creator-supplied local export; authorization_2026_09_17_example",
+  "campaign": {
+    "objective": "Teach the user how evidence-backed clipping improves retention hypotheses",
+    "targets": ["youtube_shorts", "tiktok"]
+  }
+}

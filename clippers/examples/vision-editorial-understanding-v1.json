@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "vision_id": "vision_example_001",
+  "source_id": "authorized_example_source",
+  "candidate_id": "candidate_example_001",
+  "start_ms": 9800,
+  "end_ms": 40200,
+  "topic": "Timestamp evidence",
+  "summary": "The host states the editing rule and its consequence while facing camera.",
+  "speakers": ["Host"],
+  "key_quote": {"text": "If the timestamp is wrong, the edit is built on nothing.", "start_ms": 15500, "end_ms": 40200, "artifact": "runs/2026-09-17-example/evidence/transcript.json"},
+  "subjects": [{"label": "Host", "position": {"x_percent": 42, "y_percent": 48}, "face_visibility": "visible", "clarity": "clear"}],
+  "signals": {"emotions": ["emphasis"], "actions": ["direct address"], "events": ["rule stated"], "on_screen_text": [], "visual_quality": "strong", "audio_quality": "strong", "shot_changes": [9800]},
+  "narrative": {"setup": "Host introduces the rule.", "tension": "A wrong timestamp would invalidate the edit.", "turn": "The rule becomes an operating constraint.", "payoff": "Evidence must anchor the cut.", "self_contained": "yes"},
+  "hook": {"start_ms": 9800, "end_ms": 12800, "evidence": "Direct address and spoken rule begin immediately."},
+  "moments": [{"start_ms": 15500, "end_ms": 40200, "kind": "highlight", "observation": "Consequence is stated with emphasis."}],
+  "weak_regions": [],
+  "cut_suggestion": {"start_ms": 9800, "end_ms": 40200, "reason": "Sentence boundaries and complete payoff align."},
+  "vertical_suitability": {"score": "strong", "crop_tracking_feasible": true, "subject_safety": "Static center-left subject remains inside a 9:16 crop.", "notes": "No competing graphics require a wider frame."},
+  "production_suggestions": {"punch_ins": ["15500-25000"], "b_roll": [], "caption_emphasis": ["timestamp", "nothing"]},
+  "evidence": [{"claim": "Host faces camera during the rule.", "artifact": "runs/2026-09-17-example/media/thumbs/00-09.png", "start_ms": 9800, "end_ms": 15400}]
+}

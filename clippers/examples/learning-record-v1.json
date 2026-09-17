@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "learning_id": "learning_example_001",
+  "source_id": "authorized_example_source",
+  "selection_id": "selection_2026_09_17_example",
+  "metrics_artifacts": ["runs/2026-09-17-example/metrics/24h.json", "runs/2026-09-17-example/metrics/72h.json", "runs/2026-09-17-example/metrics/7d.json"],
+  "observations": ["The schema permits comparing variants without claiming a result."],
+  "hypothesis_updates": ["Update hook weights only after fixed eval or real-platform evidence."],
+  "next_experiment": "Run the next authorized source with the same rubric before changing weights."
+}

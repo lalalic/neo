@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "authorization_id": "authorization_2026_09_17_example",
+  "source_id": "authorized_example_source",
+  "authorizer": {
+    "name": "Example Rights Holder",
+    "authority": "Copyright owner",
+    "contact": "rights@example.invalid"
+  },
+  "authorized_at": "2026-09-17T09:00:00-04:00",
+  "expires_at": "2026-10-17T09:00:00-04:00",
+  "authorization_evidence": {
+    "method": "written_permission",
+    "reference": "runs/2026-09-17-example/private/permission.md"
+  },
+  "scope": {
+    "source_research": true,
+    "transcription": true,
+    "clip_creation": true,
+    "allowed_platforms": ["youtube_shorts", "tiktok"],
+    "restrictions": ["Do not alter quoted statistics"]
+  }
+}

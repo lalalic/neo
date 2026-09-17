@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "clippers/schemas/editorial-judge-v1.schema.json",
+  "title": "Clippers Editorial Judge",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "source_id", "selection_id", "platform", "rubric_id", "rubric_version", "campaign_brief_artifact", "transcript_artifact", "entries"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "source_id": {"type": "string", "minLength": 1},
+    "selection_id": {"type": "string", "minLength": 1},
+    "platform": {"type": "string", "minLength": 1},
+    "rubric_id": {"const": "clippers-rubric-v1"},
+    "rubric_version": {"const": 2},
+    "campaign_brief_artifact": {"type": "string", "minLength": 1},
+    "transcript_artifact": {"type": "string", "minLength": 1},
+    "entries": {
+      "type": "array", "minItems": 1, "maxItems": 25,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["entry_id", "candidate_id", "vision_artifact", "scores", "risk_notes", "rationale", "edit_recommendation"],
+        "properties": {
+          "entry_id": {"type": "string", "minLength": 1},
+          "candidate_id": {"type": "string", "minLength": 1},
+          "vision_artifact": {"type": "string", "minLength": 1},
+          "scores": {
+            "type": "object", "additionalProperties": false,
+            "required": ["hook_first_two_seconds", "standalone_completeness", "payoff", "campaign_platform_fit", "visual_support", "emotion_reaction", "editability", "risk_control"],
+            "properties": {
+              "hook_first_two_seconds": {"type": "number", "minimum": 0, "maximum": 2},
+              "standalone_completeness": {"type": "number", "minimum": 0, "maximum": 2},
+              "payoff": {"type": "number", "minimum": 0, "maximum": 2},
+              "campaign_platform_fit": {"type": "number", "minimum": 0, "maximum": 2},
+              "visual_support": {"type": "number", "minimum": 0, "maximum": 2},
+              "emotion_reaction": {"type": "number", "minimum": 0, "maximum": 2},
+              "editability": {"type": "number", "minimum": 0, "maximum": 2},
+              "risk_control": {"type": "number", "minimum": 0, "maximum": 2}
+            }
+          },
+          "risk_notes": {"type": "string", "minLength": 3},
+          "rationale": {"type": "string", "minLength": 20},
+          "edit_recommendation": {"type": "string", "minLength": 20}
+        }
+      }
+    }
+  }
+}

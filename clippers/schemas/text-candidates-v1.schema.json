@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "clippers/schemas/text-candidates-v1.schema.json",
+  "title": "Clippers Text Candidate Shortlist",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "source_id", "stage", "candidates"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "source_id": {"type": "string", "minLength": 1},
+    "stage": {"const": "text_first"},
+    "candidates": {"type": "array", "minItems": 5, "maxItems": 25, "items": {"$ref": "text-candidate-v1.schema.json"}}
+  }
+}
