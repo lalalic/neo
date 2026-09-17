@@ -29,7 +29,7 @@ Useful state includes:
 
 ### Activity selection
 
-Tutor MCP centers the learning loop around `get_next_activity` and `record_interaction` rather than letting the LLM improvise the whole learning sequence. This is a useful pattern for Family Tutor: the persistent ChatGPT conversation can remain the child-facing tutor while a small state layer recommends the next useful study action.
+Tutor MCP centers the learning loop around `get_next_activity` and `record_interaction` rather than letting the LLM improvise the whole learning sequence. This is a useful pattern for Family Tutor: the persistent Codex thread can remain the child-facing tutor while a small state layer recommends the next useful study action.
 
 ### Commitments are especially relevant to Family Tutor
 
@@ -59,7 +59,7 @@ A proactive message should have a compact internal reason such as `why_now`, `le
 
 ## Family Tutor architecture direction
 
-Do not replace the current persistent per-child ChatGPT tutor with Tutor MCP. If these concepts prove useful in real family use, the likely shape is:
+Do not replace the current persistent per-child Codex tutor with Tutor MCP. If these concepts prove useful in real family use, the likely shape is:
 
 ```text
 Discord / future channels
@@ -67,7 +67,7 @@ Discord / future channels
         v
 tutor-bridge
         |
-        +--> persistent ChatGPT tutor conversation (child-facing intelligence)
+        +--> persistent Codex tutor thread (child-facing intelligence)
         |
         +--> learner/study state (small deterministic layer)
         |

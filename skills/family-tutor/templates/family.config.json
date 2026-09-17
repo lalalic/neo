@@ -3,8 +3,6 @@
   "serviceName": "family-tutor-bridge",
   "codex": {
     "backend": "codex",
-    "model": "gpt-5-6-thinking",
-    "thinkingEffort": "standard",
     "maxRuntimeSeconds": 600
   },
   "discord": {

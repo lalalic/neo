@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { parseJsonl, CodexBackend } from '../src/backends/codex.mjs';
+import { parseJsonl, prepareAttachments, buildTutorPrompt, CodexBackend } from '../src/backends/codex.mjs';
 
 test('parses Codex JSONL thread and assistant message events',()=>{
   const parsed=parseJsonl([
@@ -29,5 +29,20 @@ test('persists one thread per child and rollover clears only that child',async()
   await backend.newThread({childId:'sammy'});
   assert.equal(backend.readThread('sammy'),null);
   assert.equal(backend.readThread('maggie'),'thread-m');
+  fs.rmSync(instance,{recursive:true,force:true});
+});
+
+test('prepares non-image attachments and keeps Codex cwd child-scoped',async()=>{
+  const instance=fs.mkdtempSync(path.join(os.tmpdir(),'family-tutor-test-'));
+  const backend=new CodexBackend({}, {instanceDir:instance});
+  const childDir=path.join(instance,'sammy'); fs.mkdirSync(childDir,{recursive:true});
+  const prepared=await prepareAttachments([{url:'data:text/plain,hello',name:'notes.txt',mimeType:'text/plain'}],'sammy',childDir);
+  assert.equal(backend.childDir('sammy'),path.join(instance,'sammy'));
+  assert.equal(prepared.descriptions[0].mimeType,'text/plain');
+  assert.match(prepared.descriptions[0].path,new RegExp(`${childDir}/\\.family-tutor-attachments-`));
+  assert.equal(fs.readFileSync(prepared.files[0],'utf8'),'hello');
+  const prompt=buildTutorPrompt('sammy','memory','help',prepared.descriptions);
+  assert.match(prompt,/FAMILY_TUTOR_MEMORY/); assert.match(prompt,/FAMILY_TUTOR_PARENT/); assert.match(prompt,/FAMILY_TUTOR_ROLLOVER/); assert.match(prompt,/notes\.txt \(text\/plain\)/);
+  fs.rmSync(prepared.dir,{recursive:true,force:true});
   fs.rmSync(instance,{recursive:true,force:true});
 });

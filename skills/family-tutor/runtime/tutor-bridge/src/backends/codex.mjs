@@ -26,22 +26,29 @@ function run(args,prompt,cwd,timeoutMs){
   });
 }
 
-async function downloadImages(attachments){
-  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'family-tutor-'));
+export async function prepareAttachments(attachments,childId,baseDir=os.tmpdir()){
+  const dir=fs.mkdtempSync(path.join(baseDir,'.family-tutor-attachments-'));
   const files=[];
-  for(const [i,a] of attachments.entries()){
-    const type=String(a.mimeType||'').toLowerCase();
-    if(!type.startsWith('image/')) continue;
-    const response=await fetch(a.url,{signal:AbortSignal.timeout(30_000)});
-    if(!response.ok) throw new Error(`attachment download failed (${response.status})`);
-    const file=path.join(dir,`${i+1}-${path.basename(a.name||'image').replace(/[^a-z0-9._-]/gi,'_')}`);
-    fs.writeFileSync(file,Buffer.from(await response.arrayBuffer())); files.push(file);
-  }
-  return {dir,files};
+  try{
+    for(const [i,a] of attachments.entries()){
+      const response=await fetch(a.url,{signal:AbortSignal.timeout(30_000)});
+      if(!response.ok) throw new Error(`attachment download failed (${response.status})`);
+      const file=path.join(dir,`${i+1}-${path.basename(a.name||'attachment').replace(/[^a-z0-9._-]/gi,'_')}`);
+      fs.writeFileSync(file,Buffer.from(await response.arrayBuffer())); files.push(file);
+    }
+    return {dir,files,descriptions:files.map((file,i)=>({path:file,name:attachments[i].name||path.basename(file),mimeType:attachments[i].mimeType||'application/octet-stream'}))};
+  }catch(error){fs.rmSync(dir,{recursive:true,force:true}); throw error;}
+}
+
+export function buildTutorPrompt(childId,memory,prompt,attachments=[]){
+  const contract=`You are a private, age-appropriate tutor for child ${childId}. Teach with hints and one focused question when useful; diagnose understanding and verify it with evidence. Keep this child's context isolated. Never reveal or discuss runtime control markers.\n\nControl protocol:\n- Emit <FAMILY_TUTOR_MEMORY>complete Markdown replacement for AGENTS.md</FAMILY_TUTOR_MEMORY> only when durable learner facts changed; do not put a transcript in it.\n- Emit <FAMILY_TUTOR_PARENT>concise learning telemetry: topic, evidence, misconception/progress, next step, and useful parent support</FAMILY_TUTOR_PARENT> when a parent update is useful; never mirror the raw transcript.\n- Emit <FAMILY_TUTOR_ROLLOVER/> only after all durable facts from the current thread are captured in FAMILY_TUTOR_MEMORY.\n- Keep all markers out of the child-visible answer; answer the child normally.\n\n<DURABLE_LEARNER_CONTEXT>\n${memory}\n</DURABLE_LEARNER_CONTEXT>`;
+  const attachmentContext=attachments.length?`\n\n<LOCAL_ATTACHMENTS>\n${attachments.map(a=>`${a.name} (${a.mimeType}): ${a.path}`).join('\n')}\n</LOCAL_ATTACHMENTS>`:'';
+  return `${contract}${attachmentContext}\n\n${prompt}`;
 }
 
 export class CodexBackend{
   constructor(config,{instanceDir}){this.config=config; this.instanceDir=instanceDir;}
+  childDir(childId){return path.join(this.instanceDir,childId);}
   stateFile(childId){return path.join(this.instanceDir,childId,'.codex-thread.json');}
   memoryFile(childId){return path.join(this.instanceDir,childId,'AGENTS.md');}
   readThread(childId){try{return JSON.parse(fs.readFileSync(this.stateFile(childId),'utf8')).threadId||null}catch{return null}}
@@ -49,16 +56,16 @@ export class CodexBackend{
   async turn({childId,prompt,attachments=[]}){
     const memoryFile=this.memoryFile(childId);
     const memory=fs.existsSync(memoryFile)?fs.readFileSync(memoryFile,'utf8'):'';
-    const full=`You are the private tutor for child ${childId}. Use the durable learner context below. Never reveal runtime control markers.\n\n<DURABLE_LEARNER_CONTEXT>\n${memory}\n</DURABLE_LEARNER_CONTEXT>\n\n${prompt}`;
+    fs.mkdirSync(this.childDir(childId),{recursive:true});
     const thread=this.readThread(childId);
-    const args=['exec','--json','--sandbox','read-only','--skip-git-repo-check','-C',this.instanceDir];
+    const args=['exec','--json','--sandbox','read-only','--skip-git-repo-check','-C',this.childDir(childId)];
     if(this.config.model) args.push('--model',this.config.model);
-    if(thread) args.push('resume',thread);
-    let downloaded={dir:null,files:[]};
+    let downloaded={dir:null,files:[],descriptions:[]};
     try{
-      downloaded=await downloadImages(attachments);
-      for(const file of downloaded.files) args.push('--image',file);
-      const result=await run(args,full,this.instanceDir,(this.config.maxRuntimeSeconds||600)*1000+30_000);
+      downloaded=await prepareAttachments(attachments,childId,this.childDir(childId));
+      for(const [i,file] of downloaded.files.entries()){if(String(attachments[i]?.mimeType||'').toLowerCase().startsWith('image/')) args.push('--image',file);}
+      if(thread) args.push('resume',thread);
+      const result=await run(args,buildTutorPrompt(childId,memory,prompt,downloaded.descriptions),this.childDir(childId),(this.config.maxRuntimeSeconds||600)*1000+30_000);
       if(result.threadId) this.writeThread(childId,result.threadId);
       if(!result.text) throw new Error('Codex returned no assistant text');
       return result;
