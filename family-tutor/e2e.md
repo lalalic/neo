@@ -1,6 +1,6 @@
 # Family Tutor E2E verification
 
-The release gate exercises the real Discord path, not only a service status check or a direct Codex probe.
+The release gate exercises the real Discord path through the single PM2-resident `family-tutor-orchestrator`, not only a service status check or a direct Codex probe.
 
 ## Preconditions
 

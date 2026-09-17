@@ -134,7 +134,7 @@ async function handleParentControl(message){
 
 function serialize(childId,work){ const prev=queues.get(childId)||Promise.resolve(); const next=prev.catch(()=>{}).then(work).finally(()=>{if(queues.get(childId)===next) queues.delete(childId)}); queues.set(childId,next); return next; }
 
-client.once(Events.ClientReady,c=>console.log(`[family-tutor] ready as ${c.user.tag}`));
+client.once(Events.ClientReady,c=>console.log(`[family-tutor-orchestrator] ready as ${c.user.tag}`));
 client.on(Events.MessageCreate,message=>{
   if(message.author.bot) return;
   const child=childByChannel.get(message.channelId);

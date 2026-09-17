@@ -65,7 +65,7 @@ Do not replace the current persistent per-child Codex tutor with Tutor MCP. If t
 Discord / future channels
         |
         v
-tutor-bridge
+tutor-orchestrator
         |
         +--> persistent Codex tutor thread (child-facing intelligence)
         |
