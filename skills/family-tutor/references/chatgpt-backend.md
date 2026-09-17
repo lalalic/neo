@@ -1,22 +1,9 @@
-# ChatGPT subscription backend
+# Codex CLI backend
 
-The preferred local backend uses DevMacBridge's direct-loopback wrapper around `chatgpt_conversation_start`:
+Family Tutor uses the locally authenticated `codex` CLI. It does not use DevMacBridge, Chrome, ChatGPT tabs, ChatGPT Projects, or browser automation.
 
-```text
-POST http://127.0.0.1:<configured-port>/experimental/chatgpt/conversation
-Authorization: Bearer $MAC_DEV_BRIDGE_HTTP_TOKEN
-```
+Each child has an isolated Codex thread. The runtime stores only `.codex-thread.json` below that child's ignored instance directory and resumes it with `codex exec resume`. The current `AGENTS.md` is supplied on every turn, so durable learner context survives a thread rollover without copying a transcript.
 
-It uses the signed-in ChatGPT consumer session. It does not require `OPENAI_API_KEY` and does not use OpenAI API billing.
+Images are downloaded into a temporary directory and passed to Codex with `--image`; temporary files are removed after the turn. Voice messages are transcribed locally before the tutor turn.
 
-## Child binding
-
-Bind each child to a distinct ChatGPT Project and a dedicated warm ChatGPT tab. Supply that child's `project_id` and `tab_id` on every turn. Do not persist a `conversation_id` in Family Tutor.
-
-When the dedicated tab is already on a conversation inside the configured Project, DevMacBridge continues that mounted conversation in place. When the tab is on the Project home, the next turn creates a fresh thread in that Project. This keeps thread ownership in ChatGPT while avoiding a cold Project/conversation reload on every Discord message.
-
-## Thread rollover
-
-The child's loaded XChat/AGENTS context decides when a thread has become genuinely too long/noisy and emit `<FAMILY_TUTOR_ROLLOVER/>`. After processing the completed response and any memory update, Family Tutor navigates the dedicated tab back to that child's Project home. The following turn therefore starts a fresh ChatGPT thread with continuity supplied by the child's local `AGENTS.md`.
-
-The runtime depends on a healthy DevMacBridge ChatGPT browser runtime and a signed-in ChatGPT session. Diagnose that prerequisite rather than silently falling back to API billing.
+When the tutor emits `<FAMILY_TUTOR_MEMORY>...</FAMILY_TUTOR_MEMORY>` and `<FAMILY_TUTOR_ROLLOVER/>`, the runtime writes the complete durable memory first, removes the child thread binding, and the next turn starts a new Codex thread. Rollover is never based on an arbitrary turn count.

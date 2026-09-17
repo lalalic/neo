@@ -4,7 +4,7 @@ Use `../skills/family-tutor/SKILL.md` as the reusable tutoring/runtime contract.
 
 - This top-level directory is a public Neo project definition, not a family instance.
 - Use `runs/family/` as the private family root. Keep each learner's durable tutoring memory at `runs/family/<child-id>/AGENTS.md`; ChatGPT owns tutor threads/history, so do not mirror them into local session folders.
-- Keep real learner names/details, Discord IDs, ChatGPT Project/tab bindings, parent observations, secrets, and learner memory inside the run or another private store. Do not persist ChatGPT conversation ids or transcripts locally.
+- Keep real learner names/details, Discord IDs, parent observations, secrets, learner memory, and Codex thread state inside the run or another private store. Do not persist transcripts locally.
 - Do not copy instance-specific configuration into tracked `config/` or `data/` directories.
 - The project `AGENTS.md` is the entrypoint; tutoring behavior itself is reusable skill behavior, so it stays in `skills/family-tutor/` rather than a duplicated project `agents/` role.
 
@@ -23,7 +23,7 @@ Use `../skills/family-tutor/SKILL.md` as the reusable tutoring/runtime contract.
 ## Project learnings
 
 - 2026-09-16: End-to-end tutor verification must exercise the real Discord child channels with distinct per-child probe messages and verify the reply returns to the same channel; service status or direct backend probes alone are not sufficient. Keep child backend work isolated so one stalled child turn cannot block another child.
-- 2026-09-16: Long-lived tutoring continuity should be anchored in one child-specific ChatGPT Project plus that child folder's `AGENTS.md`; let ChatGPT own rotating thread history and rollover an overlong/noisy thread only after durable learner facts are captured in memory.
+- 2026-09-17: Long-lived tutoring continuity uses one child-specific Codex CLI thread plus that child folder's `AGENTS.md`; persist only the thread id and rollover only after durable learner facts are captured in memory.
 - 2026-09-16: Keep the child-facing tutor conversational, but move longitudinal mastery, review timing, recurring misconceptions, and learner commitments into deterministic state. Proactive nudges should be justified by learner state or an open commitment, not by timers alone.
 - 2026-09-16: Children speak more naturally when child tutor channels are not routine parent-observation channels. Parent visibility should be concise learning telemetry, with minimum-necessary escalation for serious safety concerns.
 - 2026-09-16: Academic/career direction works better as longitudinal discovery through small experiments and reflections than repeated pressure to choose a university, major, or career early.
@@ -38,7 +38,7 @@ Use `../skills/family-tutor/SKILL.md` as the reusable tutoring/runtime contract.
 - Serious safety concerns are the exception. When escalation is necessary, surface only the minimum information needed for a parent to respond appropriately.
 - Discord permissions should mirror tutor-context separation: one child must not gain access to another child's tutor channel, and parent roles should not implicitly grant access to child tutor channels.
 - Dedicated child and parent channels should treat ordinary messages as addressed to Neo; `@Neo` should not be required there. Mentions are only needed in shared/general channels where routing is ambiguous.
-- Maintain one persistent child-specific ChatGPT Project per child channel, with rotating threads inside that Project when needed. Keep parent/Neo context separate; do not merge child contexts or parent context.
+- Maintain one persistent child-specific Codex thread per child channel, with isolated thread state and rollover when needed. Keep parent/Neo context separate; do not merge child contexts or parent context.
 
 ## Child-facing privacy transparency contract
 

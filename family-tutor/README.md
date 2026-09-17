@@ -15,4 +15,4 @@ node ../skills/family-tutor/scripts/service.mjs start runs/family
 
 Never place real family configuration in tracked project paths. `runs/` is the execution boundary for this public monorepo project.
 
-Each learner keeps one durable `runs/family/<child-id>/AGENTS.md`. ChatGPT owns tutor threads and conversation history; Family Tutor does not duplicate them into local session/transcript directories or a conversation state file.
+Each learner keeps one durable `runs/family/<child-id>/AGENTS.md`. Codex owns thread history; Family Tutor stores only the current Codex thread id in the ignored child runtime directory and never persists transcripts.
