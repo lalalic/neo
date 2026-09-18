@@ -15,7 +15,7 @@ Capability tree:
 
 1. create and propagate one `job_id` across the orchestration tree;
 2. publish truthful lifecycle/progress events from every sub-agent;
-3. subscribe to the job stream before delegation starts;
+3. establish a non-blocking job watch before delegation starts;
 4. convert user-visible events into concise live status updates;
 5. preserve nested task correlation and terminal outcomes;
 6. fall back safely when the event transport is unavailable.
@@ -31,7 +31,7 @@ As a general transparency rule, whenever an agent/worker is selected or started,
 ## Orchestrator workflow
 
 1. Generate one unique `job_id` before starting any child work.
-2. Start the subscription to `neo.events.job.<job_id>.>` **before** launching the child.
+2. For request/response MCP hosts, establish a pre-launch watch capability **before** publishing `job.started` or launching the child. Prefer `events__watch(job_id)` and remember its `after_cursor`. If that tool name is unavailable, only for a newly-created unique job with no prior events, use `events__history(job_id, after_cursor=0, limit=1)`; an empty result establishes cursor `0`. Never use that fallback for an existing/resumed job with an unknown cursor. Native subscribers may establish the equivalent non-blocking cursor directly.
 3. Emit `job.started` for the orchestration itself.
 4. Pass `NEO_JOB_ID`, `NEO_ORCHESTRATOR_ID`, and a task-specific `NEO_TASK_ID` to the child. For nested work also pass `NEO_PARENT_TASK_ID`. Put the exact literal `job_id` and `task_id` values in the delegation prompt as well as the environment; never say only `inherited` or use a placeholder. For direct local workers that can reach NATS, also pass `NEO_EVENTS_BUS_DIR` and `NEO_EVENTS_EMIT=<absolute-skill-dir>/scripts/emit.mjs`.
 5. Keep consuming events while the job runs.
@@ -49,6 +49,14 @@ At minimum emit:
 - `task.started`
 - meaningful milestones/progress
 - one of `task.completed`, `task.failed`, `task.blocked`, `task.cancelled`
+
+### Task visibility policy
+
+- `task.started` and meaningful milestones MAY be `visibility: user` when useful.
+- `task.failed`, `task.blocked`, and `task.cancelled` MUST be `visibility: user` and surfaced immediately.
+- Routine successful child `task.completed` SHOULD use `visibility: orchestrator` while the parent still reconciles or consumes results and will shortly emit a user-visible top-level `job.completed`.
+- Child `task.completed` MAY be `visibility: user` only when its completion is a meaningful standalone user milestone; the render-before-next-tool-call barrier still applies.
+- Top-level `job.completed`, `job.failed`, `job.blocked`, and `job.cancelled` remain user-visible terminal results.
 
 If the task temporarily monopolizes NeoX, emit `phone.transaction.started` when phone-dependent work begins and `phone.released` immediately after the last phone-dependent operation completes. Work after `phone.released` must not require NeoX to remain foreground unless a new transaction begins.
 
@@ -87,12 +95,14 @@ The helper publishes through the bundled NATS transport implementation; if trans
 The owning orchestrator must treat event consumption as a loop, not as a one-shot status check. The required control flow is:
 
 1. establish event consumption before child work starts;
-2. call `wait(job_id, after_cursor, timeout_ms)` (or the transport-equivalent);
-3. for each returned event, advance the cursor and immediately render any `visibility=user` event as a normal assistant-visible progress message;
-4. **render barrier:** after `wait` returns one or more `visibility=user` events, emit the corresponding assistant progress message **before making any subsequent tool call**, including the next `events__wait`; tool traces such as “Called `events__wait`” never satisfy this barrier;
-5. do not expose raw event JSON unless the user explicitly asks for diagnostics;
-5. continue waiting after non-terminal task events and after wait timeouts;
-6. stop when either a top-level terminal job event is observed, or the registered worker process is no longer alive. If the process ended without a terminal event, treat the outcome as abnormal/uncertain rather than continuing to wait.
+2. establish the pre-launch watch capability before `job.started`: prefer `events__watch(job_id)`, or use the fresh-job-only `events__history(job_id, after_cursor=0, limit=1)` fallback when the preferred tool is unavailable; retain the resulting cursor;
+3. launch the child only after the watch and any required pre-launch routing event/render are complete; request routine successful child completion as `visibility: orchestrator` unless it is a meaningful standalone user milestone;
+4. call `wait(job_id, after_cursor, timeout_ms)` (or the transport-equivalent);
+5. for each returned event, advance the cursor and immediately render any `visibility=user` event as a normal assistant-visible progress message;
+6. **render barrier:** after `wait` returns one or more `visibility=user` events, emit the corresponding assistant progress message **before making any subsequent tool call**, including the next `events__wait`; tool traces such as “Called `events__wait`” never satisfy this barrier;
+7. do not expose raw event JSON unless the user explicitly asks for diagnostics;
+8. continue waiting after non-terminal task events and after wait timeouts;
+9. stop when either a top-level terminal job event is observed, or the registered worker process is no longer alive. If the process ended without a terminal event, treat the outcome as abnormal/uncertain rather than continuing to wait.
 
 A single `wait` timeout is **not** job completion. It only means no matching event arrived during that long-poll window. Continue the loop while the job is still active.
 
@@ -112,7 +122,10 @@ If the worker exits or becomes unreachable without a terminal job event, reconci
 For MCP clients such as web ChatGPT, Grok, or Claude, the intended pattern is:
 
 ```text
-cursor = 0
+watch = events__watch(job_id)  # preferred; otherwise fresh unique job: history(job_id, 0, 1)
+cursor = watch.after_cursor
+publish/render required pre-launch model.selected
+launch worker
 while job not terminal:
     result = events__wait(job_id, cursor, 25000)
     if result.timed_out:
@@ -142,13 +155,14 @@ If the current harness cannot push messages after a turn has ended, keep the orc
 `mcp/server.mjs` exposes the event bus through a platform-neutral MCP interface. The intended federated tool surface is:
 
 - `events__health` — relay/broker health
+- `events__watch` — non-blocking cursor establishment before delegation
 - `events__wait` — cursor-based long-poll for one job
 - `events__history` — replay stored events for one job
 - `events__status` — latest/terminal job state
 - `events__publish` — publish an event when the caller has MCP but no native event-bus client
 - `events__progress` — return a compact structured job snapshot and, on MCP Apps-capable hosts, render the bundled Job Progress Card
 
-For hosted ChatGPT, sandboxed Codex workers, and other MCP clients, use these MCP tools rather than requiring the client to connect to NATS directly. `events__publish` requires the semantic fields `job_id`, `task_id`, `type`, `status`, `visibility`, and `message`; the relay validates their enums/shape and fills `version`, `event_id`, `timestamp`, `level`, `source`, and `data` when omitted. `wait(job_id, after_cursor, timeout_ms)` is the subscription-equivalent for request/response agent platforms.
+For hosted ChatGPT, sandboxed Codex workers, and other MCP clients, use these MCP tools rather than requiring the client to connect to NATS directly. Establish the pre-launch watch capability before `job.started` or delegation: prefer non-blocking `events__watch(job_id)`; if unavailable, only for a newly-created unique job with no prior events, use `events__history(job_id, after_cursor=0, limit=1)` and start at cursor `0` when empty. Do not use that fallback for an existing/resumed job with an unknown cursor. Then route/render, launch, and use `events__wait(job_id, after_cursor, timeout_ms)`. A blocking wait before launch is invalid. `events__publish` requires the semantic fields `job_id`, `task_id`, `type`, `status`, `visibility`, and `message`; the relay validates their enums/shape and fills `version`, `event_id`, `timestamp`, `level`, `source`, and `data` when omitted.
 
 ### Rich progress card
 
@@ -193,4 +207,3 @@ process log is not sufficient.
 ```
 
 For Web/hosted agent platforms that do not read `AGENTS.md`, put the equivalent requirement in their global custom instructions/bootstrap configuration and load `events-bus` as a bootstrap skill.
-

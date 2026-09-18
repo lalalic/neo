@@ -214,6 +214,18 @@ const TOOLS = [
     annotations: { readOnlyHint: true },
   },
   {
+    name: "watch",
+    title: "Establish job watch",
+    description: "Establish a non-blocking cursor for one job before delegation. Does not consume or delete events.",
+    inputSchema: {
+      type: "object",
+      properties: { job_id: { type: "string", pattern: "^[A-Za-z0-9_-]+$" } },
+      required: ["job_id"],
+      additionalProperties: false,
+    },
+    annotations: { readOnlyHint: true },
+  },
+  {
     name: "history",
     description: "Read stored events for one job after a cursor without waiting.",
     inputSchema: {
@@ -374,8 +386,20 @@ async function callTool(name, args = {}) {
     await nc.flush();
     return textResult({ ok: true, server: nc.getServer(), buffered_events: events.length, next_cursor: nextCursor });
   }
-  if (name === "wait" || name === "history" || name === "status" || name === "progress") {
+  if (name === "watch" || name === "wait" || name === "history" || name === "status" || name === "progress") {
     if (!safeJobId(args.job_id)) return textResult({ error: "job_id must contain only letters, digits, _ or -" }, true);
+  }
+  if (name === "watch") {
+    await nc.flush();
+    await new Promise((resolve) => setImmediate(resolve));
+    const rows = events.filter((row) => row.event?.job_id === args.job_id);
+    return textResult({
+      job_id: args.job_id,
+      watch_established: true,
+      after_cursor: rows.at(-1)?.cursor ?? 0,
+      buffered_event_count: rows.length,
+      worker_liveness: processLiveness(args.job_id),
+    });
   }
   if (name === "history") {
     const rows = rowsForJob(args.job_id, args.after_cursor ?? 0, args.limit ?? 100);
