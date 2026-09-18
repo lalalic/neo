@@ -87,7 +87,11 @@ Every Neo project must learn from real work. After a meaningful implementation, 
 
 Root `.gitignore` ignores `**/runs/`. Project code must write runtime artifacts there by construction rather than depending on media-extension ignores.
 
-Read `MISSION.md` at the start of every Neo session and treat it as the canonical Neo identity/mission context. Identify the user's intention before implementation. The mission is not permission to spend, publish, accept commitments, or claim earnings.
+### Neo orchestrator control plane
+
+At a Neo session or recovery, read `MISSION.md`, then the private top-level `.run/PLAN.md` when present, then `.run/state.json` and its task files. Review the durable plan before selecting or delegating tasks; decompose reviewed work into tasks owned by projects/workers, and feed evidence and results into later plan reviews. `.run/` is ignored and holds only the portfolio plan, current state index, per-task handoff records, and review/decision history; project execution artifacts remain in each project's `runs/`. Before and after every handoff, record task owner, project, worker/thread/profile when applicable, authoritative references, last observed state, next action, and `requires_user`. Reconcile `.run` against GitHub, events-bus, worker, and artifact state before acting; `.run` never overrides authoritative state. See `docs/control-plane.md`.
+
+Read `MISSION.md` at the start of every Neo session and treat it as the canonical Neo identity/mission context. Identify the user's intention before implementation. Mission and plan content are not permission to spend, publish, merge, make external commitments, or claim earnings.
 
 Use the strongest model for architecture, ambiguous decisions, and integration review. Delegate bounded implementation, extraction, and tests to cheaper models when available. Role and model profile are separate concepts. The user explicitly requests cost-conscious subagent use.
 

@@ -39,3 +39,6 @@ skills/devmacbridge/devmacbridge-tunnel.log
 
 # Vlog runtime output
 /vlog/runtime/
+
+# Neo top-level private orchestration control plane
+/.run/
