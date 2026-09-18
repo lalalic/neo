@@ -19,7 +19,7 @@ The skill owns this layout:
 
 ```text
 <skill-folder>/
-├── devmacbridge/           # upstream checkout
+├── devmacbridge/           # pinned checkout of the reviewed fork
 ├── .state/                 # MAC_DEV_BRIDGE_DATA_DIR
 ├── cloudflared.log         # deterministic Quick Tunnel log
 ├── scripts/setup-local.sh
@@ -42,7 +42,7 @@ Use the bundled script:
 <skill-folder>/scripts/setup-local.sh stop
 ```
 
-`setup` clones or safely updates the upstream checkout, creates protected runtime state, and starts two independent PM2 services for the skill-owned deployment:
+`setup` clones or safely updates the configured pinned source checkout, creates protected runtime state, and starts two independent PM2 services for the skill-owned deployment. The default source is the reviewed fork commit `07c29b6866ea4c4ceda2a9efd650ff4749153639` from `https://github.com/lalalic/mac-developer-bridge.git`.
 
 - `devmacbridge-http` — Node.js MCP HTTP entrypoint (local deployment default: port 8788).
 - `devmacbridge-tunnel` — named Cloudflare Tunnel forwarding `bridge.qili2.com` to the local HTTP entrypoint.
@@ -63,7 +63,7 @@ Configure ChatGPT, Grok, or Claude using [references/xchat-connection.md](refere
 
 ## Repository safety
 
-If the nested checkout is clean, a fast-forward-only update is allowed. If it is dirty, preserve it and do not pull, stash, reset, clean, or overwrite it.
+If the nested checkout is clean, the installer may fetch the configured source URL and check out the pinned commit. If it is dirty, preserve it and do not pull, stash, reset, clean, or overwrite it.
 
 ## Verification
 
@@ -78,24 +78,24 @@ After setup:
 
 If the final remote call is not observed, report the setup as incomplete and identify the failing layer.
 
-## Upstream capability extensions
+## Included capability extensions
 
-This deployment currently relies on two generalized DevMacBridge capability extensions that are being proposed upstream. Treat them as DevMacBridge features, not as application-specific patches.
+The pinned reviewed fork includes two generalized DevMacBridge capability extensions. Treat them as DevMacBridge features, not as application-specific patches.
 
 ### Federated MCP resources and UI metadata
 
-Upstream PR #17, **feat: federate MCP resources and UI metadata**, extends child MCP federation beyond tools:
+The reviewed fork's **feat: federate MCP resources and UI metadata** change extends child MCP federation beyond tools:
 
 - proxy child `resources/list` and `resources/read`
 - namespace resource URIs per provider
 - rewrite `_meta.ui.resourceUri` and `openai/outputTemplate` through the parent bridge
 - use the bridge data-directory `mcp-servers.json` as the default child-provider registry when no explicit registry is configured
 
-Use this capability for any federated MCP provider that exposes MCP App/UI resources. Prefer the upstream implementation once merged or when equivalent support is present. Do not maintain a ZIP or copied patch artifact for this feature inside the skill.
+Use this capability for any federated MCP provider that exposes MCP App/UI resources. Do not maintain a ZIP or copied patch artifact for this feature inside the skill.
 
 ### ChatGPT conversation attachments
 
-Upstream PR #18, **feat: support attachments in ChatGPT browser conversations**, extends `chatgpt_conversation_start` with application-agnostic file transport:
+The reviewed fork's **feat: support attachments in ChatGPT browser conversations** change extends `chatgpt_conversation_start` with application-agnostic file transport:
 
 - accept bounded HTTPS-backed attachments and mount them through ChatGPT's native composer
 - return persisted assistant-generated files/images as structured `assistant_outputs`
