@@ -135,6 +135,14 @@ Every task lasting more than a few seconds must emit:
 2. Meaningful milestone/progress events during work.
 3. Exactly one terminal event: `task.completed`, `task.failed`, `task.blocked`, or `task.cancelled`.
 
+### Task visibility policy
+
+- `task.started` and meaningful milestones may be `visibility: user` when useful.
+- `task.failed`, `task.blocked`, and `task.cancelled` MUST be `visibility: user` and surfaced immediately.
+- Routine successful child `task.completed` SHOULD default to `visibility: orchestrator` while the parent still reconciles or consumes results and will shortly emit a user-visible top-level `job.completed`.
+- Child `task.completed` may be `visibility: user` only when its completion is a meaningful standalone user milestone; if so, the render-before-next-tool-call barrier remains mandatory.
+- Top-level `job.completed`, `job.failed`, `job.blocked`, and `job.cancelled` remain user-visible terminal results.
+
 A sub-agent must also emit a user-visible event immediately when control of a scarce user resource is released. For NeoX this is `phone.released`: after this event the remaining job must not require NeoX to remain foreground unless a new phone transaction explicitly starts.
 
 Long silent periods are not allowed. If no meaningful milestone occurs for 30 seconds during active work, emit `task.heartbeat` with `visibility: orchestrator` and a concise description of the current operation. Heartbeats are not normally shown to the user.
@@ -151,7 +159,7 @@ The owning orchestrator MUST keep consuming the job event stream until either it
 
 Required behavior:
 
-- establish the watch/subscription before delegated work starts so early events are not lost;
+- establish a pre-launch watch capability before `job.started` or delegated work on request/response MCP hosts: prefer `events__watch(job_id)` for a non-blocking cursor; if unavailable, only for a newly-created unique job with no prior events, use `events__history(job_id, after_cursor=0, limit=1)` and use cursor `0` when empty; never use that fallback for an existing/resumed job with an unknown cursor; native transports may use their equivalent non-blocking subscription cursor;
 - maintain a cursor (or equivalent transport position) and advance it only from observed events;
 - render every relevant `visibility=user` milestone as a normal assistant-visible progress message as soon as practical;
 - enforce a **render-before-next-tool-call barrier**: once a `wait` result contains a `visibility:user` event, the owning orchestrator must emit the human-readable assistant progress message before issuing any later tool call, including another `wait`;
@@ -163,7 +171,7 @@ Required behavior:
 - stop after observing one of `job.completed`, `job.failed`, `job.blocked`, or `job.cancelled`, OR when the registered worker process exits; reconcile the two signals when both are available;
 - if the worker exits, disappears, or becomes unreachable without a terminal job event, surface the mismatch and terminate as failed/blocked rather than silently ending observation.
 
-For request/response MCP clients, use cursor-based long polling: `wait(job_id, after_cursor, timeout_ms)` → render returned user-visible events → repeat until a top-level terminal job event is observed.
+For request/response MCP clients, use this ordered sequence: establish watch capability (`events__watch(job_id)` preferred; otherwise fresh unique job only: `events__history(job_id, after_cursor=0, limit=1)`) → remember `after_cursor` → publish/render required pre-launch routing → launch worker → `wait(job_id, after_cursor, timeout_ms)` → render returned user-visible events → repeat until a top-level terminal job event is observed. The history fallback is invalid for existing/resumed jobs with unknown cursors. Both watch forms are non-blocking and do not consume or delete events. A blocking `wait` before launch is not a valid substitute.
 
 ## Orchestrator display contract
 

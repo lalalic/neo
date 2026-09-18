@@ -1,0 +1,10 @@
+{
+  "cases": [
+    "bootstrap_project_binding", "host_project_name_binding", "resolver_failure", "ordered_context_and_session_docs",
+    "dynamic_skill_precedence", "explicit_skill_trigger", "route_implementation",
+    "route_research_review", "sticky_continuation", "watch_before_delegation",
+    "job_id_propagation", "render_barrier", "task_completion_not_job_terminal",
+    "transport_failure_fallback", "heartbeat", "unrouted_launch_negative"
+  ],
+  "record_kinds": ["action", "host_context", "context", "skill", "launch", "event", "render", "tool_call", "fallback"]
+}
