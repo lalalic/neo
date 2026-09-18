@@ -10,9 +10,8 @@ REPO="$SKILL_DIR/devmacbridge"
 DATA_DIR="$SKILL_DIR/.state"
 CONFIG_FILE="$DATA_DIR/config.env"
 TUNNEL_LOG="$SKILL_DIR/devmacbridge-tunnel.log"
-UPSTREAM="${MAC_DEV_BRIDGE_UPSTREAM:-https://github.com/alexanderradahl/mac-developer-bridge.git}"
-SOURCE_REF="${MAC_DEV_BRIDGE_UPSTREAM_REF:-fea70d1a3c5524164f2159f6063ba685fef91324}"
-RUNTIME_PATCH="$SKILL_DIR/patches/devmacbridge-runtime.patch"
+UPSTREAM="${MAC_DEV_BRIDGE_UPSTREAM:-https://github.com/lalalic/mac-developer-bridge.git}"
+SOURCE_REF="${MAC_DEV_BRIDGE_UPSTREAM_REF:-07c29b6866ea4c4ceda2a9efd650ff4749153639}"
 TOKEN_FILE="$DATA_DIR/http-token"
 OAUTH_STATE_FILE="$DATA_DIR/oauth-state.json"
 MCP_SERVERS_FILE="$DATA_DIR/mcp-servers.json"
@@ -109,21 +108,6 @@ ensure_prerequisites() {
   ensure_pm2
 }
 
-ensure_runtime_patch() {
-  [[ -s "$RUNTIME_PATCH" ]] || fail "required runtime patch is missing: $RUNTIME_PATCH"
-  if git -C "$REPO" apply --reverse --check "$RUNTIME_PATCH" >/dev/null 2>&1; then
-    say "runtime_patch=already_applied"
-    return
-  fi
-  if [[ -n "$(git -C "$REPO" status --porcelain)" ]]; then
-    fail "source checkout is dirty and the required runtime patch is not fully present; preserving it for manual review"
-  fi
-  git -C "$REPO" apply --check "$RUNTIME_PATCH" \
-    || fail "runtime patch does not apply cleanly to source ref $SOURCE_REF"
-  git -C "$REPO" apply "$RUNTIME_PATCH"
-  say "runtime_patch=applied"
-}
-
 ensure_repo() {
   if [[ ! -d "$REPO/.git" ]]; then
     say "Cloning DevMacBridge source into $REPO"
@@ -139,10 +123,9 @@ ensure_repo() {
       fail "source checkout is dirty at $head; expected pinned ref $SOURCE_REF. Preserving it for manual review."
     fi
     say "Checking out pinned DevMacBridge source ref: $SOURCE_REF"
-    git -C "$REPO" fetch origin "$SOURCE_REF"
+    git -C "$REPO" fetch "$UPSTREAM" "$SOURCE_REF"
     git -C "$REPO" checkout --detach "$SOURCE_REF"
   fi
-  ensure_runtime_patch
 }
 
 ensure_named_tunnel() {
