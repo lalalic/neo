@@ -1,10 +1,8 @@
 {
   "version": 1,
-  "serviceName": "family-tutor-bridge",
-  "chatgpt": {
-    "backend": "devmacbridge",
-    "model": "gpt-5-6-thinking",
-    "thinkingEffort": "standard",
+  "serviceName": "family-tutor-orchestrator",
+  "codex": {
+    "backend": "codex",
     "maxRuntimeSeconds": 600
   },
   "discord": {
@@ -16,8 +14,6 @@
       "name": "Kid 1",
       "grade": "",
       "discordChannelId": "",
-      "projectId": "",
-      "tabId": 0,
       "gender": "",
       "school": "",
       "location": ""
@@ -27,8 +23,6 @@
       "name": "Kid 2",
       "grade": "",
       "discordChannelId": "",
-      "projectId": "",
-      "tabId": 0,
       "gender": "",
       "school": "",
       "location": ""

@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { Client, Events, GatewayIntentBits } from 'discord.js';
 import { loadConfig } from './config.mjs';
-import { DevMacBridgeChatGPT } from './backends/devmacbridge.mjs';
+import { CodexBackend } from './backends/codex.mjs';
 import { collectImageAttachments, understandImages } from './vision.mjs';
 import { isAudioAttachment, transcribeAudioAttachments } from './asr.mjs';
 
@@ -12,7 +12,7 @@ const config=loadConfig(configFile);
 const discordToken=process.env.DISCORD_BOT_TOKEN?.trim();
 if(!discordToken) throw new Error('DISCORD_BOT_TOKEN is required');
 
-const backend=new DevMacBridgeChatGPT(config.chatgpt);
+const backend=new CodexBackend(config.codex,{instanceDir:path.resolve(path.dirname(config.configPath),'..')});
 const childByChannel=new Map(config.children.map(c=>[c.discordChannelId,c]));
 function agentsFile(child){ return path.resolve(path.dirname(config.configPath),'..',child.id,'AGENTS.md'); }
 function ensureAgents(child){ const file=agentsFile(child); if(fs.existsSync(file)) return; fs.mkdirSync(path.dirname(file),{recursive:true}); fs.writeFileSync(file,`# ${child.name} Agent Context\n\n`,{mode:0o600}); }
@@ -42,7 +42,7 @@ function writeAgents(child,text){
 }
 async function applyTutorSideEffects(child,parsed){
   if(parsed.memoryText) writeAgents(child,parsed.memoryText);
-  if(parsed.rollover) await backend.newThread({projectId:child.projectId,tabId:child.tabId});
+  if(parsed.rollover) await backend.newThread({childId:child.id});
 }
 async function sendChunks(channel,text){ let remaining=text; while(remaining.length>1900){let split=remaining.lastIndexOf('\n',1900); if(split<800) split=1900; await channel.send(remaining.slice(0,split)); remaining=remaining.slice(split).trimStart();} if(remaining) await channel.send(remaining); }
 function collectAttachments(message){
@@ -86,23 +86,22 @@ async function handleChildMessage(message,child){
   try{
     result=await backend.turn({
       prompt:turnPrompt(child,studentMessage),
-      projectId:child.projectId,
-      tabId:child.tabId,
+      childId:child.id,
       attachments:nonAudioAttachments,
     });
   }catch(error){
     const imageAttachments=collectImageAttachments(message);
     const onlyImages=nonAudioAttachments.length>0 && imageAttachments.length===nonAudioAttachments.length;
     if(!onlyImages) throw error;
-    console.warn(`[family-tutor] ${child.id} direct ChatGPT attachment failed; using local image fallback`,error?.message||error);
+    console.warn(`[family-tutor] ${child.id} direct Codex attachment failed; using local image fallback`,error?.message||error);
     let imageContext;
     try{ imageContext=await understandImages(imageAttachments,incoming); }
     catch(visionError){
       console.error(`[family-tutor] ${child.id} image fallback failed`,visionError);
-      return message.reply('I received your file, but ChatGPT upload and the local image fallback both failed. Please try again or send the question as text.');
+      return message.reply('I received your file, but Codex and the local image fallback both failed. Please try again or send the question as text.');
     }
     const grounded=`${studentMessage}\n\n[GROUNDING FROM STUDENT IMAGE — fallback visual analysis]\n${imageContext}\n[/GROUNDING FROM STUDENT IMAGE]`;
-    result=await backend.turn({prompt:turnPrompt(child,grounded),projectId:child.projectId,tabId:child.tabId});
+    result=await backend.turn({prompt:turnPrompt(child,grounded),childId:child.id});
   }
   const parsed=parseTutorText(result.text);
   await applyTutorSideEffects(child,parsed);
@@ -117,7 +116,7 @@ async function handleParentControl(message){
   if(!text.startsWith('!')) return;
   const [command,childId,...rest]=text.split(/\s+/);
   if(command==='!help') return message.reply('Commands: `!goal <childId> <goal>`, `!focus <childId> <focus>`, `!ask <childId> <question>`, `!threads`');
-  if(command==='!threads'){ return message.reply(config.children.map(c=>`${c.id}: dedicated ChatGPT Project + tab`).join('\n')); }
+  if(command==='!threads'){ return message.reply(config.children.map(c=>`${c.id}: persistent Codex thread`).join('\n')); }
   const child=config.children.find(c=>c.id===childId);
   if(!child) return message.reply(`Unknown child id. Use one of: ${config.children.map(c=>c.id).join(', ')}`);
   const value=rest.join(' ').trim();
@@ -127,7 +126,7 @@ async function handleParentControl(message){
   else if(command==='!focus') prompt=`${turnPrompt(child,`[PARENT CONTROL] Make this the current tutoring focus for ${child.name}: ${value}. Apply it when relevant in future tutoring. Reply briefly to the parent only.`)}`;
   else if(command==='!ask') prompt=`${turnPrompt(child,`[PARENT QUESTION] Answer the parent about ${child.name}'s learning using the current tutor context and durable memory: ${value}`)}`;
   else return;
-  const result=await backend.turn({prompt,projectId:child.projectId,tabId:child.tabId});
+  const result=await backend.turn({prompt,childId:child.id});
   const parsed=parseTutorText(result.text);
   await applyTutorSideEffects(child,parsed);
   return sendChunks(message.channel,parsed.childText||result.text);
@@ -135,7 +134,7 @@ async function handleParentControl(message){
 
 function serialize(childId,work){ const prev=queues.get(childId)||Promise.resolve(); const next=prev.catch(()=>{}).then(work).finally(()=>{if(queues.get(childId)===next) queues.delete(childId)}); queues.set(childId,next); return next; }
 
-client.once(Events.ClientReady,c=>console.log(`[family-tutor] ready as ${c.user.tag}`));
+client.once(Events.ClientReady,c=>console.log(`[family-tutor-orchestrator] ready as ${c.user.tag}`));
 client.on(Events.MessageCreate,message=>{
   if(message.author.bot) return;
   const child=childByChannel.get(message.channelId);

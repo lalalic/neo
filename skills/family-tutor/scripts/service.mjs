@@ -9,9 +9,9 @@ const instance=path.resolve(process.argv[3]||process.cwd());
 const configFile=path.join(instance,'config','family.config.json');
 if(!fs.existsSync(configFile)) throw new Error(`Missing config: ${configFile}`);
 const cfg=JSON.parse(fs.readFileSync(configFile,'utf8'));
-const name=cfg.serviceName||'family-tutor-bridge';
+const name=cfg.serviceName||'family-tutor-orchestrator';
 const here=path.dirname(fileURLToPath(import.meta.url));
-const runtime=path.join(path.dirname(here),'runtime','tutor-bridge');
+const runtime=path.join(path.dirname(here),'runtime','tutor-orchestrator');
 const serviceEnv={...process.env,FAMILY_TUTOR_CONFIG:configFile};
 if(!fs.existsSync(path.join(runtime,'node_modules','discord.js'))){
   const install=spawnSync('npm',['install','--omit=dev','--no-fund','--no-audit'],{cwd:runtime,stdio:'inherit',env:process.env});

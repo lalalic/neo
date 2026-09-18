@@ -1,44 +1,27 @@
 #!/usr/bin/env node
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
+import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const here=path.dirname(fileURLToPath(import.meta.url));
-const skill=path.dirname(here);
 const instance=path.resolve(process.argv[2]||process.cwd());
 const config=path.join(instance,'config','family.config.json');
 let failed=false;
 function check(ok,msg){console.log(`${ok?'✓':'✗'} ${msg}`); if(!ok) failed=true;}
-function tokenAvailable(){
-  if(process.env.MAC_DEV_BRIDGE_HTTP_TOKEN?.trim()) return true;
-  const files=[
-    process.env.MAC_DEV_BRIDGE_HTTP_TOKEN_FILE,
-    process.env.MAC_DEV_BRIDGE_DATA_DIR ? path.join(process.env.MAC_DEV_BRIDGE_DATA_DIR,'http-token') : null,
-    path.join(os.homedir(),'Library','Application Support','MacDeveloperBridge','http-token'),
-    path.resolve(skill,'../devmacbridge/.state/http-token'),
-  ].filter(Boolean);
-  return files.some(file=>{try{return Boolean(fs.readFileSync(file,'utf8').trim())}catch{return false}});
-}
 check(fs.existsSync(config),`config exists: ${config}`);
 check(Boolean(process.env.DISCORD_BOT_TOKEN),'DISCORD_BOT_TOKEN is exported');
-check(tokenAvailable(),'DevMacBridge HTTP bearer is available');
-const mdbDataDir=process.env.MAC_DEV_BRIDGE_DATA_DIR || path.resolve(skill,'../devmacbridge/.state');
-let mdbPort=process.env.MAC_DEV_BRIDGE_HTTP_PORT?.trim() || '';
-if(!mdbPort){
-  try{
-    const envText=fs.readFileSync(path.join(mdbDataDir,'config.env'),'utf8');
-    mdbPort=(envText.match(/^MAC_DEV_BRIDGE_HTTP_PORT=(.+)$/m)?.[1]||'').trim();
-  }catch{}
-}
-mdbPort=mdbPort||'8787';
-try{const r=await fetch(`http://127.0.0.1:${mdbPort}/healthz`,{signal:AbortSignal.timeout(1500)}); check(r.ok,`DevMacBridge HTTP front end is reachable on ${mdbPort}`);}catch{check(false,`DevMacBridge HTTP front end is reachable on ${mdbPort}`);}
+const executable=spawnSync('codex',['--version'],{encoding:'utf8',timeout:5000});
+check(executable.status===0,'codex executable is available');
+const login=spawnSync('codex',['login','status'],{encoding:'utf8',timeout:5000});
+const loginOutput=`${login.stdout||''}\n${login.stderr||''}`;
+check(login.status===0 && /logged in using|already logged in|authenticated/i.test(loginOutput),'Codex login is active');
 if(fs.existsSync(config)){
   try{
     const cfg=JSON.parse(fs.readFileSync(config,'utf8'));
     check(Array.isArray(cfg.children)&&cfg.children.every(c=>c.discordChannelId),'every child has a Discord channel id');
-    check(Array.isArray(cfg.children)&&cfg.children.every(c=>/^g-p-[A-Za-z0-9_-]{8,128}$/.test(c.projectId||'')),'every child has a ChatGPT Project id');
-    check(Array.isArray(cfg.children)&&cfg.children.every(c=>Number.isInteger(c.tabId)&&c.tabId>0),'every child has a dedicated ChatGPT tab id');
+    check(cfg.codex?.backend==='codex','Codex backend is configured');
+    check(Array.isArray(cfg.children)&&cfg.children.every(c=>!Object.keys(c).some(key=>/project|tab/i.test(key))),'children have no browser bindings');
     check(Boolean(cfg.discord?.parentChannelId),'parent channel id is configured');
   }catch(e){check(false,`config parses: ${e.message}`)}
 }
