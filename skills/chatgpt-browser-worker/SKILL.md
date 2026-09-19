@@ -62,6 +62,7 @@ python3 scripts/operate_bh.py resume --thread-id ID --project NAME
 python3 scripts/operate_bh.py continue --thread-id ID --project NAME --prompt TEXT
 python3 scripts/operate_bh.py status --thread-id ID --project NAME
 python3 scripts/operate_bh.py result --thread-id ID --project NAME
+python3 scripts/operate_bh.py delete --thread-id ID --project NAME
 ```
 
 Each command performs one serial browser-harness operation. The injected
@@ -76,6 +77,11 @@ proof that a thread was created, resumed, completed, or deleted. Authentication
 walls, MFA, consent, ambiguous account/project selection, and unverified
 thinking levels are `blocked` or `failed` conditions and must not be
 self-healed.
+
+Delete targets the exact durable conversation URL, requires an observed action
+and confirmation, and verifies that the requested thread is no longer visible.
+Repeated cleanup is idempotent (`not_found` is accepted); archive/undo UI
+controls are evidence only and never revive a deleted tombstone.
 
 Keep credentials, prompts containing private data, and browser runtime state
 out of durable state and events. Runtime artifacts belong under the caller's

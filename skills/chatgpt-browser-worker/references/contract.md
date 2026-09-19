@@ -105,6 +105,13 @@ read_result() -> result_observation
 delete_thread() -> cleanup_observation
 ```
 
+`cleanup_observation` must contain the requested `thread_id` (or omit it only
+when the browser has verified the thread is absent), `outcome` equal to
+`deleted` or `not_found`, and `verified: true`. `not_found` is a successful
+idempotent retry. Archive/undo controls may be reported as observational
+metadata, but they do not turn a delete into a recoverable state: a deleted
+tombstone remains terminal and must never be reused.
+
 These names describe the boundary, not a required Python class or browser
 selector implementation. Each call must return observed values or a typed
 failure. The contract layer must remain usable with a fake port and must not

@@ -102,6 +102,22 @@ def validate_result(result: Any, *, thread_id: str | None = None) -> dict[str, A
     return normalized
 
 
+def validate_cleanup_observation(observation: Any, *, thread_id: str) -> dict[str, Any]:
+    """Accept browser evidence that exactly one requested thread is gone."""
+    if not isinstance(observation, dict):
+        raise ContractError("cleanup observation must be an object")
+    expected_id = _text(thread_id, "thread_id")
+    observed_id = observation.get("thread_id")
+    if observed_id is not None and _text(observed_id, "cleanup.thread_id") != expected_id:
+        raise ContractError("cleanup observation belongs to a different thread")
+    outcome = _text(observation.get("outcome"), "cleanup.outcome")
+    if outcome not in {"deleted", "not_found"}:
+        raise ContractError("cleanup was not verified")
+    if observation.get("verified") is not True:
+        raise ContractError("cleanup observation is not verified")
+    return deepcopy(observation)
+
+
 def project_matches(expected: Any, observed: Any) -> bool:
     expected_project = validate_project(expected)
     observed_project = validate_project(observed)

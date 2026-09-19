@@ -5,9 +5,9 @@ from datetime import datetime, timezone
 from typing import Any, Callable, Protocol
 
 try:
-    from .contract import ContractError, transition, validate_project, validate_request, validate_result, validate_state
+    from .contract import ContractError, transition, validate_cleanup_observation, validate_project, validate_request, validate_result, validate_state
 except ImportError:
-    from contract import ContractError, transition, validate_project, validate_request, validate_result, validate_state
+    from contract import ContractError, transition, validate_cleanup_observation, validate_project, validate_request, validate_result, validate_state
 
 
 class BrowserPort(Protocol):
@@ -15,6 +15,7 @@ class BrowserPort(Protocol):
     def send_prompt(self, prompt: str) -> dict[str, Any]: ...
     def read_status(self) -> dict[str, Any]: ...
     def read_result(self) -> dict[str, Any]: ...
+    def delete_thread(self) -> dict[str, Any]: ...
 
 
 def _now() -> str:
@@ -159,3 +160,20 @@ def result_thread(
     current.setdefault("evidence", {})["result"] = result
     _save(current, persist, now)
     return result
+
+
+def delete_thread(
+    port: BrowserPort,
+    state: Any,
+    *,
+    persist: Callable[[dict[str, Any]], None] | None = None,
+    now: Callable[[], str] = _now,
+) -> dict[str, Any]:
+    """Delete one durable thread and persist its terminal tombstone."""
+    current = validate_state(state)
+    if current["status"] == "deleted":
+        return current
+    observation = validate_cleanup_observation(port.delete_thread(), thread_id=current["thread_id"])
+    current = transition(current, "deleted")
+    current.setdefault("evidence", {})["cleanup"] = observation
+    return _save(current, persist, now)

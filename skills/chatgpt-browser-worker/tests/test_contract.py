@@ -149,6 +149,10 @@ class ExistingThreadPort:
         self.calls.append(("read_result",))
         return self.result
 
+    def delete_thread(self):
+        self.calls.append(("delete_thread",))
+        return {"thread_id": "thread-1", "outcome": "deleted", "verified": True}
+
 
 def test_create_returns_durable_identity_project_binding_and_evidence():
     port = FakePort()
@@ -230,3 +234,42 @@ def test_result_without_observed_assistant_message_does_not_complete_thread():
     port = ExistingThreadPort(result={"thread_id": "thread-1", "status": "awaiting_result"})
     with pytest.raises(contract.ContractError, match="completed"):
         operations.result_thread(port, state("running"))
+
+
+def test_delete_persists_verified_tombstone_and_is_idempotent():
+    port = ExistingThreadPort()
+    persisted = []
+    deleted = operations.delete_thread(
+        port, state("completed"), persist=persisted.append,
+        now=lambda: "2026-09-19T12:04:00Z",
+    )
+    assert deleted["status"] == "deleted"
+    assert deleted["evidence"]["cleanup"]["verified"] is True
+    assert deleted["updated_at"] == "2026-09-19T12:04:00Z"
+    assert [call[0] for call in port.calls] == ["delete_thread"]
+
+    again = operations.delete_thread(port, deleted, persist=persisted.append)
+    assert again["status"] == "deleted"
+    assert [call[0] for call in port.calls] == ["delete_thread"]
+
+
+def test_delete_accepts_verified_not_found_for_retry_safety():
+    class MissingPort(ExistingThreadPort):
+        def delete_thread(self):
+            return {"thread_id": "thread-1", "outcome": "not_found", "verified": True}
+
+    deleted = operations.delete_thread(MissingPort(), state("failed"))
+    assert deleted["status"] == "deleted"
+
+
+def test_cleanup_rejects_unverified_or_unrelated_observations():
+    with pytest.raises(contract.ContractError, match="verified"):
+        contract.validate_cleanup_observation(
+            {"thread_id": "thread-1", "outcome": "deleted", "verified": False},
+            thread_id="thread-1",
+        )
+    with pytest.raises(contract.ContractError, match="different thread"):
+        contract.validate_cleanup_observation(
+            {"thread_id": "other", "outcome": "deleted", "verified": True},
+            thread_id="thread-1",
+        )

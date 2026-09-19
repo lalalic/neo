@@ -14,7 +14,7 @@ BH_SCRIPT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "_operate_b
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("operation", choices=("resume", "continue", "status", "result"))
+    parser.add_argument("operation", choices=("resume", "continue", "status", "result", "delete"))
     parser.add_argument("--thread-id", required=True)
     parser.add_argument("--project", required=True)
     parser.add_argument("--prompt")
