@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import sys
 from pathlib import Path
 
@@ -273,3 +274,37 @@ def test_cleanup_rejects_unverified_or_unrelated_observations():
             {"thread_id": "other", "outcome": "deleted", "verified": True},
             thread_id="thread-1",
         )
+
+
+def test_agents_relay_fixture_drives_one_serial_browser_thread_lifecycle():
+    fixture = json.loads((HERE / "tests" / "fixtures" / "relay_lifecycle.json").read_text())
+    port = ExistingThreadPort(status="completed", result=fixture["result"])
+    port.project = fixture["project"]
+    persisted = []
+
+    created = create.create_thread(
+        FakePort(project=fixture["project"], sent=fixture["thread"]),
+        fixture["create"],
+        persist=persisted.append,
+        now=lambda: "2026-09-19T12:00:00Z",
+    )
+    resumed = operations.resume_thread(
+        port,
+        {"operation": "resume", "thread_id": created["thread_id"], "project": fixture["project"]},
+        state=created,
+        persist=persisted.append,
+        now=lambda: "2026-09-19T12:01:00Z",
+    )
+    result = operations.result_thread(
+        port, resumed, persist=persisted.append, now=lambda: "2026-09-19T12:02:00Z"
+    )
+    deleted = operations.delete_thread(
+        port, resumed, persist=persisted.append, now=lambda: "2026-09-19T12:03:00Z"
+    )
+
+    assert fixture["job_id"] and fixture["task_id"]
+    assert created["thread_id"] == fixture["thread"]["thread_id"]
+    assert result["text"] == fixture["result"]["text"]
+    assert deleted["status"] == "deleted"
+    assert [call[0] for call in port.calls] == ["open_thread", "read_result", "delete_thread"]
+    assert [item["status"] for item in persisted] == ["running", "completed", "completed", "deleted"]

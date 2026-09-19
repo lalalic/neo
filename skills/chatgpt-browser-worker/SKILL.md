@@ -49,6 +49,12 @@ the contract layer does not import or launch `browser-harness`.
 Run `python3 -m pytest skills/chatgpt-browser-worker/tests` from the repository
 root.
 
+For the Neo/Leo and Agents Relay handoff—task IDs, run-local state, event
+ownership, and the create/resume/result/delete invocation sequence—see
+[references/orchestration.md](references/orchestration.md). The outer
+orchestrator may use MacBridge as a transport, but this worker never treats
+MacBridge as the ChatGPT runtime.
+
 The browser-backed create entry point is
 `python3 scripts/create_bh.py --project NAME --prompt TEXT`; it emits JSON with
 the observed `thread_id`, conversation URL, selected Project, and thinking
