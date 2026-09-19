@@ -55,13 +55,21 @@ ownership, and the create/resume/result/delete invocation sequence—see
 orchestrator may use MacBridge as a transport, but this worker never treats
 MacBridge as the ChatGPT runtime.
 
-The browser-backed create entry point is
-`python3 scripts/create_bh.py --project NAME --prompt TEXT`; it emits JSON with
-the observed `thread_id`, conversation URL, selected Project, and thinking
-observation. It starts a new ChatGPT chat when the attached tab is already a
-conversation.
+The runtime entry point is the
+[browser-worker agent](agents/browser-worker.agent.md). Callers launch that
+agent with a typed lifecycle intent; they must not directly call
+`create_bh.py` or `operate_bh.py`. Those scripts are helper implementations
+that the agent may use, repair, or bypass while preserving this skill's
+browser-harness and verification contract.
 
-Existing threads use the durable identity from persisted state:
+The browser-worker agent's `create` intent starts a new ChatGPT chat when the
+attached tab is already a conversation and emits JSON with the observed
+`thread_id`, conversation URL, selected Project, and thinking observation.
+`scripts/create_bh.py` is only a helper for that agent, not a caller-facing
+runtime contract.
+
+For implementation/debugging, the agent may use the helper equivalent for an
+existing thread with the durable identity from persisted state:
 
 ```text
 python3 scripts/operate_bh.py resume --thread-id ID --project NAME

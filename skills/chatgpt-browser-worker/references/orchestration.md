@@ -1,16 +1,18 @@
 # Neo/Leo orchestration integration
 
 This skill is a worker capability, not an orchestrator or a browser session
-manager. Agents Relay (or Leo's owning orchestrator) owns the task, correlation
-ID, retries, events, and durable run location. The worker owns one ChatGPT
-thread state record. `browser-harness` is the only layer that touches the
-authenticated browser.
+manager. The `browser-worker` agent owns adaptive browser execution. Agents
+Relay (or Leo's owning orchestrator) owns the task, correlation ID, retries,
+events, and durable run location. The worker owns one ChatGPT thread state
+record. `browser-harness` is the only layer that touches the authenticated
+browser.
 
 ## Responsibility split
 
 | Layer | Responsibility | Must not do |
 | --- | --- | --- |
 | Agents Relay / Leo | Create the child task, pass the exact `job_id` and `task_id`, consume lifecycle events, and reconcile terminal state | Select DOM elements, infer a thread from a tab, or replace a deleted thread |
+| Browser-worker agent | Load both skills, execute typed lifecycle intents, adapt to ordinary UI drift by re-observing, preserve `thread_id`/Project identity, and return verified observations | Bypass authentication, MFA, consent, ambiguity, or unverifiable results |
 | This skill | Validate requests, preserve `thread_id` state, enforce Project and status transitions, and normalize observed results | Launch a second browser stack, call a ChatGPT API, or depend on MacBridge as a ChatGPT runtime |
 | `browser-harness` adapter | Perform the observable browser actions and return semantic observations | Persist orchestration state, invent success from a process exit, or hide authentication/ambiguity failures |
 
@@ -46,9 +48,11 @@ session details stay under the caller's ignored `runs/` directory.
 
 ## Lifecycle invocation
 
-The orchestrator invokes one serial operation at a time and persists the
-returned state before acknowledging success. The durable identity is always
-the `thread_id` in `state.json`, never a URL, title, or tab index.
+The orchestrator launches the `browser-worker` agent with one serial typed
+operation at a time and persists the returned state before acknowledging
+success. It must not directly invoke `create_bh.py` or `operate_bh.py`; those
+are agent implementation helpers. The durable identity is always the
+`thread_id` in `state.json`, never a URL, title, or tab index.
 
 | Intent | Request | Browser-port calls | Success evidence |
 | --- | --- | --- | --- |
@@ -64,8 +68,9 @@ missing or failed browser action. A `deleted` tombstone is terminal.
 
 The pure entry points are `create_thread`, `resume_thread`, `result_thread`,
 and `delete_thread` in `scripts/create.py` and `scripts/operations.py`. The
-`*_bh.py` scripts are thin process adapters that run one operation through
-`browser-harness`; they are not an alternate state store or orchestrator.
+`*_bh.py` scripts are thin helpers the agent may call or replace while running
+one operation through `browser-harness`; they are not an alternate state store,
+orchestrator, or caller-facing runtime.
 
 ## Events and terminal handling
 
