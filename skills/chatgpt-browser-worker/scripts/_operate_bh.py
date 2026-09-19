@@ -29,6 +29,10 @@ def _assistant_messages():
       .filter(e => e.text))()""") or []
 
 
+def _is_generating():
+    return bool(js('!!document.querySelector(\'button[aria-label*="Stop" i],button[data-testid*="stop" i]\')'))
+
+
 def _click_accessible(name):
     matches = [node for node in _ax_nodes() if node.get("name", {}).get("value") == name]
     if len(matches) != 1:
@@ -103,14 +107,18 @@ if operation == "continue":
     print(json.dumps({**base, "prompt_sent": True}, ensure_ascii=False))
 elif operation == "status":
     messages = _assistant_messages()
-    generating = bool(js('!!document.querySelector(\'button[aria-label*="Stop" i],button[data-testid*="stop" i]\')'))
+    generating = _is_generating()
     status = "running" if generating else ("awaiting_result" if not messages else "completed")
     print(json.dumps({**base, "status": status, "assistant_message_count": len(messages)}, ensure_ascii=False))
 elif operation == "result":
+    if _is_generating():
+        raise RuntimeError("ChatGPT is still generating; no final assistant result was observed")
     messages = _assistant_messages()
     if not messages:
         raise RuntimeError("no observed assistant result")
     message = messages[-1]
-    print(json.dumps({**base, "status": "completed", "text": message["text"], "message_id": message["id"] or "observed-assistant"}, ensure_ascii=False))
+    if not message["id"]:
+        raise RuntimeError("assistant result had no observed message id")
+    print(json.dumps({**base, "status": "completed", "text": message["text"], "message_id": message["id"]}, ensure_ascii=False))
 else:
     print(json.dumps({**base, "status": "completed" if _assistant_messages() else "awaiting_result"}, ensure_ascii=False))

@@ -120,6 +120,8 @@ import or launch `browser-harness` itself.
 ## Testable safety boundaries
 
 - no request can omit the Project on `create` or `resume`;
+- Project IDs are compared when both browser boundaries expose them; a
+  name-only observation remains valid because the UI may hide opaque IDs;
 - no state can omit a non-empty `thread_id` or valid status;
 - `resume` rejects an observed Project mismatch;
 - requested and effective thinking levels are distinct fields;

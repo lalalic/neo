@@ -123,7 +123,9 @@ def project_matches(expected: Any, observed: Any) -> bool:
     observed_project = validate_project(observed)
     if expected_project["name"] != observed_project["name"]:
         return False
-    return not expected_project.get("id") or expected_project["id"] == observed_project.get("id")
+    # A browser boundary may expose only the visible Project name. Compare
+    # opaque IDs only when both sides actually observed one.
+    return not (expected_project.get("id") and observed_project.get("id")) or expected_project["id"] == observed_project["id"]
 
 
 def transition(state: Any, new_status: str, *, observed_project: Any | None = None) -> dict[str, Any]:

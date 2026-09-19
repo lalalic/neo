@@ -58,6 +58,11 @@ def test_project_mismatch_is_rejected_and_unknown_effective_level_is_valid():
         contract.transition(current, "running", observed_project={"id": "other", "name": "other"})
 
 
+def test_project_id_is_optional_at_a_browser_boundary():
+    assert contract.project_matches({"id": "project-1", "name": "neo"}, {"name": "neo"})
+    assert not contract.project_matches({"id": "project-1", "name": "neo"}, {"id": "other", "name": "neo"})
+
+
 def test_completion_requires_explicit_transition_and_delete_is_terminal():
     running = contract.transition(state(), "running")
     waiting = contract.transition(running, "awaiting_result")
