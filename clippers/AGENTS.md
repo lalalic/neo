@@ -15,6 +15,10 @@ Follow root Neo `AGENTS.md`. Clippers accepts only explicitly authorized sources
 
 Do not copy global agent prompts into project agents. Project-local authority is limited to rights intake, evidence and state contracts, selection rubric application, and handoff identity.
 
+## Research orchestration
+
+All new Clippers research that launches an agent or worker must be represented by an Agents Relay child task before execution. The task must state the research question, success/failure criterion, eval/input references, constraints, and expected durable artifact. Model-backed tasks require model-router metadata before launch and events-bus visibility. Record the result and artifact references in the durable task; promote only changed reusable conclusions into project docs or this file. Do not launch ad hoc research workers outside Agents Relay.
+
 ## State lifecycle
 
 `initiated → source_authorized → media_preflight → transcript_extracted → text_candidates_extracted → vision_reviewed → judge_ranked → variants_planned → qa_passed → markcut_ready`.
