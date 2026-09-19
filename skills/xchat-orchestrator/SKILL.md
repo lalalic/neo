@@ -19,10 +19,14 @@ At the start of each orchestration task, discover the currently available local 
 
 ## Operating invariants
 
-- A PR represents one coherent objective. Do not mix unrelated features in a new PR.
+- A PR represents one coherent top-level objective. Do not mix unrelated features in a new PR.
+- **PR creation is durable job creation.** For repository work represented by a GitHub PR, create/reuse the top-level PR and its trusted `agents-relay:job:v1` marker through `agents-relay job create`. Adopt an existing unmanaged PR with `agents-relay job adopt`; repair a damaged/duplicate same-job marker with `agents-relay job repair`. Do not use raw `gh pr create`, GitHub UI/API, or another path to create the orchestrator's managed work PR.
+- Draft/WIP PRs are still Agents Relay jobs. Draft status changes review readiness only and never bypasses durable job bootstrap.
+- Before repository execution or worker launch, assert that the managed PR exists, the trusted Agents Relay job marker exists, and the exact `job_id` is known. If this cannot be established safely, stop rather than silently falling back to raw PR creation.
+- After the top-level job exists, represent executable implementation, research, review, validation, and other delegated work as child tasks in that durable job and submit/manage them through Agents Relay.
 - GitHub PR state, head SHA, checks, reviews, and comments are the workflow record. Do not require Google Drive, `HANDOFF.md`, `STATUS.md`, `STATE`, or a task directory for GitHub-backed work.
-- Use GitHub tools for reads when available. Route PR mutations through authenticated `gh` on the Mac when the GitHub connector is read-only or returns a permission error.
-- Use the exact repository, branch, PR, and Codex thread resolved during preflight. Never guess among multiple local checkouts or threads.
+- Use GitHub tools for reads when available. Authenticated `gh` may be used for GitHub reads and lifecycle mutations not owned by Agents Relay, but creation/adoption/repair of an orchestrated PR/job must go through the Agents Relay CLI.
+- Use the exact repository, branch, PR, job ID, and Codex thread resolved during preflight. Never guess among multiple local checkouts, jobs, or threads.
 - Never expose secrets in PR descriptions, comments, metadata, logs, or commits.
 
 ## Closed-loop protocol
@@ -37,7 +41,14 @@ Before **every new agent/worker launch**, including implementation, research, re
 
 ### 1. Resolve and preflight
 
-Resolve the canonical `owner/name`, PR number, head branch, local repository root, and task worktree. Verify that the local remote and branch match the PR. If any target is ambiguous, stop and ask.
+Resolve the canonical `owner/name`, local repository root, and intended top-level objective first. For repository work, resolve or bootstrap the durable Agents Relay job before implementation:
+
+1. If no work PR exists, use `agents-relay job create` to create/reuse the PR and trusted job marker.
+2. If an unmanaged work PR already exists, use `agents-relay job adopt`.
+3. If a managed PR has a damaged/duplicate same-job marker, use `agents-relay job repair`.
+4. If it is already managed, load and reuse its existing `job_id`.
+
+Then resolve the exact PR number, head branch, and task worktree. Verify that the local remote and branch match the PR and that the trusted `agents-relay:job:v1` marker exists. If any target or durable job identity is ambiguous, stop and ask.
 
 Repository layout may contain nested Git repositories, especially under `~/Workspace/neo/<repo>`. Treat the innermost checkout whose configured remote matches the target `owner/name` as the repository root. Never infer the root merely from the first parent directory containing `.git`, and never run child-repository Git mutations from the outer `~/Workspace/neo` repository.
 

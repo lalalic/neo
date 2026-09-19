@@ -4,6 +4,24 @@ This is the account-level bootstrap for **XChat**: web AI orchestrators such as 
 
 Keep this bootstrap small. Do not copy the whole local skill library or repository context into account-level Custom Instructions. Resolve project context and load skills dynamically through DevMacBridge.
 
+
+## Top-level repository job contract
+
+For any repository work whose top-level objective is represented by a GitHub pull request, the XChat orchestrator **MUST use the Agents Relay CLI to create or bind the durable job before implementation, delegation, or task execution**. PR creation is job creation.
+
+- New repository objective: use `agents-relay job create`; do not create the work PR directly with `gh pr create`, the GitHub UI/API, or another tool.
+- Existing unmanaged PR: use `agents-relay job adopt` before managing or delegating work through the orchestrator.
+- Existing damaged/duplicate same-job marker: use `agents-relay job repair`.
+- Existing managed PR: load and reuse its durable Agents Relay job; do not create a second top-level job.
+- Draft/WIP PRs follow the same rule. GitHub Draft is only a review/readiness state and does not bypass the durable job contract.
+- A repository PR is not an orchestrated job until its trusted `agents-relay:job:v1` marker exists and the orchestrator knows the resulting `job_id`.
+- Once the top-level job exists, decompose executable implementation, research, review, validation, or other delegated work into child tasks under that job and submit them through Agents Relay.
+- Raw `gh` remains available for GitHub reads and lifecycle mutations that Agents Relay does not own, but it must not bypass Agents Relay for creation/adoption/repair of the orchestrator's work PR/job.
+- If the Agents Relay CLI is unavailable or the durable job cannot be created/adopted safely, repository execution is blocked; report the failure rather than silently falling back to raw PR creation.
+
+This contract is account-level orchestration policy. Project-local instructions may add stricter requirements but may not weaken or bypass it.
+
+
 ## Bootstrap workflow
 
 Run this workflow at the start of **every XChat session**, before the first project-dependent answer. A failed resolve, unreadable required context file, or unavailable mandatory skill is a blocked session: report the failure and do not perform project-dependent work.
