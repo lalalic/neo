@@ -134,6 +134,10 @@ Reroute only when there is a clear reason, such as:
 
 If a reroute occurs, report why continuity was broken.
 
+## XChat worker preference
+
+For XChat managed workers, rank eligible discovered candidates in this order: ChatGPT, then ZAI, then Codex GPT. This is a preference among candidates that pass the hard capability, availability, health, quota, privacy, and explicit-user-constraint gates; it is never a fallback to an undiscovered or unusable profile. The currently supported ChatGPT worker model is `gpt-5-6-sol`. Keep that model in harness configuration/discovery so future OpenAI model changes can be adopted without changing the protocol.
+
 ## 6. Return a structured decision
 
 Prefer a compact machine-readable result such as:
