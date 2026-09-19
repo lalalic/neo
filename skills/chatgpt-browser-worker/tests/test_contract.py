@@ -56,6 +56,34 @@ def test_completion_requires_explicit_transition_and_delete_is_terminal():
         contract.transition(deleted, "running")
 
 
+def test_result_requires_observed_assistant_message_and_matching_identity():
+    result = contract.validate_result(
+        {
+            "thread_id": "thread-1",
+            "status": "completed",
+            "text": "normalized answer",
+            "message_id": "message-1",
+        },
+        thread_id="thread-1",
+    )
+    assert result["message_id"] == "message-1"
+    with pytest.raises(contract.ContractError):
+        contract.validate_result(
+            {"thread_id": "thread-1", "status": "completed", "text": "answer"},
+            thread_id="thread-1",
+        )
+    with pytest.raises(contract.ContractError, match="different thread"):
+        contract.validate_result(
+            {
+                "thread_id": "other",
+                "status": "completed",
+                "text": "answer",
+                "message_id": "message-1",
+            },
+            thread_id="thread-1",
+        )
+
+
 def test_contract_module_has_no_browser_runtime_dependency():
     source = (HERE / "scripts/contract.py").read_text()
     assert "import browser_harness" not in source

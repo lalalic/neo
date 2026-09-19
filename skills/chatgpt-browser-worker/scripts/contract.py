@@ -84,6 +84,24 @@ def validate_state(state: Any) -> dict[str, Any]:
     return result
 
 
+def validate_result(result: Any, *, thread_id: str | None = None) -> dict[str, Any]:
+    """Accept only a normalized, observed assistant result."""
+    if not isinstance(result, dict):
+        raise ContractError("result must be an object")
+    result_thread_id = _text(result.get("thread_id"), "result.thread_id")
+    if thread_id is not None and result_thread_id != _text(thread_id, "thread_id"):
+        raise ContractError("result belongs to a different thread")
+    if result.get("status") != "completed":
+        raise ContractError("only a completed observed result is reportable")
+    normalized = deepcopy(result)
+    normalized["thread_id"] = result_thread_id
+    normalized["text"] = _text(result.get("text"), "result.text")
+    normalized["message_id"] = _text(result.get("message_id"), "result.message_id")
+    if result.get("observed_at") is not None:
+        normalized["observed_at"] = _text(result["observed_at"], "result.observed_at")
+    return normalized
+
+
 def project_matches(expected: Any, observed: Any) -> bool:
     expected_project = validate_project(expected)
     observed_project = validate_project(observed)
