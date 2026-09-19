@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import sys
 from pathlib import Path
 
 import pytest
@@ -11,6 +12,12 @@ spec = importlib.util.spec_from_file_location("chatgpt_browser_worker_contract",
 assert spec and spec.loader
 contract = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(contract)
+sys.modules["contract"] = contract
+
+create_spec = importlib.util.spec_from_file_location("chatgpt_browser_worker_create", HERE / "scripts/create.py")
+assert create_spec and create_spec.loader
+create = importlib.util.module_from_spec(create_spec)
+create_spec.loader.exec_module(create)
 
 
 def state(status="created", project=None):
@@ -88,3 +95,63 @@ def test_contract_module_has_no_browser_runtime_dependency():
     source = (HERE / "scripts/contract.py").read_text()
     assert "import browser_harness" not in source
     assert "import macbridge" not in source.lower()
+
+
+class FakePort:
+    def __init__(self, project=None, sent=None):
+        self.project = project or {"id": "project-1", "name": "neo"}
+        self.sent = sent or {"thread_id": "thread-42", "conversation_url": "https://chatgpt.com/c/thread-42", "prompt_sent": True}
+        self.calls = []
+
+    def select_project(self, project):
+        self.calls.append(("select_project", project))
+        return self.project
+
+    def set_thinking_level(self, level):
+        self.calls.append(("set_thinking_level", level))
+        return {"effective_thinking_level": level, "label": level.title()}
+
+    def send_prompt(self, prompt):
+        self.calls.append(("send_prompt", prompt))
+        return self.sent
+
+
+def test_create_returns_durable_identity_project_binding_and_evidence():
+    port = FakePort()
+    persisted = []
+    result = create.create_thread(
+        port,
+        {"operation": "create", "project": {"name": "neo"}, "prompt": "hello", "thinking_level": "high"},
+        persist=persisted.append,
+        now=lambda: "2026-09-19T12:00:00Z",
+    )
+    assert result["thread_id"] == "thread-42"
+    assert result["project"] == port.project
+    assert result["effective_thinking_level"] == "high"
+    assert result["evidence"]["thread"]["prompt_sent"] is True
+    assert persisted == [result]
+    assert [call[0] for call in port.calls] == ["select_project", "set_thinking_level", "send_prompt"]
+
+
+def test_create_default_leaves_platform_thinking_unchanged():
+    port = FakePort()
+    result = create.create_thread(
+        port,
+        {"operation": "create", "project": {"name": "neo"}, "prompt": "hello", "thinking_level": "default"},
+    )
+    assert result["requested_thinking_level"] == "default"
+    assert result["effective_thinking_level"] == "unknown"
+    assert [call[0] for call in port.calls] == ["select_project", "send_prompt"]
+
+
+def test_create_rejects_unverified_project_and_missing_thread_identity():
+    with pytest.raises(contract.ContractError, match="different Project"):
+        create.create_thread(
+            FakePort(project={"name": "other"}),
+            {"operation": "create", "project": {"name": "neo"}, "prompt": "hello", "thinking_level": "default"},
+        )
+    with pytest.raises(contract.ContractError, match="thread_id"):
+        create.create_thread(
+            FakePort(sent={"prompt_sent": True}),
+            {"operation": "create", "project": {"name": "neo"}, "prompt": "hello", "thinking_level": "default"},
+        )
