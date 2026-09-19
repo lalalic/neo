@@ -25,6 +25,15 @@ Observed stages:
 
 This is evidence that the staged contract works and that independent QA adds real value; it is not evidence of revenue or publishing performance.
 
+## Current gates and autonomous continuation
+
+Two gates now block execution:
+
+1. The first real campaign is waiting at render-based viewer-quality certification. This documentation task does **not** authorize render, generation, spend, publication, outreach, or a new campaign; each subsequent external action needs its own explicit authorization.
+2. The Phase 3 measured pilot cannot execute until it has a rights-cleared 30–90 minute source or an explicit durable eligibility finding for an existing source.
+
+PR #20 and Agents Relay job `clipper-research-relay-20260919` are the durable control plane for further bounded research. The PR planner/task markers are authoritative; `.run` is only a private pointer/handoff and must not duplicate job truth.
+
 ## Vision / local VLM research
 
 ### Markcut Vision
@@ -80,6 +89,8 @@ Priority questions:
 2. Can NotebookLM or another grounded system provide exact source-span mapping and controllable short-form planning useful to the Judge without replacing evidence contracts?
 3. Which structured Vision fields actually predict faster/better editorial decisions and can be removed if they do not?
 4. After publication is explicitly authorized, which selection/variant features correlate with 24h/72h/7d performance on real clips?
+
+Without crossing either current execution gate, the remaining bounded unknowns are whether the existing fixed 20-candidate eval can establish a better no-spend local Vision benchmark, which existing structured Vision fields improve or add friction to editorial decisions, and whether the existing source's rights record explicitly qualifies it for Phase 3. A relay child task is still required to execute the first two; this handoff itself authorizes none of them.
 
 ## Research execution contract
 
