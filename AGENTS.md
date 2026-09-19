@@ -107,5 +107,6 @@ Publishing is handled through `skills/post` when the user explicitly asks to pos
 
 ## Reflections
 
+- 2026-09-19: Bind XChat project context once and let Agents Relay own managed worker lifecycle; child re-resolution or parallel lifecycle loops can split one PR objective and corrupt correlation.
 - 2026-09-11: Preserve the distinction between a durable workflow and an autonomous worker. A queued command plan is not evidence that a producer, phone trigger, or model call ran.
 - 2026-09-11: Agree on the CLI/config contract before parallel implementation, and request small reviewable patches early. Bind review approval to file bytes, not just filenames or a prose report.
