@@ -55,6 +55,19 @@ the observed `thread_id`, conversation URL, selected Project, and thinking
 observation. It starts a new ChatGPT chat when the attached tab is already a
 conversation.
 
+Existing threads use the durable identity from persisted state:
+
+```text
+python3 scripts/operate_bh.py resume --thread-id ID --project NAME
+python3 scripts/operate_bh.py continue --thread-id ID --project NAME --prompt TEXT
+python3 scripts/operate_bh.py status --thread-id ID --project NAME
+python3 scripts/operate_bh.py result --thread-id ID --project NAME
+```
+
+Each command performs one serial browser-harness operation. The injected
+semantic adapter in `scripts/operations.py` is the testable boundary; it does
+not import MacBridge or a ChatGPT runtime API.
+
 ## Verification boundary
 
 The worker may report `completed` only from an observed assistant message and

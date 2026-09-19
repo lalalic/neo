@@ -19,6 +19,11 @@ assert create_spec and create_spec.loader
 create = importlib.util.module_from_spec(create_spec)
 create_spec.loader.exec_module(create)
 
+operations_spec = importlib.util.spec_from_file_location("chatgpt_browser_worker_operations", HERE / "scripts/operations.py")
+assert operations_spec and operations_spec.loader
+operations = importlib.util.module_from_spec(operations_spec)
+operations_spec.loader.exec_module(operations)
+
 
 def state(status="created", project=None):
     return {
@@ -116,6 +121,35 @@ class FakePort:
         return self.sent
 
 
+class ExistingThreadPort:
+    def __init__(self, project=None, status="awaiting_result", result=None):
+        self.project = project or {"id": "project-1", "name": "neo"}
+        self.status = status
+        self.result = result or {
+            "thread_id": "thread-1",
+            "status": "completed",
+            "text": "done",
+            "message_id": "message-1",
+        }
+        self.calls = []
+
+    def open_thread(self, thread_id):
+        self.calls.append(("open_thread", thread_id))
+        return {"thread_id": thread_id, "project": self.project, "status": self.status}
+
+    def send_prompt(self, prompt):
+        self.calls.append(("send_prompt", prompt))
+        return {"prompt_sent": True}
+
+    def read_status(self):
+        self.calls.append(("read_status",))
+        return {"status": self.status, "progress": "visible"}
+
+    def read_result(self):
+        self.calls.append(("read_result",))
+        return self.result
+
+
 def test_create_returns_durable_identity_project_binding_and_evidence():
     port = FakePort()
     persisted = []
@@ -155,3 +189,44 @@ def test_create_rejects_unverified_project_and_missing_thread_identity():
             FakePort(sent={"prompt_sent": True}),
             {"operation": "create", "project": {"name": "neo"}, "prompt": "hello", "thinking_level": "default"},
         )
+
+
+def test_resume_opens_durable_thread_and_requires_observed_project():
+    port = ExistingThreadPort()
+    persisted = []
+    result = operations.resume_thread(
+        port,
+        {"operation": "resume", "thread_id": "thread-1", "project": {"name": "neo"}},
+        state=state("running"),
+        persist=persisted.append,
+        now=lambda: "2026-09-19T12:03:00Z",
+    )
+    assert result["status"] == "awaiting_result"
+    assert result["updated_at"] == "2026-09-19T12:03:00Z"
+    assert persisted == [result]
+    with pytest.raises(contract.ContractError, match="Project"):
+        operations.resume_thread(
+            ExistingThreadPort(project={"id": "other", "name": "other"}),
+            {"operation": "resume", "thread_id": "thread-1", "project": {"name": "neo"}},
+            state=state("running"),
+        )
+
+
+def test_continue_status_and_result_persist_observed_transitions():
+    port = ExistingThreadPort(status="running")
+    persisted = []
+    running = operations.continue_thread(port, state("completed"), "continue", persist=persisted.append)
+    assert running["status"] == "running"
+    observed = operations.inspect_thread(port, running, persist=persisted.append)
+    assert observed["status"] == "running"
+    port.status = "completed"
+    result = operations.result_thread(port, observed, persist=persisted.append)
+    assert result["text"] == "done"
+    assert [call[0] for call in port.calls] == ["open_thread", "send_prompt", "read_status", "read_result"]
+    assert [item["status"] for item in persisted] == ["running", "running", "completed"]
+
+
+def test_result_without_observed_assistant_message_does_not_complete_thread():
+    port = ExistingThreadPort(result={"thread_id": "thread-1", "status": "awaiting_result"})
+    with pytest.raises(contract.ContractError, match="completed"):
+        operations.result_thread(port, state("running"))

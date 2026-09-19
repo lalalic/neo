@@ -112,3 +112,7 @@ Publishing is handled through `skills/post` when the user explicitly asks to pos
 - 2026-09-11: Preserve the distinction between a durable workflow and an autonomous worker. A queued command plan is not evidence that a producer, phone trigger, or model call ran.
 - 2026-09-11: Agree on the CLI/config contract before parallel implementation, and request small reviewable patches early. Bind review approval to file bytes, not just filenames or a prose report.
 - 2026-09-19: Browser-backed ChatGPT workers need a pure contract layer that separates requested from observed thinking level, binds every operation to a verified Project, and treats deleted thread identities as terminal tombstones before any selector adapter is added.
+
+## Project learnings
+
+- 2026-09-19: Existing ChatGPT thread operations must open one durable `thread_id` at a time, verify the observed Project before sending or reading, and report completion only from a normalized assistant message.
