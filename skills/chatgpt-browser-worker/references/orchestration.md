@@ -36,7 +36,7 @@ credentials or cookies:
   "state_path": "runs/2026-09-19-chatgpt-thread/state.json",
   "request": {
     "project": {"name": "neo"},
-    "prompt": "Run the assigned task.",
+    "prompt": "Task:\nRun the assigned task.\n\nOutput contract:\nUpdate the owning task with durable result evidence and terminal state.",
     "thinking_level": "high"
   }
 }
@@ -45,6 +45,31 @@ credentials or cookies:
 The exact literal IDs must be present in both the worker environment and its
 prompt. Runtime state, prompts containing private data, logs, and browser
 session details stay under the caller's ignored `runs/` directory.
+
+## Output ownership
+
+The task prompt defines how the ChatGPT worker publishes its final output. The browser-worker does not prescribe one universal completion channel.
+
+Examples:
+
+```text
+Output contract:
+- Update Agents Relay task <task_id> with summary, commit, tests, artifacts, and terminal state.
+```
+
+```text
+Output contract:
+- Write the complete report to docs/reviews/<name>.md.
+- That file is the authoritative result.
+```
+
+```text
+Output contract:
+- Write valid JSON to runs/<run_id>/result.json.
+- Emit task.completed only after the file is durable and schema-valid.
+```
+
+Submission and completion are separate concerns. The browser-worker verifies submission and closes its owned tab. The owning orchestrator waits/reconciles according to the prompt-defined output contract, which may use Agents Relay state, files, commits, events, tools, or custom mechanisms.
 
 ## Lifecycle invocation
 
@@ -58,10 +83,10 @@ are agent implementation helpers. The durable identity is always the
 | --- | --- | --- | --- |
 | Start | `create` with `project`, `prompt`, `thinking_level` | `select_project` → optional `set_thinking_level` → `send_prompt` | observed non-empty `thread_id` and Project |
 | Reattach | `resume` with `thread_id`, `project` | `open_thread` and Project verification | opened matching thread and Project |
-| Fetch | `result` with the durable state | `read_result` | normalized assistant message with `message_id` |
+| Inspect conversation output (optional) | `result` with the durable state | `read_result` | normalized assistant message with `message_id`; authoritative only when the prompt selects conversation output |
 | Clean up | `delete` with the durable state | exact-thread delete plus confirmation | verified `deleted` or idempotent `not_found` |
 
-`status` is the optional polling operation between `resume` and `result`.
+`status`/`result` are optional conversation-inspection operations, not the default orchestration completion loop.
 `continue` is a follow-up prompt operation and is not a substitute for
 `resume`. A retry resumes the existing state; it never calls `create` for a
 missing or failed browser action. A `deleted` tombstone is terminal.
@@ -87,14 +112,15 @@ credentials, cookies, or full private prompts.
 
 ```text
 watch(job_id)
-launch child with job_id/task_id and operation=create
-persist returned thread state
-resume(thread_id, project) when reattaching
-repeat status(thread_id) until the UI permits a result
-result(thread_id) and validate the normalized assistant message
-delete(thread_id) in the explicit cleanup phase
-consume events until the parent task reaches one terminal state
+construct prompt with explicit task + output contract
+submit through browser-worker
+verify durable user turn
+close operation-owned tab
+observe/reconcile the output mechanism named in the prompt
+mark parent task terminal only from that durable evidence
 ```
+
+Use `status`/`result` only when conversation inspection is explicitly required by the task/output contract.
 
 The browser adapter may fail after a thread has been created. In that case,
 preserve the last known `thread_id` and state, classify the transition as

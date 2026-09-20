@@ -53,3 +53,17 @@ def test_send_isolated_tab_and_full_ready_contract():
     assert '_new_owned_tab(f"https://chatgpt.com/c/{THREAD_ID}")' in driver
     assert "_wait_thread_ready(require_composer=True)" in driver
     assert 'ready_state == "complete"' in driver
+
+
+def test_prompt_defines_output_contract():
+    skill = (Path(__file__).parents[1] / "SKILL.md").read_text()
+    contract = (Path(__file__).parents[1] / "references" / "contract.md").read_text()
+    agent = AGENT.read_text()
+    orchestration = (Path(__file__).parents[1] / "references" / "orchestration.md").read_text()
+
+    assert "browser worker owns reliable submission, not the task's completion semantics" in skill
+    assert "prompt MUST state the durable output destination or action" in contract
+    assert "Do not invent or impose a universal callback/event/file convention" in agent
+    assert "Submission and completion are separate concerns" in orchestration
+    assert "update a managed PR/job/task" in skill
+    assert "write a report or structured result" in skill

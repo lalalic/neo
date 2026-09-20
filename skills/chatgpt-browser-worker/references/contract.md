@@ -25,6 +25,16 @@ Allowed requested thinking levels are `default`, `low`, `medium`, and `high`.
 The adapter may expose a current UI label in an observation, but it must map it
 to one of these values or `unknown` rather than guessing.
 
+## Prompt-defined completion semantics
+
+The prompt carries the task-specific output contract. The browser-worker protocol deliberately does not define a mandatory completion mode such as callback tool, event, result file, or conversation polling.
+
+For delegated/asynchronous work, the prompt MUST state the durable output destination or action and what constitutes success. Examples include updating an Agents Relay PR/job/task, writing a file, committing code, emitting an event, calling a tool, or a custom combination.
+
+`send` success means **submission succeeded**: the exact prompt/attachments became a verified durable user turn. It does not mean the task itself completed. After verified submission, the operation-owned send tab may be closed immediately. The owning orchestrator is responsible for observing the task-specific completion mechanism declared in the prompt.
+
+`result` is optional and is only authoritative when the prompt/output contract explicitly designates conversation output as the result channel.
+
 ## Durable thread state
 
 The state file is the only persisted worker identity. It may look like:
@@ -86,9 +96,7 @@ failed/blocked -> running  (only after an explicit recovery operation)
 }
 ```
 
-`text` is required only for `completed`. Partial or streaming text is not a
-completed result. A result with no observed assistant message is an error, not
-success.
+`text` is required only for a completed conversation-result observation. Partial or streaming text is not a completed conversation result. A result with no observed assistant message is an error, not success. This result object does not override a prompt-defined external completion contract.
 
 ## Browser adapter port
 
@@ -137,7 +145,7 @@ import or launch `browser-harness` itself.
 - `resume` rejects an observed Project mismatch;
 - requested and effective thinking levels are distinct fields;
 - unknown effective level stays `unknown`;
-- only an observed assistant message yields `completed`;
+- only an observed assistant message yields a completed conversation-result observation; task completion may instead be established by the prompt-defined durable output contract;
 - attachment send success requires a verified durable user turn, not a click or attachment preview alone;
 - callers may require JSON output, in which case malformed or truncated JSON is rejected;
 - delete is terminal and cannot be followed by resume;

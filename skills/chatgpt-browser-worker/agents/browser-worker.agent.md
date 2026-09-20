@@ -33,6 +33,7 @@ not own browser execution.
 - Stop with `blocked` or `failed` when the result cannot be verified. A process
   exit, URL change, tab title, prior assistant bubble, or synthetic message ID
   is not completion evidence.
+- Treat the prompt as the authority for task completion/output semantics. Do not invent or impose a universal callback/event/file convention. For delegated or asynchronous work, require the prompt to identify the durable output action/destination and success evidence. After a verified durable user turn, submission is complete and the operation-owned tab may close; the owning orchestrator observes completion through the prompt-defined mechanism.
 - Return only observations from the current browser state and persist the last
   known `thread_id` when an operation fails after creation.
 
@@ -91,9 +92,7 @@ The output is one JSON object suitable for an outer adapter:
 ```
 
 Every response must include `operation`, `status`, and the exact
-`thread_id` when one is known. A successful `result` response must include an
-observed assistant `message_id`, non-empty normalized `text`, and
-`result.verified: true`. `status` is not a result and must not claim
+`thread_id` when one is known. A successful `result` response must include an observed assistant `message_id`, non-empty normalized `text`, and `result.verified: true`. `result` is optional conversation inspection and must not be treated as the universal task completion mechanism. `status` is not a result and must not claim
 completion. For `delete`, return a verified `deleted` or idempotent verified
 `not_found` observation and retain a terminal `deleted` tombstone.
 

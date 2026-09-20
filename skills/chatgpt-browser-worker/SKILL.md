@@ -1,6 +1,6 @@
 ---
 name: chatgpt-browser-worker
-description: Manage ChatGPT work threads through the authenticated browser-harness session, including Project selection, thinking-level requests, durable thread identity, resume/status/result retrieval, and cleanup.
+description: Reliably submit ChatGPT browser-worker tasks through the authenticated browser-harness session while preserving Project/thread identity, operation-scoped tabs, prompt-defined output contracts, and optional result inspection.
 ---
 
 # ChatGPT browser worker
@@ -34,6 +34,33 @@ Thinking levels are split into `requested_thinking_level` and
 and `high`; effective values may additionally be `unknown`. `default` leaves
 the account's current/default setting unchanged. The adapter must preserve
 `unknown` rather than guessing from a label or silently downgrading a request.
+
+## Prompt-defined output contract
+
+The browser worker owns reliable submission, not the task's completion semantics. Every asynchronous or delegated task prompt must explicitly define its durable output contract. The output mechanism is task-specific and remains part of the prompt; this skill does not force a universal callback, result file, event, or tool.
+
+Examples of valid output contracts include:
+
+- update a managed PR/job/task with summary, evidence, commit, and terminal state;
+- write a report or structured result to a specified file;
+- commit code and record the commit in the owning task;
+- emit a named event after durable artifacts are written;
+- call a task-specific or generic tool;
+- perform a custom combination of these actions.
+
+The prompt should identify the authoritative output destination/action and success evidence. For asynchronous tasks, the ChatGPT conversation itself must not be the only durable output unless the caller explicitly chooses conversation text as the output contract.
+
+A recommended prompt shape is:
+
+```text
+Task:
+<task instructions>
+
+Output contract:
+<task-specific durable output requirements>
+```
+
+The browser worker must submit that prompt exactly as task input and verify a durable user turn. Once submission is verified, the worker may close its operation-owned tab. The owning orchestrator observes completion using the mechanism declared in the prompt.
 
 ## Durable identity and state
 
@@ -95,8 +122,7 @@ Before an existing thread is used, the worker must wait for the user-browser pag
 
 For media work, callers use the typed `send` operation rather than touching browser file inputs directly. `send` must observe every requested attachment in the composer, submit the prompt, and verify that a new durable user turn appeared before it reports success.
 
-The worker may report `completed` only from an observed assistant message and
-normalized result. When `expect_json` is requested, the final text must parse as JSON; truncated prefixes are failures, not completion. A process exit, click, URL change, or tab title alone is not
+`result` remains an optional conversation-inspection operation; it is not the universal completion channel. When a task's prompt explicitly chooses conversation text as its output, the worker may report `completed` only from an observed assistant message and normalized result. When `expect_json` is requested, the final text must parse as JSON; truncated prefixes are failures, not completion. A process exit, click, URL change, or tab title alone is not
 proof that a thread was created, resumed, completed, or deleted. Authentication
 walls, MFA, consent, ambiguous account/project selection, and unverified
 thinking levels are `blocked` or `failed` conditions and must not be
