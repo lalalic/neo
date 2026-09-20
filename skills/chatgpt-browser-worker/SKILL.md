@@ -87,9 +87,11 @@ not import MacBridge or a ChatGPT runtime API.
 
 ## Browser tab ownership
 
-Each lifecycle operation owns only the browser tabs it creates. Before the operation returns—whether it succeeds, fails, or is blocked—it must close every tab it created. It must never close a tab that existed before the operation started. Durable worker state is the ChatGPT `thread_id`; a browser tab must never be treated as persistent state or intentionally left open for a later operation.
+Each lifecycle operation owns only the browser tabs it creates. Before the operation returns—whether it succeeds, fails, or is blocked—it must close every tab it created. It must never close a tab that existed before the operation started. Durable worker state is the ChatGPT `thread_id`; a browser tab must never be treated as persistent state or intentionally left open for a later operation. Every `send`/follow-up operation must open its own fresh tab for the exact durable thread; it must never send from a pre-existing or shared user tab. That send tab is operation-owned and must be closed before return.
 
 ## Verification boundary
+
+Before an existing thread is used, the worker must wait for the user-browser page to be fully ready: document load complete, exact `thread_id` observed in the URL, recorded Project observed, and real conversation UI hydrated. A send additionally requires a visible composer before any upload or typing. A navigation event or sidebar shell alone is not readiness.
 
 For media work, callers use the typed `send` operation rather than touching browser file inputs directly. `send` must observe every requested attachment in the composer, submit the prompt, and verify that a new durable user turn appeared before it reports success.
 

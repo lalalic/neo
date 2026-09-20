@@ -123,7 +123,10 @@ import or launch `browser-harness` itself.
 - Every owned tab must be closed before the operation returns, including success, failure, and blocked outcomes.
 - Tabs that existed before the operation started must never be closed.
 - Durable thread state must not depend on a browser tab remaining open.
-- Opening the exact durable thread in a temporary tab is permitted; that temporary tab must be closed after the observation or action completes.
+- Every `send` and `continue` operation MUST open a fresh operation-owned tab for the exact durable thread, even if another tab already displays that thread. Sending from a pre-existing/shared user tab is forbidden.
+- The send tab must be closed before the operation returns.
+- Opening the exact durable thread in a temporary tab is permitted for other operations; that temporary tab must be closed after the observation or action completes.
+- Reopening is not complete at navigation time. The worker must wait until the user browser reports a fully loaded document, exact thread identity, recorded Project, and hydrated conversation UI. `send`/`continue` additionally require a visible composer.
 
 ## Testable safety boundaries
 

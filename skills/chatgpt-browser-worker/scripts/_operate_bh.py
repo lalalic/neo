@@ -232,22 +232,58 @@ def _cleanup():
     return {"thread_id": THREAD_ID, "outcome": "deleted", "verified": True, "url_after": page_info().get("url", "")}
 
 
+def _wait_thread_ready(*, require_composer=False, timeout=60):
+    deadline = time.time() + timeout
+    project = CFG["project"].casefold()
+    last = {}
+    while time.time() < deadline:
+        info = page_info()
+        url = info.get("url", "")
+        body = js("document.body.innerText") or ""
+        ready_state = js("document.readyState") or ""
+        exact_thread = f"/c/{THREAD_ID}" in url
+        project_ok = project in body.casefold() or project in info.get("title", "").casefold()
+        composer_count = _visible('textarea,[contenteditable="true"]')
+        user_count = int(js("document.querySelectorAll('[data-message-author-role=\"user\"]').length") or 0)
+        assistant_count = int(js("document.querySelectorAll('[data-message-author-role=\"assistant\"]').length") or 0)
+        conversation_ready = composer_count > 0 or user_count > 0 or assistant_count > 0
+        composer_ready = composer_count > 0
+        last = {
+            "url": url,
+            "ready_state": ready_state,
+            "exact_thread": exact_thread,
+            "project_ok": project_ok,
+            "composer_count": composer_count,
+            "user_count": user_count,
+            "assistant_count": assistant_count,
+        }
+        if (
+            ready_state == "complete"
+            and exact_thread
+            and project_ok
+            and conversation_ready
+            and (not require_composer or composer_ready)
+        ):
+            return last
+        time.sleep(.5)
+    raise RuntimeError(f"ChatGPT thread did not become fully ready before timeout: {last}")
+
+
 ensure_real_tab()
-if f"/c/{THREAD_ID}" not in page_info().get("url", ""):
+operation = CFG["operation"]
+
+# Sending is intentionally isolated: every send/follow-up gets a fresh owned tab,
+# never reuses a user's existing ChatGPT tab, and that owned tab is closed at exit.
+if operation in {"send", "continue"}:
     _new_owned_tab(f"https://chatgpt.com/c/{THREAD_ID}")
     wait_for_load()
-deadline = time.time() + 12
-while True:
-    info = page_info()
-    body = js("document.body.innerText") or ""
-    project = CFG["project"].casefold()
-    if project in body.casefold() or project in info.get("title", "").casefold():
-        break
-    if time.time() >= deadline:
-        raise RuntimeError("requested Project was not observed in the opened thread")
-    time.sleep(.25)
+    _wait_thread_ready(require_composer=True)
+else:
+    if f"/c/{THREAD_ID}" not in page_info().get("url", ""):
+        _new_owned_tab(f"https://chatgpt.com/c/{THREAD_ID}")
+        wait_for_load()
+    _wait_thread_ready(require_composer=operation in {"resume"})
 
-operation = CFG["operation"]
 base = {"thread_id": THREAD_ID, "conversation_url": page_info().get("url"), "project": {"name": CFG["project"]}}
 if operation == "delete":
     print(json.dumps(_cleanup(), ensure_ascii=False))

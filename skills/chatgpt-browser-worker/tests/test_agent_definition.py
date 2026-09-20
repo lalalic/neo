@@ -38,3 +38,18 @@ def test_worker_contract_requires_operation_scoped_tab_cleanup():
         assert "atexit.register(_close_owned_tabs)" in source
         assert "close_tab(target_id)" in source
         assert "_new_owned_tab(" in source
+
+
+def test_send_isolated_tab_and_full_ready_contract():
+    skill = (Path(__file__).parents[1] / "SKILL.md").read_text()
+    contract = (Path(__file__).parents[1] / "references" / "contract.md").read_text()
+    agent = AGENT.read_text()
+    driver = (Path(__file__).parents[1] / "scripts" / "_operate_bh.py").read_text()
+
+    assert "Every `send`/follow-up operation must open its own fresh tab" in skill
+    assert "Sending from a pre-existing/shared user tab is forbidden" in contract
+    assert "Wait for full browser hydration" in agent
+    assert 'if operation in {"send", "continue"}:' in driver
+    assert '_new_owned_tab(f"https://chatgpt.com/c/{THREAD_ID}")' in driver
+    assert "_wait_thread_ready(require_composer=True)" in driver
+    assert 'ready_state == "complete"' in driver
