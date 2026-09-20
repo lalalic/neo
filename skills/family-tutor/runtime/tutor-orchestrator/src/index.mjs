@@ -177,12 +177,12 @@ client.on(Events.MessageCreate,message=>{
     serialize(key,()=>handleParentControl(message)).catch(error=>{console.error('[family-tutor] parent control failed',error); message.reply('Parent control is temporarily unavailable.').catch(()=>{});});
   }
 });
-if(config.chatgptBrowser?.enabled){
+if(config.browserBridge?.enabled){
   browserBridge=new BrowserBridge({
     instanceDir,
     children:config.children,
-    host:config.chatgptBrowser.host||'127.0.0.1',
-    port:config.chatgptBrowser.port||43117,
+    host:config.browserBridge.host||'127.0.0.1',
+    port:config.browserBridge.port||43117,
     replyToDiscord:async({origin,text})=>{
       const channel=await client.channels.fetch(origin.channelId);
       if(!channel?.isTextBased()) throw new Error('originating Discord channel is unavailable');
