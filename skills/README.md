@@ -10,6 +10,9 @@ are deployment and distribution targets, not source of truth.
   through GitHub pull requests.
 - codex-handoff — deprecated Drive handoff protocol retained temporarily for
   migration only.
+- chatgpt-browser-worker — durable ChatGPT web-thread lifecycle contract on top
+  of browser-harness, with verified Project binding and explicit thinking-level
+  semantics.
 - daemon-service-manage — inspection and PM2 lifecycle guidance for persistent
   daemons and services.
 - devmacbridge — end-to-end Mac Developer Bridge bootstrap, ChatGPT MCP connection, browser setup, events federation, and verification.

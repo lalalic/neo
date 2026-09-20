@@ -7,11 +7,11 @@ description: Orchestrate a closed-loop coding task through a GitHub pull request
 
 Use this skill when the user invokes `@orchestrator` or asks the current XChat assistant to drive a repository task through a pull request until it is merged, intentionally closed, blocked, or awaiting a user decision.
 
-The active XChat assistant owns the objective. Agents Relay owns the managed worker lifecycle, including launch, wait, recovery, and reconciliation. GitHub is the durable PR state, DevMacBridge is the control channel, and `events-bus` is the correlated progress stream.
+The active XChat assistant owns the top-level objective. Agents Relay owns managed worker launch, wait, recovery, and reconciliation. GitHub is the durable PR/job record, DevMacBridge is the local control channel, and `events-bus` is the correlated progress stream.
 
 ## Session project binding
 
-At session start, follow `xchat-bootstrap.md`. When Project/Space instructions provide `xchat_project`, resolve it with `scripts/list-xchat-projects --resolve <xchat_project>` before project-dependent work. Bind the returned `project`, `local_path`, `git_root`, and `repo` once; inherit that exact context into every managed task and executor. Do not require a separate XChat metadata file or central JSON registry. Keep the binding sticky unless the user explicitly switches project/path/repository.
+At session start, follow `xchat-bootstrap.md`. When Project/Space instructions provide `xchat_project`, resolve it with `scripts/list-xchat-projects --resolve <xchat_project>` before project-dependent work. Bind the returned project identity, `local_path`, `git_root`, and `repo` once and inherit that exact context into every managed task and executor. Read the applicable `AGENTS.md` / `README.md`; do not require a separate XChat metadata file or central JSON registry. Keep the binding sticky unless the user explicitly switches project/path/repository.
 
 ## Capability discovery
 
@@ -19,34 +19,41 @@ At the start of each orchestration task, discover the currently available local 
 
 ## Operating invariants
 
-- One top-level objective is exactly one GitHub PR and one Agents Relay job. Child tasks stay in that PR/job unless they are genuinely separate objectives.
-- Managed execution is submitted to Agents Relay; the orchestrator does not duplicate worker launch, wait, or recovery logic.
-- Every worker, including ChatGPT, uses `events-bus`. Relay guarantees pre-launch observation, a truthful `model.selected` event before launch, correlated job/task/parent IDs, progress, and reconciliation.
-- The bound `project`, `local_path`, `git_root`, and `repo` are inherited by every child; children do not re-resolve context.
+- One top-level objective maps to one GitHub PR and one Agents Relay job. Do not mix unrelated objectives in one managed PR/job.
+- **PR creation is durable job creation.** For repository work represented by a GitHub PR, create/reuse the top-level PR and its trusted `agents-relay:job:v1` marker through `agents-relay job create`. Adopt an existing unmanaged PR with `agents-relay job adopt`; repair a damaged/duplicate same-job marker with `agents-relay job repair`. Do not use raw `gh pr create`, GitHub UI/API, or another path to create the orchestrator's managed work PR.
+- Draft/WIP PRs are still Agents Relay jobs. Draft status changes review readiness only and never bypasses durable job bootstrap.
+- Before repository execution or worker launch, assert that the managed PR exists, the trusted Agents Relay job marker exists, and the exact `job_id` is known. If this cannot be established safely, stop rather than silently falling back to raw PR creation.
+- After the top-level job exists, represent executable implementation, research, review, validation, and other delegated work as child tasks in that durable job and submit/manage them through Agents Relay.
+- Managed execution is submitted to Agents Relay; the orchestrator must not run a parallel launch/wait/recovery loop for the same task.
+- Every managed child inherits the bound project identity, `local_path`, `git_root`, and `repo`; children do not independently re-resolve context.
+- Every new managed worker is routed through `model-router` using dynamically discovered usable candidates. Do not encode provider/model preference order or a concrete model identity in this orchestration contract.
 - GitHub PR state, head SHA, checks, reviews, and comments are the workflow record. Do not require Google Drive, `HANDOFF.md`, `STATUS.md`, `STATE`, or a task directory for GitHub-backed work.
-- Use GitHub tools for reads when available. Route PR mutations through authenticated `gh` on the Mac when the GitHub connector is read-only or returns a permission error.
-- Use the exact repository, branch, PR, and Codex thread resolved during preflight. Never guess among multiple local checkouts or threads.
+- Use GitHub tools for reads when available. Authenticated `gh` may be used for GitHub reads and lifecycle mutations not owned by Agents Relay, but creation/adoption/repair of an orchestrated PR/job must go through the Agents Relay CLI.
+- Use the exact repository, branch, PR, job ID, and Codex thread resolved during preflight. Never guess among multiple local checkouts, jobs, or threads.
 - Never expose secrets in PR descriptions, comments, metadata, logs, or commits.
 
 ## Closed-loop protocol
 
 ### Progress event contract
 
-For managed work, Agents Relay is the lifecycle owner: it establishes pre-launch observation, applies routing, launches workers, waits, recovers, and reconciles. The orchestrator submits one correlated Relay job with the bound `project`, `local_path`, `git_root`, and `repo`, then consumes and renders Relay events; it must not duplicate a second launch/wait/recovery loop. Every worker, including ChatGPT, uses `events-bus`.
+For managed work, Agents Relay owns the lifecycle loop: pre-launch observation, routing metadata, worker launch, wait, retry/recovery, and reconciliation. The orchestrator submits correlated work and consumes/renders Relay's `events-bus` stream; it must not duplicate those lifecycle operations with a second direct worker loop.
 
-The detailed watch/wait ordering below is the Relay implementation contract. The orchestrator supplies the job/task correlation and consumes Relay's reconciled events; it does not call worker launch or recovery primitives directly.
-
-For delegated or background work that can outlive an immediate tool call, apply the `events-bus` skill. Create one `job_id` and establish the pre-launch watch capability before `job.started` or any worker: prefer non-blocking `events__watch(job_id)`; if unavailable, only for a newly-created unique job with no prior events, use `events__history(job_id, after_cursor=0, limit=1)` and start at cursor `0` when empty. Do not use that fallback for an existing/resumed job with an unknown cursor. The concrete order is establish cursor → model-router plus visible `model.selected` render → launch → `events__wait(job_id, after_cursor, ...)` loop; a blocking wait before launch is invalid. In worker instructions, request routine successful child `task.completed` as `visibility: orchestrator` while the parent reconciles/consumes results; use `visibility: user` only when completion is a meaningful standalone user milestone. Failed/blocked/cancelled task events and top-level terminal job events remain user-visible and immediate. Pass the exact literal `job_id` and task-specific `task_id` in both environment and prompt; nested work keeps the job ID and uses a new task ID plus `parent_task_id`. Sandboxed Codex workers publish through MCP `macdevbridge.events__publish`; direct non-sandbox workers may use the absolute `NEO_EVENTS_EMIT` helper. Proactively surface `visibility=user` milestones. After a wait returns a user-visible event, render its human-readable message before any next tool call, including another wait. Continue after `task.completed`; stop only on `job.completed|failed|blocked|cancelled` or abnormal worker death. If transport fails, emit the same structured event to stdout/stderr as fallback and report degraded observability; transport failure is not business success.
+Relay must satisfy the `events-bus` ordering contract for every new worker: establish observation before launch, apply `model-router`, publish a truthful user-visible `model.selected` event with the actual model/thinking level when known, launch the worker, then reconcile progress and terminal state. Keep one literal `job_id` for the objective and one task-specific `task_id` per child. Routine successful child completion stays `visibility: orchestrator` while the parent reconciles; failed/blocked/cancelled tasks and top-level terminal events remain user-visible. If transport degrades, surface the structured fallback and do not claim delivery.
 
 ### Mandatory routing invariant
-
-Relay must prefer eligible ChatGPT, then ZAI, then Codex GPT, after capability, availability, health, quota, privacy, and explicit-user-constraint gates. The currently supported ChatGPT worker model is `gpt-5-6-sol`; keep it in discoverable configuration rather than making it a permanent protocol constant.
 
 Before **every new agent/worker launch**, including implementation, research, review, evaluation, and independent or nested subagents, run `model-router` against the dynamically discovered usable profiles. Publish exactly one user-visible `model.selected` event in the same job before or as launch, with the actual selected model and thinking/reasoning level when known, otherwise `unknown`. Include the profile/provider in `data` when known. A persistent continuation of an already-bound worker thread preserves its sticky routing and needs no new routing event unless the thread is replaced, forked, or routing is explicitly reconsidered. A launch without a preceding observable routing decision is invalid and must fail the orchestration/eval.
 
 ### 1. Resolve and preflight
 
-Resolve the canonical `owner/name`, PR number, head branch, local repository root, and task worktree. Verify that the local remote and branch match the PR. If any target is ambiguous, stop and ask.
+Resolve the canonical `owner/name`, local repository root, and intended top-level objective first. For repository work, resolve or bootstrap the durable Agents Relay job before implementation:
+
+1. If no work PR exists, use `agents-relay job create` to create/reuse the PR and trusted job marker.
+2. If an unmanaged work PR already exists, use `agents-relay job adopt`.
+3. If a managed PR has a damaged/duplicate same-job marker, use `agents-relay job repair`.
+4. If it is already managed, load and reuse its existing `job_id`.
+
+Then resolve the exact PR number, head branch, and task worktree. Verify that the local remote and branch match the PR and that the trusted `agents-relay:job:v1` marker exists. If any target or durable job identity is ambiguous, stop and ask.
 
 Repository layout may contain nested Git repositories, especially under `~/Workspace/neo/<repo>`. Treat the innermost checkout whose configured remote matches the target `owner/name` as the repository root. Never infer the root merely from the first parent directory containing `.git`, and never run child-repository Git mutations from the outer `~/Workspace/neo` repository.
 
@@ -98,45 +105,33 @@ Do not use GitHub's broad `open` state as proof that implementation is active, a
 
 ### 2.5 Route new worker execution
 
-Agents Relay performs this routing for every new worker. Among discovered candidates it prefers ChatGPT, then ZAI, then Codex GPT, subject to the hard gates above. The selected profile is sticky for persistent threads; reroute only for a justified replacement or explicit reconsideration.
-
-Before creating a new Codex worker thread, apply the `model-router` skill. Dynamically discover the configured Codex profiles and select the weakest profile that comfortably satisfies the task. Treat already-paid subscription capacity and credits as positive routing signals; when quality and capability are materially equivalent, prefer suitable already-paid capacity such as the configured `zai` profile over consuming additional metered resources.
+Before every new managed worker, apply `model-router` to the candidates that are actually discovered and usable in the current harness. Let the router rank those candidates from task fit, capability, resource status, cost, latency, reliability, privacy, and continuity. Do not add orchestration-specific provider/model ordering.
 
 Record the selected worker profile, provider, and model in the orchestrator marker, for example:
 
 ```text
-<!-- xchat-orchestrator:v1 {"repo":"owner/name","pr":1,"branch":"task/example","thread_id":"…","worker_profile":"zai","worker_provider":"zai","worker_model":"glm-5.3-flash","iteration":1,"state":"IMPLEMENTING","next":"review"} -->
+<!-- xchat-orchestrator:v1 {"repo":"owner/name","pr":1,"branch":"task/example","thread_id":"…","worker_profile":"<profile>","worker_provider":"<provider>","worker_model":"<model>","iteration":1,"state":"IMPLEMENTING","next":"review"} -->
 ```
 
-Agents Relay starts the worker with the selected profile using its configured adapter. The orchestrator must not reproduce adapter-specific launch commands or lifecycle handling here. A Relay submission carries the exact bound context and correlation IDs:
-
-```text
-relay submit --job <JOB_ID> --task <TASK_ID> --repo <OWNER/NAME> --context '<BOUND_CONTEXT>'
-```
+Submit the task through Agents Relay with the selected routing metadata and the already-bound repository/project context. Adapter-specific launch commands belong to Relay and its adapters, not this orchestrator contract.
 
 The selected profile is sticky for the lifetime of that worker thread. Do not reroute on ordinary review/revision iterations or silently change the identity of a resumed thread. Reroute only when the bound profile is unavailable or exhausted, lacks a newly required capability, is demonstrably inadequate after a failed cycle, or the user explicitly requests a switch. If rerouting requires a different profile, fork or create an appropriate new worker thread and record why continuity was broken.
 
-For independent jobs, route independently. For example, implementation may use `zai` while a separate high-risk architecture or review job may use a stronger configured profile. Do not hard-code provider choices beyond explicit user policy; the router must still discover and gate candidates dynamically.
+Route independent tasks independently. Preserve explicit user provider/model instructions when present; otherwise rely on dynamic discovery and the router's generic policy.
 
 The `model.selected` event is the launch observability contract; use the actual model and thinking level from the router result and never infer unavailable values.
 
 ### 3. Start or resume a managed worker
 
-Relay owns new and persistent-worker execution:
+Relay creates or resumes the worker using the adapter selected for that task and records the durable thread/binding when one exists. The orchestrator does not call adapter-specific launch or resume commands for managed work.
 
-```text
-relay resume --job <JOB_ID> --task <TASK_ID> --thread <THREAD_ID>
-```
+Do not silently replace an existing persistent thread. If a continuation cannot be resumed, Relay must record the failure and justification before a replacement is created or routing is reconsidered.
 
-The adapter may use noninteractive or PTY execution as appropriate. Relay captures lifecycle state and recovery; the orchestrator verifies the observable PR head, changed paths, tests, commit SHA, and push result.
-
-For a new task without a thread, let Relay create and record the worker binding. Do not silently replace an existing thread; Relay must explain any justified reroute or failed continuation before creating a replacement.
-
-Before submitting managed work, Relay acquires the per-PR run/lease marker. If another active run exists, or the PR head SHA changed since preflight, re-read GitHub state rather than starting duplicate work.
+Before managed execution, Relay enforces the task/job lease and correlation state. If another active execution exists, or the PR head changed since preflight, reconcile authoritative state rather than launching duplicate work.
 
 ### 4. Implement safely
 
-Give Codex the objective, acceptance criteria, allowed scope, current PR head SHA, and required validation. The worker may inspect, edit, test, commit, and push only the task branch.
+Give the managed worker the objective, acceptance criteria, allowed scope, current PR head SHA, and required validation. The worker may inspect, edit, test, commit, and push only the task branch.
 
 Require the worker to:
 
@@ -148,7 +143,7 @@ Require the worker to:
 
 For a mixed historical PR, make an intent-level selective change. Do not revert an entire commit merely because it introduced the requested feature together with unrelated work.
 
-The orchestrator may perform a small, mechanical recovery edit only when Relay explicitly reports worker transport failure; it must apply the same scope, staging, validation, and reporting rules. Substantive implementation belongs to the managed worker.
+The orchestrator may perform a small, mechanical recovery edit when managed worker transport is unavailable, but must apply the same scope, staging, validation, and reporting rules. Substantive implementation belongs to the managed worker.
 
 ### 5. Reconcile and review
 
@@ -158,7 +153,7 @@ If a connector response appears stale or conflicts with the pushed SHA, reconcil
 
 Treat absent checks such as `statuses: []` as “no automated status reported,” not as passing validation. Run the repository's required local checks and identify any missing CI configuration.
 
-Request revisions with concise, actionable comments tied to the current diff. Resume the same Codex thread for revisions whenever possible. Update the marker state and iteration after each loop boundary.
+Request revisions with concise, actionable comments tied to the current diff. Resume the same managed worker thread for revisions whenever possible. Update the marker state and iteration after each loop boundary.
 
 ### 6. Complete according to merge policy
 
