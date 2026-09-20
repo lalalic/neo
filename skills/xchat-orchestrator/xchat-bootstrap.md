@@ -16,6 +16,7 @@ For any repository work whose top-level objective is represented by a GitHub pul
 - Draft/WIP PRs follow the same rule. GitHub Draft is only a review/readiness state and does not bypass the durable job contract.
 - A repository PR is not an orchestrated job until its trusted `agents-relay:job:v1` marker exists and the orchestrator knows the resulting `job_id`.
 - Once the top-level job exists, decompose executable implementation, research, review, validation, or other delegated work into child tasks under that job and submit them through Agents Relay.
+- When the user asks to create a PR Job to perform an objective, creation is not complete at job creation: by default prefer Agents Relay's create-and-start path, or compatibly route a worker, submit at least one executable child task, and begin managed execution/reconciliation. Only an explicit create-only/no-execution request may leave a new OPEN job with zero tasks.
 - Raw `gh` remains available for GitHub reads and lifecycle mutations that Agents Relay does not own, but it must not bypass Agents Relay for creation/adoption/repair of the orchestrator's work PR/job.
 - If the Agents Relay CLI is unavailable or the durable job cannot be created/adopted safely, repository execution is blocked; report the failure rather than silently falling back to raw PR creation.
 

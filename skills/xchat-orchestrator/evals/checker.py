@@ -57,6 +57,15 @@ def check(case, t):
     if case == "explicit_skill_trigger":
         a = next((r for r in rs if r.get("kind") == "action" and r.get("action") == "explicit_skill"), None)
         return {"ok": bool(a and a.get("trigger", "").startswith("#") and a.get("loaded") is True and a.get("precedence") == "explicit"), "reason": "#skill must load and take explicit precedence"}
+    if case == "job_creation_starts_execution":
+        create = next((r for r in rs if r.get("kind") == "action" and r.get("action") in {"job_create", "job_create_and_start"}), None)
+        if not create:
+            return fail("PR Job creation must be observable")
+        if create.get("create_only") is True or create.get("execution") == "none":
+            return {"ok": True, "reason": "explicit create-only/no-execution may leave a new job without tasks"}
+        submit = next((r for r in rs if r.get("kind") == "action" and r.get("action") in {"task_submit", "child_task_submit"} and r.get("executable") is not False), None)
+        launch = next((r for r in rs if r.get("kind") == "launch" and r.get("new_worker") is True), None)
+        return {"ok": bool(submit and launch), "reason": "normal PR Job creation must submit an executable child task and start a worker"}
     if case in {"route_implementation", "route_research_review"}:
         wanted = {"implementation", "research", "review"} if case == "route_research_review" else {"implementation"}
         launches = [(i, r) for i, r in enumerate(rs) if r.get("kind") == "launch" and r.get("new_worker") is True and r.get("role") in wanted]
@@ -105,7 +114,7 @@ def check(case, t):
 
 
 def grade(t):
-    cases = t.get("cases") or ["bootstrap_project_binding", "host_project_name_binding", "resolver_failure", "ordered_context_and_session_docs", "dynamic_skill_precedence", "explicit_skill_trigger", "route_implementation", "route_research_review", "sticky_continuation", "watch_before_delegation", "job_id_propagation", "render_barrier", "task_completion_not_job_terminal", "transport_failure_fallback", "heartbeat", "unrouted_launch_negative"]
+    cases = t.get("cases") or ["bootstrap_project_binding", "host_project_name_binding", "resolver_failure", "ordered_context_and_session_docs", "dynamic_skill_precedence", "explicit_skill_trigger", "job_creation_starts_execution", "route_implementation", "route_research_review", "sticky_continuation", "watch_before_delegation", "job_id_propagation", "render_barrier", "task_completion_not_job_terminal", "transport_failure_fallback", "heartbeat", "unrouted_launch_negative"]
     results = {c: check(c, t) for c in cases}
     return {"ok": all(x["ok"] for x in results.values()), "results": results}
 
@@ -139,6 +148,11 @@ def main():
         extra = {
             "resolver_failure": grade({"cases":["resolver_failure"],"records":[{"kind":"action","action":"resolve_project","ok":False}]}),
             "transport_failure_fallback": grade({"cases":["transport_failure_fallback"],"records":[{"kind":"fallback","structured":True,"reported":True,"business_success":False}]}),
+            "job_creation_starts_execution": grade({"cases":["job_creation_starts_execution"],"records":[
+                {"kind":"action","action":"job_create","status":"OPEN"},
+                {"kind":"action","action":"task_submit","executable":True},
+                {"kind":"launch","new_worker":True},
+            ]}),
             "history_fresh_job_watch": grade({"cases":["watch_before_delegation"],"records":[
                 {"kind":"action","action":"watch","job_id":"fresh-job","source":"events__history_fresh_job","watch_established":True,"after_cursor":0,"buffered_event_count":0},
                 {"kind":"launch","task_id":"worker","new_worker":True},
@@ -154,6 +168,7 @@ def main():
             {"kind":"event","task_id":"late","type":"model.selected","visibility":"user","data":{"model":"m","thinking_effort":"high"}},
         ]})
         sticky = grade({"cases":["sticky_continuation"],"records":[{"kind":"launch","task_id":"sticky","new_worker":False,"sticky":True,"rerouted":False}]})
+        create_only = grade({"cases":["job_creation_starts_execution"],"records":[{"kind":"action","action":"job_create","status":"OPEN","create_only":True}]})
         watch_after_launch = grade({"cases":["watch_before_delegation"],"records":[
             {"kind":"event","task_id":"impl","type":"model.selected","visibility":"user","data":{"model":"m","thinking_effort":"high"}},
             {"kind":"launch","task_id":"impl","new_worker":True},
@@ -169,9 +184,10 @@ def main():
             {"kind":"render","event_id":"bad"},
         ]})
         result["self_test_extra"] = extra
+        result["self_test_create_only"] = create_only
         result["self_test_negative"] = {"unrouted_launch": negative, "missing_route": missing_route, "after_launch": after_launch, "watch_after_launch": watch_after_launch, "nested_job_mismatch": nested_bad, "tool_before_render": render_bad}
         result["self_test_sticky"] = sticky
-        result["ok"] = result["ok"] and all(x["ok"] for x in extra.values()) and negative["ok"] and all(not x["ok"] for x in missing_route.values()) and not after_launch["ok"] and not watch_after_launch["ok"] and not nested_bad["ok"] and not render_bad["ok"] and sticky["ok"]
+        result["ok"] = result["ok"] and all(x["ok"] for x in extra.values()) and create_only["ok"] and negative["ok"] and all(not x["ok"] for x in missing_route.values()) and not after_launch["ok"] and not watch_after_launch["ok"] and not nested_bad["ok"] and not render_bad["ok"] and sticky["ok"]
     elif args.transcript:
         result = grade(json.loads(Path(args.transcript).read_text(encoding="utf-8")))
     else:
