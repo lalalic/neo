@@ -41,6 +41,10 @@ The first Podcast Clips Highlight campaign is learning-first: about ten ranked c
 
 Provide an existing local media file, complete source authorization, source provenance, campaign brief, allowed platforms, restrictions/expiry, and the dated run ID. Missing rights, ambiguous platform scope, unavailable media, or unusable timestamps are hard stops.
 
+## Research status
+
+See `docs/research-2026-09.md` for the consolidated research findings, current model/tool defaults, and the Agents Relay contract for future research.
+
 ## Commands
 
 ```bash
