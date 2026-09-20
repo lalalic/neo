@@ -17,4 +17,6 @@ These evals grade observable behavior, not prose or transport implementation. We
 {"kind":"tool_call","name":"events__wait"}
 ```
 
+The job_creation_starts_execution case requires normal PR Job creation to be followed by an executable child-task submission and worker launch; it permits zero tasks only when creation explicitly requests create-only/no-execution.
+
 Run exactly `python3 skills/xchat-orchestrator/evals/checker.py --self-test` from the repository root for deterministic local checks, or `python3 skills/xchat-orchestrator/evals/checker.py transcript.json` for a captured Web ChatGPT or Codex transcript. The checker returns structured JSON and a non-zero exit status on failure. `spec.json` is the compact capability matrix used by the checker.

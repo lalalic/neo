@@ -24,6 +24,7 @@ At the start of each orchestration task, discover the currently available local 
 - Draft/WIP PRs are still Agents Relay jobs. Draft status changes review readiness only and never bypasses durable job bootstrap.
 - Before repository execution or worker launch, assert that the managed PR exists, the trusted Agents Relay job marker exists, and the exact `job_id` is known. If this cannot be established safely, stop rather than silently falling back to raw PR creation.
 - After the top-level job exists, represent executable implementation, research, review, validation, and other delegated work as child tasks in that durable job and submit/manage them through Agents Relay.
+- A request to create a PR Job to perform an objective means create-and-start by default: prefer Agents Relay's create-and-start path, or use separate create plus submit when needed, then route a worker, submit at least one executable child task, and begin managed execution/reconciliation. Only an explicit create-only/no-execution request may leave a new OPEN job with zero tasks.
 - Managed execution is submitted to Agents Relay; the orchestrator must not run a parallel launch/wait/recovery loop for the same task.
 - Every managed child inherits the bound project identity, `local_path`, `git_root`, and `repo`; children do not independently re-resolve context.
 - Every new managed worker is routed through `model-router` using dynamically discovered usable candidates. Do not encode provider/model preference order or a concrete model identity in this orchestration contract.
