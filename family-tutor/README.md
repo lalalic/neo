@@ -15,4 +15,11 @@ node ../skills/family-tutor/scripts/service.mjs start runs/family
 
 Never place real family configuration in tracked project paths. `runs/` is the execution boundary for this public monorepo project.
 
+Optional ChatGPT browser child turns use `chatgptBrowser.enabled` in the
+private family config. The local bridge binds only to loopback, keeps its
+random bearer token and transient image blobs under
+`runs/family/.browser-bridge/`, and exposes the
+`reply_to_discord` MCP tool. Parent controls stay on the existing Codex
+backend so child and parent contexts are not merged by the browser bridge.
+
 Each learner keeps one durable `runs/family/<child-id>/AGENTS.md`. Codex owns thread history; Family Tutor stores only the current Codex thread id in the ignored child runtime directory and never persists transcripts.
