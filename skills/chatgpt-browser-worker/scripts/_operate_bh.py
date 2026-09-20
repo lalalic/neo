@@ -35,6 +35,44 @@ def _close_owned_tabs():
             pass
 
 
+def _canonical_thread_url():
+    suffix = f"/c/{THREAD_ID}"
+    candidates = []
+    try:
+        tabs = list_tabs()
+        if isinstance(tabs, list):
+            for tab in tabs:
+                if not isinstance(tab, dict):
+                    continue
+                url = tab.get("url") or ""
+                if suffix in url:
+                    candidates.append(url.split("#", 1)[0])
+    except Exception:
+        pass
+
+    try:
+        hrefs = js(f"""(() => [...document.querySelectorAll('a[href]')]
+          .map(a => a.href)
+          .filter(h => h.includes({json.dumps(suffix)})))()""") or []
+        for href in hrefs:
+            if isinstance(href, str):
+                candidates.append(href.split("#", 1)[0])
+    except Exception:
+        pass
+
+    unique = []
+    for url in candidates:
+        if url not in unique:
+            unique.append(url)
+    project_urls = [url for url in unique if "/g/g-p-" in url]
+    if project_urls:
+        return project_urls[0]
+    if unique:
+        return unique[0]
+    return f"https://chatgpt.com/c/{THREAD_ID}"
+
+
+
 atexit.register(_close_owned_tabs)
 
 CFG = json.load(open("__CFG_PATH__", encoding="utf-8"))
@@ -275,12 +313,12 @@ operation = CFG["operation"]
 # Sending is intentionally isolated: every send/follow-up gets a fresh owned tab,
 # never reuses a user's existing ChatGPT tab, and that owned tab is closed at exit.
 if operation in {"send", "continue"}:
-    _new_owned_tab(f"https://chatgpt.com/c/{THREAD_ID}")
+    _new_owned_tab(_canonical_thread_url())
     wait_for_load()
     _wait_thread_ready(require_composer=True)
 else:
     if f"/c/{THREAD_ID}" not in page_info().get("url", ""):
-        _new_owned_tab(f"https://chatgpt.com/c/{THREAD_ID}")
+        _new_owned_tab(_canonical_thread_url())
         wait_for_load()
     _wait_thread_ready(require_composer=operation in {"resume"})
 

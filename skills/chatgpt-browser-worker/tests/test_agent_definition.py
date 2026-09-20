@@ -50,7 +50,7 @@ def test_send_isolated_tab_and_full_ready_contract():
     assert "Sending from a pre-existing/shared user tab is forbidden" in contract
     assert "Wait for full browser hydration" in agent
     assert 'if operation in {"send", "continue"}:' in driver
-    assert '_new_owned_tab(f"https://chatgpt.com/c/{THREAD_ID}")' in driver
+    assert "_new_owned_tab(_canonical_thread_url())" in driver
     assert "_wait_thread_ready(require_composer=True)" in driver
     assert 'ready_state == "complete"' in driver
 
@@ -67,3 +67,11 @@ def test_prompt_defines_output_contract():
     assert "Submission and completion are separate concerns" in orchestration
     assert "update a managed PR/job/task" in skill
     assert "write a report or structured result" in skill
+
+
+def test_send_prefers_observed_canonical_project_thread_url():
+    driver = (Path(__file__).parents[1] / "scripts" / "_operate_bh.py").read_text()
+    assert "def _canonical_thread_url()" in driver
+    assert '"/g/g-p-" in url' in driver
+    assert "_new_owned_tab(_canonical_thread_url())" in driver
+    assert 'return f"https://chatgpt.com/c/{THREAD_ID}"' in driver
