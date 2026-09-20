@@ -19,8 +19,7 @@ All requests contain an operation and no credentials:
 
 `create` requires `project.name`, `prompt`, and `thinking_level`.
 `resume` requires `thread_id` and `project`; its thinking level is optional and
-defaults to the persisted request. `status`, `result`, and `delete` require
-only `thread_id`.
+defaults to the persisted request. `continue` requires `thread_id`, `project`, and `prompt`. `send` additionally accepts `files[]` and must verify that each requested attachment is observed before submit and that a new durable user turn exists after submit. `status`, `result`, and `delete` require only `thread_id`.
 
 Allowed requested thinking levels are `default`, `low`, `medium`, and `high`.
 The adapter may expose a current UI label in an observation, but it must map it
@@ -100,6 +99,7 @@ select_project(project) -> observed_project
 open_thread(thread_id) -> observed_thread
 set_thinking_level(level) -> observation
 send_prompt(prompt) -> observation
+send_with_attachments(prompt, files[]) -> verified_user_turn_observation
 read_status() -> status_observation
 read_result() -> result_observation
 delete_thread() -> cleanup_observation
@@ -127,6 +127,8 @@ import or launch `browser-harness` itself.
 - requested and effective thinking levels are distinct fields;
 - unknown effective level stays `unknown`;
 - only an observed assistant message yields `completed`;
+- attachment send success requires a verified durable user turn, not a click or attachment preview alone;
+- callers may require JSON output, in which case malformed or truncated JSON is rejected;
 - delete is terminal and cannot be followed by resume;
 - browser, login, and ambiguity failures preserve the thread identity and are
   classified as `failed` or `blocked`.

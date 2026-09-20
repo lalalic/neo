@@ -14,7 +14,7 @@ EFFECTIVE_LEVELS = THINKING_LEVELS | {"unknown"}
 STATUSES = frozenset(
     {"created", "running", "awaiting_result", "completed", "failed", "blocked", "deleted"}
 )
-OPERATIONS = frozenset({"create", "resume", "status", "result", "delete"})
+OPERATIONS = frozenset({"create", "resume", "continue", "send", "status", "result", "delete"})
 
 
 class ContractError(ValueError):
@@ -43,7 +43,7 @@ def validate_request(request: Any) -> dict[str, Any]:
     if operation not in OPERATIONS:
         raise ContractError(f"unsupported operation: {operation}")
     result: dict[str, Any] = {"operation": operation}
-    if operation in {"create", "resume"}:
+    if operation in {"create", "resume", "continue", "send"}:
         result["project"] = validate_project(request.get("project"))
     if operation == "create":
         result["prompt"] = _text(request.get("prompt"), "prompt")
@@ -51,6 +51,16 @@ def validate_request(request: Any) -> dict[str, Any]:
         if level not in THINKING_LEVELS:
             raise ContractError(f"unsupported thinking_level: {level}")
         result["thinking_level"] = level
+    elif operation in {"continue", "send"}:
+        result["prompt"] = _text(request.get("prompt"), "prompt")
+        if operation == "send":
+            files = request.get("files", [])
+            if not isinstance(files, list):
+                raise ContractError("files must be an array")
+            normalized_files = []
+            for index, item in enumerate(files):
+                normalized_files.append(_text(item, f"files[{index}]"))
+            result["files"] = normalized_files
     elif operation == "resume" and request.get("thinking_level") is not None:
         level = _text(request["thinking_level"], "thinking_level")
         if level not in THINKING_LEVELS:
@@ -84,7 +94,7 @@ def validate_state(state: Any) -> dict[str, Any]:
     return result
 
 
-def validate_result(result: Any, *, thread_id: str | None = None) -> dict[str, Any]:
+def validate_result(result: Any, *, thread_id: str | None = None, expect_json: bool = False) -> dict[str, Any]:
     """Accept only a normalized, observed assistant result."""
     if not isinstance(result, dict):
         raise ContractError("result must be an object")
@@ -97,6 +107,12 @@ def validate_result(result: Any, *, thread_id: str | None = None) -> dict[str, A
     normalized["thread_id"] = result_thread_id
     normalized["text"] = _text(result.get("text"), "result.text")
     normalized["message_id"] = _text(result.get("message_id"), "result.message_id")
+    if expect_json:
+        import json
+        try:
+            json.loads(normalized["text"])
+        except json.JSONDecodeError as exc:
+            raise ContractError("result.text is not valid JSON") from exc
     if result.get("observed_at") is not None:
         normalized["observed_at"] = _text(result["observed_at"], "result.observed_at")
     return normalized

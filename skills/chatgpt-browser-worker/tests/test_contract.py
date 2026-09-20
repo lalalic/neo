@@ -147,6 +147,16 @@ class ExistingThreadPort:
         self.calls.append(("send_prompt", prompt))
         return {"prompt_sent": True}
 
+    def send_with_attachments(self, prompt, files):
+        self.calls.append(("send_with_attachments", prompt, files))
+        return {
+            "verified": True,
+            "user_turn_observed": True,
+            "prompt_observed": True,
+            "attachment_names": [Path(x).name for x in files],
+            "user_message_id": "user-message-2",
+        }
+
     def read_status(self):
         self.calls.append(("read_status",))
         return {"status": self.status, "progress": "visible"}
@@ -313,3 +323,47 @@ def test_agents_relay_fixture_drives_one_serial_browser_thread_lifecycle():
     assert deleted["status"] == "deleted"
     assert [call[0] for call in port.calls] == ["open_thread", "read_result", "delete_thread"]
     assert [item["status"] for item in persisted] == ["running", "completed", "completed", "deleted"]
+
+
+def test_send_request_accepts_repeatable_attachment_paths():
+    request = contract.validate_request({
+        "operation": "send",
+        "thread_id": "thread-1",
+        "project": {"name": "neo"},
+        "prompt": "analyze these",
+        "files": ["/tmp/a.png", "/tmp/b.mp4"],
+    })
+    assert request["files"] == ["/tmp/a.png", "/tmp/b.mp4"]
+    with pytest.raises(contract.ContractError, match="files"):
+        contract.validate_request({
+            "operation": "send", "thread_id": "thread-1", "project": {"name": "neo"},
+            "prompt": "x", "files": "a.png",
+        })
+
+
+def test_send_thread_requires_verified_durable_user_turn_and_attachments():
+    port = ExistingThreadPort(status="completed")
+    sent = operations.send_thread(port, state("completed"), "analyze", ["/tmp/a.png", "/tmp/b.mp4"] )
+    assert sent["status"] == "running"
+    assert sent["evidence"]["send"]["user_turn_observed"] is True
+    assert [call[0] for call in port.calls] == ["open_thread", "send_with_attachments"]
+
+    class UnverifiedPort(ExistingThreadPort):
+        def send_with_attachments(self, prompt, files):
+            return {"verified": False, "user_turn_observed": False, "attachment_names": []}
+
+    with pytest.raises(contract.ContractError, match="durable user turn"):
+        operations.send_thread(UnverifiedPort(), state("completed"), "analyze", ["/tmp/a.png"] )
+
+
+def test_result_can_require_valid_json():
+    valid = ExistingThreadPort(result={
+        "thread_id": "thread-1", "status": "completed", "text": '{"ok":true}', "message_id": "message-1"
+    })
+    assert operations.result_thread(valid, state("running"), expect_json=True)["text"] == '{"ok":true}'
+
+    invalid = ExistingThreadPort(result={
+        "thread_id": "thread-1", "status": "completed", "text": '{"description":"A', "message_id": "message-1"
+    })
+    with pytest.raises(contract.ContractError, match="valid JSON"):
+        operations.result_thread(invalid, state("running"), expect_json=True)

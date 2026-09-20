@@ -13,6 +13,7 @@ except ImportError:
 class BrowserPort(Protocol):
     def open_thread(self, thread_id: str) -> dict[str, Any]: ...
     def send_prompt(self, prompt: str) -> dict[str, Any]: ...
+    def send_with_attachments(self, prompt: str, files: list[str]) -> dict[str, Any]: ...
     def read_status(self) -> dict[str, Any]: ...
     def read_result(self) -> dict[str, Any]: ...
     def delete_thread(self) -> dict[str, Any]: ...
@@ -124,6 +125,38 @@ def continue_thread(
     return _save(current, persist, now)
 
 
+
+def send_thread(
+    port: BrowserPort,
+    state: Any,
+    prompt: str,
+    files: list[str] | None = None,
+    *,
+    persist: Callable[[dict[str, Any]], None] | None = None,
+    now: Callable[[], str] = _now,
+) -> dict[str, Any]:
+    """Send one verified user turn with optional attachments."""
+    current = validate_state(state)
+    if not isinstance(prompt, str) or not prompt.strip():
+        raise ContractError("prompt must be a non-empty string")
+    normalized_files = [] if files is None else files
+    if not isinstance(normalized_files, list) or any(not isinstance(x, str) or not x.strip() for x in normalized_files):
+        raise ContractError("files must be an array of non-empty paths")
+    _opened(port, current, expected_project=current["project"])
+    if current["status"] != "running":
+        current = transition(current, "running")
+    sent = port.send_with_attachments(prompt.strip(), [x.strip() for x in normalized_files])
+    if not isinstance(sent, dict):
+        raise ContractError("browser did not return send evidence")
+    if sent.get("verified") is not True or sent.get("user_turn_observed") is not True:
+        raise ContractError("browser did not verify a durable user turn")
+    expected = [x.split("/")[-1] for x in normalized_files]
+    observed = sent.get("attachment_names", [])
+    if expected and observed != expected:
+        raise ContractError("browser did not verify the requested attachments")
+    current.setdefault("evidence", {})["send"] = sent
+    return _save(current, persist, now)
+
 def inspect_thread(
     port: BrowserPort,
     state: Any,
@@ -147,6 +180,7 @@ def result_thread(
     port: BrowserPort,
     state: Any,
     *,
+    expect_json: bool = False,
     persist: Callable[[dict[str, Any]], None] | None = None,
     now: Callable[[], str] = _now,
 ) -> dict[str, Any]:
@@ -154,7 +188,7 @@ def result_thread(
     current = validate_state(state)
     if current["status"] == "deleted":
         raise ContractError("deleted thread is terminal")
-    result = validate_result(port.read_result(), thread_id=current["thread_id"])
+    result = validate_result(port.read_result(), thread_id=current["thread_id"], expect_json=expect_json)
     if current["status"] != "completed":
         current = transition(current, "completed")
     current.setdefault("evidence", {})["result"] = result

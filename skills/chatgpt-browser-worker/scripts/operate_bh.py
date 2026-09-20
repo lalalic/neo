@@ -14,13 +14,19 @@ BH_SCRIPT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "_operate_b
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("operation", choices=("resume", "continue", "status", "result", "delete"))
+    parser.add_argument("operation", choices=("resume", "continue", "send", "status", "result", "delete"))
     parser.add_argument("--thread-id", required=True)
     parser.add_argument("--project", required=True)
     parser.add_argument("--prompt")
+    parser.add_argument("--file", action="append", default=[])
+    parser.add_argument("--expect-json", action="store_true")
     args = parser.parse_args()
-    if args.operation == "continue" and not args.prompt:
-        parser.error("continue requires --prompt")
+    if args.operation in {"continue", "send"} and not args.prompt:
+        parser.error(f"{args.operation} requires --prompt")
+    if args.operation != "send" and args.file:
+        parser.error("--file is only valid with send")
+    if args.operation != "result" and args.expect_json:
+        parser.error("--expect-json is only valid with result")
     config = {key: value for key, value in vars(args).items() if value is not None}
     with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as handle:
         json.dump(config, handle, ensure_ascii=False)

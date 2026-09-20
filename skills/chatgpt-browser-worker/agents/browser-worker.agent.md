@@ -37,7 +37,7 @@ not own browser execution.
 ## Typed adapter contract
 
 The input is one JSON object. `operation` must be one of `create`, `resume`,
-`continue`, `status`, `result`, or `delete`.
+`continue`, `send`, `status`, `result`, or `delete`.
 
 ```json
 {
@@ -57,6 +57,8 @@ Input requirements:
   Project before any other thread action.
 - `continue`: requires `thread_id`, `project.name`, and `prompt`; open and
   verify the exact thread before sending the follow-up.
+- `send`: requires `thread_id`, `project.name`, `prompt`, and optional `files[]`; verify each attachment is observed and ready, then verify a new durable user turn after submit.
+- `result` may request `expect_json`; reject malformed/truncated JSON rather than reporting completion.
 - `status`, `result`, and `delete`: require the durable `thread_id`; use the
   persisted `state` when supplied and never recreate a missing identity.
 - `thinking_level` is `default`, `low`, `medium`, or `high`; preserve an

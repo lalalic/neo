@@ -17,8 +17,9 @@ The worker boundary exposes these lifecycle operations:
 ```text
 create(project, prompt, thinking_level) -> ThreadState
 resume(thread_id, project)             -> ThreadState
+send(thread_id, project, prompt, files[]) -> ThreadState
 status(thread_id)                      -> StatusObservation
-result(thread_id)                      -> ThreadResult
+result(thread_id, expect_json=false)   -> ThreadResult
 delete(thread_id)                      -> DeletedThreadState
 ```
 
@@ -74,8 +75,9 @@ existing thread with the durable identity from persisted state:
 ```text
 python3 scripts/operate_bh.py resume --thread-id ID --project NAME
 python3 scripts/operate_bh.py continue --thread-id ID --project NAME --prompt TEXT
+python3 scripts/operate_bh.py send --thread-id ID --project NAME --file image.png --file clip.mp4 --prompt TEXT
 python3 scripts/operate_bh.py status --thread-id ID --project NAME
-python3 scripts/operate_bh.py result --thread-id ID --project NAME
+python3 scripts/operate_bh.py result --thread-id ID --project NAME --expect-json
 python3 scripts/operate_bh.py delete --thread-id ID --project NAME
 ```
 
@@ -85,8 +87,10 @@ not import MacBridge or a ChatGPT runtime API.
 
 ## Verification boundary
 
+For media work, callers use the typed `send` operation rather than touching browser file inputs directly. `send` must observe every requested attachment in the composer, submit the prompt, and verify that a new durable user turn appeared before it reports success.
+
 The worker may report `completed` only from an observed assistant message and
-normalized result. A process exit, click, URL change, or tab title alone is not
+normalized result. When `expect_json` is requested, the final text must parse as JSON; truncated prefixes are failures, not completion. A process exit, click, URL change, or tab title alone is not
 proof that a thread was created, resumed, completed, or deleted. Authentication
 walls, MFA, consent, ambiguous account/project selection, and unverified
 thinking levels are `blocked` or `failed` conditions and must not be
