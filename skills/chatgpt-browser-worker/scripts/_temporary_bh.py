@@ -9,6 +9,7 @@ from browser_harness import *
 
 CFG = json.load(open("__CFG_PATH__", encoding="utf-8"))
 _OWNED_TABS = []
+_KEEP_OWNED_TAB_OPEN = CFG.get("close_policy", "after-start") == "never"
 
 
 def _new_owned_tab(url):
@@ -21,6 +22,8 @@ def _new_owned_tab(url):
 
 
 def _close_owned_tabs():
+    if _KEEP_OWNED_TAB_OPEN:
+        return
     while _OWNED_TABS:
         try:
             close_tab(_OWNED_TABS.pop())
@@ -53,6 +56,15 @@ def _composer_text(selector):
       const e=document.querySelector({json.dumps(selector)});
       return e ? ((e.innerText ?? e.value) || '') : '';
     }})()""") or ""
+
+
+def _same_text(observed, expected):
+    normalize = lambda value: re.sub(r"\\s+", " ", value or "").strip()
+    return normalize(expected) in normalize(observed)
+
+
+def _normalized_text(value):
+    return re.sub(r"\s+", " ", value or "").strip()
 
 
 def _attachment_names():
@@ -104,7 +116,7 @@ def _wait_user_turn(before_count, prompt, timeout=20):
     deadline = time.time() + timeout
     while time.time() < deadline:
         turns = _user_turns()
-        if len(turns) > before_count and prompt.strip() in turns[-1]["text"]:
+        if len(turns) > before_count and _normalized_text(prompt) in _normalized_text(turns[-1]["text"]):
             return turns[-1]
         time.sleep(.25)
     raise RuntimeError("Temporary Chat prompt did not become an observed user turn")
@@ -145,7 +157,7 @@ attachments = _upload_files(CFG.get("file", []))
 selector = _composer()
 before_count = len(_user_turns())
 fill_input(selector, CFG["prompt"], clear_first=True)
-if CFG["prompt"].strip() not in _composer_text(selector):
+if not _same_text(_composer_text(selector), CFG["prompt"]):
     info = js(f"""(() => {{
       const e=document.querySelector({json.dumps(selector)});
       const r=e.getBoundingClientRect();
@@ -154,7 +166,7 @@ if CFG["prompt"].strip() not in _composer_text(selector):
     click_at_xy(info["x"], info["y"])
     press_key("CTRL+A")
     type_text(CFG["prompt"])
-if CFG["prompt"].strip() not in _composer_text(selector):
+if _normalized_text(CFG["prompt"]) not in _normalized_text(_composer_text(selector)):
     raise RuntimeError("Temporary Chat prompt was not observed in the composer")
 
 _click_send()
@@ -168,4 +180,15 @@ print(json.dumps({
     "diagnostic_thread_id": _diagnostic_thread_id(),
     "user_message_id": user_turn.get("id") or None,
     "verified": True,
-}, ensure_ascii=False))
+}, ensure_ascii=False), flush=True)
+
+# Keep the owned Temporary Chat tab alive until Relay releases the submit
+# runtime after the configured lifecycle barrier. `never` intentionally leaves
+# the owned tab open for explicit test/debug use.
+release_file = CFG.get("release_file")
+if not release_file:
+    raise RuntimeError("worker release file was not configured")
+if CFG.get("close_policy", "after-start") == "never":
+    raise SystemExit(0)
+while not os.path.exists(release_file):
+    time.sleep(.1)

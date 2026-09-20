@@ -135,6 +135,21 @@ Every task lasting more than a few seconds must emit:
 2. Meaningful milestone/progress events during work.
 3. Exactly one terminal event: `task.completed`, `task.failed`, `task.blocked`, or `task.cancelled`.
 
+Task lifecycle is separate from the lifecycle of the carrier that launches or
+hosts it. Components that own a carrier may additionally emit:
+
+- `task.process.launched` only after the carrier was actually launched or a
+  remote submission was accepted;
+- `task.process.exited` when a synchronous carrier exits;
+- `task.process.async_exited` when an asynchronous submit runtime exits while
+  the remote worker may continue executing.
+
+These process events are non-terminal and MUST NOT synthesize or replace
+worker-owned `task.started` or any terminal task event. A consumer waiting for
+task completion must continue until the exact correlated
+`task.completed|task.failed|task.blocked|task.cancelled` event arrives (or the
+owning orchestration explicitly reconciles an abnormal transport failure).
+
 ### Task visibility policy
 
 - `task.started` and meaningful milestones may be `visibility: user` when useful.

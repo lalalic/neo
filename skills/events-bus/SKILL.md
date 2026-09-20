@@ -50,9 +50,19 @@ At minimum emit:
 - meaningful milestones/progress
 - one of `task.completed`, `task.failed`, `task.blocked`, `task.cancelled`
 
+Carrier/process lifecycle is distinct from task lifecycle. The component that
+owns the carrier MAY emit `task.process.launched` after a process/thread/browser
+submission has actually launched, `task.process.exited` when a synchronous
+carrier exits, or `task.process.async_exited` when an asynchronous submit
+runtime exits while the remote task may still be running. These process events
+are never substitutes for worker-owned `task.started` or a terminal task event.
+
 ### Task visibility policy
 
 - `task.started` and meaningful milestones MAY be `visibility: user` when useful.
+- `task.process.launched`, `task.process.exited`, and
+  `task.process.async_exited` are lifecycle diagnostics and are non-terminal;
+  show them only when they are useful to the user or to active debugging.
 - `task.failed`, `task.blocked`, and `task.cancelled` MUST be `visibility: user` and surfaced immediately.
 - Routine successful child `task.completed` SHOULD use `visibility: orchestrator` while the parent still reconciles or consumes results and will shortly emit a user-visible top-level `job.completed`.
 - Child `task.completed` MAY be `visibility: user` only when its completion is a meaningful standalone user milestone; the render-before-next-tool-call barrier still applies.
