@@ -117,9 +117,10 @@ function latestWorkerForJob(jobId) {
   return null;
 }
 
-function latestTerminalForJob(jobId) {
+function latestTerminalForJob(jobId, afterCursor = 0) {
   for (let i = events.length - 1; i >= 0; i -= 1) {
     const row = events[i];
+    if (row.cursor <= afterCursor) break;
     if (row.event?.job_id === jobId && TERMINAL_JOB_TYPES.has(row.event?.type)) return row;
   }
   return null;
@@ -341,7 +342,7 @@ async function waitForEvents(jobId, afterCursor, timeoutMs, limit) {
   }
 
   const initialLiveness = processLiveness(jobId);
-  if (initialLiveness.state === "dead" && !latestTerminalForJob(jobId)) {
+  if (initialLiveness.state === "dead" && !latestTerminalForJob(jobId, afterCursor)) {
     return { rows: [], liveness: initialLiveness, processExited: true };
   }
 
@@ -368,7 +369,7 @@ async function waitForEvents(jobId, afterCursor, timeoutMs, limit) {
         exitDetectedAt = null;
         return;
       }
-      if (latestTerminalForJob(jobId)) {
+      if (latestTerminalForJob(jobId, afterCursor)) {
         finish(false);
         return;
       }
@@ -407,7 +408,7 @@ async function callTool(name, args = {}) {
   }
   if (name === "wait") {
     const result = await waitForEvents(args.job_id, args.after_cursor ?? 0, args.timeout_ms ?? 25_000, args.limit ?? 100);
-    const terminal = latestTerminalForJob(args.job_id);
+    const terminal = latestTerminalForJob(args.job_id, args.after_cursor ?? 0);
     return textResult({
       job_id: args.job_id,
       events: result.rows,
