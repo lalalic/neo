@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run one isolated Temporary Chat request through browser-harness."""
+"""Submit one isolated Temporary Chat task through browser-harness."""
 from __future__ import annotations
 
 import argparse
@@ -15,16 +15,14 @@ BH_SCRIPT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "_temporary
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--prompt", required=True)
-    parser.add_argument("--thinking-level", choices=("default", "low", "medium", "high"), default="default")
     parser.add_argument("--file", action="append", default=[])
-    parser.add_argument("--expect-json", action="store_true")
     args = parser.parse_args()
     with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as handle:
         json.dump(vars(args), handle, ensure_ascii=False)
         config_path = handle.name
     try:
         code = open(BH_SCRIPT, encoding="utf-8").read().replace("__CFG_PATH__", config_path)
-        return subprocess.run(["browser-harness"], input=code, text=True, timeout=300).returncode
+        return subprocess.run(["browser-harness"], input=code, text=True, timeout=180).returncode
     finally:
         os.unlink(config_path)
 
