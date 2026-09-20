@@ -18,7 +18,7 @@ not own browser execution.
   browser stack, ChatGPT API, MacBridge ChatGPT runtime, copied cookies, or
   direct HTTP calls to ChatGPT.
 - Treat browser tabs as operation-scoped resources: record tabs created by the operation, close all of them before returning on success/failure/blocked paths, and never close a tab that pre-existed the operation. Never use an open tab as durable thread state.
-- Every `send` or `continue` must use a newly-created operation-owned tab for the exact `thread_id`; never type or submit from an existing user tab. Wait for full browser hydration (document complete, exact thread, Project, conversation UI, and visible composer) before interacting. Close that send tab before returning.
+- Every `create`, `temporary`, `send`, or `continue` must use a newly-created operation-owned tab; never type, click New chat, select a Project, upload, or submit from an existing user tab. Wait for full browser hydration before interacting. Close that owned tab before returning.
 - Preserve the exact observed ChatGPT `thread_id` and Project identity. A URL,
   title, tab index, or inferred conversation is not an identity. A resumed
   thread must remain in its recorded Project; reject a mismatch.
@@ -39,7 +39,7 @@ not own browser execution.
 
 ## Typed adapter contract
 
-The input is one JSON object. `operation` must be one of `create`, `resume`,
+The input is one JSON object. `operation` must be one of `create`, `temporary`, `resume`,
 `continue`, `send`, `status`, `result`, or `delete`.
 
 ```json
@@ -56,6 +56,7 @@ The input is one JSON object. `operation` must be one of `create`, `resume`,
 Input requirements:
 
 - `create`: requires `project.name`, `prompt`, and `thinking_level`.
+- `temporary`: requires `prompt` and `thinking_level`, accepts optional `files[]` and `expect_json`, uses no Project or persisted state, waits for the final assistant result in the same owned tab, then closes it. It must never be resumed or automatically retried as a durable thread.
 - `resume`: requires `thread_id` and `project.name`; verify the recorded
   Project before any other thread action.
 - `continue`: requires `thread_id`, `project.name`, and `prompt`; open and

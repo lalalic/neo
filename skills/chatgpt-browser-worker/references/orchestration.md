@@ -82,11 +82,13 @@ are agent implementation helpers. The durable identity is always the
 | Intent | Request | Browser-port calls | Success evidence |
 | --- | --- | --- | --- |
 | Start | `create` with `project`, `prompt`, `thinking_level` | `select_project` → optional `set_thinking_level` → `send_prompt` | observed non-empty `thread_id` and Project |
+| One-shot | `temporary` with `prompt`, `thinking_level`, optional `files[]` | new owned tab → Temporary Chat → prompt/files → wait final assistant message → close tab | verified final assistant message; no Project or persisted state |
 | Reattach | `resume` with `thread_id`, `project` | `open_thread` and Project verification | opened matching thread and Project |
 | Inspect conversation output (optional) | `result` with the durable state | `read_result` | normalized assistant message with `message_id`; authoritative only when the prompt selects conversation output |
 | Clean up | `delete` with the durable state | exact-thread delete plus confirmation | verified `deleted` or idempotent `not_found` |
 
 `status`/`result` are optional conversation-inspection operations, not the default orchestration completion loop.
+`temporary` is deliberately outside the durable lifecycle: it is never resumed, reopened, deleted, or automatically retried. An explicit retry starts a completely new Temporary Chat invocation.
 `continue` is a follow-up prompt operation and is not a substitute for
 `resume`. A retry resumes the existing state; it never calls `create` for a
 missing or failed browser action. A `deleted` tombstone is terminal.

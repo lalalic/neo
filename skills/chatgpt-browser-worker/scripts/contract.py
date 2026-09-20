@@ -14,7 +14,7 @@ EFFECTIVE_LEVELS = THINKING_LEVELS | {"unknown"}
 STATUSES = frozenset(
     {"created", "running", "awaiting_result", "completed", "failed", "blocked", "deleted"}
 )
-OPERATIONS = frozenset({"create", "resume", "continue", "send", "status", "result", "delete"})
+OPERATIONS = frozenset({"create", "temporary", "resume", "continue", "send", "status", "result", "delete"})
 
 
 class ContractError(ValueError):
@@ -45,12 +45,18 @@ def validate_request(request: Any) -> dict[str, Any]:
     result: dict[str, Any] = {"operation": operation}
     if operation in {"create", "resume", "continue", "send"}:
         result["project"] = validate_project(request.get("project"))
-    if operation == "create":
+    if operation in {"create", "temporary"}:
         result["prompt"] = _text(request.get("prompt"), "prompt")
         level = _text(request.get("thinking_level"), "thinking_level")
         if level not in THINKING_LEVELS:
             raise ContractError(f"unsupported thinking_level: {level}")
         result["thinking_level"] = level
+        if operation == "temporary":
+            files = request.get("files", [])
+            if not isinstance(files, list):
+                raise ContractError("files must be an array")
+            result["files"] = [_text(item, f"files[{index}]") for index, item in enumerate(files)]
+            result["expect_json"] = bool(request.get("expect_json", False))
     elif operation in {"continue", "send"}:
         result["prompt"] = _text(request.get("prompt"), "prompt")
         if operation == "send":
@@ -66,7 +72,7 @@ def validate_request(request: Any) -> dict[str, Any]:
         if level not in THINKING_LEVELS:
             raise ContractError(f"unsupported thinking_level: {level}")
         result["thinking_level"] = level
-    if operation != "create":
+    if operation not in {"create", "temporary"}:
         result["thread_id"] = _text(request.get("thread_id"), "thread_id")
     return result
 

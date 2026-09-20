@@ -40,6 +40,12 @@ def test_worker_contract_requires_operation_scoped_tab_cleanup():
         assert "_new_owned_tab(" in source
 
 
+def test_create_never_reuses_a_preexisting_chatgpt_tab():
+    driver = (Path(__file__).parents[1] / "scripts" / "_create_bh.py").read_text()
+    assert '_new_owned_tab("https://chatgpt.com/")' in driver
+    assert "ensure_real_tab()" not in driver
+    assert '_click_if_present("New chat"' not in driver
+
 def test_send_isolated_tab_and_full_ready_contract():
     skill = (Path(__file__).parents[1] / "SKILL.md").read_text()
     contract = (Path(__file__).parents[1] / "references" / "contract.md").read_text()
@@ -75,3 +81,17 @@ def test_send_prefers_observed_canonical_project_thread_url():
     assert '"/g/g-p-" in url' in driver
     assert "_new_owned_tab(_canonical_thread_url())" in driver
     assert 'return f"https://chatgpt.com/c/{THREAD_ID}"' in driver
+
+
+def test_temporary_one_shot_is_isolated_and_non_resumable():
+    agent = AGENT.read_text()
+    contract = (Path(__file__).parents[1] / "references" / "contract.md").read_text()
+    driver = (Path(__file__).parents[1] / "scripts" / "_temporary_bh.py").read_text()
+
+    assert "`temporary`" in agent
+    assert "no Project" in contract
+    assert "must not be resumed" in contract
+    assert '_new_owned_tab("https://chatgpt.com/")' in driver
+    assert "Temporary Chat toggle was not uniquely observed" in driver
+    assert '"operation": "temporary"' in driver
+    assert "atexit.register(_close_owned_tabs)" in driver

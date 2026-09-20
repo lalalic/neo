@@ -16,6 +16,7 @@ The worker boundary exposes these lifecycle operations:
 
 ```text
 create(project, prompt, thinking_level) -> ThreadState
+temporary(prompt, thinking_level, files[]) -> ThreadResult
 resume(thread_id, project)             -> ThreadState
 send(thread_id, project, prompt, files[]) -> ThreadState
 status(thread_id)                      -> StatusObservation
@@ -34,6 +35,13 @@ Thinking levels are split into `requested_thinking_level` and
 and `high`; effective values may additionally be `unknown`. `default` leaves
 the account's current/default setting unchanged. The adapter must preserve
 `unknown` rather than guessing from a label or silently downgrading a request.
+
+`temporary` is the clean one-shot path for tasks such as media/vision analysis
+that need one prompt and one final answer but no Project-held context. It always
+creates a fresh operation-owned tab, enables Temporary Chat, optionally uploads
+files, waits for the final assistant message, returns that verified result, and
+closes the tab. It has no Project binding or persisted lifecycle state and must
+not be resumed/reopened. An explicit retry starts a new Temporary Chat.
 
 ## Prompt-defined output contract
 
@@ -114,7 +122,7 @@ not import MacBridge or a ChatGPT runtime API.
 
 ## Browser tab ownership
 
-Each lifecycle operation owns only the browser tabs it creates. Before the operation returns—whether it succeeds, fails, or is blocked—it must close every tab it created. It must never close a tab that existed before the operation started. Durable worker state is the ChatGPT `thread_id`; a browser tab must never be treated as persistent state or intentionally left open for a later operation. Every `send`/follow-up operation must open its own fresh tab for the exact durable thread; it must never send from a pre-existing or shared user tab. That send tab is operation-owned and must be closed before return.
+Each lifecycle operation owns only the browser tabs it creates. Before the operation returns—whether it succeeds, fails, or is blocked—it must close every tab it created. It must never close or interact through a tab that existed before the operation started. `create` and `temporary` always start from a fresh owned tab; they may never click New chat, select a Project, type, upload, or submit in a user's existing tab. Durable worker state is the ChatGPT `thread_id`; a browser tab must never be treated as persistent state or intentionally left open for a later operation. Every `send`/follow-up operation must open its own fresh tab for the exact durable thread; it must never send from a pre-existing or shared user tab. That send tab is operation-owned and must be closed before return.
 
 ## Verification boundary
 

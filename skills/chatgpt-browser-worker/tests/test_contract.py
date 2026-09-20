@@ -51,6 +51,21 @@ def test_create_and_resume_require_verified_project_and_preserve_level_request()
         contract.validate_request({"operation": "create", "prompt": "hello", "thinking_level": "high"})
 
 
+def test_temporary_requires_no_project_or_thread_and_accepts_files():
+    request = contract.validate_request(
+        {
+            "operation": "temporary",
+            "prompt": "inspect this",
+            "thinking_level": "high",
+            "files": ["/tmp/clip.mp4"],
+            "expect_json": True,
+        }
+    )
+    assert "project" not in request
+    assert "thread_id" not in request
+    assert request["files"] == ["/tmp/clip.mp4"]
+    assert request["expect_json"] is True
+
 def test_project_mismatch_is_rejected_and_unknown_effective_level_is_valid():
     current = contract.validate_state(state())
     assert current["effective_thinking_level"] == "unknown"

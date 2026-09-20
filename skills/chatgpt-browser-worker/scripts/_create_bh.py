@@ -18,12 +18,12 @@ def _owned_target_id(target):
 
 
 def _new_owned_tab(url):
-    target = new_tab(url)
-    target_id = _owned_target_id(target)
-    if not target_id:
-        raise RuntimeError("browser-harness did not return a tab identity")
+    target_id = cdp("Target.createTarget", url="about:blank", background=True)["targetId"]
+    switch_tab(target_id)
     _OWNED_TABS.append(target_id)
-    return target
+    if url != "about:blank":
+        goto_url(url)
+    return target_id
 
 
 def _close_owned_tabs():
@@ -89,13 +89,9 @@ def _thread_id():
     return match.group(1)
 
 
-ensure_real_tab()
-if "chatgpt.com" not in page_info().get("url", ""):
-    _new_owned_tab("https://chatgpt.com/")
-    wait_for_load()
-elif "/c/" in page_info().get("url", ""):
-    _click_if_present("New chat", roles=("button", "link"))
-    time.sleep(1)
+# Creation must never reuse or mutate a user's existing ChatGPT tab.
+_new_owned_tab("https://chatgpt.com/")
+wait_for_load()
 
 project = CFG["project"]
 selected = _click_exact(project["name"], roles=("button", "link", "menuitem"))

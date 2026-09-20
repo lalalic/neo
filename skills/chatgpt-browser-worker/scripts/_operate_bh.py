@@ -18,12 +18,12 @@ def _owned_target_id(target):
 
 
 def _new_owned_tab(url):
-    target = new_tab(url)
-    target_id = _owned_target_id(target)
-    if not target_id:
-        raise RuntimeError("browser-harness did not return a tab identity")
+    target_id = cdp("Target.createTarget", url="about:blank", background=True)["targetId"]
+    switch_tab(target_id)
     _OWNED_TABS.append(target_id)
-    return target
+    if url != "about:blank":
+        goto_url(url)
+    return target_id
 
 
 def _close_owned_tabs():

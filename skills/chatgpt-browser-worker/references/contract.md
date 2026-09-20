@@ -18,6 +18,11 @@ All requests contain an operation and no credentials:
 ```
 
 `create` requires `project.name`, `prompt`, and `thinking_level`.
+`temporary` requires `prompt` and `thinking_level`, accepts optional
+`files[]` and `expect_json`, and intentionally has no Project or persisted
+thread state. The browser still reports the observed `thread_id` as
+per-invocation evidence, but that identity must not be resumed, reopened, or
+automatically retried by this worker.
 `resume` requires `thread_id` and `project`; its thinking level is optional and
 defaults to the persisted request. `continue` requires `thread_id`, `project`, and `prompt`. `send` additionally accepts `files[]` and must verify that each requested attachment is observed before submit and that a new durable user turn exists after submit. `status`, `result`, and `delete` require only `thread_id`.
 
@@ -130,6 +135,7 @@ import or launch `browser-harness` itself.
 - An operation owns only tabs it creates.
 - Every owned tab must be closed before the operation returns, including success, failure, and blocked outcomes.
 - Tabs that existed before the operation started must never be closed.
+- `create` and `temporary` MUST always start in a new operation-owned tab. They must never click New chat, select a Project, type, upload, or submit in a pre-existing user tab.
 - Durable thread state must not depend on a browser tab remaining open.
 - Every `send` and `continue` operation MUST open a fresh operation-owned tab for the exact durable thread, even if another tab already displays that thread. Sending from a pre-existing/shared user tab is forbidden.
 - The send tab must be closed before the operation returns.
@@ -151,3 +157,4 @@ import or launch `browser-harness` itself.
 - delete is terminal and cannot be followed by resume;
 - browser, login, and ambiguity failures preserve the thread identity and are
   classified as `failed` or `blocked`.
+- a `temporary` request is one-shot: failure terminates that invocation; retry requires an explicit new invocation and must not reopen or resume the prior Temporary Chat.
