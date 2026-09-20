@@ -5,11 +5,11 @@
   "description": "Moves Family Tutor turns between a local bridge and the selected ChatGPT tab.",
   "permissions": ["storage", "tabs"],
   "host_permissions": ["http://127.0.0.1/*", "https://chatgpt.com/*", "https://chat.openai.com/*"],
-  "background": { "service_worker": "service-worker.js", "type": "module" },
+  "background": { "service_worker": "background.js", "type": "module" },
   "content_scripts": [{
     "matches": ["https://chatgpt.com/*", "https://chat.openai.com/*"],
-    "js": ["content-script.js"],
+    "js": ["content.js"],
     "run_at": "document_idle"
   }],
-  "options_page": "options.html"
+  "action": { "default_popup": "popup.html" }
 }
