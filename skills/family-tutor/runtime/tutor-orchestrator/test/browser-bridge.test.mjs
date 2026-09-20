@@ -34,15 +34,21 @@ test('pushes correlated image turn over WebSocket and MCP replies to exact origi
     const payload=await message;
     assert.equal(payload.type,'turn');
     assert.equal(payload.childId,'kid1');
-    assert.equal(payload.prompt,'help');
+    assert.match(payload.prompt,/help/);
+    assert.match(payload.prompt,/Correlation ID:/);
+    assert.match(payload.prompt,/reply_to_discord/);
     assert.equal(payload.correlation.correlationId.length>20,true);
     assert.equal(payload.origin,undefined);
     const blobUrl=new URL(payload.attachments[0].url);
     blobUrl.searchParams.set('token',payload.attachments[0].token);
     const blob=await fetch(blobUrl); assert.equal(await blob.text(),'private-image');
-    const mcp=await post(`${bridge.endpoint()}/mcp`,token,{jsonrpc:'2.0',id:1,method:'tools/call',params:{name:'reply_to_discord',arguments:{correlationId:payload.correlation.correlationId,text:'answer'}}});
+    const progress=await post(`${bridge.endpoint()}/mcp`,token,{jsonrpc:'2.0',id:1,method:'tools/call',params:{name:'reply_to_discord',arguments:{correlationId:payload.correlation.correlationId,text:'working',final:false}}});
+    const progressBody=await progress.json(); assert.equal(progressBody.result.isError,undefined);
+    assert.equal(replies[0].origin.messageId,'m1'); assert.equal(replies[0].origin.threadId,'thread-1'); assert.equal(replies[0].text,'working');
+    const stillThere=await fetch(blobUrl); assert.equal(await stillThere.text(),'private-image');
+    const mcp=await post(`${bridge.endpoint()}/mcp`,token,{jsonrpc:'2.0',id:2,method:'tools/call',params:{name:'reply_to_discord',arguments:{correlationId:payload.correlation.correlationId,text:'answer',final:true}}});
     const mcpBody=await mcp.json(); assert.equal(mcpBody.result.isError,undefined);
-    assert.equal(replies[0].origin.messageId,'m1'); assert.equal(replies[0].origin.threadId,'thread-1'); assert.equal(replies[0].text,'answer');
+    assert.equal(replies[1].text,'answer');
     assert.deepEqual(await turnPromise,{ok:true,childId:'kid1'});
     const gone=await fetch(blobUrl); assert.equal(gone.status,404);
   }finally{socket?.close(); await bridge.stop(); await new Promise(resolve=>source.close(resolve)); fs.rmSync(root,{recursive:true,force:true});}

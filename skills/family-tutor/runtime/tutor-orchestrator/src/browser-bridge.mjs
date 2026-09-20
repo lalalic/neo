@@ -169,7 +169,7 @@ export class BrowserBridge {
     return true;
   }
 
-  async reply(correlationId,text){
+  async reply(correlationId,text,{final=true}={}){
     const state=this.correlations.get(correlationId);
     if(!state) throw new Error('unknown or expired correlation');
     if(this.inFlight.get(state.childId)!==correlationId) throw new Error('correlation is not active for child');
@@ -178,12 +178,13 @@ export class BrowserBridge {
     if(state.reply) await state.reply(clean);
     else if(this.replyToDiscord) await this.replyToDiscord({correlationId,childId:state.childId,origin:state.origin,text:clean});
     else throw new Error('no Discord reply handler');
+    if(!final) return {ok:true,childId:state.childId,correlationId,final:false};
     if(state.timer) clearTimeout(state.timer);
     state.resolve?.({ok:true,childId:state.childId});
     this.inFlight.delete(state.childId);
     await this.#deleteCorrelation(correlationId,state);
     this.#dispatch(state.childId);
-    return {ok:true,childId:state.childId,correlationId};
+    return {ok:true,childId:state.childId,correlationId,final:true};
   }
 
   async #deleteCorrelation(id,state=this.correlations.get(id)){
@@ -203,10 +204,19 @@ export class BrowserBridge {
   }
 
   #extensionPayload(turn){
+    const delivery=[
+      turn.text,
+      '',
+      '[Family Tutor Discord delivery]',
+      `Correlation ID: ${turn.correlationId}`,
+      'Send a concise intermediate progress message with the MCP tool reply_to_discord using this correlationId and final=false.',
+      'Then send the final student-facing response with reply_to_discord using the same correlationId and final=true.',
+      'Do not ask the student for the correlation ID and do not rely on the browser UI response as delivery.',
+    ].join('\n');
     return {
       type:'turn',
       childId:turn.childId,
-      prompt:turn.text,
+      prompt:delivery,
       correlation:{correlationId:turn.correlationId},
       attachments:turn.attachments.map(file=>({...file,token:this.token})),
     };
@@ -267,10 +277,10 @@ export class BrowserBridge {
     if(method==='initialize') return {jsonrpc:'2.0',id,result:{protocolVersion:'2025-06-18',capabilities:{tools:{}},serverInfo:{name:'family-tutor-browser-bridge',version:'0.1.0'}}};
     if(method==='notifications/initialized') return null;
     if(method==='ping') return {jsonrpc:'2.0',id,result:{}};
-    if(method==='tools/list') return {jsonrpc:'2.0',id,result:{tools:[{name:'reply_to_discord',description:'Reply to the exact Discord child message associated with an active Family Tutor correlation id.',inputSchema:{type:'object',additionalProperties:false,required:['correlationId','text'],properties:{correlationId:{type:'string'},text:{type:'string',minLength:1}}}}]}};
+    if(method==='tools/list') return {jsonrpc:'2.0',id,result:{tools:[{name:'reply_to_discord',description:'Reply to the exact Discord child message associated with an active Family Tutor correlation id. Use final=false for a concise progress update and final=true for the final response.',inputSchema:{type:'object',additionalProperties:false,required:['correlationId','text'],properties:{correlationId:{type:'string'},text:{type:'string',minLength:1},final:{type:'boolean',default:true}}}}]}};
     if(method==='tools/call'){
       if(params?.name!=='reply_to_discord') return {jsonrpc:'2.0',id,result:textResult({error:'unknown tool'},true)};
-      try{return {jsonrpc:'2.0',id,result:textResult(await this.reply(params.arguments?.correlationId,params.arguments?.text))};}
+      try{return {jsonrpc:'2.0',id,result:textResult(await this.reply(params.arguments?.correlationId,params.arguments?.text,{final:params.arguments?.final!==false}))};}
       catch(error){return {jsonrpc:'2.0',id,result:textResult({error:String(error?.message||error)},true)};}
     }
     return {jsonrpc:'2.0',id,error:{code:-32601,message:`Method not found: ${method}`}};

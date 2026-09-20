@@ -16,7 +16,7 @@ For a failed browser submission, the extension sends a WebSocket `turn.error` fo
 
 The same loopback server exposes MCP JSON-RPC at `POST /mcp`. It implements `initialize`, `tools/list`, and `tools/call`, with one tool:
 
-- `reply_to_discord({ correlationId, text })` replies to the exact original Discord message in its original channel/thread. Correlation IDs are random, short-lived capabilities; unknown, expired, or already-completed IDs are rejected.
+- `reply_to_discord({ correlationId, text, final })` replies to the exact original Discord message in its original channel/thread. Use `final: false` for a concise progress update and `final: true` for the final response. The correlation stays active until the final reply, then its transient image blobs are deleted and the next queued turn may run. Correlation IDs are random, short-lived capabilities; unknown, expired, or already-completed IDs are rejected.
 
 The MCP endpoint never accepts a Discord channel/message id directly, so a ChatGPT session cannot redirect a reply into another child or parent channel. The browser extension remains responsible only for tab binding, attachment upload, composer fill/submit, and error acknowledgement.
 
