@@ -132,8 +132,10 @@ async function handleBrowserChildMessage(message,child){
     url:a.url,name:a.name||`attachment-${a.id}`,mimeType:a.contentType||'',size:Number(a.size||0),
   }));
   if(!incoming&&!images.length) return;
-  await browserBridge.enqueue({
-    childId:child.id,text:incoming,attachments:images,
+  await browserBridge.turn({
+    childId:child.id,
+    prompt:incoming || 'Please help me understand the attached image(s).',
+    attachments:images,
     origin:{channelId:message.channelId,messageId:message.id,threadId:message.channel?.isThread?.()?message.channelId:null},
   });
 }
@@ -164,7 +166,7 @@ function serialize(childId,work){ const prev=queues.get(childId)||Promise.resolv
 client.once(Events.ClientReady,c=>console.log(`[family-tutor-orchestrator] ready as ${c.user.tag}`));
 client.on(Events.MessageCreate,message=>{
   if(message.author.bot) return;
-  const child=childByChannel.get(message.channelId);
+  const child=childByChannel.get(message.channelId)||childByChannel.get(message.channel?.isThread?.()?message.channel.parentId:null);
   if(child){
     const handler=browserBridge?handleBrowserChildMessage:handleChildMessage;
     serialize(child.id,()=>handler(message,child)).catch(error=>{console.error(`[family-tutor] ${child.id} turn failed`,error); message.reply('The tutor is temporarily unavailable. Please try again shortly.').catch(()=>{});});
@@ -182,7 +184,7 @@ if(config.browserBridge?.enabled){
     instanceDir,
     children:config.children,
     host:config.browserBridge.host||'127.0.0.1',
-    port:config.browserBridge.port||43117,
+    port:config.browserBridge.port||8787,
     replyToDiscord:async({origin,text})=>{
       const channel=await client.channels.fetch(origin.channelId);
       if(!channel?.isTextBased()) throw new Error('originating Discord channel is unavailable');

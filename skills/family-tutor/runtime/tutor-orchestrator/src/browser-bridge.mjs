@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import http from 'node:http';
 import path from 'node:path';
+import { WebSocketServer, WebSocket } from 'ws';
 
 const MAX_IMAGE_BYTES=12*1024*1024;
 const MAX_IMAGES=4;
@@ -34,7 +35,7 @@ function textResult(value,isError=false){
 }
 
 export class BrowserBridge {
-  constructor({instanceDir,children=[],host='127.0.0.1',port=43117,token=null,blobDir=null,fetchImpl=fetch,replyToDiscord=null,ttlMs=DEFAULT_TTL_MS,turnTimeoutMs=DEFAULT_TTL_MS}){
+  constructor({instanceDir,children=[],host='127.0.0.1',port=8787,token=null,blobDir=null,fetchImpl=fetch,replyToDiscord=null,ttlMs=DEFAULT_TTL_MS,turnTimeoutMs=DEFAULT_TTL_MS}){
     this.instanceDir=instanceDir;
     this.root=path.join(instanceDir,'.browser-bridge');
     this.blobRoot=blobDir||path.join(this.root,'blobs');
@@ -50,7 +51,9 @@ export class BrowserBridge {
     this.queues=new Map();
     this.inFlight=new Map();
     this.correlations=new Map();
+    this.childSockets=new Map();
     this.server=null;
+    this.wsServer=null;
     this.token=null;
     this.cleanupTimer=null;
   }
@@ -64,6 +67,9 @@ export class BrowserBridge {
       if(!res.headersSent) json(res,500,{error:'bridge request failed'});
       else res.end();
     }));
+    this.wsServer=new WebSocketServer({noServer:true});
+    this.server.on('upgrade',(req,socket,head)=>this.#upgrade(req,socket,head));
+    this.wsServer.on('connection',socket=>this.#connection(socket));
     await new Promise((resolve,reject)=>{
       this.server.once('error',reject);
       this.server.listen(this.port,this.host,resolve);
@@ -76,7 +82,10 @@ export class BrowserBridge {
 
   async close(){
     if(this.cleanupTimer) clearInterval(this.cleanupTimer);
+    for(const socket of this.wsServer?.clients||[]) socket.close();
+    if(this.wsServer) await new Promise(resolve=>this.wsServer.close(resolve));
     if(this.server) await new Promise(resolve=>this.server.close(resolve));
+    this.wsServer=null;
     this.server=null;
   }
 
@@ -92,6 +101,7 @@ export class BrowserBridge {
   }
 
   endpoint(){return `http://${this.host}:${this.port}`;}
+  websocketEndpoint(){return `ws://${this.host}:${this.port}/ws`;}
 
   async enqueue({childId,text='',attachments=[],origin,reply=null}){
     if(!this.children.has(childId)) throw new Error('unknown child');
@@ -122,6 +132,7 @@ export class BrowserBridge {
     const queue=this.queues.get(childId)||[];
     queue.push(turn);
     this.queues.set(childId,queue);
+    this.#dispatch(childId);
     return turn;
   }
 
@@ -154,6 +165,7 @@ export class BrowserBridge {
     if(state.timer) clearTimeout(state.timer);
     state.reject?.(error);
     await this.#deleteCorrelation(correlationId,state);
+    this.#dispatch(state.childId);
     return true;
   }
 
@@ -170,6 +182,7 @@ export class BrowserBridge {
     state.resolve?.({ok:true,childId:state.childId});
     this.inFlight.delete(state.childId);
     await this.#deleteCorrelation(correlationId,state);
+    this.#dispatch(state.childId);
     return {ok:true,childId:state.childId,correlationId};
   }
 
@@ -185,11 +198,68 @@ export class BrowserBridge {
       if(state.timer) clearTimeout(state.timer);
       state.reject?.(new Error('browser correlation expired'));
       await this.#deleteCorrelation(id,state);
+      this.#dispatch(state.childId);
     }
   }
 
-  #authorized(req){
-    return req.headers.authorization===`Bearer ${this.token}`;
+  #extensionPayload(turn){
+    return {
+      type:'turn',
+      childId:turn.childId,
+      prompt:turn.text,
+      correlation:{correlationId:turn.correlationId},
+      attachments:turn.attachments.map(file=>({...file,token:this.token})),
+    };
+  }
+
+  #dispatch(childId){
+    if(this.inFlight.has(childId)) return;
+    const socket=this.childSockets.get(childId);
+    if(!socket||socket.readyState!==WebSocket.OPEN) return;
+    const queue=this.queues.get(childId)||[];
+    const turn=queue.shift();
+    if(!turn) return;
+    if(queue.length) this.queues.set(childId,queue); else this.queues.delete(childId);
+    this.inFlight.set(childId,turn.correlationId);
+    socket.send(JSON.stringify(this.#extensionPayload(turn)));
+  }
+
+  #upgrade(req,socket,head){
+    let url;
+    try{ url=new URL(req.url,`http://${req.headers.host||'localhost'}`); }catch{ socket.destroy(); return; }
+    if(url.pathname!=='/ws'||url.searchParams.get('token')!==this.token){ socket.destroy(); return; }
+    this.wsServer.handleUpgrade(req,socket,head,client=>this.wsServer.emit('connection',client,req));
+  }
+
+  #connection(socket){
+    const bindings=new Set();
+    socket.on('message',raw=>{
+      let message;
+      try{ message=JSON.parse(raw.toString()); }catch{ return; }
+      if(message?.type==='extension.ping'||message?.type==='turn.ack') return;
+      if(message?.type==='tab.bind'){
+        const childId=String(message.childId||'').trim();
+        if(!this.children.has(childId)){ socket.send(JSON.stringify({type:'bridge.error',error:'unknown child'})); return; }
+        const prior=this.childSockets.get(childId);
+        if(prior&&prior!==socket&&prior.readyState===WebSocket.OPEN) prior.close(4000,'child rebound');
+        bindings.add(childId);
+        this.childSockets.set(childId,socket);
+        this.#dispatch(childId);
+        return;
+      }
+      if(message?.type==='turn.error'){
+        const id=String(message.correlation?.correlationId||'');
+        const state=this.correlations.get(id);
+        if(state&&state.childId===message.childId) this.fail(id,new Error(String(message.error||'extension turn failed'))).catch(()=>{});
+      }
+    });
+    socket.on('close',()=>{
+      for(const childId of bindings) if(this.childSockets.get(childId)===socket) this.childSockets.delete(childId);
+    });
+  }
+
+  #authorized(req,url){
+    return req.headers.authorization===`Bearer ${this.token}`||url?.searchParams.get('token')===this.token;
   }
 
   async #mcp(body){
@@ -209,18 +279,18 @@ export class BrowserBridge {
   async #handle(req,res){
     const url=new URL(req.url,`http://${req.headers.host||'localhost'}`);
     if(req.method==='POST'&&url.pathname==='/mcp/reply'){
-      if(!this.#authorized(req)) return json(res,401,{error:'unauthorized'});
+      if(!this.#authorized(req,url)) return json(res,401,{error:'unauthorized'});
       const body=await readJson(req);
       try{return json(res,200,await this.reply(body.correlationId,body.text));}
       catch(error){return json(res,400,{error:String(error?.message||error)});}
     }
     if(req.method==='POST'&&url.pathname==='/mcp'){
-      if(!this.#authorized(req)) return json(res,401,{error:'unauthorized'});
+      if(!this.#authorized(req,url)) return json(res,401,{error:'unauthorized'});
       const response=await this.#mcp(await readJson(req));
       if(response===null){res.writeHead(202);return res.end();}
       return json(res,200,response);
     }
-    if(!this.#authorized(req)) return json(res,401,{error:'unauthorized'});
+    if(!this.#authorized(req,url)) return json(res,401,{error:'unauthorized'});
     if(req.method==='GET'&&url.pathname==='/v1/turns/next'){
       const turn=this.next(url.searchParams.get('childId')||'');
       if(!turn){res.writeHead(204,{'cache-control':'no-store'});return res.end();}

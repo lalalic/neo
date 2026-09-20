@@ -15,7 +15,7 @@ node ../skills/family-tutor/scripts/service.mjs start runs/family
 
 Never place real family configuration in tracked project paths. `runs/` is the execution boundary for this public monorepo project.
 
-Optional ChatGPT browser child turns use `chatgptBrowser.enabled` in the
+Optional ChatGPT browser child turns use `browserBridge.enabled` in the
 private family config. The local bridge binds only to loopback, keeps its
 random bearer token and transient image blobs under
 `runs/family/.browser-bridge/`, and exposes the

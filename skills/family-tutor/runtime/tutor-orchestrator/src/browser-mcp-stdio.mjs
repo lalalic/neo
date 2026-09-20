@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const bridgeUrl=process.env.FAMILY_TUTOR_BRIDGE_URL||'http://127.0.0.1:43117';
+const bridgeUrl=process.env.FAMILY_TUTOR_BRIDGE_URL||'http://127.0.0.1:8787';
 const token=process.env.FAMILY_TUTOR_BRIDGE_TOKEN?.trim()||readRuntimeToken();
 if(!token) throw new Error('FAMILY_TUTOR_BRIDGE_TOKEN, FAMILY_TUTOR_INSTANCE_DIR, or FAMILY_TUTOR_CONFIG is required');
 

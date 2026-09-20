@@ -11,7 +11,7 @@ export function loadConfig(file){
   if(cfg.browserBridge?.enabled){
     const host=cfg.browserBridge.host||'127.0.0.1';
     if(!['127.0.0.1','localhost','::1'].includes(host)) throw new Error('browserBridge.host must be loopback');
-    const port=Number(cfg.browserBridge.port||43117);
+    const port=Number(cfg.browserBridge.port||8787);
     if(!Number.isInteger(port)||port<1024||port>65535) throw new Error('browserBridge.port must be between 1024 and 65535');
   }
   const ids=new Set(), channels=new Set();
