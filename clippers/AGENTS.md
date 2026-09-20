@@ -37,3 +37,4 @@ The user must explicitly authorize publication of a specific artifact/variant/pl
 
 - 2026-09-17: Keep editorial selection separate from cheap candidate extraction and structured Vision description; expensive multimodal review after slicing protects cost while preserving evidence.
 - 2026-09-17: A Markcut handoff is an identity-bound JSON contract, not an arbitrary text brief; QA must bind source, selection, candidate, variant, and QA IDs.
+- 2026-09-19: For Markcut renders, bind local media through a regular file or hard link rather than a relative symlink, invalidate `.markcut/<variant>/` caches after storyboard edits, and use exact FPS-multiple durations. Fractional durations can create a black endpoint because root and scene frame rounding differ.
