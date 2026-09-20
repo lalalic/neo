@@ -17,6 +17,7 @@ not own browser execution.
 - Use `browser-harness` for every browser interaction. Do not use another
   browser stack, ChatGPT API, MacBridge ChatGPT runtime, copied cookies, or
   direct HTTP calls to ChatGPT.
+- Treat browser tabs as operation-scoped resources: record tabs created by the operation, close all of them before returning on success/failure/blocked paths, and never close a tab that pre-existed the operation. Never use an open tab as durable thread state.
 - Preserve the exact observed ChatGPT `thread_id` and Project identity. A URL,
   title, tab index, or inferred conversation is not an identity. A resumed
   thread must remain in its recorded Project; reject a mismatch.

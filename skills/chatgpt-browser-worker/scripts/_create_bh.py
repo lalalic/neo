@@ -1,8 +1,41 @@
+import atexit
 import json
 import re
 import time
 
 from browser_harness import *
+
+
+_OWNED_TABS = []
+
+
+def _owned_target_id(target):
+    if isinstance(target, str):
+        return target
+    if isinstance(target, dict):
+        return target.get("targetId") or target.get("target_id")
+    return None
+
+
+def _new_owned_tab(url):
+    target = new_tab(url)
+    target_id = _owned_target_id(target)
+    if not target_id:
+        raise RuntimeError("browser-harness did not return a tab identity")
+    _OWNED_TABS.append(target_id)
+    return target
+
+
+def _close_owned_tabs():
+    while _OWNED_TABS:
+        target_id = _OWNED_TABS.pop()
+        try:
+            close_tab(target_id)
+        except Exception:
+            pass
+
+
+atexit.register(_close_owned_tabs)
 
 
 CFG = json.load(open("__CFG_PATH__", encoding="utf-8"))
@@ -58,7 +91,7 @@ def _thread_id():
 
 ensure_real_tab()
 if "chatgpt.com" not in page_info().get("url", ""):
-    new_tab("https://chatgpt.com/")
+    _new_owned_tab("https://chatgpt.com/")
     wait_for_load()
 elif "/c/" in page_info().get("url", ""):
     _click_if_present("New chat", roles=("button", "link"))

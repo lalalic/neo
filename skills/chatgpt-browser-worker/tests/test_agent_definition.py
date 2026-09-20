@@ -25,3 +25,16 @@ def test_callers_are_directed_to_launch_agent_not_helper_scripts():
     assert "must not directly call" in skill
     assert "launches the `browser-worker` agent" in orchestration
     assert "must not directly invoke" in orchestration
+
+
+def test_worker_contract_requires_operation_scoped_tab_cleanup():
+    skill = (Path(__file__).parents[1] / "SKILL.md").read_text()
+    contract = (Path(__file__).parents[1] / "references" / "contract.md").read_text()
+    create_driver = (Path(__file__).parents[1] / "scripts" / "_create_bh.py").read_text()
+    operate_driver = (Path(__file__).parents[1] / "scripts" / "_operate_bh.py").read_text()
+    assert "must close every tab it created" in skill
+    assert "Tabs that existed before the operation started must never be closed" in contract
+    for source in (create_driver, operate_driver):
+        assert "atexit.register(_close_owned_tabs)" in source
+        assert "close_tab(target_id)" in source
+        assert "_new_owned_tab(" in source

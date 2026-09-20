@@ -85,6 +85,10 @@ Each command performs one serial browser-harness operation. The injected
 semantic adapter in `scripts/operations.py` is the testable boundary; it does
 not import MacBridge or a ChatGPT runtime API.
 
+## Browser tab ownership
+
+Each lifecycle operation owns only the browser tabs it creates. Before the operation returns—whether it succeeds, fails, or is blocked—it must close every tab it created. It must never close a tab that existed before the operation started. Durable worker state is the ChatGPT `thread_id`; a browser tab must never be treated as persistent state or intentionally left open for a later operation.
+
 ## Verification boundary
 
 For media work, callers use the typed `send` operation rather than touching browser file inputs directly. `send` must observe every requested attachment in the composer, submit the prompt, and verify that a new durable user turn appeared before it reports success.

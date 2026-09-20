@@ -117,6 +117,14 @@ selector implementation. Each call must return observed values or a typed
 failure. The contract layer must remain usable with a fake port and must not
 import or launch `browser-harness` itself.
 
+## Browser tab ownership
+
+- An operation owns only tabs it creates.
+- Every owned tab must be closed before the operation returns, including success, failure, and blocked outcomes.
+- Tabs that existed before the operation started must never be closed.
+- Durable thread state must not depend on a browser tab remaining open.
+- Opening the exact durable thread in a temporary tab is permitted; that temporary tab must be closed after the observation or action completes.
+
 ## Testable safety boundaries
 
 - no request can omit the Project on `create` or `resume`;
