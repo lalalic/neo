@@ -5,7 +5,7 @@ import { loadConfig } from './config.mjs';
 import { CodexBackend } from './backends/codex.mjs';
 import { collectImageAttachments, understandImages } from './vision.mjs';
 import { isAudioAttachment, transcribeAudioAttachments } from './asr.mjs';
-import { buildParentContextPrompt, buildSlashStatusPrompt, canUseStatus, findChildByChannel, formatSlashOverview, formatSlashStatus, isAuthorizedParent, parseParentCommand, parseParentMessage, statusCommand, statusDenialMessage } from './parent-context.mjs';
+import { buildParentContextPrompt, buildSlashStatusPrompt, canUseStatus, childProjectName, findChildByChannelName, formatSlashOverview, formatSlashStatus, isAuthorizedParent, parseParentCommand, parseParentMessage, statusCommand, statusDenialMessage, validateChildChannel } from './parent-context.mjs';
 
 const configFile=process.env.FAMILY_TUTOR_CONFIG;
 if(!configFile) throw new Error('FAMILY_TUTOR_CONFIG is required');
@@ -14,7 +14,6 @@ const discordToken=process.env.DISCORD_BOT_TOKEN?.trim();
 if(!discordToken) throw new Error('DISCORD_BOT_TOKEN is required');
 
 const backend=new CodexBackend(config.codex,{instanceDir:path.resolve(path.dirname(config.configPath),'..')});
-const childByChannel=new Map(config.children.map(c=>[c.discordChannelId,c]));
 function agentsFile(child){ return path.resolve(path.dirname(config.configPath),'..',child.id,'AGENTS.md'); }
 function ensureAgents(child){ const file=agentsFile(child); if(fs.existsSync(file)) return; fs.mkdirSync(path.dirname(file),{recursive:true}); fs.writeFileSync(file,`# ${child.name} Agent Context\n\n`,{mode:0o600}); }
 for(const child of config.children) ensureAgents(child);
@@ -118,7 +117,7 @@ async function handleParentControl(message){
   if(!command) return;
   if(command.command==='!help') return message.reply('Commands: `<#child-channel> !goal <goal>`, `<#child-channel> !focus <focus>`, `<#child-channel> !guide <guidance>`, `<#child-channel> !ask <question>`, `<#child-channel> !status <question>`, `<#child-channel> how is learning going?`, `!threads`');
   if(command.command==='!threads') return message.reply(config.children.map(c=>`${c.id}: one persistent tutor thread`).join('\n'));
-  const child=findChildByChannel(config.children,command.childChannelId);
+  const child=await resolveMentionedChild(command);
   if(!child) return message.reply('Please mention one configured child channel, for example `<#child-channel> how is learning going?`.');
   if(!command.value) return message.reply('Please include the goal, focus, guidance, or question.');
   const prompt=buildParentContextPrompt({child,command:command.command,value:command.value,authorId:message.author.id,messageId:message.id});
@@ -126,6 +125,15 @@ async function handleParentControl(message){
   const parsed=parseTutorText(result.text);
   await applyTutorSideEffects(child,parsed);
   return sendChunks(message.channel,parsed.childText||result.text);
+}
+
+async function resolveMentionedChild(command){
+  if(!command?.channelMentionId) return null;
+  const channel=await client.channels.fetch(command.channelMentionId);
+  const child=findChildByChannelName(config.children,channel?.name);
+  if(!child) throw new Error(`Family Tutor configuration error: Discord channel #${channel?.name || command.channelMentionId} must match a child id and ChatGPT Project ${childProjectName(channel?.name || '')}.`);
+  validateChildChannel(child,channel);
+  return child;
 }
 
 function learnerMemory(child){ try{return fs.readFileSync(agentsFile(child),'utf8');}catch{return '';} }
@@ -136,8 +144,12 @@ async function statusForChild(child){
 async function handleStatusInteraction(interaction){
   if(!canUseStatus({channelId:interaction.channelId,userId:interaction.user.id},config)) return interaction.reply({content:statusDenialMessage(),ephemeral:true});
   const requested=interaction.options.getChannel('child-channel');
-  const child=requested?findChildByChannel(config.children,requested.id):null;
-  if(requested&&!child) return interaction.reply({content:'Choose one of the configured child channels.',ephemeral:true});
+  let child=null;
+  if(requested){
+    child=findChildByChannelName(config.children,requested.name);
+    if(!child) return interaction.reply({content:`Configuration error: #${requested.name} must map directly to ChatGPT Project ${childProjectName(requested.name)}.`,ephemeral:true});
+    try{ validateChildChannel(child,requested); }catch(error){ return interaction.reply({content:error.message,ephemeral:true}); }
+  }
   await interaction.deferReply();
   const statuses=[];
   for(const target of child?[child]:config.children) statuses.push(await serialize(target.id,()=>statusForChild(target)));
@@ -163,16 +175,16 @@ client.on(Events.InteractionCreate,(interaction)=>{
 });
 client.on(Events.MessageCreate,message=>{
   if(message.author.bot) return;
-  const child=childByChannel.get(message.channelId);
+  const child=findChildByChannelName(config.children,message.channel?.name);
   if(child){
+    try{ validateChildChannel(child,message.channel); }catch(error){ console.error('[family-tutor] child channel configuration error',error); message.reply(error.message).catch(()=>{}); return; }
     serialize(child.id,()=>handleChildMessage(message,child)).catch(error=>{console.error(`[family-tutor] ${child.id} turn failed`,error); message.reply('The tutor is temporarily unavailable. Please try again shortly.').catch(()=>{});});
     return;
   }
   if(config.discord.parentChannelId && message.channelId===config.discord.parentChannelId){
     const command=parseParentMessage(message.content,config.children);
-    const target=findChildByChannel(config.children,command?.childChannelId);
-    const key=target?.id||'parent-control';
-    serialize(key,()=>handleParentControl(message)).catch(error=>{console.error('[family-tutor] parent control failed',error); message.reply('Parent control is temporarily unavailable.').catch(()=>{});});
+    const key=command?.channelMentionId||'parent-control';
+    serialize(key,()=>handleParentControl(message)).catch(error=>{console.error('[family-tutor] parent control failed',error); message.reply(error.message.includes('configuration error')?error.message:'Parent control is temporarily unavailable.').catch(()=>{});});
   }
 });
 await client.login(discordToken);

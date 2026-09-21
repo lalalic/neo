@@ -1,10 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildParentContextPrompt, buildSlashStatusPrompt, canUseStatus, findChildByChannel, formatSlashOverview, formatSlashStatus, isAuthorizedParent, parseParentCommand, parseParentMessage, statusCommand, statusDenialMessage } from '../src/parent-context.mjs';
+import { buildParentContextPrompt, buildSlashStatusPrompt, canUseStatus, childProjectName, findChildByChannelName, formatSlashOverview, formatSlashStatus, isAuthorizedParent, parseParentCommand, parseParentMessage, statusCommand, statusDenialMessage, validateChildChannel } from '../src/parent-context.mjs';
 
 const config={parents:[{id:'p1',role:'parent'}]};
-const child={id:'sammy',name:'Sammy',discordChannelId:'111'};
-const children=[child,{id:'maggie',name:'Maggie',discordChannelId:'222'}];
+const child={id:'sammy',name:'Sammy'};
+const children=[child,{id:'maggie',name:'Maggie'}];
 const statusConfig={...config,discord:{parentChannelId:'parent-channel'}};
 
 test('authorizes only configured parent accounts',()=>{
@@ -18,18 +18,22 @@ test('parses command syntax without making it a routing decision',()=>{
 });
 
 test('routes natural parent messages by configured Discord channel mention anywhere in the sentence',()=>{
-  assert.deepEqual(parseParentMessage("how's <#111>'s recent status?",children),{command:'parent-query',childChannelId:'111',value:"how's 's recent status?"});
-  assert.deepEqual(parseParentMessage('please have <#222> review fractions tonight',children),{command:'parent-query',childChannelId:'222',value:'please have review fractions tonight'});
-  assert.deepEqual(parseParentMessage('<#111> has a chemistry test Friday—focus on practice problems',children),{command:'parent-query',childChannelId:'111',value:'has a chemistry test Friday—focus on practice problems'});
+  assert.deepEqual(parseParentMessage("how's <#111>'s recent status?",children),{command:'parent-query',channelMentionId:'111',value:"how's Sammy's recent status?"});
+  assert.deepEqual(parseParentMessage('please have <#222> review fractions tonight',children),{command:'parent-query',channelMentionId:'222',value:'please have Maggie review fractions tonight'});
+  assert.deepEqual(parseParentMessage('<#111> has a chemistry test Friday—focus on practice problems',children),{command:'parent-query',channelMentionId:'111',value:'Sammy has a chemistry test Friday—focus on practice problems'});
+});
+
+test('preserves punctuation around a mid-sentence mention',()=>{
+  assert.deepEqual(parseParentMessage('Could <#222>, please review fractions tonight?',children),{command:'parent-query',channelMentionId:'222',value:'Could Maggie, please review fractions tonight?'});
 });
 
 test('routes command-style parent messages by the mention, never by the child name',()=>{
-  assert.deepEqual(parseParentMessage('!focus <#222> fractions tonight',children),{command:'!focus',childChannelId:'222',value:'fractions tonight'});
+  assert.deepEqual(parseParentMessage('!focus <#222> fractions tonight',children),{command:'!focus',channelMentionId:'222',value:'fractions tonight'});
   assert.deepEqual(parseParentMessage('!status sammy How is math going?',children),{command:'!status',value:'How is math going?'});
 });
 
 test('does not route unconfigured, ambiguous, or mention-only parent messages',()=>{
-  assert.equal(parseParentMessage('please check <#999>',children),null);
+  assert.deepEqual(parseParentMessage('please check <#999>',children),{command:'parent-query',channelMentionId:'999',value:'please check'});
   assert.equal(parseParentMessage('check <#111> and <#222>',children),null);
   assert.equal(parseParentMessage('<#111>',children),null);
 });
@@ -51,9 +55,19 @@ test('passes natural parent intent through the existing privacy-filtered context
 });
 
 test('resolves slash child by exact configured channel id',()=>{
-  assert.equal(findChildByChannel(children,'111'),child);
-  assert.equal(findChildByChannel(children,'SAMMY'),null);
-  assert.equal(findChildByChannel(children,'unknown'),null);
+  assert.equal(findChildByChannelName(children,'sammy'),child);
+  assert.equal(findChildByChannelName(children,'SAMMY'),null);
+  assert.equal(findChildByChannelName(children,'unknown'),null);
+  assert.equal(childProjectName('sammy'),'neo/family-tutor/sammy');
+  assert.deepEqual(validateChildChannel(child,{name:'sammy'}),{childId:'sammy',project:'neo/family-tutor/sammy'});
+  assert.throws(()=>validateChildChannel(child,{name:'Sammy'}),/must match child id\/project suffix sammy/);
+});
+
+test('classifies natural status questions and assignments separately',()=>{
+  const status=buildParentContextPrompt({child,command:'parent-query',value:"how's Sammy's recent status?",authorId:'p1',messageId:'m3'});
+  const guidance=buildParentContextPrompt({child,command:'parent-query',value:'please have Maggie review fractions tonight',authorId:'p1',messageId:'m4'});
+  assert.match(status,/type=status-question/);
+  assert.match(guidance,/type=guidance-assignment/);
 });
 
 test('allows status only for an authorized parent in the configured channel',()=>{

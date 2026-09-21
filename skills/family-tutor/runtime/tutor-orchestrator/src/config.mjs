@@ -9,12 +9,12 @@ export function loadConfig(file){
   if(!nonEmpty(cfg.discord?.parentChannelId)) throw new Error('discord.parentChannelId is required');
   if(!Array.isArray(cfg.parents)||cfg.parents.length===0) throw new Error('parents must contain authorized parent accounts');
   if(cfg.codex?.backend!=='codex') throw new Error(`Unsupported codex backend: ${cfg.codex?.backend}`);
-  const ids=new Set(), channels=new Set();
+  const ids=new Set();
   for(const child of cfg.children){
-    if(!nonEmpty(child.id)||!nonEmpty(child.name)||!nonEmpty(child.discordChannelId)) throw new Error('each child requires id, name, and discordChannelId');
+    if(!nonEmpty(child.id)||!nonEmpty(child.name)) throw new Error('each child requires canonical id (the Discord channel name) and name');
     if(ids.has(child.id)) throw new Error(`duplicate child id: ${child.id}`);
-    if(channels.has(child.discordChannelId)) throw new Error(`duplicate child Discord channel: ${child.discordChannelId}`);
-    ids.add(child.id); channels.add(child.discordChannelId);
+    if(child.project) throw new Error(`child ${child.id} must not define a separate Project mapping; use neo/family-tutor/${child.id}`);
+    ids.add(child.id);
   }
   const parentIds=new Set();
   for(const parent of cfg.parents){

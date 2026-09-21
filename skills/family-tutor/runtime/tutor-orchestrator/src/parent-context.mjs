@@ -12,10 +12,28 @@ export function parseParentCommand(text) {
 
 const discordChannelMention = /<#(\d+)>/g;
 
+function normalizeWhitespace(text) {
+  return text.replace(/\s+/g, ' ').trim();
+}
+
+function naturalMentionText(input, children) {
+  return normalizeWhitespace(input.replace(discordChannelMention, (mention, channelId) => {
+    const child = children.find((candidate) => candidate.discordChannelId === channelId);
+    return child?.name || '';
+  }));
+}
+
+function parentQueryType(value) {
+  return /(?:\?|\bhow(?:'s| is| are| was| were)?\b|\bstatus\b|\bprogress\b|\bdoing\b|\bgoing\b|\blearning\b|\bunderstand(?:ing)?\b|\bstruggl(?:e|es|ing)\b|\bimprov(?:e|ing|ement)\b|\brecent\b)/i.test(value)
+    ? 'status-question'
+    : 'guidance-assignment';
+}
+
 export function parseParentMessage(text, children) {
   const input = String(text || '').trim();
   const mentions = [...input.matchAll(discordChannelMention)];
-  const withoutMention = input.replace(discordChannelMention, ' ').replace(/\s+/g, ' ').trim();
+  const withoutMention = normalizeWhitespace(input.replace(discordChannelMention, ' '));
+  const naturalText = naturalMentionText(input, children);
   const command = parseParentCommand(withoutMention);
   if (command?.command === '!help' || command?.command === '!threads') return command;
   if (mentions.length !== 1) {
@@ -23,18 +41,20 @@ export function parseParentMessage(text, children) {
     const { childId: _ignoredChildId, ...unroutedCommand } = command;
     return unroutedCommand;
   }
-  const childChannelId = mentions[0][1];
-  if (!children.some((candidate) => candidate.discordChannelId === childChannelId)) return null;
+  const channelMentionId = mentions[0][1];
   if (command) {
     const [commandName, ...commandValue] = withoutMention.split(/\s+/);
-    return { command: commandName, childChannelId, value: commandValue.join(' ').trim() };
+    return { command: commandName, channelMentionId, value: commandValue.join(' ').trim() };
   }
   if (!withoutMention) return null;
-  return { command: 'parent-query', childChannelId, value: withoutMention };
+  if (!naturalText) return null;
+  return { command: 'parent-query', channelMentionId, value: naturalText };
 }
 
 export function buildParentContextPrompt({ child, command, value, authorId, messageId }) {
-  const type = command === '!ask' || command === '!status' || command === 'parent-query' ? 'status-question' : 'guidance-assignment';
+  const type = command === '!ask' || command === '!status'
+    ? 'status-question'
+    : command === 'parent-query' ? parentQueryType(value) : 'guidance-assignment';
   const instruction = command === '!goal'
     ? `Record this as a durable tutoring goal for ${child.name}.`
     : command === '!focus'
@@ -59,8 +79,26 @@ export function buildParentContextPrompt({ child, command, value, authorId, mess
 
 export const statusCommand = { name: 'status', description: 'Show a privacy-filtered learning status for one child or all children' };
 
-export function findChildByChannel(children, channelId) {
-  return children.find((child) => child.discordChannelId === String(channelId || '')) || null;
+export function findChildByChannelName(children, channelName) {
+  const wanted = String(channelName || '').trim();
+  return children.find((child) => child.id === wanted) || null;
+}
+
+export function childProjectName(channelName) {
+  return `neo/family-tutor/${String(channelName || '').trim()}`;
+}
+
+export function validateChildChannel(child, channel) {
+  const channelName = String(channel?.name || '').trim();
+  if (!channelName) throw new Error('Family Tutor configuration error: Discord child channel has no name.');
+  if (channelName !== child.id) {
+    throw new Error(`Family Tutor configuration error: Discord channel #${channelName} must match child id/project suffix ${child.id}.`);
+  }
+  const project = childProjectName(channelName);
+  if (child.project && child.project !== project) {
+    throw new Error(`Family Tutor configuration error: #${channelName} must use ChatGPT Project ${project}; found ${child.project}.`);
+  }
+  return { childId: channelName, project };
 }
 
 export function buildSlashStatusPrompt({ child, memory }) {
