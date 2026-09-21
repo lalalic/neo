@@ -35,7 +35,7 @@ Use `../skills/family-tutor/SKILL.md` as the reusable tutoring/runtime contract.
 - The privacy model is intentional: children should have space to speak naturally without feeling continuously observed by parents.
 - Parents use a dedicated parent learning/control channel instead of the child channels. Neo may actively participate in that parent discussion.
 - Parent output should be concise learning telemetry rather than transcript mirroring. Typical parent-visible signals include study topic, evidence of understanding, misconceptions, progress, missed plans, next steps, and when parental support may be useful.
-- The runtime registers a parent-only Discord `/status` command. It accepts an optional `child` name, queries that learner's existing Project/thread with the learner's `AGENTS.md` context, and returns concise privacy-filtered learning signals. With no child it queries each configured learner for a compact overview. Requests outside `discord.parentChannelId` are denied, and `/status` creates no new durable learner-state files.
+- The runtime registers a parent-only Discord `/status` command. Its optional child-channel selection derives the child id and exact Project `neo/family-tutor/<channel-name>` from the Discord channel name, then queries that learner's existing thread with the learner's `AGENTS.md` context. A missing or mismatched Project is a configuration error. With no child it queries each configured learner for a compact overview. Requests outside `discord.parentChannelId` are denied, and `/status` creates no new durable learner-state files.
 - Do not copy routine child messages, casual conversation, or full tutor transcripts into the parent channel.
 - Serious safety concerns are the exception. When escalation is necessary, surface only the minimum information needed for a parent to respond appropriately.
 - Discord permissions should mirror tutor-context separation: one child must not gain access to another child's tutor channel, and parent roles should not implicitly grant access to child tutor channels.
@@ -64,3 +64,27 @@ Use `../skills/family-tutor/SKILL.md` as the reusable tutoring/runtime contract.
 - Maintain a longitudinal direction profile in private runtime context. Useful signals include interests, strengths, disliked activities, candidate fields, experiments tried, reflections, confidence level, and unresolved questions.
 - Parent-visible reporting should summarize useful direction signals and suggested support, not expose every exploratory conversation with the child.
 - Recommendations about courses, programs, or universities must be grounded in current official requirements when they become consequential; verify current prerequisite and admission information rather than relying on stale assumptions.
+
+
+## Canonical learner naming and ChatGPT Project contract
+
+- Each learner's `child-id` is canonical and MUST equal the Discord child channel name and the ChatGPT Project suffix exactly: `#sammy` ↔ `sammy` ↔ `neo/family-tutor/sammy`.
+- Do not maintain aliases or a second routing map. A mismatch is a configuration error and must be surfaced clearly.
+- The child channel name selects the learner. The existing persistent thread binding selects the thread inside that learner's Project; never infer a target from open browser tabs, tab titles, or tab order.
+- Each learner ChatGPT Project is dedicated to exactly one learner and keeps a small, stable Project Instruction contract. Shared tutoring behavior remains authoritative here and in `../skills/family-tutor/`; evolving learner facts remain only in `runs/family/<child-id>/AGENTS.md`.
+- The reusable Project Instructions template is `templates/student-project-instructions.md`.
+- Child-facing answers should use concise Discord-friendly Markdown. Simple math may use readable Unicode/plain text; complex equations, graphs, geometry, chemistry, molecular structures, circuits, biology figures, and other STEM visuals should use the Family Tutor rendering path rather than unreadable ASCII art, with a short explanation of what to notice.
+
+## Durable learner memory self-improvement contract
+
+Each learner's `runs/family/<child-id>/AGENTS.md` is the only durable learner memory and instruction file.
+
+The tutor should update that file when new durable evidence changes:
+- current academic priorities or important assessments;
+- recurring strengths or misconceptions;
+- effective or ineffective teaching approaches;
+- study habits, commitments, and follow-through patterns;
+- interests and academic/career direction signals;
+- durable parent guidance that should affect future tutoring.
+
+Replace or remove superseded facts instead of accumulating contradictions. Do not store ordinary transcripts, one-off questions, short-lived details, or unnecessary private parent commentary.

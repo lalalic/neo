@@ -19,7 +19,7 @@ check(login.status===0 && /logged in using|already logged in|authenticated/i.tes
 if(fs.existsSync(config)){
   try{
     const cfg=JSON.parse(fs.readFileSync(config,'utf8'));
-    check(Array.isArray(cfg.children)&&cfg.children.every(c=>c.discordChannelId),'every child has a Discord channel id');
+    check(Array.isArray(cfg.children)&&cfg.children.every(c=>c.id && c.name),'every child has a canonical Discord channel-name id');
     check(cfg.codex?.backend==='codex','Codex backend is configured');
     check(Array.isArray(cfg.children)&&cfg.children.every(c=>!Object.keys(c).some(key=>/project|tab/i.test(key))),'children have no browser bindings');
     check(Boolean(cfg.discord?.parentChannelId),'parent channel id is configured');

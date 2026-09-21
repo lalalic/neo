@@ -13,14 +13,11 @@ export function parseParentCommand(text) {
 const discordChannelMention = /<#(\d+)>/g;
 
 function normalizeWhitespace(text) {
-  return text.replace(/\s+/g, ' ').trim();
+  return String(text || '').replace(/\s+/g, ' ').trim();
 }
 
-function naturalMentionText(input, children) {
-  return normalizeWhitespace(input.replace(discordChannelMention, (mention, channelId) => {
-    const child = children.find((candidate) => candidate.discordChannelId === channelId);
-    return child?.name || '';
-  }));
+export function renderParentNaturalText(input, channelMentionId, childName) {
+  return normalizeWhitespace(String(input || '').replaceAll(`<#${channelMentionId}>`, childName));
 }
 
 function parentQueryType(value) {
@@ -32,8 +29,7 @@ function parentQueryType(value) {
 export function parseParentMessage(text, children) {
   const input = String(text || '').trim();
   const mentions = [...input.matchAll(discordChannelMention)];
-  const withoutMention = normalizeWhitespace(input.replace(discordChannelMention, ' '));
-  const naturalText = naturalMentionText(input, children);
+  const withoutMention = input.replace(discordChannelMention, ' ').replace(/\s+/g, ' ').trim();
   const command = parseParentCommand(withoutMention);
   if (command?.command === '!help' || command?.command === '!threads') return command;
   if (mentions.length !== 1) {
@@ -47,8 +43,7 @@ export function parseParentMessage(text, children) {
     return { command: commandName, channelMentionId, value: commandValue.join(' ').trim() };
   }
   if (!withoutMention) return null;
-  if (!naturalText) return null;
-  return { command: 'parent-query', channelMentionId, value: naturalText };
+  return { command: 'parent-query', channelMentionId, value: input };
 }
 
 export function buildParentContextPrompt({ child, command, value, authorId, messageId }) {

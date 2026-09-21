@@ -13,7 +13,6 @@
       "id": "kid1",
       "name": "Kid 1",
       "grade": "",
-      "discordChannelId": "",
       "gender": "",
       "school": "",
       "location": ""
@@ -22,7 +21,6 @@
       "id": "kid2",
       "name": "Kid 2",
       "grade": "",
-      "discordChannelId": "",
       "gender": "",
       "school": "",
       "location": ""

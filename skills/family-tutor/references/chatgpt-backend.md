@@ -1,6 +1,6 @@
 # Codex CLI backend
 
-Family Tutor uses the locally authenticated `codex` CLI. It does not use DevMacBridge, Chrome, ChatGPT tabs, ChatGPT Projects, or browser automation.
+Family Tutor's child identity is the exact ChatGPT Project `neo/family-tutor/<channel-name>`. The backend must bind the existing persistent thread in that Project and load only that child's `AGENTS.md`; a missing or mismatched Project is a configuration error, not a reason to create an alias or fallback mapping.
 
 Each child has an isolated Codex thread. The runtime stores only `.codex-thread.json` below that child's ignored instance directory and resumes it with `codex exec resume`. The current `AGENTS.md` is supplied on every turn, so durable learner context survives a thread rollover without copying a transcript.
 

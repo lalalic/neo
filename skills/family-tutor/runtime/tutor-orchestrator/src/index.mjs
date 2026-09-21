@@ -5,7 +5,7 @@ import { loadConfig } from './config.mjs';
 import { CodexBackend } from './backends/codex.mjs';
 import { collectImageAttachments, understandImages } from './vision.mjs';
 import { isAudioAttachment, transcribeAudioAttachments } from './asr.mjs';
-import { buildParentContextPrompt, buildSlashStatusPrompt, canUseStatus, childProjectName, findChildByChannelName, formatSlashOverview, formatSlashStatus, isAuthorizedParent, parseParentCommand, parseParentMessage, statusCommand, statusDenialMessage, validateChildChannel } from './parent-context.mjs';
+import { buildParentContextPrompt, buildSlashStatusPrompt, canUseStatus, childProjectName, findChildByChannelName, formatSlashOverview, formatSlashStatus, isAuthorizedParent, parseParentCommand, parseParentMessage, renderParentNaturalText, statusCommand, statusDenialMessage, validateChildChannel } from './parent-context.mjs';
 
 const configFile=process.env.FAMILY_TUTOR_CONFIG;
 if(!configFile) throw new Error('FAMILY_TUTOR_CONFIG is required');
@@ -120,7 +120,8 @@ async function handleParentControl(message){
   const child=await resolveMentionedChild(command);
   if(!child) return message.reply('Please mention one configured child channel, for example `<#child-channel> how is learning going?`.');
   if(!command.value) return message.reply('Please include the goal, focus, guidance, or question.');
-  const prompt=buildParentContextPrompt({child,command:command.command,value:command.value,authorId:message.author.id,messageId:message.id});
+  const value=command.command==='parent-query'?renderParentNaturalText(command.value,command.channelMentionId,child.name):command.value;
+  const prompt=buildParentContextPrompt({child,command:command.command,value,authorId:message.author.id,messageId:message.id});
   const result=await backend.turn({prompt,childId:child.id});
   const parsed=parseTutorText(result.text);
   await applyTutorSideEffects(child,parsed);

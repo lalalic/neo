@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildParentContextPrompt, buildSlashStatusPrompt, canUseStatus, childProjectName, findChildByChannelName, formatSlashOverview, formatSlashStatus, isAuthorizedParent, parseParentCommand, parseParentMessage, statusCommand, statusDenialMessage, validateChildChannel } from '../src/parent-context.mjs';
+import { buildParentContextPrompt, buildSlashStatusPrompt, canUseStatus, childProjectName, findChildByChannelName, formatSlashOverview, formatSlashStatus, isAuthorizedParent, parseParentCommand, parseParentMessage, statusCommand, statusDenialMessage, validateChildChannel, renderParentNaturalText } from '../src/parent-context.mjs';
 
 const config={parents:[{id:'p1',role:'parent'}]};
 const child={id:'sammy',name:'Sammy'};
@@ -18,13 +18,19 @@ test('parses command syntax without making it a routing decision',()=>{
 });
 
 test('routes natural parent messages by configured Discord channel mention anywhere in the sentence',()=>{
-  assert.deepEqual(parseParentMessage("how's <#111>'s recent status?",children),{command:'parent-query',channelMentionId:'111',value:"how's Sammy's recent status?"});
-  assert.deepEqual(parseParentMessage('please have <#222> review fractions tonight',children),{command:'parent-query',channelMentionId:'222',value:'please have Maggie review fractions tonight'});
-  assert.deepEqual(parseParentMessage('<#111> has a chemistry test Friday—focus on practice problems',children),{command:'parent-query',channelMentionId:'111',value:'Sammy has a chemistry test Friday—focus on practice problems'});
+  const status=parseParentMessage("how's <#111>'s recent status?",children);
+  assert.deepEqual(status,{command:'parent-query',channelMentionId:'111',value:"how's <#111>'s recent status?"});
+  assert.equal(renderParentNaturalText(status.value,'111','Sammy'),"how's Sammy's recent status?");
+  const guidance=parseParentMessage('please have <#222> review fractions tonight',children);
+  assert.equal(renderParentNaturalText(guidance.value,'222','Maggie'),'please have Maggie review fractions tonight');
+  const test=parseParentMessage('<#111> has a chemistry test Friday—focus on practice problems',children);
+  assert.equal(renderParentNaturalText(test.value,'111','Sammy'),'Sammy has a chemistry test Friday—focus on practice problems');
 });
 
 test('preserves punctuation around a mid-sentence mention',()=>{
-  assert.deepEqual(parseParentMessage('Could <#222>, please review fractions tonight?',children),{command:'parent-query',channelMentionId:'222',value:'Could Maggie, please review fractions tonight?'});
+  const parsed=parseParentMessage('Could <#222>, please review fractions tonight?',children);
+  assert.deepEqual(parsed,{command:'parent-query',channelMentionId:'222',value:'Could <#222>, please review fractions tonight?'});
+  assert.equal(renderParentNaturalText(parsed.value,'222','Maggie'),'Could Maggie, please review fractions tonight?');
 });
 
 test('routes command-style parent messages by the mention, never by the child name',()=>{
@@ -33,7 +39,7 @@ test('routes command-style parent messages by the mention, never by the child na
 });
 
 test('does not route unconfigured, ambiguous, or mention-only parent messages',()=>{
-  assert.deepEqual(parseParentMessage('please check <#999>',children),{command:'parent-query',channelMentionId:'999',value:'please check'});
+  assert.deepEqual(parseParentMessage('please check <#999>',children),{command:'parent-query',channelMentionId:'999',value:'please check <#999>'});
   assert.equal(parseParentMessage('check <#111> and <#222>',children),null);
   assert.equal(parseParentMessage('<#111>',children),null);
 });

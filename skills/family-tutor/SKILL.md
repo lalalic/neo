@@ -23,7 +23,7 @@ Capability tree:
 ## Primary workflow
 
 1. Create an instance from `templates/` or use `scripts/init-instance.mjs`.
-2. Configure children, Discord channel ids, and the parent channel. Set `codex.backend` to `codex`.
+2. Configure children by canonical Discord channel name (`id: "sammy"` for `#sammy`) and the parent channel. Set `codex.backend` to `codex`.
 3. Run `scripts/doctor.mjs <instance-dir>` before service installation.
 4. Ensure the host can run the authenticated `codex` CLI. The runtime persists only each child's thread id under the ignored instance directory; it never persists transcripts.
 5. Install/start the orchestrator with `scripts/service.mjs start <instance-dir>`.
@@ -45,7 +45,7 @@ Read `references/tutoring-behavior.md` when creating or repairing tutor behavior
 
 Read `references/parent-observation.md` when configuring the parent channel or reports. Default parent output is learning telemetry: topic, evidence, misconception, progress, next step, and tutor note. Do not mirror every child message into the parent channel by default.
 
-The runtime registers a parent-only Discord `/status` command at startup. It accepts an optional configured child Discord channel selector, queries that learner's existing Project/thread with the learner's `AGENTS.md` context, and returns concise privacy-filtered learning signals. With no child channel it queries each configured learner for a compact overview. Parent messages in the configured parent channel must mention the configured child Discord channel (for example, `#sammy how is the recent status?`); the channel ID is the only routing key. Requests outside `discord.parentChannelId` are denied, and `/status` creates no new durable learner-state files.
+The runtime registers a parent-only Discord `/status` command at startup. It accepts an optional child Discord channel selector, derives the child id from that channel's exact name, and queries `neo/family-tutor/<channel-name>` plus that learner's existing Project/thread and `AGENTS.md` context. A missing or mismatched Project is a configuration error. With no child channel it queries each configured learner for a compact overview. Parent messages in the configured parent channel may mention the child channel naturally anywhere in the sentence; the channel name is the only child routing key. Requests outside `discord.parentChannelId` are denied, and `/status` creates no new durable learner-state files.
 
 ## Codex, memory, and thread contract
 
@@ -83,7 +83,7 @@ node scripts/service.mjs stop <instance-dir>
 - A tutor thread must map to exactly one child.
 - Parent control commands must come only from the configured parent control channel.
 - Parent control commands must come from the configured parent control channel and a configured `role: parent` account.
-- Parent goals, guidance, and status questions mention a configured child Discord channel and run through that child's existing persistent tutor thread as tagged parent context; child names, browser tabs, tab titles, and tab order are never routing keys. There is no second parent memory store.
-- In the configured parent channel, authorized parents may write natural-language messages with exactly one configured child channel mention anywhere in the sentence (Discord's `<#channel-id>` form). The channel ID is the deterministic routing key; the surrounding sentence is passed through as the parent query/context. Command-like prefixes and mention-at-start are not required.
+- Parent goals, guidance, and status questions mention a Discord child channel and run through the channel name's exact `neo/family-tutor/<channel-name>` Project, that child's existing persistent tutor thread, and its `AGENTS.md` as tagged parent context. Do not add aliases, separate name mappings, or channel-id-to-child mapping files. There is no second parent memory store.
+- In the configured parent channel, authorized parents may write natural-language messages with exactly one configured child channel mention anywhere in the sentence (Discord's `<#channel-id>` form). The mentioned channel name must exactly match the child id and ChatGPT Project suffix; the surrounding sentence is passed through as the parent query/context. Command-like prefixes and mention-at-start are not required.
 - Proactively send only minimum-necessary parent telemetry for meaningful academic risk or serious safety/wellbeing concerns, with suggested action and child transparency when safe and appropriate.
 - Treat child personal data as private runtime data.
