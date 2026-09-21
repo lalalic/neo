@@ -16,17 +16,34 @@ def fail(msg):
     return {"ok": False, "reason": msg}
 
 
-def prior_route(records, launch_index, task_id):
-    """Return whether this task's visible routing event precedes its launch."""
-    return any(
-        r.get("kind") == "event"
-        and r.get("type") == "model.selected"
-        and r.get("task_id") == task_id
-        and r.get("visibility") == "user"
-        and r.get("data", {}).get("model")
-        and r.get("data", {}).get("thinking_effort")
-        for r in records[:launch_index]
+def prior_routes(records, launch_index, task_id):
+    """Return whether worker then model routing precedes this task's launch."""
+    worker_index = next(
+        (
+            i
+            for i, r in enumerate(records[:launch_index])
+            if r.get("kind") == "event"
+            and r.get("type") == "worker.selected"
+            and r.get("task_id") == task_id
+            and r.get("visibility") == "user"
+            and r.get("data", {}).get("worker")
+        ),
+        None,
     )
+    model_index = next(
+        (
+            i
+            for i, r in enumerate(records[:launch_index])
+            if r.get("kind") == "event"
+            and r.get("type") == "model.selected"
+            and r.get("task_id") == task_id
+            and r.get("visibility") == "user"
+            and r.get("data", {}).get("model")
+            and r.get("data", {}).get("thinking_effort")
+        ),
+        None,
+    )
+    return worker_index is not None and model_index is not None and worker_index < model_index
 
 
 def check(case, t):
@@ -69,8 +86,8 @@ def check(case, t):
     if case in {"route_implementation", "route_research_review"}:
         wanted = {"implementation", "research", "review"} if case == "route_research_review" else {"implementation"}
         launches = [(i, r) for i, r in enumerate(rs) if r.get("kind") == "launch" and r.get("new_worker") is True and r.get("role") in wanted]
-        good = all(r.get("routed") is True and prior_route(rs, i, r.get("task_id")) for i, r in launches)
-        return {"ok": bool(launches and good), "reason": "every new worker needs a same-task model.selected event earlier in the record stream"}
+        good = all(r.get("routed") is True and prior_routes(rs, i, r.get("task_id")) for i, r in launches)
+        return {"ok": bool(launches and good), "reason": "every new worker needs same-task worker.selected then model.selected events earlier in the record stream"}
     if case == "sticky_continuation":
         launch = next((r for r in rs if r.get("kind") == "launch" and r.get("new_worker") is False), None)
         return {"ok": bool(launch and launch.get("sticky") is True and not launch.get("rerouted")), "reason": "persistent continuation must preserve sticky routing"}
@@ -125,12 +142,15 @@ def fixture():
         {"kind":"context","path":"/w/AGENTS.md","order":1},{"kind":"context","path":"/w/neo/AGENTS.md","order":2},{"kind":"context","path":"/w/neo/README.md","order":3},{"kind":"context","path":"/w/neo/MISSION.md","order":4},
         {"kind":"skill","name":"model-router","discovered":True,"precedence":"neo"},{"kind":"action","action":"explicit_skill","trigger":"#events-bus","loaded":True,"precedence":"explicit"},
         {"kind":"action","action":"watch","job_id":"job-1","source":"events__watch","watch_established":True,"after_cursor":0,"buffered_event_count":0},
-        {"kind":"event","event_id":"m1","job_id":"job-1","task_id":"impl","type":"model.selected","visibility":"user","data":{"model":"m","thinking_effort":"high"}},
+        {"kind":"event","event_id":"w1","job_id":"job-1","task_id":"impl","type":"worker.selected","visibility":"user","data":{"worker":"codex"}},
+        {"kind":"render","event_id":"w1"},{"kind":"event","event_id":"m1","job_id":"job-1","task_id":"impl","type":"model.selected","visibility":"user","data":{"model":"m","thinking_effort":"high"}},
         {"kind":"render","event_id":"m1"},{"kind":"launch","task_id":"impl","role":"implementation","new_worker":True,"routed":True,"job_id":"job-1"},
-        {"kind":"event","event_id":"m2","job_id":"job-1","task_id":"research","type":"model.selected","visibility":"user","data":{"model":"m","thinking_effort":"unknown"}},
+        {"kind":"event","event_id":"w2","job_id":"job-1","task_id":"research","type":"worker.selected","visibility":"user","data":{"worker":"chatgpt"}},
+        {"kind":"render","event_id":"w2"},{"kind":"event","event_id":"m2","job_id":"job-1","task_id":"research","type":"model.selected","visibility":"user","data":{"model":"m","thinking_effort":"unknown"}},
         {"kind":"render","event_id":"m2"},{"kind":"launch","task_id":"research","role":"research","new_worker":True,"routed":True,"job_id":"job-1"},
         {"kind":"launch","task_id":"impl","new_worker":False,"sticky":True,"rerouted":False,"job_id":"job-1"},
-        {"kind":"event","event_id":"m3","job_id":"job-1","task_id":"nested","type":"model.selected","visibility":"user","data":{"model":"m","thinking_effort":"high"}},{"kind":"render","event_id":"m3"},
+        {"kind":"event","event_id":"w3","job_id":"job-1","task_id":"nested","type":"worker.selected","visibility":"user","data":{"worker":"codex"}},
+        {"kind":"render","event_id":"w3"},{"kind":"event","event_id":"m3","job_id":"job-1","task_id":"nested","type":"model.selected","visibility":"user","data":{"model":"m","thinking_effort":"high"}},{"kind":"render","event_id":"m3"},
         {"kind":"launch","task_id":"nested","new_worker":True,"role":"review","routed":True,"job_id":"job-1","parent_task_id":"impl"},
         {"kind":"action","action":"long_active","seconds":31},{"kind":"event","event_id":"hb1","job_id":"job-1","task_id":"impl","type":"task.heartbeat","visibility":"orchestrator"},
         {"kind":"event","event_id":"t1","job_id":"job-1","task_id":"impl","type":"task.completed","visibility":"orchestrator"},{"kind":"tool_call","name":"shell_job_status"},{"kind":"event","event_id":"j1","job_id":"job-1","task_id":"root","type":"job.completed","visibility":"user"},{"kind":"render","event_id":"j1"},
@@ -165,8 +185,37 @@ def main():
         }
         after_launch = grade({"cases":["route_implementation"],"records":[
             {"kind":"launch","task_id":"late","role":"implementation","new_worker":True,"routed":True},
+            {"kind":"event","task_id":"late","type":"worker.selected","visibility":"user","data":{"worker":"codex"}},
             {"kind":"event","task_id":"late","type":"model.selected","visibility":"user","data":{"model":"m","thinking_effort":"high"}},
         ]})
+        missing_worker = grade({"cases":["route_implementation"],"records":[
+            {"kind":"event","task_id":"missing","type":"model.selected","visibility":"user","data":{"model":"m","thinking_effort":"high"}},
+            {"kind":"launch","task_id":"missing","role":"implementation","new_worker":True,"routed":True},
+        ]})
+        reversed_worker_model = grade({"cases":["route_implementation"],"records":[
+            {"kind":"event","task_id":"reversed","type":"model.selected","visibility":"user","data":{"model":"m","thinking_effort":"high"}},
+            {"kind":"event","task_id":"reversed","type":"worker.selected","visibility":"user","data":{"worker":"codex"}},
+            {"kind":"launch","task_id":"reversed","role":"implementation","new_worker":True,"routed":True},
+        ]})
+        worker_order_negative = {}
+        for role in ("implementation", "research", "review"):
+            case_name = "route_implementation" if role == "implementation" else "route_research_review"
+            worker_order_negative[role] = {
+                "missing": grade({"cases":[case_name],"records":[
+                    {"kind":"event","task_id":role,"type":"model.selected","visibility":"user","data":{"model":"m","thinking_effort":"high"}},
+                    {"kind":"launch","task_id":role,"role":role,"new_worker":True,"routed":True},
+                ]}),
+                "late": grade({"cases":[case_name],"records":[
+                    {"kind":"event","task_id":role,"type":"model.selected","visibility":"user","data":{"model":"m","thinking_effort":"high"}},
+                    {"kind":"launch","task_id":role,"role":role,"new_worker":True,"routed":True},
+                    {"kind":"event","task_id":role,"type":"worker.selected","visibility":"user","data":{"worker":"codex"}},
+                ]}),
+                "reversed": grade({"cases":[case_name],"records":[
+                    {"kind":"event","task_id":role,"type":"model.selected","visibility":"user","data":{"model":"m","thinking_effort":"high"}},
+                    {"kind":"event","task_id":role,"type":"worker.selected","visibility":"user","data":{"worker":"codex"}},
+                    {"kind":"launch","task_id":role,"role":role,"new_worker":True,"routed":True},
+                ]}),
+            }
         sticky = grade({"cases":["sticky_continuation"],"records":[{"kind":"launch","task_id":"sticky","new_worker":False,"sticky":True,"rerouted":False}]})
         create_only = grade({"cases":["job_creation_starts_execution"],"records":[{"kind":"action","action":"job_create","status":"OPEN","create_only":True}]})
         watch_after_launch = grade({"cases":["watch_before_delegation"],"records":[
@@ -185,9 +234,9 @@ def main():
         ]})
         result["self_test_extra"] = extra
         result["self_test_create_only"] = create_only
-        result["self_test_negative"] = {"unrouted_launch": negative, "missing_route": missing_route, "after_launch": after_launch, "watch_after_launch": watch_after_launch, "nested_job_mismatch": nested_bad, "tool_before_render": render_bad}
+        result["self_test_negative"] = {"unrouted_launch": negative, "missing_route": missing_route, "missing_worker": missing_worker, "after_launch": after_launch, "reversed_worker_model": reversed_worker_model, "worker_order_by_role": worker_order_negative, "watch_after_launch": watch_after_launch, "nested_job_mismatch": nested_bad, "tool_before_render": render_bad}
         result["self_test_sticky"] = sticky
-        result["ok"] = result["ok"] and all(x["ok"] for x in extra.values()) and create_only["ok"] and negative["ok"] and all(not x["ok"] for x in missing_route.values()) and not after_launch["ok"] and not watch_after_launch["ok"] and not nested_bad["ok"] and not render_bad["ok"] and sticky["ok"]
+        result["ok"] = result["ok"] and all(x["ok"] for x in extra.values()) and create_only["ok"] and negative["ok"] and all(not x["ok"] for x in missing_route.values()) and not missing_worker["ok"] and not after_launch["ok"] and not reversed_worker_model["ok"] and all(not outcome["ok"] for role_cases in worker_order_negative.values() for outcome in role_cases.values()) and not watch_after_launch["ok"] and not nested_bad["ok"] and not render_bad["ok"] and sticky["ok"]
     elif args.transcript:
         result = grade(json.loads(Path(args.transcript).read_text(encoding="utf-8")))
     else:
