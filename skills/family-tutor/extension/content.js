@@ -7,7 +7,14 @@ const userTurns = () => [...document.querySelectorAll('[data-message-author-role
   .filter((turn) => turn.text);
 
 function composer() {
-  return document.querySelector('#prompt-textarea, textarea[data-id="root"], textarea[placeholder], [contenteditable="true"][data-lexical-editor="true"]');
+  return document.querySelector('#prompt-textarea')
+    || document.querySelector('[contenteditable="true"][data-lexical-editor="true"]')
+    || document.querySelector('textarea[data-id="root"]')
+    || document.querySelector('textarea[placeholder]');
+}
+
+function composerText(field) {
+  return normalized(field?.innerText ?? field?.textContent ?? field?.value);
 }
 
 function fileInput() {
@@ -16,6 +23,21 @@ function fileInput() {
 
 function sendButton() {
   return document.querySelector('button[data-testid="send-button"], button[aria-label*="Send" i], form button[type="submit"]');
+}
+
+function isGenerating() {
+  return Boolean(document.querySelector(
+    'button[data-testid="stop-button"], button[aria-label*="Stop generating" i], button[aria-label="Stop" i]',
+  ));
+}
+
+async function waitForIdle(timeoutMs = 120000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (!isGenerating()) return;
+    await sleep(250);
+  }
+  throw new Error('ChatGPT did not become idle');
 }
 
 function attachmentNames() {
@@ -69,18 +91,16 @@ function fillComposer(field, text) {
   selection?.addRange(range);
   const inserted = document.execCommand('insertText', false, text);
   selection?.removeAllRanges();
-  if (!inserted) {
-    field.textContent = text;
-    field.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text }));
-  }
+  if (!inserted) field.textContent = text;
+  field.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text }));
 }
 
-async function waitForUserTurn(beforeCount, prompt, timeoutMs = 20000) {
+async function waitForUserTurn(prompt, timeoutMs = 30000) {
+  const wanted = normalized(prompt);
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
-    const turns = userTurns();
-    for (const turn of turns.slice(beforeCount)) {
-      if (normalized(turn.text).includes(normalized(prompt))) return turn;
+    for (const turn of userTurns()) {
+      if (normalized(turn.text).includes(wanted)) return turn;
     }
     await sleep(250);
   }
@@ -92,12 +112,12 @@ async function submitTurn(message) {
   if (activeCorrelationId) throw new Error(`tab already processing turn ${activeCorrelationId}`);
   activeCorrelationId = correlationId;
   try {
-    const beforeCount = userTurns().length;
+    await waitForIdle();
     for (const attachment of message.attachments || []) await uploadImage(attachment);
     const field = await waitFor(composer, 'ChatGPT composer');
     fillComposer(field, message.prompt);
     await waitFor(
-      () => normalized(field.innerText ?? field.value).includes(normalized(message.prompt)),
+      () => composerText(field).includes(normalized(message.prompt)),
       'ChatGPT composer text',
       15000,
     );
@@ -106,7 +126,7 @@ async function submitTurn(message) {
       return candidate && !candidate.disabled && candidate.getAttribute('aria-disabled') !== 'true' ? candidate : null;
     }, 'enabled ChatGPT send button');
     button.click();
-    const turn = await waitForUserTurn(beforeCount, message.prompt);
+    const turn = await waitForUserTurn(message.prompt);
     await chrome.runtime.sendMessage({ type: 'turn.ack', childId: message.childId, correlation: message.correlation });
     return turn;
   } finally {
