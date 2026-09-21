@@ -1,10 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildParentContextPrompt, buildSlashStatusPrompt, canUseStatus, findChild, formatSlashOverview, formatSlashStatus, isAuthorizedParent, parseParentCommand, statusCommand, statusDenialMessage } from '../src/parent-context.mjs';
+import { buildParentContextPrompt, buildSlashStatusPrompt, canUseStatus, findChild, formatSlashOverview, formatSlashStatus, isAuthorizedParent, parseParentCommand, parseParentMessage, statusCommand, statusDenialMessage } from '../src/parent-context.mjs';
 
 const config={parents:[{id:'p1',role:'parent'}]};
-const child={id:'sammy',name:'Sammy'};
-const children=[child,{id:'maggie',name:'Maggie'}];
+const child={id:'sammy',name:'Sammy',discordChannelId:'111'};
+const children=[child,{id:'maggie',name:'Maggie',discordChannelId:'222'}];
 const statusConfig={...config,discord:{parentChannelId:'parent-channel'}};
 
 test('authorizes only configured parent accounts',()=>{
@@ -17,6 +17,18 @@ test('parses named-child parent commands',()=>{
   assert.deepEqual(parseParentCommand('!guide sammy Practice fractions twice this week'),{command:'!guide',childId:'sammy',value:'Practice fractions twice this week'});
 });
 
+test('routes natural parent messages by configured Discord channel mention anywhere in the sentence',()=>{
+  assert.deepEqual(parseParentMessage("how's <#111>'s recent status?",children),{command:'parent-query',childId:'sammy',value:"how's Sammy's recent status?"});
+  assert.deepEqual(parseParentMessage('please have <#222> review fractions tonight',children),{command:'parent-query',childId:'maggie',value:'please have Maggie review fractions tonight'});
+  assert.deepEqual(parseParentMessage('<#111> has a chemistry test Friday—focus on practice problems',children),{command:'parent-query',childId:'sammy',value:'Sammy has a chemistry test Friday—focus on practice problems'});
+});
+
+test('does not route unconfigured, ambiguous, or mention-only parent messages',()=>{
+  assert.equal(parseParentMessage('please check <#999>',children),null);
+  assert.equal(parseParentMessage('check <#111> and <#222>',children),null);
+  assert.equal(parseParentMessage('<#111>',children),null);
+});
+
 test('tags parent context and privacy-filters status requests',()=>{
   const prompt=buildParentContextPrompt({child,command:'!status',value:'How is math going?',authorId:'p1',messageId:'m1'});
   assert.match(prompt,/source=discord-parent type=status-question author=p1 message=m1/);
@@ -24,6 +36,13 @@ test('tags parent context and privacy-filters status requests',()=>{
   assert.match(prompt,/existing persistent tutor thread/);
   assert.match(prompt,/privacy-filtered learning summary/);
   assert.match(prompt,/Do not include casual conversation/);
+});
+
+test('passes natural parent intent through the existing privacy-filtered context prompt',()=>{
+  const prompt=buildParentContextPrompt({child,command:'parent-query',value:"how's Sammy's recent status?",authorId:'p1',messageId:'m2'});
+  assert.match(prompt,/type=status-question/);
+  assert.match(prompt,/Parent message: how's Sammy's recent status\?/);
+  assert.match(prompt,/existing persistent tutor thread/);
 });
 
 test('resolves slash child by id or display name',()=>{

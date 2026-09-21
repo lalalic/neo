@@ -5,7 +5,7 @@ import { loadConfig } from './config.mjs';
 import { CodexBackend } from './backends/codex.mjs';
 import { collectImageAttachments, understandImages } from './vision.mjs';
 import { isAudioAttachment, transcribeAudioAttachments } from './asr.mjs';
-import { buildParentContextPrompt, buildSlashStatusPrompt, canUseStatus, findChild, formatSlashOverview, formatSlashStatus, isAuthorizedParent, parseParentCommand, statusCommand, statusDenialMessage } from './parent-context.mjs';
+import { buildParentContextPrompt, buildSlashStatusPrompt, canUseStatus, findChild, formatSlashOverview, formatSlashStatus, isAuthorizedParent, parseParentCommand, parseParentMessage, statusCommand, statusDenialMessage } from './parent-context.mjs';
 
 const configFile=process.env.FAMILY_TUTOR_CONFIG;
 if(!configFile) throw new Error('FAMILY_TUTOR_CONFIG is required');
@@ -114,7 +114,7 @@ async function handleChildMessage(message,child){
 
 async function handleParentControl(message){
   if(!isAuthorizedParent(message,config)) return;
-  const command=parseParentCommand(message.content);
+  const command=parseParentMessage(message.content,config.children);
   if(!command) return;
   if(command.command==='!help') return message.reply('Commands: `!goal <childId> <goal>`, `!focus <childId> <focus>`, `!guide <childId> <guidance>`, `!ask <childId> <question>`, `!status <childId> <question>`, `!threads`');
   if(command.command==='!threads') return message.reply(config.children.map(c=>`${c.id}: one persistent tutor thread`).join('\n'));
@@ -169,7 +169,7 @@ client.on(Events.MessageCreate,message=>{
     return;
   }
   if(config.discord.parentChannelId && message.channelId===config.discord.parentChannelId){
-    const command=parseParentCommand(message.content);
+    const command=parseParentMessage(message.content,config.children);
     const target=config.children.find(c=>c.id===command?.childId);
     const key=target?.id||'parent-control';
     serialize(key,()=>handleParentControl(message)).catch(error=>{console.error('[family-tutor] parent control failed',error); message.reply('Parent control is temporarily unavailable.').catch(()=>{});});

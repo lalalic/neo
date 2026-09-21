@@ -84,5 +84,6 @@ node scripts/service.mjs stop <instance-dir>
 - Parent control commands must come only from the configured parent control channel.
 - Parent control commands must come from the configured parent control channel and a configured `role: parent` account.
 - Parent goals, guidance, and status questions target a named child and run through that child's existing persistent tutor thread as tagged parent context; there is no second parent memory store.
+- In the configured parent channel, authorized parents may write natural-language messages with exactly one configured child channel mention anywhere in the sentence (Discord's `<#channel-id>` form). The channel ID is the deterministic routing key; the surrounding sentence is passed through as the parent query/context. Command-like prefixes and mention-at-start are not required.
 - Proactively send only minimum-necessary parent telemetry for meaningful academic risk or serious safety/wellbeing concerns, with suggested action and child transparency when safe and appropriate.
 - Treat child personal data as private runtime data.

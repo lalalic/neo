@@ -10,8 +10,22 @@ export function parseParentCommand(text) {
   return { command, childId, value: rest.join(' ').trim() };
 }
 
+const discordChannelMention = /<#(\d+)>/g;
+
+export function parseParentMessage(text, children) {
+  const command = parseParentCommand(text);
+  if (command) return command;
+  const mentions = [...String(text || '').matchAll(discordChannelMention)];
+  if (mentions.length !== 1) return null;
+  const child = children.find((candidate) => candidate.discordChannelId === mentions[0][1]);
+  if (!child) return null;
+  const value = String(text).replace(discordChannelMention, child.name).replace(/\s+/g, ' ').trim();
+  if (!value || value.toLowerCase() === child.name.toLowerCase()) return null;
+  return { command: 'parent-query', childId: child.id, value };
+}
+
 export function buildParentContextPrompt({ child, command, value, authorId, messageId }) {
-  const type = command === '!ask' || command === '!status' ? 'status-question' : 'guidance-assignment';
+  const type = command === '!ask' || command === '!status' || command === 'parent-query' ? 'status-question' : 'guidance-assignment';
   const instruction = command === '!goal'
     ? `Record this as a durable tutoring goal for ${child.name}.`
     : command === '!focus'
