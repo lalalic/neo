@@ -45,6 +45,8 @@ Read `references/tutoring-behavior.md` when creating or repairing tutor behavior
 
 Read `references/parent-observation.md` when configuring the parent channel or reports. Default parent output is learning telemetry: topic, evidence, misconception, progress, next step, and tutor note. Do not mirror every child message into the parent channel by default.
 
+The runtime registers a parent-only Discord `/status` command at startup. It accepts an optional `child` name, queries that learner's existing Project/thread with the learner's `AGENTS.md` context, and returns concise privacy-filtered learning signals. With no child it queries each configured learner for a compact overview. Requests outside `discord.parentChannelId` are denied, and `/status` creates no new durable learner-state files.
+
 ## Codex, memory, and thread contract
 
 - Each child MUST have a separate persistent Codex thread. Stable tutoring behavior, privacy rules, learner identity, parent telemetry format, durable-memory protocol, and thread-rollover policy are supplied by the runtime and skill contract.

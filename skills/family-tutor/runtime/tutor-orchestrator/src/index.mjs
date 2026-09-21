@@ -1,11 +1,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { Client, Events, GatewayIntentBits } from 'discord.js';
+import { Client, Events, GatewayIntentBits, REST, Routes, SlashCommandBuilder } from 'discord.js';
 import { loadConfig } from './config.mjs';
 import { CodexBackend } from './backends/codex.mjs';
 import { collectImageAttachments, understandImages } from './vision.mjs';
 import { isAudioAttachment, transcribeAudioAttachments } from './asr.mjs';
-import { buildParentContextPrompt, isAuthorizedParent, parseParentCommand } from './parent-context.mjs';
+import { buildParentContextPrompt, buildSlashStatusPrompt, findChild, formatSlashOverview, formatSlashStatus, isAuthorizedParent, parseParentCommand, statusCommand, statusDenialMessage } from './parent-context.mjs';
 
 const configFile=process.env.FAMILY_TUTOR_CONFIG;
 if(!configFile) throw new Error('FAMILY_TUTOR_CONFIG is required');
@@ -128,9 +128,39 @@ async function handleParentControl(message){
   return sendChunks(message.channel,parsed.childText||result.text);
 }
 
+function learnerMemory(child){ try{return fs.readFileSync(agentsFile(child),'utf8');}catch{return '';} }
+async function statusForChild(child){
+  const result=await backend.turn({prompt:buildSlashStatusPrompt({child,memory:learnerMemory(child)}),childId:child.id});
+  return formatSlashStatus(child,result.text);
+}
+async function handleStatusInteraction(interaction){
+  if(interaction.channelId!==config.discord.parentChannelId || !isAuthorizedParent({author:{id:interaction.user.id}},config)) return interaction.reply({content:statusDenialMessage(),ephemeral:true});
+  const requested=interaction.options.getString('child');
+  const child=requested?findChild(config.children,requested):null;
+  if(requested&&!child) return interaction.reply({content:`Unknown child. Use one of: ${config.children.map((item)=>item.name).join(', ')}`,ephemeral:true});
+  await interaction.deferReply();
+  const statuses=[];
+  for(const target of child?[child]:config.children) statuses.push(await serialize(target.id,()=>statusForChild(target)));
+  return interaction.editReply(formatSlashOverview(statuses));
+}
+async function syncSlashCommands(applicationId){
+  const rest=new REST({version:'10'}).setToken(discordToken);
+  const command=new SlashCommandBuilder().setName(statusCommand.name).setDescription(statusCommand.description).addStringOption((option)=>option.setName('child').setDescription('Child name (optional)').setRequired(false));
+  await rest.put(Routes.applicationCommands(applicationId),{body:[command.toJSON()]});
+}
+
 function serialize(childId,work){ const prev=queues.get(childId)||Promise.resolve(); const next=prev.catch(()=>{}).then(work).finally(()=>{if(queues.get(childId)===next) queues.delete(childId)}); queues.set(childId,next); return next; }
 
 client.once(Events.ClientReady,c=>console.log(`[family-tutor-orchestrator] ready as ${c.user.tag}`));
+client.once(Events.ClientReady,(c)=>syncSlashCommands(c.user.id).then(()=>console.log('[family-tutor-orchestrator] /status command synced')).catch((error)=>console.error('[family-tutor] slash command sync failed',error)));
+client.on(Events.InteractionCreate,(interaction)=>{
+  if(!interaction.isChatInputCommand()||interaction.commandName!==statusCommand.name) return;
+  handleStatusInteraction(interaction).catch((error)=>{
+    console.error('[family-tutor] /status failed',error);
+    const reply={content:'Status is temporarily unavailable. Please try again shortly.',ephemeral:true};
+    if(interaction.deferred||interaction.replied) interaction.editReply(reply).catch(()=>{}); else interaction.reply(reply).catch(()=>{});
+  });
+});
 client.on(Events.MessageCreate,message=>{
   if(message.author.bot) return;
   const child=childByChannel.get(message.channelId);

@@ -17,4 +17,6 @@ Never place real family configuration in tracked project paths. `runs/` is the e
 
 Each learner keeps one durable `runs/family/<child-id>/AGENTS.md`. Codex owns thread history; Family Tutor stores only the current Codex thread id in the ignored child runtime directory and never persists transcripts.
 
+The orchestrator registers a parent-only Discord `/status` command at startup. `/status child:<name>` queries that learner's existing tutor Project/thread with the learner's `AGENTS.md` context and returns concise, privacy-filtered learning signals. `/status` queries each configured learner and combines a compact overview. Requests outside `discord.parentChannelId` are denied, and the command creates no new durable learner-state files.
+
 Parent goals, guidance, and status questions are routed to the named child's existing persistent tutor thread. The tutor returns only privacy-filtered learning summaries and sends minimum-necessary proactive escalations for meaningful academic or serious safety/wellbeing concerns. No second parent memory or transcript store is created.

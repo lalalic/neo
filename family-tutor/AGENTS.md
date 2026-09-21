@@ -35,6 +35,7 @@ Use `../skills/family-tutor/SKILL.md` as the reusable tutoring/runtime contract.
 - The privacy model is intentional: children should have space to speak naturally without feeling continuously observed by parents.
 - Parents use a dedicated parent learning/control channel instead of the child channels. Neo may actively participate in that parent discussion.
 - Parent output should be concise learning telemetry rather than transcript mirroring. Typical parent-visible signals include study topic, evidence of understanding, misconceptions, progress, missed plans, next steps, and when parental support may be useful.
+- The runtime registers a parent-only Discord `/status` command. It accepts an optional `child` name, queries that learner's existing Project/thread with the learner's `AGENTS.md` context, and returns concise privacy-filtered learning signals. With no child it queries each configured learner for a compact overview. Requests outside `discord.parentChannelId` are denied, and `/status` creates no new durable learner-state files.
 - Do not copy routine child messages, casual conversation, or full tutor transcripts into the parent channel.
 - Serious safety concerns are the exception. When escalation is necessary, surface only the minimum information needed for a parent to respond appropriately.
 - Discord permissions should mirror tutor-context separation: one child must not gain access to another child's tutor channel, and parent roles should not implicitly grant access to child tutor channels.

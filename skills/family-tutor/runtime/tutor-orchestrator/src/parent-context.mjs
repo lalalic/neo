@@ -33,3 +33,31 @@ export function buildParentContextPrompt({ child, command, value, authorId, mess
     'If the child context contains a serious safety/wellbeing concern or meaningful academic risk requiring support, escalate the minimum necessary signal and suggested parent action using FAMILY_TUTOR_PARENT.'
   ].join('\n');
 }
+
+export const statusCommand = { name: 'status', description: 'Show a privacy-filtered learning status for one child or all children' };
+
+export function findChild(children, value) {
+  const wanted = String(value || '').trim().toLowerCase();
+  if (!wanted) return null;
+  return children.find((child) => child.id.toLowerCase() === wanted || child.name.toLowerCase() === wanted) || null;
+}
+
+export function buildSlashStatusPrompt({ child, memory }) {
+  return [
+    `[PARENT STATUS REQUEST] Give a concise, privacy-filtered learning status for ${child.name}.`,
+    'Use only this existing child Project/thread and the durable learner context below.',
+    'Return at most 4 short bullets covering recent topic, demonstrated understanding or progress, an active misconception or gap, and the next useful step or parent support.',
+    'Do not quote or summarize private conversation, casual remarks, sensitive details, or the raw transcript. Say "No recent learning signal" when the context does not support a claim.',
+    'This is read-only: do not emit control markers, update AGENTS.md, or create any durable learner-state file.',
+    '', '<DURABLE_LEARNER_CONTEXT>', memory || '(No learner context has been recorded yet.)', '</DURABLE_LEARNER_CONTEXT>',
+  ].join('\n');
+}
+
+export function formatSlashStatus(child, text) {
+  const clean = String(text || '').replace(/<FAMILY_TUTOR_PARENT>[\s\S]*?<\/FAMILY_TUTOR_PARENT>/gi, '').replace(/<FAMILY_TUTOR_MEMORY>[\s\S]*?<\/FAMILY_TUTOR_MEMORY>/gi, '').replace(/<FAMILY_TUTOR_ROLLOVER\s*\/\s*>/gi, '').trim();
+  if (!clean) return `**${child.name}** — No recent learning signal.`;
+  return [`**${child.name}**`, ...clean.split(/\r?\n/).map((line) => line.trim()).filter(Boolean).slice(0, 4)].join('\n');
+}
+
+export function formatSlashOverview(statuses) { return statuses.join('\n\n') || 'No configured children.'; }
+export function statusDenialMessage() { return 'This command is available only in the configured parent control channel.'; }
