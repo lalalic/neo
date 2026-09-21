@@ -1,0 +1,23 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Family Tutor</title>
+<style>
+  body { font: 13px system-ui; width: 320px; margin: 14px; }
+  label { display: block; margin: 10px 0 4px; }
+  input { box-sizing: border-box; width: 100%; padding: 7px; }
+  .buttons { display: flex; gap: 8px; margin-top: 12px; }
+  button { padding: 7px 10px; }
+  #status { margin-top: 10px; white-space: pre-wrap; }
+</style>
+<label for="child">Child id</label>
+<input id="child" autocomplete="off">
+<label for="bridge">Local bridge WebSocket</label>
+<input id="bridge" value="ws://127.0.0.1:8787/ws" autocomplete="off">
+<label for="token">Bridge token</label>
+<input id="token" type="password" autocomplete="off">
+<div class="buttons">
+  <button id="bind">Bind this tab</button>
+  <button id="unbind">Unbind this tab</button>
+</div>
+<div id="status"></div>
+<script type="module" src="popup.js"></script>

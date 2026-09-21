@@ -3,6 +3,7 @@ import path from 'node:path';
 import { Client, Events, GatewayIntentBits } from 'discord.js';
 import { loadConfig } from './config.mjs';
 import { CodexBackend } from './backends/codex.mjs';
+import { BrowserBridge } from './browser-bridge.mjs';
 import { collectImageAttachments, understandImages } from './vision.mjs';
 import { isAudioAttachment, transcribeAudioAttachments } from './asr.mjs';
 
@@ -12,13 +13,15 @@ const config=loadConfig(configFile);
 const discordToken=process.env.DISCORD_BOT_TOKEN?.trim();
 if(!discordToken) throw new Error('DISCORD_BOT_TOKEN is required');
 
-const backend=new CodexBackend(config.codex,{instanceDir:path.resolve(path.dirname(config.configPath),'..')});
+const instanceDir=path.resolve(path.dirname(config.configPath),'..');
+const backend=new CodexBackend(config.codex,{instanceDir});
 const childByChannel=new Map(config.children.map(c=>[c.discordChannelId,c]));
 function agentsFile(child){ return path.resolve(path.dirname(config.configPath),'..',child.id,'AGENTS.md'); }
 function ensureAgents(child){ const file=agentsFile(child); if(fs.existsSync(file)) return; fs.mkdirSync(path.dirname(file),{recursive:true}); fs.writeFileSync(file,`# ${child.name} Agent Context\n\n`,{mode:0o600}); }
 for(const child of config.children) ensureAgents(child);
 const queues=new Map();
 const client=new Client({intents:[GatewayIntentBits.Guilds,GatewayIntentBits.GuildMessages,GatewayIntentBits.MessageContent]});
+let browserBridge=null;
 
 function turnPrompt(_child,message){ return `Student message:\n${message}`; }
 function parseTutorText(text){
@@ -52,6 +55,18 @@ function collectAttachments(message){
     mimeType:a.contentType||'',
     size:Number(a.size||0),
   }));
+}
+async function replyToMessage(message,text){
+  let remaining=String(text||'').trim();
+  let first=true;
+  while(remaining){
+    let split=remaining.length>1900?remaining.lastIndexOf('\n',1900):remaining.length;
+    if(split<800&&remaining.length>1900) split=1900;
+    const chunk=remaining.slice(0,split);
+    if(first) await message.reply({content:chunk,failIfNotExists:false});
+    else await message.channel.send(chunk);
+    remaining=remaining.slice(split).trimStart(); first=false;
+  }
 }
 async function sendAssistantOutputs(channel,outputs=[]){
   for(const output of outputs.slice(0,6)){
@@ -111,6 +126,18 @@ async function handleChildMessage(message,child){
 }
 
 
+async function handleBrowserChildMessage(message,child){
+  const incoming=message.content.trim();
+  const images=collectImageAttachments(message).map(a=>({
+    url:a.url,name:a.name||`attachment-${a.id}`,mimeType:a.contentType||'',size:Number(a.size||0),
+  }));
+  if(!incoming&&!images.length) return;
+  await browserBridge.enqueue({
+    childId:child.id,text:incoming,attachments:images,
+    origin:{channelId:message.channelId,messageId:message.id,threadId:message.channel?.isThread?.()?message.channelId:null},
+  });
+}
+
 async function handleParentControl(message){
   const text=message.content.trim();
   if(!text.startsWith('!')) return;
@@ -139,7 +166,8 @@ client.on(Events.MessageCreate,message=>{
   if(message.author.bot) return;
   const child=childByChannel.get(message.channelId);
   if(child){
-    serialize(child.id,()=>handleChildMessage(message,child)).catch(error=>{console.error(`[family-tutor] ${child.id} turn failed`,error); message.reply('The tutor is temporarily unavailable. Please try again shortly.').catch(()=>{});});
+    const handler=browserBridge?handleBrowserChildMessage:handleChildMessage;
+    serialize(child.id,()=>handler(message,child)).catch(error=>{console.error(`[family-tutor] ${child.id} turn failed`,error); message.reply('The tutor is temporarily unavailable. Please try again shortly.').catch(()=>{});});
     return;
   }
   if(config.discord.parentChannelId && message.channelId===config.discord.parentChannelId){
@@ -149,4 +177,28 @@ client.on(Events.MessageCreate,message=>{
     serialize(key,()=>handleParentControl(message)).catch(error=>{console.error('[family-tutor] parent control failed',error); message.reply('Parent control is temporarily unavailable.').catch(()=>{});});
   }
 });
+if(config.browserBridge?.enabled){
+  browserBridge=new BrowserBridge({
+    instanceDir,
+    children:config.children,
+    host:config.browserBridge.host||'127.0.0.1',
+    port:config.browserBridge.port||43117,
+    token:process.env.FAMILY_TUTOR_BRIDGE_TOKEN?.trim()||null,
+    replyToDiscord:async({origin,text})=>{
+      const channel=await client.channels.fetch(origin.channelId);
+      if(!channel?.isTextBased()) throw new Error('originating Discord channel is unavailable');
+      const original=await channel.messages.fetch(origin.messageId);
+      await replyToMessage(original,text);
+    },
+  });
+  await browserBridge.start();
+  console.log(`[family-tutor-orchestrator] ChatGPT browser bridge listening on ${browserBridge.endpoint()}`);
+}
+for(const signal of ['SIGINT','SIGTERM']){
+  process.once(signal,async()=>{
+    try{ await browserBridge?.stop(); }catch(error){ console.error('[family-tutor] browser bridge shutdown failed',error); }
+    client.destroy();
+    process.exit(0);
+  });
+}
 await client.login(discordToken);
