@@ -1,10 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildParentContextPrompt, buildSlashStatusPrompt, findChild, formatSlashOverview, formatSlashStatus, isAuthorizedParent, parseParentCommand, statusCommand, statusDenialMessage } from '../src/parent-context.mjs';
+import { buildParentContextPrompt, buildSlashStatusPrompt, canUseStatus, findChild, formatSlashOverview, formatSlashStatus, isAuthorizedParent, parseParentCommand, statusCommand, statusDenialMessage } from '../src/parent-context.mjs';
 
 const config={parents:[{id:'p1',role:'parent'}]};
 const child={id:'sammy',name:'Sammy'};
 const children=[child,{id:'maggie',name:'Maggie'}];
+const statusConfig={...config,discord:{parentChannelId:'parent-channel'}};
 
 test('authorizes only configured parent accounts',()=>{
   assert.equal(isAuthorizedParent({author:{id:'p1'}},config),true);
@@ -29,6 +30,12 @@ test('resolves slash child by id or display name',()=>{
   assert.equal(findChild(children,'SAMMY'),child);
   assert.equal(findChild(children,'Maggie'),children[1]);
   assert.equal(findChild(children,'unknown'),null);
+});
+
+test('allows status only for an authorized parent in the configured channel',()=>{
+  assert.equal(canUseStatus({channelId:'parent-channel',userId:'p1'},statusConfig),true);
+  assert.equal(canUseStatus({channelId:'child-channel',userId:'p1'},statusConfig),false);
+  assert.equal(canUseStatus({channelId:'parent-channel',userId:'child'},statusConfig),false);
 });
 
 test('builds read-only status prompt with learner context and privacy rules',()=>{

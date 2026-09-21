@@ -5,7 +5,7 @@ import { loadConfig } from './config.mjs';
 import { CodexBackend } from './backends/codex.mjs';
 import { collectImageAttachments, understandImages } from './vision.mjs';
 import { isAudioAttachment, transcribeAudioAttachments } from './asr.mjs';
-import { buildParentContextPrompt, buildSlashStatusPrompt, findChild, formatSlashOverview, formatSlashStatus, isAuthorizedParent, parseParentCommand, statusCommand, statusDenialMessage } from './parent-context.mjs';
+import { buildParentContextPrompt, buildSlashStatusPrompt, canUseStatus, findChild, formatSlashOverview, formatSlashStatus, isAuthorizedParent, parseParentCommand, statusCommand, statusDenialMessage } from './parent-context.mjs';
 
 const configFile=process.env.FAMILY_TUTOR_CONFIG;
 if(!configFile) throw new Error('FAMILY_TUTOR_CONFIG is required');
@@ -134,7 +134,7 @@ async function statusForChild(child){
   return formatSlashStatus(child,result.text);
 }
 async function handleStatusInteraction(interaction){
-  if(interaction.channelId!==config.discord.parentChannelId || !isAuthorizedParent({author:{id:interaction.user.id}},config)) return interaction.reply({content:statusDenialMessage(),ephemeral:true});
+  if(!canUseStatus({channelId:interaction.channelId,userId:interaction.user.id},config)) return interaction.reply({content:statusDenialMessage(),ephemeral:true});
   const requested=interaction.options.getString('child');
   const child=requested?findChild(config.children,requested):null;
   if(requested&&!child) return interaction.reply({content:`Unknown child. Use one of: ${config.children.map((item)=>item.name).join(', ')}`,ephemeral:true});

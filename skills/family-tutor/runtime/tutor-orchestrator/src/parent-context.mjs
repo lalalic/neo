@@ -60,4 +60,7 @@ export function formatSlashStatus(child, text) {
 }
 
 export function formatSlashOverview(statuses) { return statuses.join('\n\n') || 'No configured children.'; }
+export function canUseStatus({ channelId, userId }, config) {
+  return channelId === config.discord.parentChannelId && config.parents.some((parent) => parent.role === 'parent' && parent.id === userId);
+}
 export function statusDenialMessage() { return 'This command is available only in the configured parent control channel.'; }
