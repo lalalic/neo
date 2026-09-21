@@ -1,7 +1,7 @@
 const CHATGPT_HOSTS = new Set(['chatgpt.com', 'chat.openai.com']);
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '[::1]']);
 
-export const DEFAULT_BRIDGE_URL = 'ws://127.0.0.1:8787/ws';
+export const DEFAULT_BRIDGE_URL = 'ws://127.0.0.1:43117/ws';
 
 export function isChatGptUrl(value) {
   try {
@@ -9,6 +9,17 @@ export function isChatGptUrl(value) {
     return url.protocol === 'https:' && CHATGPT_HOSTS.has(url.hostname);
   } catch {
     return false;
+  }
+}
+
+export function projectIdFromChatGptUrl(value) {
+  try {
+    const url = new URL(value);
+    if (url.protocol !== 'https:' || !CHATGPT_HOSTS.has(url.hostname)) return null;
+    const match = url.pathname.match(/(?:^|\/)(g-p-[A-Fa-f0-9]{32})(?:[-\/]|$)/);
+    return match?.[1] || null;
+  } catch {
+    return null;
   }
 }
 
@@ -20,16 +31,17 @@ export function normalizeBridgeUrl(value = DEFAULT_BRIDGE_URL) {
   return url.toString();
 }
 
-export function bindChild(bindings, childId, tabId) {
+export function bindChild(bindings, childId, projectId) {
   const id = String(childId || '').trim();
   if (!id) throw new Error('child id is required');
-  if (!Number.isInteger(tabId) || tabId < 0) throw new Error('valid tab id is required');
+  const project = String(projectId || '').trim();
+  if (!/^g-p-[A-Za-z0-9_-]+$/.test(project)) throw new Error('valid ChatGPT project id is required');
 
   const next = {};
-  for (const [existingChild, existingTab] of Object.entries(bindings || {})) {
-    if (existingChild !== id && existingTab !== tabId) next[existingChild] = existingTab;
+  for (const [existingChild, existingProject] of Object.entries(bindings || {})) {
+    if (existingChild !== id && existingProject !== project) next[existingChild] = existingProject;
   }
-  next[id] = tabId;
+  next[id] = project;
   return next;
 }
 

@@ -1,28 +1,49 @@
-const child = document.querySelector('#child');
-const bridge = document.querySelector('#bridge');
-const token = document.querySelector('#token');
+import { projectIdFromChatGptUrl } from './protocol.mjs';
+
+const project = document.querySelector('#project');
+const children = document.querySelector('#children');
 const status = document.querySelector('#status');
 
 const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+const projectId = projectIdFromChatGptUrl(tab?.url);
 const current = await chrome.runtime.sendMessage({ type: 'settings.get' });
-if (current.bridgeUrl) bridge.value = current.bridgeUrl;
-const boundChild = Object.entries(current.bindings || {}).find(([, tabId]) => tabId === tab?.id)?.[0];
-if (boundChild) child.value = boundChild;
-status.textContent = boundChild ? `Bound to ${boundChild}` : 'This tab is not bound.';
+project.textContent = projectId ? `${tab?.title || 'ChatGPT Project'}\n${projectId}` : 'Open a ChatGPT Project first.';
 
-document.querySelector('#bind').addEventListener('click', async () => {
-  const result = await chrome.runtime.sendMessage({
-    type: 'bind.current',
-    tabId: tab?.id,
-    childId: child.value,
-    bridgeUrl: bridge.value,
-    token: token.value,
-  });
-  status.textContent = result.error || `Bound this tab to ${child.value.trim()}.`;
-  token.value = '';
-});
+function render(bindings) {
+  children.replaceChildren();
+  for (const childId of current.children || []) {
+    const row = document.createElement('div');
+    row.className = 'child';
+    const assign = document.createElement('button');
+    const assigned = bindings?.[childId];
+    assign.textContent = assigned === projectId
+      ? `✓ ${childId} — this tab`
+      : assigned
+        ? `${childId} — assigned elsewhere`
+        : `Assign this tab to ${childId}`;
+    assign.disabled = !projectId;
+    assign.addEventListener('click', async () => {
+      const result = await chrome.runtime.sendMessage({ type: 'assign.currentProject', tabId: tab?.id, childId });
+      status.textContent = result.error || `Assigned this thread tab to ${childId}.`;
+      if (!result.error) render(result.bindings);
+    });
+    row.append(assign);
 
-document.querySelector('#unbind').addEventListener('click', async () => {
-  const result = await chrome.runtime.sendMessage({ type: 'unbind.current', tabId: tab?.id });
-  status.textContent = result.error || 'This tab is not bound.';
-});
+    if (assigned) {
+      const clear = document.createElement('button');
+      clear.className = 'clear';
+      clear.textContent = '×';
+      clear.title = `Unassign ${childId}`;
+      clear.addEventListener('click', async () => {
+        const result = await chrome.runtime.sendMessage({ type: 'unassign.child', childId });
+        status.textContent = result.error || `Unassigned ${childId}.`;
+        if (!result.error) render(result.bindings);
+      });
+      row.append(clear);
+    }
+    children.append(row);
+  }
+  if (!(current.children || []).length) status.textContent = 'Family Tutor bridge is not connected yet.';
+}
+
+render(current.bindings || {});

@@ -62,7 +62,7 @@ Tutoring intelligence belongs in the Codex tutor thread and this skill contract,
 
 The backend is the local Codex CLI. See `references/chatgpt-backend.md`.
 
-An optional ChatGPT browser bridge is documented in `references/browser-bridge.md`. Its server side remains inside the orchestrator: Discord ingress, per-child ordering, transient image storage, correlation, and exact-message MCP replies. The Chrome extension owns only ChatGPT tab/composer mechanics.
+An optional ChatGPT browser bridge is documented in `references/browser-bridge.md`. The reusable browser/MCP implementation lives in `mcp-server/`, while the orchestrator owns Discord ingress and exact-origin reply handling. The Chrome extension lives in `extension/` and stores only child-to-ChatGPT-Project assignments; it owns Project-tab resolution, attachment upload, and composer submission.
 
 ## Service lifecycle
 

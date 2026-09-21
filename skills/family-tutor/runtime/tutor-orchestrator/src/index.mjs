@@ -3,7 +3,7 @@ import path from 'node:path';
 import { Client, Events, GatewayIntentBits } from 'discord.js';
 import { loadConfig } from './config.mjs';
 import { CodexBackend } from './backends/codex.mjs';
-import { BrowserBridge } from './browser-bridge.mjs';
+import { BrowserBridge } from '../../../mcp-server/src/browser-bridge.mjs';
 import { collectImageAttachments, understandImages } from './vision.mjs';
 import { isAudioAttachment, transcribeAudioAttachments } from './asr.mjs';
 

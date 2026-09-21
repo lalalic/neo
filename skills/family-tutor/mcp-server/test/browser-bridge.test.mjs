@@ -23,7 +23,14 @@ test('pushes correlated image turn over WebSocket and MCP replies to exact origi
     socket.send(JSON.stringify({type:'tab.bind',childId:'kid1'}));
     const message=new Promise((resolve,reject)=>{
       const timer=setTimeout(()=>reject(new Error('WebSocket turn timeout')),1500);
-      socket.once('message',data=>{clearTimeout(timer);resolve(JSON.parse(data.toString()));});
+      const onMessage=data=>{
+        const value=JSON.parse(data.toString());
+        if(value.type!=='turn') return;
+        clearTimeout(timer);
+        socket.off('message',onMessage);
+        resolve(value);
+      };
+      socket.on('message',onMessage);
     });
     const turnPromise=bridge.turn({
       childId:'kid1',
@@ -64,6 +71,9 @@ test('serializes per child and rejects cross-child or unauthenticated access',as
     const first=await fetch(`${bridge.endpoint()}/v1/turns/next?childId=kid1`,{headers:{authorization:`Bearer ${token}`}}); assert.equal((await first.json()).text,'one');
     const blocked=await fetch(`${bridge.endpoint()}/v1/turns/next?childId=kid1`,{headers:{authorization:`Bearer ${token}`}}); assert.equal(blocked.status,204);
     const unauthorized=await fetch(`${bridge.endpoint()}/v1/turns/next?childId=kid2`); assert.equal(unauthorized.status,401);
+    const status=await fetch(`${bridge.endpoint()}/v1/status`,{headers:{authorization:`Bearer ${token}`}});
+    assert.equal(status.status,200);
+    assert.deepEqual((await status.json()).inFlight,['kid1']);
     await bridge.reply(a.correlationId,'done');
     const second=await fetch(`${bridge.endpoint()}/v1/turns/next?childId=kid1`,{headers:{authorization:`Bearer ${token}`}}); assert.equal((await second.json()).text,'two');
     await assert.rejects(bridge.enqueue({childId:'other',text:'no',origin:{channelId:'c',messageId:'m3'}}),/unknown child/);

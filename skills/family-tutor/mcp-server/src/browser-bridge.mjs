@@ -8,6 +8,7 @@ import { WebSocketServer, WebSocket } from 'ws';
 const MAX_IMAGE_BYTES=12*1024*1024;
 const MAX_IMAGES=4;
 const DEFAULT_TTL_MS=15*60*1000;
+const FAMILY_TUTOR_EXTENSION_ORIGIN=process.env.FAMILY_TUTOR_EXTENSION_ORIGIN||'chrome-extension://cbhalklofapefdghfgdglmdfkeohdegm';
 
 function safeName(name='image'){
   return path.basename(String(name)).replace(/[^A-Za-z0-9._-]+/g,'_').slice(0,120)||'image';
@@ -52,10 +53,12 @@ export class BrowserBridge {
     this.inFlight=new Map();
     this.correlations=new Map();
     this.childSockets=new Map();
+    this.childVersions=new Map();
     this.server=null;
     this.wsServer=null;
     this.token=null;
     this.cleanupTimer=null;
+    this.lastExtensionError=null;
   }
 
   async start(){
@@ -237,12 +240,15 @@ export class BrowserBridge {
   #upgrade(req,socket,head){
     let url;
     try{ url=new URL(req.url,`http://${req.headers.host||'localhost'}`); }catch{ socket.destroy(); return; }
-    if(url.pathname!=='/ws'||url.searchParams.get('token')!==this.token){ socket.destroy(); return; }
+    const extensionAuth=String(req.headers.origin||'')===FAMILY_TUTOR_EXTENSION_ORIGIN;
+    const tokenAuth=!process.env.FAMILY_TUTOR_EXTENSION_ORIGIN&&url.searchParams.get('token')===this.token;
+    if(url.pathname!=='/ws'||(!extensionAuth&&!tokenAuth)){ socket.destroy(); return; }
     this.wsServer.handleUpgrade(req,socket,head,client=>this.wsServer.emit('connection',client,req));
   }
 
   #connection(socket){
     const bindings=new Set();
+    socket.send(JSON.stringify({type:'bridge.ready',children:[...this.children].sort()}));
     socket.on('message',raw=>{
       let message;
       try{ message=JSON.parse(raw.toString()); }catch{ return; }
@@ -250,21 +256,30 @@ export class BrowserBridge {
       if(message?.type==='tab.bind'){
         const childId=String(message.childId||'').trim();
         if(!this.children.has(childId)){ socket.send(JSON.stringify({type:'bridge.error',error:'unknown child'})); return; }
+        const version=String(message.version||'0.0.0');
         const prior=this.childSockets.get(childId);
+        const priorVersion=this.childVersions.get(childId)||'0.0.0';
+        const parts=v=>String(v).split('.').map(n=>Number(n)||0);
+        const a=parts(version),b=parts(priorVersion);
+        const cmp=(a[0]-b[0])||(a[1]-b[1])||(a[2]-b[2]);
+        if(prior&&prior!==socket&&prior.readyState===WebSocket.OPEN&&cmp<0) return;
         if(prior&&prior!==socket&&prior.readyState===WebSocket.OPEN) prior.close(4000,'child rebound');
         bindings.add(childId);
         this.childSockets.set(childId,socket);
+        this.childVersions.set(childId,version);
         this.#dispatch(childId);
         return;
       }
       if(message?.type==='turn.error'){
         const id=String(message.correlation?.correlationId||'');
         const state=this.correlations.get(id);
-        if(state&&state.childId===message.childId) this.fail(id,new Error(String(message.error||'extension turn failed'))).catch(()=>{});
+        this.lastExtensionError={childId:String(message.childId||''),error:String(message.error||'extension turn failed'),at:new Date().toISOString()};
+        console.error('[family-tutor] extension turn failed',this.lastExtensionError);
+        if(state&&state.childId===message.childId) this.fail(id,new Error(this.lastExtensionError.error)).catch(()=>{});
       }
     });
     socket.on('close',()=>{
-      for(const childId of bindings) if(this.childSockets.get(childId)===socket) this.childSockets.delete(childId);
+      for(const childId of bindings) if(this.childSockets.get(childId)===socket){ this.childSockets.delete(childId); this.childVersions.delete(childId); }
     });
   }
 
@@ -300,11 +315,20 @@ export class BrowserBridge {
       if(response===null){res.writeHead(202);return res.end();}
       return json(res,200,response);
     }
+    if(process.env.FAMILY_TUTOR_E2E_PROBE==='1'&&req.method==='POST'&&url.pathname==='/v1/e2e/turn'){
+      if(!this.#authorized(req,url)) return json(res,401,{error:'unauthorized'});
+      const body=await readJson(req);
+      const turn=await this.enqueue({childId:body.childId,text:body.text||'',attachments:body.attachments||[],origin:body.origin||{}});
+      return json(res,200,{correlationId:turn.correlationId});
+    }
     if(!this.#authorized(req,url)) return json(res,401,{error:'unauthorized'});
     if(req.method==='GET'&&url.pathname==='/v1/turns/next'){
       const turn=this.next(url.searchParams.get('childId')||'');
       if(!turn){res.writeHead(204,{'cache-control':'no-store'});return res.end();}
       return json(res,200,turn);
+    }
+    if(req.method==='GET'&&url.pathname==='/v1/status'){
+      return json(res,200,{ok:true,boundChildren:[...this.childSockets.keys()].sort(),boundVersions:Object.fromEntries([...this.childVersions.entries()].sort()),inFlight:[...this.inFlight.keys()].sort(),lastExtensionError:this.lastExtensionError});
     }
     if(req.method==='POST'&&/^\/v1\/turns\/[^/]+\/failed$/.test(url.pathname)){
       const id=decodeURIComponent(url.pathname.split('/')[3]);
