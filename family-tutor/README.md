@@ -15,11 +15,8 @@ node ../skills/family-tutor/scripts/service.mjs start runs/family
 
 Never place real family configuration in tracked project paths. `runs/` is the execution boundary for this public monorepo project.
 
-Optional ChatGPT browser child turns use `browserBridge.enabled` in the
-private family config. The local bridge binds only to loopback, keeps its
-random bearer token and transient image blobs under
-`runs/family/.browser-bridge/`, and exposes the
-`reply_to_discord` MCP tool. Parent controls stay on the existing Codex
-backend so child and parent contexts are not merged by the browser bridge.
+Each learner keeps one durable `runs/family/<channel-name>/AGENTS.md`. The Discord child channel name is canonical: `#sammy` maps directly to child id `sammy` and ChatGPT Project `neo/family-tutor/sammy`; no alias or channel-ID mapping is maintained. The browser-backed ChatGPT Project owns the persistent child thread; Family Tutor never persists transcripts.
 
-Each learner keeps one durable `runs/family/<child-id>/AGENTS.md`. Codex owns thread history; Family Tutor stores only the current Codex thread id in the ignored child runtime directory and never persists transcripts.
+The orchestrator registers a parent-only Discord `/status` command at startup. `/status child-channel:<configured channel>` derives the child id from that channel's exact name and queries `neo/family-tutor/<channel-name>` plus that learner's existing thread and `AGENTS.md`. A missing or mismatched Project is a configuration error. `/status` queries each configured learner and combines a compact overview. Parent messages use the exact configured child Discord channel mention as their routing key, e.g. `#sammy how is the recent status?`; names, browser tabs, tab titles, and tab order are not used for resolution. Requests outside `discord.parentChannelId` are denied, and the command creates no new durable learner-state files.
+
+Parent goals, guidance, and status questions may mention one or more Discord child channels anywhere in the sentence. Multiple mentions fan out independently; a later no-mention message reuses the last successfully resolved target set in runtime memory, and an explicit set replaces it. Audio attachments go directly to ChatGPT through the browser bridge for transcription and understanding. The tutor returns only privacy-filtered learning summaries and sends minimum-necessary proactive escalations. No second parent memory or transcript store is created.

@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 import fs from 'node:fs';
 import path from 'node:path';
-import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const here=path.dirname(fileURLToPath(import.meta.url));
@@ -11,17 +10,13 @@ let failed=false;
 function check(ok,msg){console.log(`${ok?'✓':'✗'} ${msg}`); if(!ok) failed=true;}
 check(fs.existsSync(config),`config exists: ${config}`);
 check(Boolean(process.env.DISCORD_BOT_TOKEN),'DISCORD_BOT_TOKEN is exported');
-const executable=spawnSync('codex',['--version'],{encoding:'utf8',timeout:5000});
-check(executable.status===0,'codex executable is available');
-const login=spawnSync('codex',['login','status'],{encoding:'utf8',timeout:5000});
-const loginOutput=`${login.stdout||''}\n${login.stderr||''}`;
-check(login.status===0 && /logged in using|already logged in|authenticated/i.test(loginOutput),'Codex login is active');
 if(fs.existsSync(config)){
   try{
     const cfg=JSON.parse(fs.readFileSync(config,'utf8'));
-    check(Array.isArray(cfg.children)&&cfg.children.every(c=>c.discordChannelId),'every child has a Discord channel id');
-    check(cfg.codex?.backend==='codex','Codex backend is configured');
-    check(Array.isArray(cfg.children)&&cfg.children.every(c=>!Object.keys(c).some(key=>/project|tab/i.test(key))),'children have no browser bindings');
+    check(Array.isArray(cfg.children)&&cfg.children.every(c=>c.id && c.name),'every child has a canonical Discord channel-name id');
+    check(cfg.browserBridge?.enabled===true,'browser bridge is enabled');
+    check(['127.0.0.1','localhost','::1'].includes(cfg.browserBridge?.host||'127.0.0.1'),'browser bridge is loopback-only');
+    check(Array.isArray(cfg.children)&&cfg.children.every(c=>!Object.keys(c).some(key=>/alias|aliases|channelId|discordChannelId|project|projectId|tabId|tutorProfile|grade|gender|school|location/i.test(key))),'children use exact channel names; learner memory stays in AGENTS.md and browser bindings stay in extension runtime state');
     check(Boolean(cfg.discord?.parentChannelId),'parent channel id is configured');
   }catch(e){check(false,`config parses: ${e.message}`)}
 }

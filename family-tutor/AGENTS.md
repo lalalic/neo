@@ -1,10 +1,11 @@
 # Family Tutor Agent Guide
 
-Use `../skills/family-tutor/SKILL.md` as the reusable tutoring/runtime contract.
+Use `../skills/family-tutor/SKILL.md` as the reusable tutoring/runtime contract. Family Tutor is browser-backed; do not reintroduce the obsolete Codex-only backend.
 
 - This top-level directory is a public Neo project definition, not a family instance.
-- Use `runs/family/` as the private family root. Keep each learner's durable tutoring memory at `runs/family/<child-id>/AGENTS.md`; Codex owns tutor thread history, so do not mirror it into local session folders.
-- Keep real learner names/details, Discord IDs, parent observations, secrets, learner memory, and Codex thread state inside the run or another private store. Do not persist transcripts locally.
+- Use `runs/family/` as the private family root. Keep each learner's durable tutoring memory at `runs/family/<child-id>/AGENTS.md`; ChatGPT owns tutor thread history, so do not mirror it into local session folders.
+- Keep real learner names/details, Discord IDs, parent observations, secrets, learner memory, and browser runtime state inside the run or another private store. Do not persist transcripts locally.
+- The only durable learner memory/instruction file is each child's `AGENTS.md`; do not add learning-state, parent-directive, transcript, or other durable learner-state files.
 - Do not copy instance-specific configuration into tracked `config/` or `data/` directories.
 - The project `AGENTS.md` is the entrypoint; tutoring behavior itself is reusable skill behavior, so it stays in `skills/family-tutor/` rather than a duplicated project `agents/` role.
 
@@ -23,8 +24,8 @@ Use `../skills/family-tutor/SKILL.md` as the reusable tutoring/runtime contract.
 ## Project learnings
 
 - 2026-09-16: End-to-end tutor verification must exercise the real Discord child channels with distinct per-child probe messages and verify the reply returns to the same channel; service status or direct backend probes alone are not sufficient. Keep child backend work isolated so one stalled child turn cannot block another child.
-- 2026-09-17: Long-lived tutoring continuity uses one child-specific Codex CLI thread plus that child folder's `AGENTS.md`; persist only the thread id and rollover only after durable learner facts are captured in memory.
-- 2026-09-16: Keep the child-facing tutor conversational, but move longitudinal mastery, review timing, recurring misconceptions, and learner commitments into deterministic state. Proactive nudges should be justified by learner state or an open commitment, not by timers alone.
+- 2026-09-20: Long-lived tutoring continuity uses one child-specific ChatGPT Project thread plus that child folder's `AGENTS.md`; parent target memory is runtime-only and audio goes directly through the browser bridge.
+- 2026-09-16: Keep the child-facing tutor conversational. Longitudinal mastery, review timing, recurring misconceptions, and learner commitments belong in the child AGENTS.md; proactive nudges should be justified by that durable learner context or an open commitment, not by timers alone.
 - 2026-09-16: Children speak more naturally when child tutor channels are not routine parent-observation channels. Parent visibility should be concise learning telemetry, with minimum-necessary escalation for serious safety concerns.
 - 2026-09-16: Academic/career direction works better as longitudinal discovery through small experiments and reflections than repeated pressure to choose a university, major, or career early.
 
@@ -34,11 +35,12 @@ Use `../skills/family-tutor/SKILL.md` as the reusable tutoring/runtime contract.
 - The privacy model is intentional: children should have space to speak naturally without feeling continuously observed by parents.
 - Parents use a dedicated parent learning/control channel instead of the child channels. Neo may actively participate in that parent discussion.
 - Parent output should be concise learning telemetry rather than transcript mirroring. Typical parent-visible signals include study topic, evidence of understanding, misconceptions, progress, missed plans, next steps, and when parental support may be useful.
+- The runtime registers a parent-only Discord `/status` command. Its optional child-channel selection derives the child id and exact Project `neo/family-tutor/<channel-name>` from the Discord channel name, then queries that learner's existing thread with the learner's `AGENTS.md` context. A missing or mismatched Project is a configuration error. With no child it queries each configured learner for a compact overview. Requests outside `discord.parentChannelId` are denied, and `/status` creates no new durable learner-state files.
 - Do not copy routine child messages, casual conversation, or full tutor transcripts into the parent channel.
 - Serious safety concerns are the exception. When escalation is necessary, surface only the minimum information needed for a parent to respond appropriately.
 - Discord permissions should mirror tutor-context separation: one child must not gain access to another child's tutor channel, and parent roles should not implicitly grant access to child tutor channels.
 - Dedicated child and parent channels should treat ordinary messages as addressed to Neo; `@Neo` should not be required there. Mentions are only needed in shared/general channels where routing is ambiguous.
-- Maintain one persistent child-specific Codex thread per child channel, with isolated thread state and rollover when needed. Keep parent/Neo context separate; do not merge child contexts or parent context.
+- Maintain one persistent child-specific ChatGPT Project thread per child channel, with isolated browser correlation state. Keep parent/Neo context separate; do not merge child contexts or parent context.
 
 ## Child-facing privacy transparency contract
 
@@ -62,3 +64,27 @@ Use `../skills/family-tutor/SKILL.md` as the reusable tutoring/runtime contract.
 - Maintain a longitudinal direction profile in private runtime context. Useful signals include interests, strengths, disliked activities, candidate fields, experiments tried, reflections, confidence level, and unresolved questions.
 - Parent-visible reporting should summarize useful direction signals and suggested support, not expose every exploratory conversation with the child.
 - Recommendations about courses, programs, or universities must be grounded in current official requirements when they become consequential; verify current prerequisite and admission information rather than relying on stale assumptions.
+
+
+## Canonical learner naming and ChatGPT Project contract
+
+- Each learner's `child-id` is canonical and MUST equal the Discord child channel name and the ChatGPT Project suffix exactly: `#sammy` ↔ `sammy` ↔ `neo/family-tutor/sammy`.
+- Do not maintain aliases or a second routing map. A mismatch is a configuration error and must be surfaced clearly.
+- The child channel name selects the learner. The existing persistent thread binding selects the thread inside that learner's Project; never infer a target from open browser tabs, tab titles, or tab order.
+- Each learner ChatGPT Project is dedicated to exactly one learner and keeps a small, stable Project Instruction contract. Shared tutoring behavior remains authoritative here and in `../skills/family-tutor/`; evolving learner facts remain only in `runs/family/<child-id>/AGENTS.md`.
+- The reusable Project Instructions template is `templates/student-project-instructions.md`.
+- Child-facing answers should use concise Discord-friendly Markdown. Simple math may use readable Unicode/plain text; complex equations, graphs, geometry, chemistry, molecular structures, circuits, biology figures, and other STEM visuals should use the Family Tutor rendering path rather than unreadable ASCII art, with a short explanation of what to notice.
+
+## Durable learner memory self-improvement contract
+
+Each learner's `runs/family/<child-id>/AGENTS.md` is the only durable learner memory and instruction file.
+
+The tutor should update that file when new durable evidence changes:
+- current academic priorities or important assessments;
+- recurring strengths or misconceptions;
+- effective or ineffective teaching approaches;
+- study habits, commitments, and follow-through patterns;
+- interests and academic/career direction signals;
+- durable parent guidance that should affect future tutoring.
+
+Replace or remove superseded facts instead of accumulating contradictions. Do not store ordinary transcripts, one-off questions, short-lived details, or unnecessary private parent commentary.
