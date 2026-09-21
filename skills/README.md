@@ -21,6 +21,8 @@ are deployment and distribution targets, not source of truth.
 - family-tutor — reusable Discord/ChatGPT tutoring runtime and behavior contract for run-local family instances.
 - model-router — choose among configured model profiles using capability,
   continuity, paid capacity, quota, cost, and reliability signals.
+- worker-router — choose the execution worker or harness before model routing,
+  using hard capability gates, shared resource facts, and sticky continuity.
 - post — reusable browser-harness posting adapters and self-healing post agent
   for Xiaohongshu, WeChat Channels, TikTok, and YouTube.
 - skill-builder — capability-first creation, review, and evaluation of agent skills.
