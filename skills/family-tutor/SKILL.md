@@ -59,11 +59,11 @@ See `references/project-instructions.md` for the child ChatGPT Project contract.
 ## Runtime boundary
 
 When an accepted child-channel or parent-control message enters the tutor
-queue, the Discord runtime reacts to the original message and posts the
-temporary `Neo is thinking…` signal immediately. Both are cleared when the
-turn completes or fails. This state is keyed only by the in-flight Discord
-message, is deduplicated while active, and is never written to learner memory,
-thread state, or another durable store.
+queue, the Discord runtime adds a transient thinking reaction to the original
+message immediately. The reaction is cleared when the turn completes or fails.
+This state is keyed only by the in-flight Discord message, is deduplicated while
+active, and is never written to learner memory, thread state, or another
+durable store.
 
 The bundled `runtime/tutor-orchestrator` is the single long-lived PM2 service for this skill. It owns Discord transport, exact-name routing, serialized per-child browser turns, durable-memory handoff, retries/failure reporting, parent transport/telemetry, and service lifecycle. The loopback browser bridge and extension own ChatGPT tab interaction and multimodal attachments.
 
