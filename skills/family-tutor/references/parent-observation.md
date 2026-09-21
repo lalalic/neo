@@ -12,4 +12,4 @@ Parent assignments and questions are authorized by configured parent accounts, n
 
 The tutor should proactively post minimum-necessary parent telemetry when repeated meaningful learning difficulty, missed commitments, major assessment risk, need for support, or serious safety/wellbeing concerns arise. Include the useful signal, context, and suggested parent action only. When safe and appropriate, tell the child that an important concern is being escalated.
 
-Raw child transcripts are opt-in, not the monitoring default. A parent instruction must deterministically resolve one child; ambiguous target identity must not change tutor state.
+Raw child transcripts are opt-in, not the monitoring default. A parent instruction may resolve multiple exact child channels and is fanned out independently; a no-mention follow-up uses only the runtime-in-memory last successful target set. Ambiguous or failed target identity must not change tutor state.

@@ -1,9 +1,10 @@
 {
   "version": 1,
   "serviceName": "family-tutor-orchestrator",
-  "codex": {
-    "backend": "codex",
-    "maxRuntimeSeconds": 600
+  "browserBridge": {
+    "enabled": true,
+    "host": "127.0.0.1",
+    "port": 43117
   },
   "discord": {
     "parentChannelId": ""
