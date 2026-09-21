@@ -6,6 +6,11 @@
     "host": "127.0.0.1",
     "port": 43117
   },
+  "browserBridge": {
+    "enabled": false,
+    "host": "127.0.0.1",
+    "port": 8787
+  },
   "discord": {
     "parentChannelId": ""
   },

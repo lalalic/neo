@@ -69,6 +69,8 @@ The bundled `runtime/tutor-orchestrator` is the single long-lived PM2 service fo
 
 Tutoring intelligence belongs in the persistent ChatGPT Project thread and this skill contract, not in a second local LLM or API adapter. See the canonical architecture in family-tutor/docs/architecture.md.
 
+An optional ChatGPT browser bridge is documented in `references/browser-bridge.md`. Its server side remains inside the orchestrator: Discord ingress, per-child ordering, transient image storage, correlation, and exact-message MCP replies. The Chrome extension owns only ChatGPT tab/composer mechanics.
+
 ## Service lifecycle
 
 Use the existing `daemon-service-manage` conventions:
