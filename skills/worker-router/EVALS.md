@@ -1,113 +1,99 @@
 # Worker Router capability evals
 
-These evals test worker selection judgment, not provider/model selection or
-Agents Relay usage-reader correctness. The worker router chooses an execution
-worker first; a later model-router call may choose a model only from the
-selected worker's usable candidates.
+These evals test worker-selection judgment and contract boundaries, not worker
+launch or provider API correctness.
 
 ## Capability matrix
 
-1. Task-shape classification
-   - Identify the task's required worker capabilities before comparing
-     resource, cost, or continuity signals.
-   - Distinguish local-repository/tool-using work, attachment or web-only
-     work, and tasks that need neither special surface.
-2. Hard capability gates
-   - Reject a worker that cannot access a required surface, modality, tool, or
-     context even when that worker has better remaining quota or lower cost.
-   - A hard requirement always outranks resource pressure and preference
-     signals.
-3. Resource-aware preference
-   - For compatible workers, use fresh resource/usage facts supplied by the
-     shared Agents Relay surface when available.
-   - Near-exhausted Codex capacity may move an otherwise compatible task to
-     ChatGPT; unknown usage is not exhaustion.
-4. Bounded worker choice
-   - Select exactly one discovered, usable worker for a new executable task,
-     or return an explicit no-route/insufficient-access decision.
-   - Do not invent workers, providers, usage values, or fallback capabilities.
-5. Continuity
-   - Keep a suitable worker bound to a persistent task unless it is unusable,
-     lacks a newly required capability, is exhausted, or the user asks to
-     switch.
-6. Model-router handoff
-   - The result names the selected worker and constrains the subsequent
-     model-router candidate set to that worker.
-   - Worker-router does not select a model or duplicate provider usage
-     readers.
+1. Requirement classification
+   - Identify local repository, iterative tool, web-session, attachment,
+     privacy, and one-shot requirements from the task.
+2. Dynamic worker discovery
+   - Select only workers present in the supplied inventory and marked usable.
+3. Hard capability gates
+   - Reject a worker missing a required capability, tool surface, privacy
+     boundary, or context/modality requirement before considering resources.
+4. Shared resource facts
+   - Consume caller/Agents Relay facts; do not invent provider readers, caches,
+     balances, or quotas. Unknown is not exhausted.
+5. Bounded resource-aware choice
+   - Shift a compatible task away from a near-exhausted worker when another
+     eligible worker is healthy, but never override a hard requirement.
+6. Continuity
+   - Keep a suitable persistent worker bound despite a small resource or cost
+     advantage elsewhere; reroute when unavailable or materially incapable.
+7. Layering
+   - Return a worker constraint for `model-router` and do not select a model.
+8. Safe failure and observability
+   - Return `insufficient_environment_access` or `no_route` rather than guess;
+     emit one truthful `worker.selected` event before a new launch.
 
 ## Suggested cases
 
-### Case A — local iterative coding favors Codex
+### Case A — local iterative coding
 
-The task requires repeated edits and tests in a local repository. Discovered
-Codex and ChatGPT workers both satisfy the surface requirements; Codex has
-healthy observed capacity. Select Codex and pass only Codex's discovered model
-candidates to model-router.
+Task modifies a local repository and needs repeated tests. Codex supports
+`local_repo` and `iterative_tools`; ChatGPT web does not. Select Codex even if
+ChatGPT has more available quota, reject ChatGPT for the hard capability gate,
+and constrain subsequent model routing to Codex-supported models.
 
-### Case B — attachment/ChatGPT-web one-shot favors ChatGPT
+### Case B — attachment/web one-shot
 
-The task is a one-shot question over a user attachment available in the web
-ChatGPT surface, with no local checkout or shell access required. ChatGPT is
-capable and Codex cannot access the attachment surface. Select ChatGPT. The
-decision must cite the required attachment/web capability, not an assumed
-provider preference.
+Task is a one-shot response grounded in an attachment available in an
+authenticated ChatGPT web session, with no local mutation. Select ChatGPT web
+when it is discovered and usable; do not require local tools merely because
+Codex is available.
 
-### Case C — near-exhausted Codex shifts a compatible task
+### Case C — resource pressure moves a compatible task
 
-The task can run on either worker and needs no worker-specific capability.
-Fresh Agents Relay usage facts mark Codex near exhausted and ChatGPT healthy.
-Select ChatGPT, explain the resource-pressure tradeoff, and retain both
-workers' capability facts in the decision as appropriate. Do not treat an
-unobserved Codex balance as near exhausted.
+Both workers satisfy a short, non-local task. Fresh Agents Relay facts mark
+Codex near exhausted and ChatGPT web healthy. Select ChatGPT web and explain
+that resource pressure moved an otherwise compatible task.
 
-### Case D — hard requirement overrides resource pressure
+### Case D — hard capability beats resource pressure
 
-The task requires local filesystem and shell access. Codex is near exhausted
-but still usable; ChatGPT has abundant capacity but no local tool surface.
-Select Codex or return no-route if Codex is actually unusable. Never select
-ChatGPT solely because its resource status is better.
+Codex is near exhausted, but the task requires local file edits and ChatGPT web
+cannot access the checkout. Select Codex or return `no_route` if its observed
+state makes execution impossible; never choose ChatGPT merely because it is
+healthy.
 
-### Case E — selected worker constrains model-router
+### Case E — sticky continuation
 
-Worker-router selects ChatGPT for an attachment task. The environment exposes
-models under both Codex and ChatGPT. The handoff to model-router contains only
-the ChatGPT candidates (or an equivalent worker binding), and the final model
-decision cannot select a Codex model. A worker selection event is emitted
-before the worker/model execution starts when the orchestration contract
-requires observability.
+A persistent task is bound to a healthy worker that still satisfies all
+requirements. Return `keep_current` with the same worker even when another
+worker has lower cost or more quota.
 
-### Case F — continuity beats a marginal switch
+### Case F — justified reroute
 
-A persistent task is already bound to a healthy, capable Codex worker. A new
-review turn has the same requirements and no material resource or health
-change. Return `keep_current` or the same Codex binding; do not switch merely
-because ChatGPT is also available.
+The bound worker is rate-limited or no longer usable, and a discovered worker
+satisfies the requirements. Return `route`, explain why continuity broke, and
+set `sticky` for the new persistent binding.
 
-### Case G — safe failure and unknown usage
+### Case G — unknown resource facts
 
-No worker inventory is discoverable, or all workers fail a hard gate. Return
-`insufficient_environment_access` or `no_route` with a concrete reason.
-When the shared usage surface has no fact for a worker, report usage as
-`unknown`, never as zero or exhausted, and do not fabricate a fallback.
+No trustworthy resource source is supplied. Mark resource status `unknown`,
+use capability and availability evidence, and do not claim a balance or quota.
+
+### Case H — no environment access
+
+No worker inventory is observable. Return `insufficient_environment_access`
+with the missing input; do not guess Codex, ChatGPT, or any other worker.
+
+### Case I — explicit constraint
+
+The caller explicitly requires ChatGPT web and it is usable. Honor it when its
+capabilities satisfy the task; if it fails a hard requirement, reject it and
+state the conflict rather than silently substituting another worker.
 
 ## Structured assertions
 
-- `decision` is `route`, `keep_current`, `insufficient_environment_access`,
-  or `no_route`.
-- A selected worker belongs to the discovered usable worker inventory.
-- Required capabilities and rejected hard-gate candidates are represented in
-  the rationale or structured rejection fields.
-- Resource facts identify their source and freshness when observable; unknown
-  usage remains `unknown`.
-- A near-exhausted resource may influence a compatible task but never defeats
-  a hard capability requirement.
-- Persistent, suitable work keeps the existing worker binding.
-- The model-router handoff is explicitly constrained to the selected worker;
-  worker-router does not emit a model choice.
-- No secret, credential, cookie, token, or invented usage/provider value is
-  reproduced.
-
-Use qualitative grading for whether the dominant rationale applies hard gates
-before resource preferences and whether the handoff preserves the selected
-worker boundary.
+- A selected worker belongs to the discovered usable inventory.
+- Every rejected worker has a reason.
+- Hard capability and privacy gates outrank resource pressure.
+- Missing resource facts are `unknown`, not zero or exhausted.
+- A suitable persistent binding returns `keep_current` or the same worker.
+- `model_router_constraint.worker` equals the selected worker when routing.
+- Worker routing never returns a model or provider selection.
+- Discovery failure and no eligible candidate use distinct safe decisions.
+- `worker.selected` is emitted once before a new worker launch and contains no
+  secrets.
