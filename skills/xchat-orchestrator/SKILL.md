@@ -27,7 +27,7 @@ At the start of each orchestration task, discover the currently available local 
 - A request to create a PR Job to perform an objective means create-and-start by default: prefer Agents Relay's create-and-start path, or use separate create plus submit when needed, then route a worker, submit at least one executable child task, and begin managed execution/reconciliation. Only an explicit create-only/no-execution request may leave a new OPEN job with zero tasks.
 - Managed execution is submitted to Agents Relay; the orchestrator must not run a parallel launch/wait/recovery loop for the same task.
 - Every managed child inherits the bound project identity, `local_path`, `git_root`, and `repo`; children do not independently re-resolve context.
-- Every new managed worker is routed through `model-router` using dynamically discovered usable candidates. Do not encode provider/model preference order or a concrete model identity in this orchestration contract.
+- Every new managed worker is routed through `worker-router` first, using dynamically discovered usable worker capabilities and fresh Agents Relay resource facts when available. Then run `model-router` only against candidates usable by the selected worker. Do not encode provider/model/worker preference order or a concrete identity in this orchestration contract.
 - **Browser ChatGPT worker output is fixed at task creation.** When `chatgpt-browser-worker` is selected for a child task, read that skill before creating the child and include exactly one declared durable output in the task prompt: either **task/PR output** with the exact managed task/PR identity and required final action, or **file output** with the exact authoritative file path. Do not launch the Browser ChatGPT worker without this declaration, and do not leave the worker to choose its own output destination. Progress and terminal success/failure still use the normal event contract; events are not a third output mode.
 - GitHub PR state, head SHA, checks, reviews, and comments are the workflow record. Do not require Google Drive, `HANDOFF.md`, `STATUS.md`, `STATE`, or a task directory for GitHub-backed work.
 - Use GitHub tools for reads when available. Authenticated `gh` may be used for GitHub reads and lifecycle mutations not owned by Agents Relay, but creation/adoption/repair of an orchestrated PR/job must go through the Agents Relay CLI.
@@ -40,11 +40,11 @@ At the start of each orchestration task, discover the currently available local 
 
 For managed work, Agents Relay owns the lifecycle loop: pre-launch observation, routing metadata, worker launch, wait, retry/recovery, and reconciliation. The orchestrator submits correlated work and consumes/renders Relay's `events-bus` stream; it must not duplicate those lifecycle operations with a second direct worker loop.
 
-Relay must satisfy the `events-bus` ordering contract for every new worker: establish observation before launch, apply `model-router`, publish a truthful user-visible `model.selected` event with the actual model/thinking level when known, launch the worker, then reconcile progress and terminal state. Keep one literal `job_id` for the objective and one task-specific `task_id` per child. Routine successful child completion stays `visibility: orchestrator` while the parent reconciles; failed/blocked/cancelled tasks and top-level terminal events remain user-visible. If transport degrades, surface the structured fallback and do not claim delivery.
+Relay must satisfy the `events-bus` ordering contract for every new worker: establish observation before launch, apply `worker-router`, publish one truthful user-visible `worker.selected` event, apply `model-router` constrained to that worker, publish the existing truthful user-visible `model.selected` event with the actual model/thinking level when known, launch the worker, then reconcile progress and terminal state. Keep one literal `job_id` for the objective and one task-specific `task_id` per child. Routine successful child completion stays `visibility: orchestrator` while the parent reconciles; failed/blocked/cancelled tasks and top-level terminal events remain user-visible. If transport degrades, surface the structured fallback and do not claim delivery.
 
 ### Mandatory routing invariant
 
-Before **every new agent/worker launch**, including implementation, research, review, evaluation, and independent or nested subagents, run `model-router` against the dynamically discovered usable profiles. Publish exactly one user-visible `model.selected` event in the same job before or as launch, with the actual selected model and thinking/reasoning level when known, otherwise `unknown`. Include the profile/provider in `data` when known. A persistent continuation of an already-bound worker thread preserves its sticky routing and needs no new routing event unless the thread is replaced, forked, or routing is explicitly reconsidered. A launch without a preceding observable routing decision is invalid and must fail the orchestration/eval.
+Before **every new agent/worker launch**, including implementation, research, review, evaluation, and independent or nested subagents, run `worker-router` against task requirements, discovered worker capabilities, and available resource facts. Publish exactly one user-visible `worker.selected` event before model routing, with only observed worker/decision facts. Then run `model-router` against models usable by that worker and publish exactly one user-visible `model.selected` event with the actual model and thinking/reasoning level when known, otherwise `unknown`. A persistent continuation preserves its sticky worker and model routing and needs no new routing events unless replaced or explicitly reconsidered. A new-worker launch without both ordered decisions is invalid and must fail the orchestration/eval.
 
 ### 1. Resolve and preflight
 
@@ -107,7 +107,7 @@ Do not use GitHub's broad `open` state as proof that implementation is active, a
 
 ### 2.5 Route new worker execution
 
-Before every new managed worker, apply `model-router` to the candidates that are actually discovered and usable in the current harness. Let the router rank those candidates from task fit, capability, resource status, cost, latency, reliability, privacy, and continuity. Do not add orchestration-specific provider/model ordering.
+Before every new managed worker, apply `worker-router` to task requirements and discovered usable worker capabilities first. Use fresh shared resource/usage facts when available; do not duplicate provider readers or select a model. Publish the worker decision, then apply `model-router` only to candidates usable by that worker. Do not add orchestration-specific provider/model/worker ordering.
 
 Record the selected worker profile, provider, and model in the orchestrator marker, for example:
 
@@ -121,7 +121,7 @@ The selected profile is sticky for the lifetime of that worker thread. Do not re
 
 Route independent tasks independently. Preserve explicit user provider/model instructions when present; otherwise rely on dynamic discovery and the router's generic policy.
 
-The `model.selected` event is the launch observability contract; use the actual model and thinking level from the router result and never infer unavailable values.
+The ordered `worker.selected` then `model.selected` events are the launch observability contract. Use actual router decisions and never infer unavailable worker, model, capability, resource, or thinking values.
 
 ### 3. Start or resume a managed worker
 
