@@ -43,6 +43,8 @@ def main() -> int:
                 continue
             if completed.returncode != 0:
                 last_error = (completed.stderr or completed.stdout or f"attempt {attempt} failed").strip()
+                if "temporarily rate limited" in last_error:
+                    break
                 continue
             lines=[line for line in completed.stdout.splitlines() if line.strip()]
             if not lines:
