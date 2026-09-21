@@ -69,3 +69,18 @@ the worker and are not part of the caller-facing contract.
 The runtime entry point is the browser-worker agent. Callers launch that agent
 with the complete task prompt and declared output; they do not call helper
 scripts directly.
+
+## Local synchronous inference
+
+Tools that need a returned answer rather than delegated repository/task work
+use the separate `bin/chatgpt-browser-infer` surface. It opens a fresh
+worker-owned Temporary Chat, uploads any `--file` attachments, verifies the
+submitted user turn, waits for the complete assistant result in that same tab,
+and closes only the tab it created. `--expect-json` accepts success only when
+the whole assistant response is JSON or one JSON code fence, normalized to
+plain JSON. This path deliberately has no
+durable thread identity or reopen dependency.
+
+See `references/inference.md` for the command contract. Do not use this
+synchronous surface as a replacement for the browser-worker agent when the
+requested output is a managed task/PR or durable file artifact.

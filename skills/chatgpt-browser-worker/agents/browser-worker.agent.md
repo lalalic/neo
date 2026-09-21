@@ -33,8 +33,7 @@ If the output declaration is missing or ambiguous, do not invent one.
   `after-start` closes after a new worker-owned `task.started` event, `never`
   leaves the owned tab open for test/debug use, and `after-terminal` closes only
   after a new exact-task `task.completed`, `task.failed`, `task.blocked`, or
-  `task.cancelled` event. Never close a user tab. Do not wait for the assistant
-  response or reopen/poll the conversation. If the start acknowledgement does
+  `task.cancelled` event. Never close a user tab. Do not wait for the assistant response. Do not reopen or poll the conversation. If the start acknowledgement does
   not arrive within 60 seconds, close only the owned tab and report a timeout.
 - Treat any observed conversation/thread identity only as diagnostic evidence,
   never as a resumable handle.
