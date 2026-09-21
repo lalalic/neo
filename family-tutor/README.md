@@ -16,3 +16,5 @@ node ../skills/family-tutor/scripts/service.mjs start runs/family
 Never place real family configuration in tracked project paths. `runs/` is the execution boundary for this public monorepo project.
 
 Each learner keeps one durable `runs/family/<child-id>/AGENTS.md`. Codex owns thread history; Family Tutor stores only the current Codex thread id in the ignored child runtime directory and never persists transcripts.
+
+Parent goals, guidance, and status questions are routed to the named child's existing persistent tutor thread. The tutor returns only privacy-filtered learning summaries and sends minimum-necessary proactive escalations for meaningful academic or serious safety/wellbeing concerns. No second parent memory or transcript store is created.

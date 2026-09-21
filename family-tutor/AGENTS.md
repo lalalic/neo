@@ -5,6 +5,7 @@ Use `../skills/family-tutor/SKILL.md` as the reusable tutoring/runtime contract.
 - This top-level directory is a public Neo project definition, not a family instance.
 - Use `runs/family/` as the private family root. Keep each learner's durable tutoring memory at `runs/family/<child-id>/AGENTS.md`; Codex owns tutor thread history, so do not mirror it into local session folders.
 - Keep real learner names/details, Discord IDs, parent observations, secrets, learner memory, and Codex thread state inside the run or another private store. Do not persist transcripts locally.
+- The only durable learner memory/instruction file is each child's `AGENTS.md`; do not add learning-state, parent-directive, transcript, or other durable learner-state files.
 - Do not copy instance-specific configuration into tracked `config/` or `data/` directories.
 - The project `AGENTS.md` is the entrypoint; tutoring behavior itself is reusable skill behavior, so it stays in `skills/family-tutor/` rather than a duplicated project `agents/` role.
 

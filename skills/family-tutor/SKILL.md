@@ -80,4 +80,7 @@ node scripts/service.mjs stop <instance-dir>
 - A child channel must map to exactly one child.
 - A tutor thread must map to exactly one child.
 - Parent control commands must come only from the configured parent control channel.
+- Parent control commands must come from the configured parent control channel and a configured `role: parent` account.
+- Parent goals, guidance, and status questions target a named child and run through that child's existing persistent tutor thread as tagged parent context; there is no second parent memory store.
+- Proactively send only minimum-necessary parent telemetry for meaningful academic risk or serious safety/wellbeing concerns, with suggested action and child transparency when safe and appropriate.
 - Treat child personal data as private runtime data.

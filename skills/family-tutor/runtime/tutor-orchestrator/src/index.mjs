@@ -5,6 +5,7 @@ import { loadConfig } from './config.mjs';
 import { CodexBackend } from './backends/codex.mjs';
 import { collectImageAttachments, understandImages } from './vision.mjs';
 import { isAudioAttachment, transcribeAudioAttachments } from './asr.mjs';
+import { buildParentContextPrompt, isAuthorizedParent, parseParentCommand } from './parent-context.mjs';
 
 const configFile=process.env.FAMILY_TUTOR_CONFIG;
 if(!configFile) throw new Error('FAMILY_TUTOR_CONFIG is required');
@@ -112,20 +113,15 @@ async function handleChildMessage(message,child){
 
 
 async function handleParentControl(message){
-  const text=message.content.trim();
-  if(!text.startsWith('!')) return;
-  const [command,childId,...rest]=text.split(/\s+/);
-  if(command==='!help') return message.reply('Commands: `!goal <childId> <goal>`, `!focus <childId> <focus>`, `!ask <childId> <question>`, `!threads`');
-  if(command==='!threads'){ return message.reply(config.children.map(c=>`${c.id}: persistent Codex thread`).join('\n')); }
-  const child=config.children.find(c=>c.id===childId);
+  if(!isAuthorizedParent(message,config)) return;
+  const command=parseParentCommand(message.content);
+  if(!command) return;
+  if(command.command==='!help') return message.reply('Commands: `!goal <childId> <goal>`, `!focus <childId> <focus>`, `!guide <childId> <guidance>`, `!ask <childId> <question>`, `!status <childId> <question>`, `!threads`');
+  if(command.command==='!threads') return message.reply(config.children.map(c=>`${c.id}: one persistent tutor thread`).join('\n'));
+  const child=config.children.find(c=>c.id===command.childId);
   if(!child) return message.reply(`Unknown child id. Use one of: ${config.children.map(c=>c.id).join(', ')}`);
-  const value=rest.join(' ').trim();
-  if(!value) return message.reply('Please include the goal, focus, or question.');
-  let prompt;
-  if(command==='!goal') prompt=`${turnPrompt(child,`[PARENT CONTROL] Add this durable tutoring goal for ${child.name}: ${value}. Keep it in mind in future tutoring. Reply briefly to the parent only.`)}`;
-  else if(command==='!focus') prompt=`${turnPrompt(child,`[PARENT CONTROL] Make this the current tutoring focus for ${child.name}: ${value}. Apply it when relevant in future tutoring. Reply briefly to the parent only.`)}`;
-  else if(command==='!ask') prompt=`${turnPrompt(child,`[PARENT QUESTION] Answer the parent about ${child.name}'s learning using the current tutor context and durable memory: ${value}`)}`;
-  else return;
+  if(!command.value) return message.reply('Please include the goal, focus, guidance, or question.');
+  const prompt=buildParentContextPrompt({child,command:command.command,value:command.value,authorId:message.author.id,messageId:message.id});
   const result=await backend.turn({prompt,childId:child.id});
   const parsed=parseTutorText(result.text);
   await applyTutorSideEffects(child,parsed);
@@ -143,8 +139,8 @@ client.on(Events.MessageCreate,message=>{
     return;
   }
   if(config.discord.parentChannelId && message.channelId===config.discord.parentChannelId){
-    const childId=message.content.trim().split(/\s+/)[1];
-    const target=config.children.find(c=>c.id===childId);
+    const command=parseParentCommand(message.content);
+    const target=config.children.find(c=>c.id===command?.childId);
     const key=target?.id||'parent-control';
     serialize(key,()=>handleParentControl(message)).catch(error=>{console.error('[family-tutor] parent control failed',error); message.reply('Parent control is temporarily unavailable.').catch(()=>{});});
   }
