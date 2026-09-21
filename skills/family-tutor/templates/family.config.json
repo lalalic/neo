@@ -12,26 +12,11 @@
   "children": [
     {
       "id": "kid1",
-      "name": "Kid 1",
-      "grade": "",
-      "gender": "",
-      "school": "",
-      "location": ""
+      "name": "Kid 1"
     },
     {
       "id": "kid2",
-      "name": "Kid 2",
-      "grade": "",
-      "gender": "",
-      "school": "",
-      "location": ""
-    }
-  ],
-  "parents": [
-    {
-      "id": "parent1",
-      "name": "Parent 1",
-      "role": "parent"
+      "name": "Kid 2"
     }
   ]
 }

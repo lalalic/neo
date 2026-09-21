@@ -13,7 +13,8 @@ flowchart LR
   R --> M[neo/family-tutor/maggie]
   S --> T1[Same persistent ChatGPT thread]
   M --> T2[Same persistent ChatGPT thread]
-  O --> B[Loopback browser bridge]
+  O --> F[React + "Neo is thinking…"]
+  F --> B[Loopback browser bridge]
   B <--> E[ChatGPT extension]
   E --> S
   E --> M
@@ -28,6 +29,7 @@ flowchart LR
 
 - #sammy maps exactly to child id sammy and Project neo/family-tutor/sammy.
   No aliases, channel-id map, tab lookup, or alternative Project is valid.
+- Accepted child and parent messages immediately receive a transient reaction plus `Neo is thinking…`; that UI state is cleared on completion/failure and is never durable.
 - Child messages, images, and audio attachments go through the loopback bridge
   to the assigned Project's existing persistent thread. Audio is attached
   directly to ChatGPT; the prompt identifies it as a Discord voice message and

@@ -15,7 +15,7 @@ The release gate exercises the real Discord path through the single PM2-resident
 3. Exercise voice and image messages. Verify audio is attached to ChatGPT for direct transcription/understanding and image attachment handling.
 4. Send natural-language parent messages containing one or more configured child channel mentions anywhere, then send a no-mention follow-up. Verify fan-out, remembered runtime-only targets, exact Project suffixes, and privacy-filtered combined replies. /status remains covered.
 5. Have a tutor response emit a complete FAMILY_TUTOR_MEMORY block. Verify only the child's AGENTS.md changes and no transcript or parent-routing state is written.
-6. Inspect the instance: no transcript files or browser/project/tab bindings are created.
+6. Inspect the instance: no transcript files or learner state outside each child `AGENTS.md` are created. Browser Project/tab bindings may exist only in private extension runtime state.
 
 ## Evidence
 

@@ -16,7 +16,7 @@ if(fs.existsSync(config)){
     check(Array.isArray(cfg.children)&&cfg.children.every(c=>c.id && c.name),'every child has a canonical Discord channel-name id');
     check(cfg.browserBridge?.enabled===true,'browser bridge is enabled');
     check(['127.0.0.1','localhost','::1'].includes(cfg.browserBridge?.host||'127.0.0.1'),'browser bridge is loopback-only');
-    check(Array.isArray(cfg.children)&&cfg.children.every(c=>!Object.keys(c).some(key=>/alias|aliases|channelId|discordChannelId/i.test(key))),'children use exact channel names without legacy mappings');
+    check(Array.isArray(cfg.children)&&cfg.children.every(c=>!Object.keys(c).some(key=>/alias|aliases|channelId|discordChannelId|project|projectId|tabId|tutorProfile|grade|gender|school|location/i.test(key))),'children use exact channel names; learner memory stays in AGENTS.md and browser bindings stay in extension runtime state');
     check(Boolean(cfg.discord?.parentChannelId),'parent channel id is configured');
   }catch(e){check(false,`config parses: ${e.message}`)}
 }

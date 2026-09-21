@@ -25,7 +25,7 @@ Use `../skills/family-tutor/SKILL.md` as the reusable tutoring/runtime contract.
 
 - 2026-09-16: End-to-end tutor verification must exercise the real Discord child channels with distinct per-child probe messages and verify the reply returns to the same channel; service status or direct backend probes alone are not sufficient. Keep child backend work isolated so one stalled child turn cannot block another child.
 - 2026-09-20: Long-lived tutoring continuity uses one child-specific ChatGPT Project thread plus that child folder's `AGENTS.md`; parent target memory is runtime-only and audio goes directly through the browser bridge.
-- 2026-09-16: Keep the child-facing tutor conversational, but move longitudinal mastery, review timing, recurring misconceptions, and learner commitments into deterministic state. Proactive nudges should be justified by learner state or an open commitment, not by timers alone.
+- 2026-09-16: Keep the child-facing tutor conversational. Longitudinal mastery, review timing, recurring misconceptions, and learner commitments belong in the child AGENTS.md; proactive nudges should be justified by that durable learner context or an open commitment, not by timers alone.
 - 2026-09-16: Children speak more naturally when child tutor channels are not routine parent-observation channels. Parent visibility should be concise learning telemetry, with minimum-necessary escalation for serious safety concerns.
 - 2026-09-16: Academic/career direction works better as longitudinal discovery through small experiments and reflections than repeated pressure to choose a university, major, or career early.
 

@@ -87,7 +87,6 @@ node scripts/service.mjs stop <instance-dir>
 - A child channel must map to exactly one child.
 - A tutor thread must map to exactly one child.
 - Parent control commands must come only from the configured parent control channel.
-- Parent control commands must come from the configured parent control channel and a configured `role: parent` account.
 - Parent goals, guidance, and status questions mention a Discord child channel and run through the channel name's exact `neo/family-tutor/<channel-name>` Project, that child's existing persistent tutor thread, and its `AGENTS.md` as tagged parent context. Do not add aliases, separate name mappings, or channel-id-to-child mapping files. There is no second parent memory store.
 - In the configured parent channel, authorized parents may write natural-language messages with one or more configured child channel mentions anywhere in the sentence. The exact channel name must match the child id and ChatGPT Project suffix. A later no-mention message reuses the last successfully resolved target set in runtime memory; an explicit set replaces it. Command-like prefixes and mention-at-start are not required.
 - Discord audio attachments are forwarded directly to ChatGPT through the browser bridge with explicit voice-message context; local ASR is not the primary path.
