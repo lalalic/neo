@@ -17,11 +17,17 @@ function normalizeWhitespace(text) {
 }
 
 export function renderParentNaturalText(input, channelMentionId, childName) {
-  return normalizeWhitespace(String(input || '').replaceAll(`<#${channelMentionId}>`, childName));
+  const mention = `<#${String(channelMentionId || '').trim()}>`;
+  const replacement = String(childName || '').trim();
+  if (!mention || mention === '<#>') return normalizeWhitespace(input);
+  return normalizeWhitespace(String(input || '').split(mention).join(replacement));
 }
 
 function parentQueryType(value) {
-  return /(?:\?|\bhow(?:'s| is| are| was| were)?\b|\bstatus\b|\bprogress\b|\bdoing\b|\bgoing\b|\blearning\b|\bunderstand(?:ing)?\b|\bstruggl(?:e|es|ing)\b|\bimprov(?:e|ing|ement)\b|\brecent\b)/i.test(value)
+  const text = normalizeWhitespace(value);
+  const assignment = /\b(?:review|practice|complete|finish|work on|focus on|study|prepare|read|write|try)\b/i.test(text)
+    && !/\b(?:status|progress|how(?:'s| is| are| was| were)?|recent|going|learning)\b/i.test(text);
+  return !assignment && /(?:\?|\bhow(?:'s| is| are| was| were)?\b|\bstatus\b|\bprogress\b|\bdoing\b|\bgoing\b|\blearning\b|\bunderstand(?:ing)?\b|\bstruggl(?:e|es|ing)\b|\bimprov(?:e|ing|ement)\b|\brecent\b)/i.test(text)
     ? 'status-question'
     : 'guidance-assignment';
 }

@@ -27,6 +27,13 @@ test('routes natural parent messages by configured Discord channel mention anywh
   assert.equal(renderParentNaturalText(test.value,'111','Sammy'),'Sammy has a chemistry test Friday—focus on practice problems');
 });
 
+test('keeps possessive grammar when a resolved mention follows a contraction',()=>{
+  const parsed=parseParentMessage("how's <#111>'s recent status?",children);
+  const value=renderParentNaturalText(parsed.value,parsed.channelMentionId,'Sammy');
+  assert.equal(value,"how's Sammy's recent status?");
+  assert.doesNotMatch(value,/how's 's/);
+});
+
 test('preserves punctuation around a mid-sentence mention',()=>{
   const parsed=parseParentMessage('Could <#222>, please review fractions tonight?',children);
   assert.deepEqual(parsed,{command:'parent-query',channelMentionId:'222',value:'Could <#222>, please review fractions tonight?'});
@@ -71,9 +78,18 @@ test('resolves slash child by exact configured channel id',()=>{
 
 test('classifies natural status questions and assignments separately',()=>{
   const status=buildParentContextPrompt({child,command:'parent-query',value:"how's Sammy's recent status?",authorId:'p1',messageId:'m3'});
-  const guidance=buildParentContextPrompt({child,command:'parent-query',value:'please have Maggie review fractions tonight',authorId:'p1',messageId:'m4'});
+  const rawGuidance=parseParentMessage('please have <#222> review fractions tonight',children);
+  const guidance=buildParentContextPrompt({child:{id:'maggie',name:'Maggie'},command:'parent-query',value:renderParentNaturalText(rawGuidance.value,rawGuidance.channelMentionId,'Maggie'),authorId:'p1',messageId:'m4'});
   assert.match(status,/type=status-question/);
   assert.match(guidance,/type=guidance-assignment/);
+});
+
+test('classifies mid-sentence assignment mentions as guidance',()=>{
+  const parsed=parseParentMessage('Could <#222>, please review fractions tonight?',children);
+  const value=renderParentNaturalText(parsed.value,parsed.channelMentionId,'Maggie');
+  const prompt=buildParentContextPrompt({child:{id:'maggie',name:'Maggie'},command:'parent-query',value,authorId:'p1',messageId:'m5'});
+  assert.equal(value,'Could Maggie, please review fractions tonight?');
+  assert.match(prompt,/type=guidance-assignment/);
 });
 
 test('allows status only for an authorized parent in the configured channel',()=>{
