@@ -45,7 +45,7 @@ Read `references/tutoring-behavior.md` when creating or repairing tutor behavior
 
 Read `references/parent-observation.md` when configuring the parent channel or reports. Default parent output is learning telemetry: topic, evidence, misconception, progress, next step, and tutor note. Do not mirror every child message into the parent channel by default.
 
-The runtime registers a parent-only Discord `/status` command at startup. It accepts an optional `child` name, queries that learner's existing Project/thread with the learner's `AGENTS.md` context, and returns concise privacy-filtered learning signals. With no child it queries each configured learner for a compact overview. Requests outside `discord.parentChannelId` are denied, and `/status` creates no new durable learner-state files.
+The runtime registers a parent-only Discord `/status` command at startup. It accepts an optional configured child Discord channel selector, queries that learner's existing Project/thread with the learner's `AGENTS.md` context, and returns concise privacy-filtered learning signals. With no child channel it queries each configured learner for a compact overview. Parent messages in the configured parent channel must mention the configured child Discord channel (for example, `#sammy how is the recent status?`); the channel ID is the only routing key. Requests outside `discord.parentChannelId` are denied, and `/status` creates no new durable learner-state files.
 
 ## Codex, memory, and thread contract
 
@@ -83,7 +83,7 @@ node scripts/service.mjs stop <instance-dir>
 - A tutor thread must map to exactly one child.
 - Parent control commands must come only from the configured parent control channel.
 - Parent control commands must come from the configured parent control channel and a configured `role: parent` account.
-- Parent goals, guidance, and status questions target a named child and run through that child's existing persistent tutor thread as tagged parent context; there is no second parent memory store.
+- Parent goals, guidance, and status questions mention a configured child Discord channel and run through that child's existing persistent tutor thread as tagged parent context; child names, browser tabs, tab titles, and tab order are never routing keys. There is no second parent memory store.
 - In the configured parent channel, authorized parents may write natural-language messages with exactly one configured child channel mention anywhere in the sentence (Discord's `<#channel-id>` form). The channel ID is the deterministic routing key; the surrounding sentence is passed through as the parent query/context. Command-like prefixes and mention-at-start are not required.
 - Proactively send only minimum-necessary parent telemetry for meaningful academic risk or serious safety/wellbeing concerns, with suggested action and child transparency when safe and appropriate.
 - Treat child personal data as private runtime data.

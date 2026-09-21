@@ -5,7 +5,7 @@ import { loadConfig } from './config.mjs';
 import { CodexBackend } from './backends/codex.mjs';
 import { collectImageAttachments, understandImages } from './vision.mjs';
 import { isAudioAttachment, transcribeAudioAttachments } from './asr.mjs';
-import { buildParentContextPrompt, buildSlashStatusPrompt, canUseStatus, findChild, formatSlashOverview, formatSlashStatus, isAuthorizedParent, parseParentCommand, parseParentMessage, statusCommand, statusDenialMessage } from './parent-context.mjs';
+import { buildParentContextPrompt, buildSlashStatusPrompt, canUseStatus, findChildByChannel, formatSlashOverview, formatSlashStatus, isAuthorizedParent, parseParentCommand, parseParentMessage, statusCommand, statusDenialMessage } from './parent-context.mjs';
 
 const configFile=process.env.FAMILY_TUTOR_CONFIG;
 if(!configFile) throw new Error('FAMILY_TUTOR_CONFIG is required');
@@ -116,10 +116,10 @@ async function handleParentControl(message){
   if(!isAuthorizedParent(message,config)) return;
   const command=parseParentMessage(message.content,config.children);
   if(!command) return;
-  if(command.command==='!help') return message.reply('Commands: `!goal <childId> <goal>`, `!focus <childId> <focus>`, `!guide <childId> <guidance>`, `!ask <childId> <question>`, `!status <childId> <question>`, `!threads`');
+  if(command.command==='!help') return message.reply('Commands: `<#child-channel> !goal <goal>`, `<#child-channel> !focus <focus>`, `<#child-channel> !guide <guidance>`, `<#child-channel> !ask <question>`, `<#child-channel> !status <question>`, `<#child-channel> how is learning going?`, `!threads`');
   if(command.command==='!threads') return message.reply(config.children.map(c=>`${c.id}: one persistent tutor thread`).join('\n'));
-  const child=config.children.find(c=>c.id===command.childId);
-  if(!child) return message.reply(`Unknown child id. Use one of: ${config.children.map(c=>c.id).join(', ')}`);
+  const child=findChildByChannel(config.children,command.childChannelId);
+  if(!child) return message.reply('Please mention one configured child channel, for example `<#child-channel> how is learning going?`.');
   if(!command.value) return message.reply('Please include the goal, focus, guidance, or question.');
   const prompt=buildParentContextPrompt({child,command:command.command,value:command.value,authorId:message.author.id,messageId:message.id});
   const result=await backend.turn({prompt,childId:child.id});
@@ -135,9 +135,9 @@ async function statusForChild(child){
 }
 async function handleStatusInteraction(interaction){
   if(!canUseStatus({channelId:interaction.channelId,userId:interaction.user.id},config)) return interaction.reply({content:statusDenialMessage(),ephemeral:true});
-  const requested=interaction.options.getString('child');
-  const child=requested?findChild(config.children,requested):null;
-  if(requested&&!child) return interaction.reply({content:`Unknown child. Use one of: ${config.children.map((item)=>item.name).join(', ')}`,ephemeral:true});
+  const requested=interaction.options.getChannel('child-channel');
+  const child=requested?findChildByChannel(config.children,requested.id):null;
+  if(requested&&!child) return interaction.reply({content:'Choose one of the configured child channels.',ephemeral:true});
   await interaction.deferReply();
   const statuses=[];
   for(const target of child?[child]:config.children) statuses.push(await serialize(target.id,()=>statusForChild(target)));
@@ -145,7 +145,7 @@ async function handleStatusInteraction(interaction){
 }
 async function syncSlashCommands(applicationId){
   const rest=new REST({version:'10'}).setToken(discordToken);
-  const command=new SlashCommandBuilder().setName(statusCommand.name).setDescription(statusCommand.description).addStringOption((option)=>option.setName('child').setDescription('Child name (optional)').setRequired(false));
+  const command=new SlashCommandBuilder().setName(statusCommand.name).setDescription(statusCommand.description).addChannelOption((option)=>option.setName('child-channel').setDescription('Configured child channel (optional)').setRequired(false));
   await rest.put(Routes.applicationCommands(applicationId),{body:[command.toJSON()]});
 }
 
@@ -170,7 +170,7 @@ client.on(Events.MessageCreate,message=>{
   }
   if(config.discord.parentChannelId && message.channelId===config.discord.parentChannelId){
     const command=parseParentMessage(message.content,config.children);
-    const target=config.children.find(c=>c.id===command?.childId);
+    const target=findChildByChannel(config.children,command?.childChannelId);
     const key=target?.id||'parent-control';
     serialize(key,()=>handleParentControl(message)).catch(error=>{console.error('[family-tutor] parent control failed',error); message.reply('Parent control is temporarily unavailable.').catch(()=>{});});
   }

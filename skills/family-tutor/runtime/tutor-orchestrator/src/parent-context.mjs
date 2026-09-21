@@ -13,15 +13,24 @@ export function parseParentCommand(text) {
 const discordChannelMention = /<#(\d+)>/g;
 
 export function parseParentMessage(text, children) {
-  const command = parseParentCommand(text);
-  if (command) return command;
-  const mentions = [...String(text || '').matchAll(discordChannelMention)];
-  if (mentions.length !== 1) return null;
-  const child = children.find((candidate) => candidate.discordChannelId === mentions[0][1]);
-  if (!child) return null;
-  const value = String(text).replace(discordChannelMention, child.name).replace(/\s+/g, ' ').trim();
-  if (!value || value.toLowerCase() === child.name.toLowerCase()) return null;
-  return { command: 'parent-query', childId: child.id, value };
+  const input = String(text || '').trim();
+  const mentions = [...input.matchAll(discordChannelMention)];
+  const withoutMention = input.replace(discordChannelMention, ' ').replace(/\s+/g, ' ').trim();
+  const command = parseParentCommand(withoutMention);
+  if (command?.command === '!help' || command?.command === '!threads') return command;
+  if (mentions.length !== 1) {
+    if (!command) return null;
+    const { childId: _ignoredChildId, ...unroutedCommand } = command;
+    return unroutedCommand;
+  }
+  const childChannelId = mentions[0][1];
+  if (!children.some((candidate) => candidate.discordChannelId === childChannelId)) return null;
+  if (command) {
+    const [commandName, ...commandValue] = withoutMention.split(/\s+/);
+    return { command: commandName, childChannelId, value: commandValue.join(' ').trim() };
+  }
+  if (!withoutMention) return null;
+  return { command: 'parent-query', childChannelId, value: withoutMention };
 }
 
 export function buildParentContextPrompt({ child, command, value, authorId, messageId }) {
@@ -50,10 +59,8 @@ export function buildParentContextPrompt({ child, command, value, authorId, mess
 
 export const statusCommand = { name: 'status', description: 'Show a privacy-filtered learning status for one child or all children' };
 
-export function findChild(children, value) {
-  const wanted = String(value || '').trim().toLowerCase();
-  if (!wanted) return null;
-  return children.find((child) => child.id.toLowerCase() === wanted || child.name.toLowerCase() === wanted) || null;
+export function findChildByChannel(children, channelId) {
+  return children.find((child) => child.discordChannelId === String(channelId || '')) || null;
 }
 
 export function buildSlashStatusPrompt({ child, memory }) {
