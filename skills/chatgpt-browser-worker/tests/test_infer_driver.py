@@ -31,3 +31,11 @@ def test_inference_waits_for_attachment_processing_and_verified_user_turn():
     assert 'state["pending"]' in text
     assert "stable >= 2" in text
     assert "submitted prompt did not become a durable user turn" in text
+
+
+def test_inference_fails_fast_on_rate_limit():
+    text = DRIVER.read_text()
+    wrapper = WRAPPER.read_text()
+    assert '"too many requests" in body' in text
+    assert "temporarily rate limited" in text
+    assert 'if "temporarily rate limited" in last_error' in wrapper

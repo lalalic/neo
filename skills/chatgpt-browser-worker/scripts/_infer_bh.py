@@ -109,6 +109,13 @@ def _parse_json_response(text):
     return json.loads(candidate)
 
 
+def _page_failure():
+    body=(js("document.body.innerText") or "").casefold()
+    if "too many requests" in body:
+        return "ChatGPT browser inference is temporarily rate limited"
+    return None
+
+
 def _enable_temporary_chat():
     clicked = js("""(() => {
       const matches=[...document.querySelectorAll('button')].filter(
@@ -223,6 +230,9 @@ def _result(timeout):
     stable_since=None
     quiet_seconds=30 if CFG.get("expect_json") else 10
     while time.time() < deadline:
+        failure=_page_failure()
+        if failure:
+            raise RuntimeError(failure)
         if _is_generating():
             signature=None
             stable_since=None
