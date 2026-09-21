@@ -58,6 +58,13 @@ See `references/project-instructions.md` for the child Codex thread contract.
 
 ## Runtime boundary
 
+When an accepted child-channel or parent-control message enters the tutor
+queue, the Discord runtime reacts to the original message and posts the
+temporary `Neo is thinking…` signal immediately. Both are cleared when the
+turn completes or fails. This state is keyed only by the in-flight Discord
+message, is deduplicated while active, and is never written to learner memory,
+thread state, or another durable store.
+
 The bundled `runtime/tutor-orchestrator` is the single long-lived PM2 service for this skill. It owns Discord transport, routing, serialized per-child queues, child Codex thread binding, durable-memory handoff, thread rollover, retries/failure reporting, parent transport/telemetry, and service lifecycle. Codex CLI processes are bounded child executions; no second daemon or IPC layer is required.
 
 Tutoring intelligence belongs in the Codex tutor thread and this skill contract, not in a second local LLM or OpenAI API adapter.

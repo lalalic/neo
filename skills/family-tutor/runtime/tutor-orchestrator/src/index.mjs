@@ -5,6 +5,7 @@ import { loadConfig } from './config.mjs';
 import { CodexBackend } from './backends/codex.mjs';
 import { collectImageAttachments, understandImages } from './vision.mjs';
 import { isAudioAttachment, transcribeAudioAttachments } from './asr.mjs';
+import { beginThinkingFeedback } from './thinking-feedback.mjs';
 import { buildParentContextPrompt, buildSlashStatusPrompt, canUseStatus, childProjectName, findChildByChannelName, formatSlashOverview, formatSlashStatus, isAuthorizedParent, parseParentCommand, parseParentMessage, renderParentNaturalText, statusCommand, statusDenialMessage, validateChildChannel } from './parent-context.mjs';
 
 const configFile=process.env.FAMILY_TUTOR_CONFIG;
@@ -53,6 +54,7 @@ function collectAttachments(message){
     size:Number(a.size||0),
   }));
 }
+function hasTutorInput(message){ return Boolean(message.content?.trim() || message.attachments?.size); }
 async function sendAssistantOutputs(channel,outputs=[]){
   for(const output of outputs.slice(0,6)){
     if(!output?.data?.length) continue;
@@ -113,7 +115,7 @@ async function handleChildMessage(message,child){
 
 async function handleParentControl(message){
   if(!isAuthorizedParent(message,config)) return;
-  const command=parseParentMessage(message.content,config.children);
+  const command=parseParentMessage(message.content);
   if(!command) return;
   if(command.command==='!help') return message.reply('Commands: `<#child-channel> !goal <goal>`, `<#child-channel> !focus <focus>`, `<#child-channel> !guide <guidance>`, `<#child-channel> !ask <question>`, `<#child-channel> !status <question>`, `<#child-channel> how is learning going?`, `!threads`');
   if(command.command==='!threads') return message.reply(config.children.map(c=>`${c.id}: one persistent tutor thread`).join('\n'));
@@ -179,13 +181,21 @@ client.on(Events.MessageCreate,message=>{
   const child=findChildByChannelName(config.children,message.channel?.name);
   if(child){
     try{ validateChildChannel(child,message.channel); }catch(error){ console.error('[family-tutor] child channel configuration error',error); message.reply(error.message).catch(()=>{}); return; }
-    serialize(child.id,()=>handleChildMessage(message,child)).catch(error=>{console.error(`[family-tutor] ${child.id} turn failed`,error); message.reply('The tutor is temporarily unavailable. Please try again shortly.').catch(()=>{});});
+    if(!hasTutorInput(message)) return;
+    void (async()=>{
+      const thinking=await beginThinkingFeedback(message);
+      serialize(child.id,()=>handleChildMessage(message,child)).then(()=>thinking.clear()).catch(error=>{console.error(`[family-tutor] ${child.id} turn failed`,error); return thinking.clear().then(()=>message.reply('The tutor is temporarily unavailable. Please try again shortly.').catch(()=>{}));});
+    })();
     return;
   }
   if(config.discord.parentChannelId && message.channelId===config.discord.parentChannelId){
-    const command=parseParentMessage(message.content,config.children);
+    const command=parseParentMessage(message.content);
+    if(!isAuthorizedParent(message,config) || !command) return;
     const key=command?.channelMentionId||'parent-control';
-    serialize(key,()=>handleParentControl(message)).catch(error=>{console.error('[family-tutor] parent control failed',error); message.reply(error.message.includes('configuration error')?error.message:'Parent control is temporarily unavailable.').catch(()=>{});});
+    void (async()=>{
+      const thinking=await beginThinkingFeedback(message);
+      serialize(key,()=>handleParentControl(message)).then(()=>thinking.clear()).catch(error=>{console.error('[family-tutor] parent control failed',error); return thinking.clear().then(()=>message.reply(error.message.includes('configuration error')?error.message:'Parent control is temporarily unavailable.').catch(()=>{}));});
+    })();
   }
 });
 await client.login(discordToken);
