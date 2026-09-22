@@ -66,6 +66,7 @@ Because Neo is public, secrets, personal data, customer data, private identifier
 - Project-only roles live in `<project>/agents/<role>.md`.
 - Project-only capabilities may live in `<project>/skills/<skill>/`; they are visible only when that project is the active XChat project.
 - Cross-project reusable capabilities live in root `skills/<skill>/`.
+- For Markcut Vision with Browser ChatGPT, read `skills/chatgpt-browser-worker/references/markcut-vision.md`; keep Markcut on its generic `vision --itt` / `--vtt` hooks rather than adding a ChatGPT-specific Markcut command.
 - If a project-local skill and a shared/global skill declare the same skill `name`, the project-local skill takes precedence within that project.
 - Do not duplicate a reusable skill as a project agent.
 - A project must not depend on another project's `runs/` directory.
