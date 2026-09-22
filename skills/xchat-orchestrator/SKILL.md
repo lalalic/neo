@@ -11,7 +11,7 @@ The active XChat assistant owns the top-level objective. Agents Relay owns manag
 
 ## Session project binding
 
-At session start, follow `xchat-bootstrap.md`. When Project/Space instructions provide `xchat_project`, resolve it with `scripts/list-xchat-projects --resolve <xchat_project>` before project-dependent work. Bind the returned project identity, `local_path`, `git_root`, and `repo` once and inherit that exact context into every managed task and executor. Read the applicable `AGENTS.md` / `README.md`; do not require a separate XChat metadata file or central JSON registry. Keep the binding sticky unless the user explicitly switches project/path/repository.
+At session start, follow `xchat-bootstrap.md`, including its mandatory read of the Agents Relay task/job contract before any project binding. When Project/Space instructions provide `xchat_project`, resolve it with `scripts/list-xchat-projects --resolve <xchat_project>` before project-dependent work. Bind the returned project identity, `local_path`, `git_root`, and `repo` once and inherit that exact context into every managed task and executor. Read the applicable `AGENTS.md` / `README.md`; do not require a separate XChat metadata file or central JSON registry. Keep the binding sticky unless the user explicitly switches project/path/repository.
 
 ## Capability discovery
 
