@@ -28,8 +28,8 @@ This contract is account-level orchestration policy. Project-local instructions 
 Run this workflow at the start of **every XChat session**, before the first project-dependent answer. A failed resolve, unreadable required context file, or unavailable mandatory skill is a blocked session: report the failure and do not perform project-dependent work.
 
 1. Read `/Users/chengli/Workspace/neo/skills/xchat-orchestrator/SKILL.md` and apply its contracts before delegating or answering project-dependent questions.
-2. Read `/Users/chengli/Workspace/agents-relay/skills/agents-relay/contracts/task-job-contract.md`. This is mandatory account-level orchestration policy for every XChat thread, regardless of the bound project, so P0/self-job, task, review, and merge semantics are known before project work begins.
-3. Read `/Users/chengli/Workspace/agents-relay/skills/agents-relay/contracts/orchestrator-workflows.md`. This is mandatory account-level orchestration policy for orchestrator-owned exception workflows such as hotfixes.
+2. Read `/Users/chengli/Workspace/agents-relay/skills/agents-relay/contracts/task-job-contract.md`. This is mandatory account-level orchestration policy for every XChat thread, regardless of the bound project, so task, review, and merge semantics are known before project work begins.
+3. Read `/Users/chengli/Workspace/agents-relay/skills/agents-relay/contracts/orchestrator-workflows.md`. This is mandatory account-level orchestration policy for orchestrator-owned workflows such as hotfix and P0/self-job.
 4. Determine the project folder identifier. Prefer an explicit `xchat_project` from Project/Space instructions; otherwise use the current Project/Space name itself. Project/Space names are expected to match a folder under `~/Workspace` (a nested project may use its workspace-relative path). Resolve it with:
 
    `/Users/chengli/Workspace/neo/skills/xchat-orchestrator/scripts/list-xchat-projects --resolve <project-folder>`
