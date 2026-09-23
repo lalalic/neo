@@ -24,7 +24,7 @@ The canonical protocol is `references/protocol.md` inside this skill. Read it be
 
 ## Event ownership guideline
 
-`events-bus` defines the common event envelope, transport, visibility, lifecycle/status vocabulary, delivery semantics, and display contract. It does **not** centrally enumerate every domain-specific event type. The skill or component that owns a semantic action owns the event names and payloads for that action, and SHOULD document its supported events in an `Events` section in its own `SKILL.md` or a referenced event contract. Those events MUST still conform to the events-bus envelope and protocol.
+`events-bus` provides transport and the current Neo compatibility envelope. Producer and Consumer own source-identity encoding and payload semantics; the bus does not interpret Job/Task/Execution identities, worker kinds, or domain lifecycle meaning. The current object-shaped envelope carries the opaque producer identity as `source.id`. It does **not** centrally enumerate every domain-specific event type. The skill or component that owns a semantic action owns the event names and payloads for that action, and SHOULD document its supported events in an `Events` section in its own `SKILL.md` or a referenced event contract. Those events MUST still conform to the events-bus envelope and protocol.
 
 As a general transparency rule, whenever an agent/worker is selected or started, the component that owns that selection or launch MUST publish a user-visible event identifying the model and reasoning/thinking level when those values are known. The exact semantic event name and `data` shape belong to that component/skill, not to events-bus. Never invent a model or thinking level that was not actually selected.
 
@@ -33,7 +33,7 @@ As a general transparency rule, whenever an agent/worker is selected or started,
 1. Generate one unique `job_id` before starting any child work.
 2. For request/response MCP hosts, establish a pre-launch watch capability **before** publishing `job.started` or launching the child. Prefer `events__watch(job_id)` and remember its `after_cursor`. If that tool name is unavailable, only for a newly-created unique job with no prior events, use `events__history(job_id, after_cursor=0, limit=1)`; an empty result establishes cursor `0`. Never use that fallback for an existing/resumed job with an unknown cursor. Native subscribers may establish the equivalent non-blocking cursor directly.
 3. Emit `job.started` for the orchestration itself.
-4. Pass `NEO_JOB_ID`, `NEO_ORCHESTRATOR_ID`, and a task-specific `NEO_TASK_ID` to the child. For nested work also pass `NEO_PARENT_TASK_ID`. Put the exact literal `job_id` and `task_id` values in the delegation prompt as well as the environment; never say only `inherited` or use a placeholder. For direct local workers that can reach NATS, also pass `NEO_EVENTS_BUS_DIR` and `NEO_EVENTS_EMIT=<absolute-skill-dir>/scripts/emit.mjs`.
+4. Pass the Producer/Consumer-defined source identity as `NEO_EVENT_SOURCE`, plus the current Neo compatibility fields `NEO_JOB_ID`, `NEO_ORCHESTRATOR_ID`, and task-specific `NEO_TASK_ID`, to the child. For nested work also pass `NEO_PARENT_TASK_ID`. Put the exact literal `job_id` and `task_id` values in the delegation prompt as well as the environment; never say only `inherited` or use a placeholder. For direct local workers that can reach NATS, also pass `NEO_EVENTS_BUS_DIR` and `NEO_EVENTS_EMIT=<absolute-skill-dir>/scripts/emit.mjs`.
 5. Keep consuming events while the job runs.
 6. Proactively surface `visibility=user` events in the current user experience. Do not wait for the user to ask "what is the status?".
 7. Emit exactly one terminal `job.completed|failed|blocked|cancelled` event and stop only after it has been reconciled with the actual work result.
@@ -42,7 +42,7 @@ For noisy numeric progress, coalesce updates; never suppress milestones, warning
 
 ## Sub-agent workflow
 
-A sub-agent uses the caller-provided job/task correlation; it does not mint replacements for the same job. A Codex worker running in the normal sandbox MUST use MCP `events__publish`, because the sandbox can deny direct TCP access to the local NATS port. The orchestrator must include the exact literal `job_id` and `task_id` in the worker prompt, and the worker must copy those exact values into every publish call. Do not pass strings such as `inherited`, `current`, or `<job-id>` as event IDs. Direct non-sandbox local workers may use `NEO_EVENTS_EMIT`.
+A sub-agent uses the caller-provided source identity and compatibility correlation; it does not mint or reinterpret its own identity. A Codex worker running in the normal sandbox MUST use MCP `events__publish`, because the sandbox can deny direct TCP access to the local NATS port. The orchestrator must include the exact literal `job_id` and `task_id` in the worker prompt, and the worker must copy those exact values into every publish call. Do not pass strings such as `inherited`, `current`, or `<job-id>` as event IDs. Direct non-sandbox local workers may use `NEO_EVENTS_EMIT`.
 
 At minimum emit:
 
@@ -89,7 +89,8 @@ For non-sandbox local workers that can reach NATS directly, the skill ships `scr
 export NEO_JOB_ID='<job-id>'
 export NEO_TASK_ID='publish-xhs'
 export NEO_ORCHESTRATOR_ID='chatgpt:<session-or-run-id>'
-export NEO_AGENT='codex'
+export NEO_EVENT_SOURCE='job/<job-id>/task/publish-xhs/execution/<execution-id>'
+export NEO_AGENT='codex' # optional diagnostic metadata
 export NEO_EVENTS_BUS_DIR='<absolute-path-to-events-bus-skill>'
 export NEO_EVENTS_EMIT="$NEO_EVENTS_BUS_DIR/scripts/emit.mjs"
 
