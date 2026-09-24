@@ -66,13 +66,14 @@ export class PackageServiceUpdater {
     if (!publication || !publication.jobId) return { action: 'ignored', reason: 'not-package-publication' };
     const target = this.config?.packages?.[publication.packageName];
     if (!target || typeof target.pm2Service !== 'string' || !target.pm2Service) return { action: 'ignored', reason: 'unconfigured-package' };
-    const key = publication.packageName + '@' + publication.version;
-    if (this.state.deployed[publication.packageName] === publication.version || this.inFlight.has(key)) return { action: 'ignored', reason: 'already-deployed' };
+    const key = publication.packageName;
+    if (this.inFlight.has(key)) return { action: 'ignored', reason: 'deployment-in-flight' };
 
     this.inFlight.add(key);
+    let deployVersion = null;
     const baseData = {
       package: publication.packageName,
-      version: publication.version,
+      publicationVersion: publication.version,
       registry: publication.registry,
       repository: publication.repository,
       prNumber: publication.prNumber,
@@ -80,9 +81,14 @@ export class PackageServiceUpdater {
     };
     try {
       const pullable = this.execute('npm', ['view', publication.packageName + '@' + publication.version, 'version', '--registry=' + publication.registry], { timeoutMs: 30000 });
-      if (pullable.code !== 0 || pullable.stdout.trim() !== publication.version) throw new Error('exact package version is not pullable');
+      if (pullable.code !== 0 || pullable.stdout.trim() !== publication.version) throw new Error('exact published package version is not pullable');
+      const latest = this.execute('npm', ['view', publication.packageName, 'version', '--registry=' + publication.registry], { timeoutMs: 30000 });
+      deployVersion = latest.code === 0 ? latest.stdout.trim() : '';
+      if (!deployVersion) throw new Error('registry latest version is unavailable');
+      baseData.deployVersion = deployVersion;
+      if (this.state.deployed[publication.packageName] === deployVersion) return { action: 'ignored', reason: 'already-deployed', version: deployVersion };
 
-      await this.emit(event, 'service.deploy.started', 'running', `Deploying ${publication.packageName}@${publication.version} to ${target.pm2Service}`, baseData);
+      await this.emit(event, 'service.deploy.started', 'running', `Deploying ${publication.packageName}@${deployVersion} after publication ${publication.version} to ${target.pm2Service}`, baseData);
 
       const restart = this.execute('npx', ['pm2', 'restart', target.pm2Service], { timeoutMs: 60000 });
       if (restart.code !== 0) throw new Error('PM2 restart failed: ' + restart.stderr.trim());
@@ -103,7 +109,7 @@ export class PackageServiceUpdater {
         }
         if (!verificationError && version) {
           const checked = this.execute(version.command, version.args, { timeoutMs: target.verifyTimeoutMs ?? 30000 });
-          if (checked.code !== 0 || checked.stdout.trim() !== publication.version) verificationError = new Error(`running version mismatch: expected ${publication.version}, observed ${checked.stdout.trim() || 'unavailable'}`);
+          if (checked.code !== 0 || checked.stdout.trim() !== deployVersion) verificationError = new Error(`running version mismatch: expected ${deployVersion}, observed ${checked.stdout.trim() || 'unavailable'}`);
         }
         if (!verificationError) break;
         if (attempt < verifyAttempts && verifyIntervalMs) await this.sleep(verifyIntervalMs);
@@ -113,11 +119,11 @@ export class PackageServiceUpdater {
       const save = this.execute('npx', ['pm2', 'save'], { timeoutMs: 60000 });
       if (save.code !== 0) throw new Error('PM2 save failed: ' + save.stderr.trim());
 
-      this.state.deployed[publication.packageName] = publication.version;
+      this.state.deployed[publication.packageName] = deployVersion;
       this.state.updatedAt = new Date().toISOString();
       await this.saveState(this.state);
-      await this.emit(event, 'service.deploy.completed', 'succeeded', `Deployed ${publication.packageName}@${publication.version} to ${target.pm2Service}`, baseData);
-      return { action: 'deployed', package: publication.packageName, version: publication.version, service: target.pm2Service };
+      await this.emit(event, 'service.deploy.completed', 'succeeded', `Deployed ${publication.packageName}@${deployVersion} after publication ${publication.version} to ${target.pm2Service}`, baseData);
+      return { action: 'deployed', package: publication.packageName, publicationVersion: publication.version, version: deployVersion, service: target.pm2Service };
     } catch (error) {
       await this.emit(event, 'service.deploy.failed', 'failed', error instanceof Error ? error.message : String(error), baseData);
       return { action: 'failed', error: error instanceof Error ? error.message : String(error) };

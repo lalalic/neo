@@ -103,12 +103,12 @@ Each package entry supports:
 - `pm2Service`: required existing PM2 process name.
 - `settleMs`: optional delay after restart before verification.
 - `healthCommand`: optional argv array; exit 0 means healthy.
-- `versionCommand`: optional argv array; stdout must equal the published version.
+- `versionCommand`: optional argv array; stdout must equal the resolved deployment version (current registry `latest`), which may be newer than the publication event that triggered the wake.
 - `verifyTimeoutMs`: optional per-command verification timeout.
 - `verifyAttempts`: optional health/version retry count (default 10).
 - `verifyIntervalMs`: optional delay between verification attempts (default 1000 ms).
 
-The updater always checks `npm view <package>@<version> version` first. It never edits the PM2 process definition, so the service must already use the package-backed launcher contract described above. Duplicate package/version events are ignored after a successful deployment. Failed verification does not update deployment state and does not run `pm2 save`.
+The updater first verifies the event's exact published version is pullable with `npm view <package>@<published-version> version`. It then resolves the registry's current `latest` version and treats that as the deployment target, matching the managed service's floating `@latest` launcher. This prevents a delayed publication event from rolling a service backward or reporting an older event version as the running version when a newer release has already become latest. Persistent state records the actual latest version successfully deployed. Duplicate or stale publication wakes may re-check registry facts but do not restart when that current latest version is already recorded. Failed verification does not update deployment state and does not run `pm2 save`.
 
 Run directly:
 
