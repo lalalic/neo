@@ -10,7 +10,6 @@ are deployment and distribution targets, not source of truth.
   through GitHub pull requests.
 - codex-handoff — deprecated Drive handoff protocol retained temporarily for
   migration only.
-- browser-workspace — Browser Harness integration for named Chrome tab-group workspaces managed by the standalone browser-workspace extension.
 - chatgpt-browser-worker — durable ChatGPT web-thread lifecycle contract on top
   of browser-harness, with verified Project binding and explicit thinking-level
   semantics.
