@@ -34,6 +34,33 @@ def load_helper():
 
 
 class WorkspaceMappingTest(unittest.TestCase):
+    def test_worker_waits_for_rpc_ready(self):
+        module = load_helper()
+        calls = {"js": 0}
+
+        class Helpers:
+            @staticmethod
+            def cdp(method, **kwargs):
+                if method == "Target.getTargets":
+                    return {
+                        "targetInfos": [{
+                            "targetId": "worker",
+                            "type": "service_worker",
+                            "url": "chrome-extension://kgbghhigmbpefppgkocgjgnnnbhjchic/service-worker.mjs",
+                        }]
+                    }
+                return {}
+
+            @staticmethod
+            def js(_expression, target_id=None):
+                calls["js"] += 1
+                return calls["js"] >= 2
+
+        module["_bh"].cdp = Helpers.cdp
+        module["_bh"].js = Helpers.js
+        self.assertEqual(module["_worker_target"](), "worker")
+        self.assertGreaterEqual(calls["js"], 2)
+
     def test_unique_mapping_and_ambiguous_drop(self):
         mapper = load_helper()["_map_workspace_tabs"]
         chrome_tabs = [

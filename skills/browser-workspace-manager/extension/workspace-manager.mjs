@@ -77,6 +77,20 @@ export class WorkspaceManager {
     await this.saveConfig(config);
   }
 
+  async waitForManagedTab(tabId, workspace, role, timeoutMs = 3000) {
+    const deadline = Date.now() + timeoutMs;
+    for (;;) {
+      const tabs = await this.chrome.tabs.query({});
+      const tab = tabs.find((candidate) => candidate.id === tabId);
+      const meta = this.parseManagedUrl(tab?.url || "");
+      if (tab && meta?.workspace === workspace && meta.role === role) return tab;
+      if (Date.now() >= deadline) {
+        throw new Error(`Timed out waiting for workspace ${workspace} ${role} tab ${tabId}`);
+      }
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+  }
+
   async markerTab(name) {
     const tabs = await this.chrome.tabs.query({});
     const candidates = tabs.filter((tab) => {
@@ -105,13 +119,16 @@ export class WorkspaceManager {
   }
 
   async createGroup(name, poolSize) {
-    const created = [];
-    created.push(await this.chrome.tabs.create({ url: this.markerUrl(name), active: false }));
+    const marker = await this.chrome.tabs.create({ url: this.markerUrl(name), active: false });
+    const idle = [];
     for (let slot = 0; slot < poolSize; slot += 1) {
-      created.push(await this.chrome.tabs.create({ url: this.idleUrl(name, slot), active: false }));
+      idle.push(await this.chrome.tabs.create({ url: this.idleUrl(name, slot), active: false }));
     }
+    const created = [marker, ...idle];
     const groupId = await this.chrome.tabs.group({ tabIds: created.map((tab) => tab.id) });
     await this.chrome.tabGroups.update(groupId, { title: name, collapsed: true });
+    await this.waitForManagedTab(marker.id, name, "marker");
+    for (const tab of idle) await this.waitForManagedTab(tab.id, name, "idle");
     return await this.status(name);
   }
 
@@ -141,7 +158,10 @@ export class WorkspaceManager {
       for (let slot = usableCount; slot < poolSize; slot += 1) {
         added.push(await this.chrome.tabs.create({ url: this.idleUrl(name, slot), active: false }));
       }
-      if (added.length) await this.chrome.tabs.group({ groupId, tabIds: added.map((tab) => tab.id) });
+      if (added.length) {
+        await this.chrome.tabs.group({ groupId, tabIds: added.map((tab) => tab.id) });
+        for (const tab of added) await this.waitForManagedTab(tab.id, name, "idle");
+      }
     } else if (usableCount > poolSize && idle.length) {
       const removable = Math.min(idle.length, usableCount - poolSize);
       await this.chrome.tabs.remove(idle.slice(0, removable).map((tab) => tab.id));
