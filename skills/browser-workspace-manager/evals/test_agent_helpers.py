@@ -34,6 +34,24 @@ def load_helper():
 
 
 class WorkspaceMappingTest(unittest.TestCase):
+    def test_ensure_uses_workspace_ensure(self):
+        module = load_helper()
+        calls = []
+
+        def manager_call(method, args=None):
+            calls.append((method, args))
+            return {"initialized": True, "poolSize": 4}
+
+        ensure = module["_ensure_workspace"]
+        ensure.__globals__["_manager_call"] = manager_call
+        ensure.__globals__["_WORKSPACE_NAME"] = "Research"
+        ensure.__globals__["_POOL_SIZE"] = 4
+        self.assertEqual(ensure()["poolSize"], 4)
+        self.assertEqual(
+            calls,
+            [("workspace.ensure", {"name": "Research", "poolSize": 4})],
+        )
+
     def test_worker_waits_for_rpc_ready(self):
         module = load_helper()
         calls = {"js": 0}

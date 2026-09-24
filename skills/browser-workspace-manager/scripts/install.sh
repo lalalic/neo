@@ -4,16 +4,12 @@ set -eu
 SKILL_DIR=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 TARGET_DIR="${BH_AGENT_WORKSPACE:-$HOME/.config/browser-harness/agent-workspace}"
 ENV_FILE="$TARGET_DIR/.env"
-DEPLOY_ROOT="${BH_WORKSPACE_MANAGER_HOME:-$HOME/.config/browser-workspace-manager}"
-EXTENSION_DIR="$DEPLOY_ROOT/extension"
-EXTENSION_ID="kgbghhigmbpefppgkocgjgnnnbhjchic"
+EXTENSION_ID="${BH_WORKSPACE_MANAGER_EXTENSION_ID:-kgbghhigmbpefppgkocgjgnnnbhjchic}"
 WORKSPACE_NAME="${BH_WORKSPACE_NAME:-MDB}"
 POOL_SIZE="${BH_WORKSPACE_POOL_SIZE:-8}"
 
-mkdir -p "$TARGET_DIR" "$DEPLOY_ROOT"
+mkdir -p "$TARGET_DIR"
 cp "$SKILL_DIR/browser-harness/agent_helpers.py" "$TARGET_DIR/agent_helpers.py"
-rm -rf "$EXTENSION_DIR"
-cp -R "$SKILL_DIR/extension" "$EXTENSION_DIR"
 
 python3 - "$ENV_FILE" "$EXTENSION_ID" "$WORKSPACE_NAME" "$POOL_SIZE" <<'PY'
 from pathlib import Path
@@ -31,7 +27,7 @@ kept.extend(f"{key}={value}" for key, value in values.items())
 path.write_text("\n".join(kept) + "\n")
 PY
 
-echo "Browser Harness helper installed."
-echo "Chrome extension directory: $EXTENSION_DIR"
-echo "Extension ID: $EXTENSION_ID"
-echo "Workspace: $WORKSPACE_NAME (pool size $POOL_SIZE)"
+echo "Browser Harness workspace helper installed in $TARGET_DIR"
+echo "BH_WORKSPACE_NAME=$WORKSPACE_NAME"
+echo "BH_WORKSPACE_POOL_SIZE=$POOL_SIZE"
+echo "BH_WORKSPACE_MANAGER_EXTENSION_ID=$EXTENSION_ID"
