@@ -120,7 +120,7 @@ On macOS, keep the updater outside the PM2 process tree it manages. Install it a
 ~/Workspace/neo/skills/daemon-service-manage/scripts/install-package-service-updater-macos.sh
 ```
 
-The installer resolves the current Node executable and canonical updater script path, writes `~/Library/LaunchAgents/com.neo.package-service-updater.plist`, and starts the per-user service. Logs and mutable state stay under `~/.neo/`. Do not add this source script to PM2; PM2-managed application services must continue to use distributable package launchers.
+The installer copies the updater plus its events-bus transport/dependencies into a durable runtime under `~/.neo/package-service-updater/runtime`, writes `~/Library/LaunchAgents/com.neo.package-service-updater.plist`, and starts the per-user service from that runtime. Logs and mutable state stay under `~/.neo/`. Re-run the installer after updating this capability. Do not add the source checkout script to PM2; PM2-managed application services must continue to use distributable package launchers.
 
 The updater is deliberately outside Agents Relay. Agents Relay may emit release facts; it must not own package-to-service mappings, PM2 restart policy, or deployment health checks.
 
