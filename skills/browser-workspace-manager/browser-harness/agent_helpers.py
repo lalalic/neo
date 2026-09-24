@@ -35,10 +35,19 @@ def _worker_target():
     deadline = _time.monotonic() + _TIMEOUT_SECONDS
     while _time.monotonic() < deadline:
         for target in _bh.cdp("Target.getTargets").get("targetInfos", []):
-            if target.get("type") == "service_worker" and target.get("url", "").startswith(scope):
-                return target["targetId"]
+            if target.get("type") != "service_worker" or not target.get("url", "").startswith(scope):
+                continue
+            target_id = target["targetId"]
+            try:
+                if _bh.js(
+                    "typeof globalThis.browserWorkspaceManagerRpc === 'function'",
+                    target_id=target_id,
+                ):
+                    return target_id
+            except Exception:
+                pass
         _time.sleep(0.05)
-    raise RuntimeError("Browser Workspace Manager service worker did not start")
+    raise RuntimeError("Browser Workspace Manager service worker did not become ready")
 
 
 def _manager_call(method, args=None):
@@ -79,6 +88,9 @@ def workspace_delete(name, force=False):
 
 
 def _ensure_workspace():
+    status = _manager_call("workspace.status", {"name": _WORKSPACE_NAME})
+    if status.get("initialized"):
+        return status
     return _manager_call(
         "workspace.create",
         {"name": _WORKSPACE_NAME, "poolSize": _POOL_SIZE},
@@ -86,8 +98,7 @@ def _ensure_workspace():
 
 
 def workspace_status():
-    _ensure_workspace()
-    return _manager_call("workspace.status", {"name": _WORKSPACE_NAME})
+    return _ensure_workspace()
 
 
 def _target_id(target):
