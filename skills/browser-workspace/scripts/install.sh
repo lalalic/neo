@@ -5,8 +5,8 @@ SKILL_DIR=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 TARGET_DIR="${BH_AGENT_WORKSPACE:-$HOME/.config/browser-harness/agent-workspace}"
 ENV_FILE="$TARGET_DIR/.env"
 EXTENSION_ID="${BH_WORKSPACE_MANAGER_EXTENSION_ID:-kgbghhigmbpefppgkocgjgnnnbhjchic}"
-WORKSPACE_NAME="${BH_WORKSPACE_NAME:-MDB}"
-POOL_SIZE="${BH_WORKSPACE_POOL_SIZE:-8}"
+WORKSPACE_NAME="${BH_WORKSPACE_NAME:-Harness}"
+POOL_SIZE="${BH_WORKSPACE_POOL_SIZE:-5}"
 
 mkdir -p "$TARGET_DIR"
 cp "$SKILL_DIR/browser-harness/agent_helpers.py" "$TARGET_DIR/agent_helpers.py"

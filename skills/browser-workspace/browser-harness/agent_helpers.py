@@ -12,9 +12,9 @@ _EXTENSION_ID = _os.environ.get(
 )
 _WORKSPACE_NAME = _os.environ.get(
     "BH_WORKSPACE_NAME",
-    _os.environ.get("BH_MDB_GROUP_NAME", "MDB"),
+    _os.environ.get("BH_MDB_GROUP_NAME", "Harness"),
 )
-_POOL_SIZE = int(_os.environ.get("BH_WORKSPACE_POOL_SIZE", "8"))
+_POOL_SIZE = int(_os.environ.get("BH_WORKSPACE_POOL_SIZE", "5"))
 _TIMEOUT_SECONDS = 5.0
 
 _original_switch_tab = _bh.switch_tab

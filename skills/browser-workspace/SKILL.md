@@ -54,8 +54,8 @@ The extension owns workspace/group/pool lifecycle only. Browser Harness remains 
 Set the Browser Harness workspace name and exact pool size before applying the helper:
 
 ```bash
-export BH_WORKSPACE_NAME=MDB
-export BH_WORKSPACE_POOL_SIZE=4
+export BH_WORKSPACE_NAME=Harness
+export BH_WORKSPACE_POOL_SIZE=5
 ```
 
 Optionally override the extension ID:
