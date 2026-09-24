@@ -13,11 +13,11 @@ _KEEP_OWNED_TAB_OPEN = CFG.get("close_policy", "after-start") == "never"
 
 
 def _new_owned_tab(url):
-    target_id = cdp("Target.createTarget", url="about:blank", background=True)["targetId"]
-    switch_tab(target_id)
+    # Respect Browser Harness workspace adapters. A configured workspace may
+    # override new_tab()/close_tab() to acquire and release only managed tabs;
+    # raw Target.createTarget bypasses that boundary and is correctly refused.
+    target_id = new_tab(url)
     _OWNED_TABS.append(target_id)
-    if url != "about:blank":
-        goto_url(url)
     return target_id
 
 
@@ -80,6 +80,56 @@ def _same_text(observed, expected):
 
 def _normalized_text(value):
     return re.sub(r"\s+", " ", value or "").strip()
+
+
+def _temporary_chat_candidates():
+    return js(r"""(() => [...document.querySelectorAll('button')].map((b, index) => {
+      const label=(b.getAttribute('aria-label') || '').trim();
+      const text=(b.innerText || '').trim();
+      const semantic=/temporary/i.test(label + ' ' + text) && /chat/i.test(label + ' ' + text);
+      if (!semantic) return null;
+      const r=b.getBoundingClientRect();
+      const style=getComputedStyle(b);
+      return {
+        index,
+        label,
+        text,
+        visible:r.width > 0 && r.height > 0 && style.visibility !== 'hidden' && style.display !== 'none',
+        disabled:!!b.disabled || b.getAttribute('aria-disabled') === 'true',
+        pointerEvents:style.pointerEvents,
+      };
+    }).filter(Boolean))()""") or []
+
+
+def _click_temporary_chat_toggle(timeout=20):
+    deadline = time.time() + timeout
+    last_candidates = []
+    while time.time() < deadline:
+        if "temporary-chat=true" in page_info().get("url", ""):
+            return "already-enabled"
+        last_candidates = _temporary_chat_candidates()
+        actionable = actionable_temporary_chat_candidates(last_candidates)
+        if len(actionable) == 1:
+            clicked = js(f"""(() => {{
+              const b=[...document.querySelectorAll('button')][{int(actionable[0]["index"])}];
+              if (!b) return false;
+              const r=b.getBoundingClientRect();
+              const style=getComputedStyle(b);
+              if (!(r.width > 0 && r.height > 0) || b.disabled ||
+                  b.getAttribute('aria-disabled') === 'true' || style.pointerEvents === 'none') return false;
+              b.click();
+              return true;
+            }})()""")
+            if clicked:
+                return "clicked"
+        elif len(actionable) > 1:
+            labels = [candidate.get("label") or candidate.get("text") or "<unnamed>" for candidate in actionable]
+            raise RuntimeError(f"Temporary Chat toggle is ambiguous: {len(actionable)} actionable controls {labels}")
+        time.sleep(.25)
+    raise RuntimeError(
+        "Temporary Chat toggle was not actionable after "
+        f"{timeout}s; semantic candidates={last_candidates}"
+    )
 
 
 def _attachment_names():
@@ -205,16 +255,7 @@ def _diagnostic_thread_id():
 _new_owned_tab("https://chatgpt.com/")
 wait_for_load()
 
-enabled = js("""(() => {
-  const matches=[...document.querySelectorAll('button')].filter(
-    b => (b.getAttribute('aria-label') || '').trim() === 'Temporary chat'
-  );
-  if (matches.length !== 1) return false;
-  matches[0].click();
-  return true;
-})()""")
-if not enabled:
-    raise RuntimeError("Temporary Chat toggle was not uniquely observed")
+_click_temporary_chat_toggle()
 
 deadline = time.time() + 20
 while time.time() < deadline:
