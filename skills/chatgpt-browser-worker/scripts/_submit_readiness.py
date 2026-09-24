@@ -28,3 +28,12 @@ def wait_until_stable(
             stable = 0
         time.sleep(interval)
     raise RuntimeError(f"Temporary Chat {phase} was not observed ready")
+
+
+def actionable_temporary_chat_candidates(candidates):
+    return [
+        candidate for candidate in candidates
+        if candidate.get("visible")
+        and not candidate.get("disabled")
+        and candidate.get("pointerEvents") != "none"
+    ]
