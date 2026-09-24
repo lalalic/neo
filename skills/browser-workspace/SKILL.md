@@ -1,6 +1,6 @@
 ---
 name: browser-workspace
-description: Configure Browser Harness to operate only inside one named Browser Workspace Chrome tab group.
+description: Configure Browser Harness to operate only inside one named Browser Workspace Chrome tab group. Depends on the browser-harness skill.
 ---
 
 # Browser Workspace + Browser Harness
@@ -19,34 +19,18 @@ Do not copy extension source back into Neo. Neo owns only the Browser Harness in
 
 ## Setup order
 
+## Dependency
+
+This skill depends on the **browser-harness skill**.
+
+The browser-harness skill owns installation and base setup of Browser Harness. Do not duplicate that installation logic here. Before applying Browser Workspace, ensure the browser-harness skill has been installed/applied successfully and that `browser-harness` is available.
+
 Set up Browser Workspace in this order:
 
-0. Ensure Browser Harness is installed.
+0. Apply the browser-harness skill.
 1. Install the Chrome extension.
 2. Set the workspace environment variables.
-3. Apply the Browser Harness helper.
-
-### 0. Ensure Browser Harness is installed
-
-Check first:
-
-```bash
-command -v browser-harness
-```
-
-If it is missing, install it with `uv`:
-
-```bash
-uv tool install browser-harness
-```
-
-Then verify:
-
-```bash
-browser-harness --help >/dev/null
-```
-
-Do not apply `agent_helpers.py` until `browser-harness` is installed.
+3. Apply the Browser Workspace helper.
 
 ### 1. Install the Chrome extension
 
@@ -82,7 +66,7 @@ export BH_WORKSPACE_MANAGER_EXTENSION_ID=kgbghhigmbpefppgkocgjgnnnbhjchic
 
 `BH_WORKSPACE_POOL_SIZE=N` means exactly **N Chrome tabs total in the group**.
 
-### 3. Apply the Browser Harness helper
+### 3. Apply the Browser Workspace helper
 
 Run:
 
