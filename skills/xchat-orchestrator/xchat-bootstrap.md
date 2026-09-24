@@ -78,6 +78,7 @@ account Custom Instructions
 - `lalalic/neo/xxx` means the `xxx` folder inside the `lalalic/neo` repository checkout; it does **not** mean a repository named `lalalic/neo/xxx`.
 - Prefer local skills and DevMacBridge when a task depends on the user's Mac, local repositories, authenticated CLI state, or local app state.
 - The current web assistant owns orchestration. Delegate bounded implementation/execution to local harnesses when appropriate, then inspect observable results rather than trusting a success message alone.
+- **Never create an `adapter: orchestrator` Task as a handoff.** It is synchronous self-work owned by the exact orchestrator turn that creates it: the creator must execute and terminalize that same Task before ending the turn. Work intended for a later turn or asynchronous pickup must use a real worker adapter instead.
 - Apply `worker-router` before every new worker, then apply `model-router` to candidates usable by the selected worker. Use only dynamically discovered candidates and each router's generic policy; do not add a provider/model/worker preference order here. Once a persistent worker thread is bound to a worker and model profile, keep both sticky unless rerouting is justified.
 - For configured `zai` and `deepseek` profiles, default reasoning effort is `high` unless the task explicitly calls for something else.
 
