@@ -90,3 +90,38 @@ For reboot persistence, use PM2's supported startup integration and `npx pm2 sav
 Use existing SSH aliases. Do not introduce Ansible, Kubernetes, a custom control plane, or another orchestration layer for ordinary operations.
 
 If SSH fails, report the host and distinguish alias/DNS, authentication, timeout, and connection-refused failures from service failures. If the host is reachable but PM2 is unavailable, report that separately and inspect whether another service manager owns the process.
+
+## Event-driven package service updater
+
+For package-backed PM2 services that should follow successful package releases, use the external updater in this skill rather than making the publishing application or its orchestrator restart itself.
+
+The release producer emits a canonical `package.published` events-bus fact only after the exact package version is pullable. The updater subscribes to `neo.events.job.*.package.published`, maps the package through local configuration, restarts the existing PM2 service definition, verifies it, saves PM2 state, and emits `service.deploy.started`, `service.deploy.completed`, or `service.deploy.failed`.
+
+Tracked source contains no machine-specific mapping. Copy `references/package-service-updater.example.json` to `~/.neo/package-service-updater.json` and customize it locally. State is stored at `~/.neo/package-service-updater-state.json`; both are outside Git.
+
+Each package entry supports:
+- `pm2Service`: required existing PM2 process name.
+- `settleMs`: optional delay after restart before verification.
+- `healthCommand`: optional argv array; exit 0 means healthy.
+- `versionCommand`: optional argv array; stdout must equal the published version.
+- `verifyTimeoutMs`: optional verification timeout.
+
+The updater always checks `npm view <package>@<version> version` first. It never edits the PM2 process definition, so the service must already use the package-backed launcher contract described above. Duplicate package/version events are ignored after a successful deployment. Failed verification does not update deployment state and does not run `pm2 save`.
+
+Run directly:
+
+```bash
+node ~/Workspace/neo/skills/daemon-service-manage/scripts/package-service-updater.mjs
+```
+
+On macOS, keep the updater outside the PM2 process tree it manages. Install it as a per-user LaunchAgent:
+
+```bash
+~/Workspace/neo/skills/daemon-service-manage/scripts/install-package-service-updater-macos.sh
+```
+
+The installer resolves the current Node executable and canonical updater script path, writes `~/Library/LaunchAgents/com.neo.package-service-updater.plist`, and starts the per-user service. Logs and mutable state stay under `~/.neo/`. Do not add this source script to PM2; PM2-managed application services must continue to use distributable package launchers.
+
+The updater is deliberately outside Agents Relay. Agents Relay may emit release facts; it must not own package-to-service mappings, PM2 restart policy, or deployment health checks.
+
+Deployment event sources are domain identities such as `service-updater/<host>/<service>`. Do not reuse or infer model-worker ownership from them. Model-backed task lifecycle remains bound to the exact execution source id `job/<job-id>/task/<task-id>/execution/<execution-id>`.

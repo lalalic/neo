@@ -1,0 +1,14 @@
+{
+  "packages": {
+    "agents-relay": {
+      "pm2Service": "agents-relay",
+      "settleMs": 2000,
+      "healthCommand": [
+        "curl",
+        "-fsS",
+        "http://127.0.0.1:4400/healthz"
+      ],
+      "verifyTimeoutMs": 30000
+    }
+  }
+}
