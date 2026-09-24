@@ -116,13 +116,13 @@ Run directly:
 node ~/Workspace/neo/skills/daemon-service-manage/scripts/package-service-updater.mjs
 ```
 
-On macOS, keep the updater outside the PM2 process tree it manages. Install it as a per-user LaunchAgent:
+On macOS, install the updater as a normal Node.js service in the existing PM2 daemon:
 
 ```bash
 ~/Workspace/neo/skills/daemon-service-manage/scripts/install-package-service-updater-macos.sh
 ```
 
-The installer copies the updater plus its events-bus transport/dependencies into a durable runtime under `~/.neo/package-service-updater/runtime`, writes `~/Library/LaunchAgents/com.neo.package-service-updater.plist`, and starts the per-user service from that runtime. Logs and mutable state stay under `~/.neo/`. Re-run the installer after updating this capability. Do not add the source checkout script to PM2; PM2-managed application services must continue to use distributable package launchers.
+The installer copies the updater plus its events-bus transport/dependencies into a durable runtime under `~/.neo/package-service-updater/runtime`, removes any legacy `com.neo.package-service-updater` LaunchAgent, and starts `neo-package-service-updater` in PM2 with Node and `NEO_NATS_URL`. It refreshes only this process and never stops or restarts the PM2 daemon. After a successful start it runs `npx pm2 save` so the updater is included in the existing PM2 resurrection set. Re-run the installer after updating this capability. The PM2 process points at the durable runtime, not the source checkout.
 
 The updater is deliberately outside Agents Relay. Agents Relay may emit release facts; it must not own package-to-service mappings, PM2 restart policy, or deployment health checks.
 

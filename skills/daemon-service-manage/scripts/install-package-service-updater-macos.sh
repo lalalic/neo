@@ -6,15 +6,16 @@ SKILL_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 NEO_SKILLS_DIR="$(cd "$SKILL_DIR/.." && pwd)"
 NODE="$(command -v node)"
 NPM="$(command -v npm)"
-LABEL="com.neo.package-service-updater"
-PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
+NPX="$(command -v npx)"
+PM2_NAME="neo-package-service-updater"
+LEGACY_LABEL="com.neo.package-service-updater"
+LEGACY_PLIST="$HOME/Library/LaunchAgents/$LEGACY_LABEL.plist"
 STATE_DIR="$HOME/.neo"
 RUNTIME="$STATE_DIR/package-service-updater/runtime"
 TMP="$STATE_DIR/package-service-updater/runtime.tmp.$$"
-LOG="$STATE_DIR/package-service-updater.log"
-ERR="$STATE_DIR/package-service-updater-error.log"
+NATS_URL="${NEO_NATS_URL:-nats://127.0.0.1:4222}"
 
-mkdir -p "$HOME/Library/LaunchAgents" "$STATE_DIR/package-service-updater"
+mkdir -p "$STATE_DIR/package-service-updater"
 chmod 700 "$STATE_DIR" "$STATE_DIR/package-service-updater"
 
 rm -rf "$TMP"
@@ -28,32 +29,13 @@ mv "$TMP" "$RUNTIME"
 
 UPDATER="$RUNTIME/skills/daemon-service-manage/scripts/package-service-updater.mjs"
 
-cat > "$PLIST" <<EOF
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>Label</key><string>$LABEL</string>
-  <key>ProgramArguments</key>
-  <array>
-    <string>$NODE</string>
-    <string>$UPDATER</string>
-  </array>
-  <key>RunAtLoad</key><true/>
-  <key>KeepAlive</key><true/>
-  <key>StandardOutPath</key><string>$LOG</string>
-  <key>StandardErrorPath</key><string>$ERR</string>
-  <key>EnvironmentVariables</key>
-  <dict>
-    <key>PATH</key><string>$(dirname "$NODE"):/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
-    <key>NEO_NATS_URL</key><string>${NEO_NATS_URL:-nats://127.0.0.1:4222}</string>
-  </dict>
-</dict>
-</plist>
-EOF
+# Remove legacy LaunchAgent ownership if present.
+launchctl bootout "gui/$(id -u)/$LEGACY_LABEL" >/dev/null 2>&1 || true
+rm -f "$LEGACY_PLIST"
 
-plutil -lint "$PLIST" >/dev/null
-launchctl bootout "gui/$(id -u)/$LABEL" >/dev/null 2>&1 || true
-launchctl bootstrap "gui/$(id -u)" "$PLIST"
-launchctl kickstart -k "gui/$(id -u)/$LABEL"
-echo "installed $LABEL at $RUNTIME"
+# Refresh only this PM2 process. Never stop/restart the PM2 daemon.
+"$NPX" pm2 delete "$PM2_NAME" >/dev/null 2>&1 || true
+NEO_NATS_URL="$NATS_URL" "$NPX" pm2 start "$UPDATER"   --name "$PM2_NAME"   --interpreter "$NODE"   --cwd "$HOME"   --time >/dev/null
+"$NPX" pm2 save >/dev/null
+
+echo "installed $PM2_NAME at $RUNTIME"
