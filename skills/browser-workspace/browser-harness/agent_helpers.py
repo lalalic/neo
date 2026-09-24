@@ -29,7 +29,7 @@ def _worker_target():
         _bh.cdp("ServiceWorker.startWorker", scopeURL=scope)
     except Exception as exc:
         raise RuntimeError(
-            f"Browser Workspace Manager extension {_EXTENSION_ID} is not installed"
+            f"Browser Workspace extension {_EXTENSION_ID} is not installed"
         ) from exc
 
     deadline = _time.monotonic() + _TIMEOUT_SECONDS
@@ -47,7 +47,7 @@ def _worker_target():
             except Exception:
                 pass
         _time.sleep(0.05)
-    raise RuntimeError("Browser Workspace Manager service worker did not become ready")
+    raise RuntimeError("Browser Workspace service worker did not become ready")
 
 
 def _manager_call(method, args=None):
@@ -58,7 +58,7 @@ def _manager_call(method, args=None):
     )
     if not isinstance(response, dict) or not response.get("ok"):
         error = response.get("error", {}) if isinstance(response, dict) else {}
-        raise RuntimeError(error.get("message") or "Browser Workspace Manager request failed")
+        raise RuntimeError(error.get("message") or "Browser Workspace request failed")
     return response.get("result") or {}
 
 
