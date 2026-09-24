@@ -110,6 +110,7 @@ test('failed post-restart verification emits failure and never pm2 save or compl
     pm2Service: 'agents-relay',
     settleMs: 0,
     healthCommand: ['health-check'],
+    verifyAttempts: 1,
   } } };
   const { updater, events, states } = harness({
     config,

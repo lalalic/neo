@@ -91,16 +91,24 @@ export class PackageServiceUpdater {
       if (settleMs) await this.sleep(settleMs);
 
       const health = commandSpec(target.healthCommand);
-      if (health) {
-        const checked = this.execute(health.command, health.args, { timeoutMs: target.verifyTimeoutMs ?? 30000 });
-        if (checked.code !== 0) throw new Error('health verification failed: ' + checked.stderr.trim());
-      }
-
       const version = commandSpec(target.versionCommand);
-      if (version) {
-        const checked = this.execute(version.command, version.args, { timeoutMs: target.verifyTimeoutMs ?? 30000 });
-        if (checked.code !== 0 || checked.stdout.trim() !== publication.version) throw new Error(`running version mismatch: expected ${publication.version}, observed ${checked.stdout.trim() || 'unavailable'}`);
+      const verifyAttempts = Number.isInteger(target.verifyAttempts) ? Math.max(1, target.verifyAttempts) : 10;
+      const verifyIntervalMs = Number.isFinite(target.verifyIntervalMs) ? Math.max(0, target.verifyIntervalMs) : 1000;
+      let verificationError = null;
+      for (let attempt = 1; attempt <= verifyAttempts; attempt += 1) {
+        verificationError = null;
+        if (health) {
+          const checked = this.execute(health.command, health.args, { timeoutMs: target.verifyTimeoutMs ?? 30000 });
+          if (checked.code !== 0) verificationError = new Error('health verification failed: ' + checked.stderr.trim());
+        }
+        if (!verificationError && version) {
+          const checked = this.execute(version.command, version.args, { timeoutMs: target.verifyTimeoutMs ?? 30000 });
+          if (checked.code !== 0 || checked.stdout.trim() !== publication.version) verificationError = new Error(`running version mismatch: expected ${publication.version}, observed ${checked.stdout.trim() || 'unavailable'}`);
+        }
+        if (!verificationError) break;
+        if (attempt < verifyAttempts && verifyIntervalMs) await this.sleep(verifyIntervalMs);
       }
+      if (verificationError) throw verificationError;
 
       const save = this.execute('npx', ['pm2', 'save'], { timeoutMs: 60000 });
       if (save.code !== 0) throw new Error('PM2 save failed: ' + save.stderr.trim());

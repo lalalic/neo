@@ -104,7 +104,9 @@ Each package entry supports:
 - `settleMs`: optional delay after restart before verification.
 - `healthCommand`: optional argv array; exit 0 means healthy.
 - `versionCommand`: optional argv array; stdout must equal the published version.
-- `verifyTimeoutMs`: optional verification timeout.
+- `verifyTimeoutMs`: optional per-command verification timeout.
+- `verifyAttempts`: optional health/version retry count (default 10).
+- `verifyIntervalMs`: optional delay between verification attempts (default 1000 ms).
 
 The updater always checks `npm view <package>@<version> version` first. It never edits the PM2 process definition, so the service must already use the package-backed launcher contract described above. Duplicate package/version events are ignored after a successful deployment. Failed verification does not update deployment state and does not run `pm2 save`.
 
