@@ -88,11 +88,8 @@ def workspace_delete(name, force=False):
 
 
 def _ensure_workspace():
-    status = _manager_call("workspace.status", {"name": _WORKSPACE_NAME})
-    if status.get("initialized"):
-        return status
     return _manager_call(
-        "workspace.create",
+        "workspace.ensure",
         {"name": _WORKSPACE_NAME, "poolSize": _POOL_SIZE},
     )
 
