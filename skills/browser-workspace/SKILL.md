@@ -21,9 +21,32 @@ Do not copy extension source back into Neo. Neo owns only the Browser Harness in
 
 Set up Browser Workspace in this order:
 
+0. Ensure Browser Harness is installed.
 1. Install the Chrome extension.
 2. Set the workspace environment variables.
 3. Apply the Browser Harness helper.
+
+### 0. Ensure Browser Harness is installed
+
+Check first:
+
+```bash
+command -v browser-harness
+```
+
+If it is missing, install it with `uv`:
+
+```bash
+uv tool install browser-harness
+```
+
+Then verify:
+
+```bash
+browser-harness --help >/dev/null
+```
+
+Do not apply `agent_helpers.py` until `browser-harness` is installed.
 
 ### 1. Install the Chrome extension
 
