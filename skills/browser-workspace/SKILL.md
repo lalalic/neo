@@ -1,6 +1,6 @@
 ---
 name: browser-workspace
-description: Configure Browser Harness to operate only inside one named Browser Workspace Chrome tab group.
+description: Configure Browser Harness to operate only inside one named Browser Workspace Chrome tab group. Depends on the browser-harness skill.
 ---
 
 # Browser Workspace + Browser Harness
@@ -17,24 +17,58 @@ GitHub repository:
 
 Do not copy extension source back into Neo. Neo owns only the Browser Harness integration.
 
-## One-time Chrome extension setup
+## Setup order
 
-In the user's normal signed-in Chrome profile:
+## Dependency
+
+This skill depends on the **browser-harness skill**.
+
+The browser-harness skill owns installation and base setup of Browser Harness. Do not duplicate that installation logic here. Before applying Browser Workspace, ensure the browser-harness skill has been installed/applied successfully and that `browser-harness` is available.
+
+Set up Browser Workspace in this order:
+
+0. Apply the browser-harness skill.
+1. Install the Chrome extension.
+2. Set the workspace environment variables.
+3. Apply the Browser Workspace helper.
+
+### 1. Install the Chrome extension
+
+**Production / published extension:** open the Browser Workspace Chrome Web Store URL directly in the user's normal signed-in Chrome profile and install it. The skill should use the exact store URL once the extension is published; do not ask the user to search the store manually.
+
+**Development fallback until the store listing exists:**
 
 1. Open `chrome://extensions`.
 2. Enable Developer mode.
 3. Choose **Load unpacked**.
 4. Select `~/Workspace/browser-workspace/extension`.
 
-The development extension ID is stable:
+Development extension ID:
 
 `kgbghhigmbpefppgkocgjgnnnbhjchic`
 
-The extension owns only workspace/group/pool lifecycle. Browser Harness remains responsible for page navigation, DOM/AX operations, clicks, typing, screenshots, uploads, and downloads.
+The extension owns workspace/group/pool lifecycle only. Browser Harness remains responsible for page navigation, DOM/AX operations, clicks, typing, screenshots, uploads, and downloads.
 
-## Browser Harness setup
+### 2. Set environment variables
 
-Install the Neo helper into Browser Harness:
+Set the Browser Harness workspace name and exact pool size before applying the helper:
+
+```bash
+export BH_WORKSPACE_NAME=MDB
+export BH_WORKSPACE_POOL_SIZE=4
+```
+
+Optionally override the extension ID:
+
+```bash
+export BH_WORKSPACE_MANAGER_EXTENSION_ID=kgbghhigmbpefppgkocgjgnnnbhjchic
+```
+
+`BH_WORKSPACE_POOL_SIZE=N` means exactly **N Chrome tabs total in the group**.
+
+### 3. Apply the Browser Workspace helper
+
+Run:
 
 ```bash
 neo/skills/browser-workspace/scripts/install.sh
@@ -48,17 +82,9 @@ or, when `BH_AGENT_WORKSPACE` is unset:
 
 `~/.config/browser-harness/agent-workspace/agent_helpers.py`
 
-It also writes these values into the Browser Harness workspace `.env`:
+It also persists the current Browser Workspace environment values into the Browser Harness workspace `.env`, so future `browser-harness` processes use the same workspace by default.
 
-```bash
-BH_WORKSPACE_NAME=MDB
-BH_WORKSPACE_POOL_SIZE=8
-BH_WORKSPACE_MANAGER_EXTENSION_ID=kgbghhigmbpefppgkocgjgnnnbhjchic
-```
-
-Set `BH_WORKSPACE_NAME` and `BH_WORKSPACE_POOL_SIZE` before running the installer to choose different defaults.
-
-Example:
+Example one-shot setup:
 
 ```bash
 BH_WORKSPACE_NAME=Research \
