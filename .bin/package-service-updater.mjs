@@ -227,21 +227,19 @@ function install() {
   process.stdout.write(`installed ${SERVICE_NAME} from ${script}\n`);
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const command = process.argv[2] || 'daemon';
-  if (command === 'install') {
-    try { install(); }
-    catch (error) {
-      process.stderr.write((error instanceof Error ? error.stack ?? error.message : String(error)) + '\n');
-      process.exitCode = 1;
-    }
-  } else if (command === 'daemon') {
-    daemon().catch(error => {
-      process.stderr.write((error instanceof Error ? error.stack ?? error.message : String(error)) + '\n');
-      process.exitCode = 1;
-    });
-  } else {
-    process.stderr.write('usage: package-service-updater.mjs [install|daemon]\n');
-    process.exitCode = 2;
+const command = process.argv[2] || 'daemon';
+if (command === 'install') {
+  try { install(); }
+  catch (error) {
+    process.stderr.write((error instanceof Error ? error.stack ?? error.message : String(error)) + '\n');
+    process.exitCode = 1;
   }
+} else if (command === 'daemon') {
+  daemon().catch(error => {
+    process.stderr.write((error instanceof Error ? error.stack ?? error.message : String(error)) + '\n');
+    process.exitCode = 1;
+  });
+} else {
+  process.stderr.write('usage: package-service-updater.mjs [install|daemon]\n');
+  process.exitCode = 2;
 }
