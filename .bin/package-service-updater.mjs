@@ -1,6 +1,7 @@
 #!/usr/bin/env node
-import { hostname } from 'node:os';
-import { basename, dirname, resolve } from 'node:path';
+import { hostname, tmpdir } from 'node:os';
+import { basename, dirname, join, resolve } from 'node:path';
+import { mkdtemp, readdir, rm } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { spawn, spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
@@ -79,16 +80,38 @@ function pm2List() {
   catch { throw new Error('pm2 jlist returned invalid JSON'); }
 }
 
-async function waitUntilPullable(packageName, version, registry) {
-  const deadline = Date.now() + PULLABLE_TIMEOUT_MS;
-  let last = '';
+export async function waitUntilPullable(packageName, version, registry, options = {}) {
+  const timeoutMs = options.timeoutMs ?? PULLABLE_TIMEOUT_MS;
+  const pollIntervalMs = options.pollIntervalMs ?? POLL_INTERVAL_MS;
+  const runCommand = options.run ?? run;
+  const sleepFor = options.sleep ?? sleep;
+  const makeTempDir = options.makeTempDir ?? (() => mkdtemp(join(tmpdir(), 'neo-package-service-updater-')));
+  const removeTempDir = options.removeTempDir ?? (directory => rm(directory, { recursive: true, force: true }));
+  const deadline = Date.now() + timeoutMs;
+  let last = 'unavailable';
   while (Date.now() < deadline) {
-    const result = run('npm', ['view', packageName + '@' + version, 'version', '--registry=' + registry], 30000);
-    last = result.stdout.trim();
-    if (result.code === 0 && last === version) return;
-    await sleep(POLL_INTERVAL_MS);
+    let directory;
+    try {
+      directory = await makeTempDir();
+      const result = runCommand('npm', [
+        'pack',
+        packageName + '@' + version,
+        '--pack-destination', directory,
+        '--registry=' + registry,
+        '--ignore-scripts',
+      ], 30000);
+      const artifacts = result.code === 0 ? await readdir(directory) : [];
+      const artifact = artifacts.find(name => name.endsWith('.tgz'));
+      if (result.code === 0 && artifact) return;
+      last = (result.stderr || result.stdout || 'artifact was not produced').trim();
+    } catch (error) {
+      last = error instanceof Error ? error.message : String(error);
+    } finally {
+      if (directory) await removeTempDir(directory).catch(() => {});
+    }
+    await sleepFor(pollIntervalMs);
   }
-  throw new Error(`${packageName}@${version} did not become pullable within ${PULLABLE_TIMEOUT_MS}ms (last=${last || 'unavailable'})`);
+  throw new Error(`${packageName}@${version} artifact was not fetchable within ${timeoutMs}ms (last=${last})`);
 }
 
 async function waitUntilOnline(service) {
@@ -125,16 +148,17 @@ async function emit(input, type, status, message, data) {
 
 const inFlight = new Set();
 
-export async function handlePublicationEvent(event) {
+export async function handlePublicationEvent(event, dependencies = {}) {
   const publication = publicationFromEvent(event);
   if (!publication) return { action: 'ignored', reason: 'not-package-publication' };
   const key = publication.packageName + '@' + publication.version;
   if (inFlight.has(key)) return { action: 'ignored', reason: 'already-in-flight' };
   inFlight.add(key);
   try {
-    await waitUntilPullable(publication.packageName, publication.version, publication.registry);
+    await (dependencies.waitUntilPullable ?? waitUntilPullable)(publication.packageName, publication.version, publication.registry);
 
-    const targets = discoverPackageServices(pm2List(), publication.packageName);
+    const listServices = dependencies.pm2List ?? pm2List;
+    const targets = discoverPackageServices(listServices(), publication.packageName);
     if (targets.length === 0) return { action: 'ignored', reason: 'no-matching-pm2-service' };
 
     const results = [];
@@ -149,10 +173,10 @@ export async function handlePublicationEvent(event) {
       };
       try {
         await emit(publication, 'service.deploy.started', 'running', `Restarting ${target.name} for ${publication.packageName}@${publication.version}`, data);
-        const restarted = run('npx', ['pm2', 'restart', target.name], 60000);
+        const restarted = (dependencies.restart ?? (() => run('npx', ['pm2', 'restart', target.name], 60000)))();
         if (restarted.code !== 0) throw new Error('pm2 restart failed: ' + restarted.stderr.trim());
-        await waitUntilOnline(target.name);
-        await emit(publication, 'service.deploy.completed', 'succeeded', `Restarted ${target.name} for ${publication.packageName}@${publication.version}`, data);
+        await (dependencies.waitUntilOnline ?? waitUntilOnline)(target.name);
+        await (dependencies.emit ?? emit)(publication, 'service.deploy.completed', 'succeeded', `Restarted ${target.name} for ${publication.packageName}@${publication.version}`, data);
         results.push({ service: target.name, status: 'completed' });
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
@@ -227,19 +251,21 @@ function install() {
   process.stdout.write(`installed ${SERVICE_NAME} from ${script}\n`);
 }
 
-const command = process.argv[2] || 'daemon';
-if (command === 'install') {
-  try { install(); }
-  catch (error) {
-    process.stderr.write((error instanceof Error ? error.stack ?? error.message : String(error)) + '\n');
-    process.exitCode = 1;
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  const command = process.argv[2] || 'daemon';
+  if (command === 'install') {
+    try { install(); }
+    catch (error) {
+      process.stderr.write((error instanceof Error ? error.stack ?? error.message : String(error)) + '\n');
+      process.exitCode = 1;
+    }
+  } else if (command === 'daemon') {
+    daemon().catch(error => {
+      process.stderr.write((error instanceof Error ? error.stack ?? error.message : String(error)) + '\n');
+      process.exitCode = 1;
+    });
+  } else {
+    process.stderr.write('usage: package-service-updater.mjs [install|daemon]\n');
+    process.exitCode = 2;
   }
-} else if (command === 'daemon') {
-  daemon().catch(error => {
-    process.stderr.write((error instanceof Error ? error.stack ?? error.message : String(error)) + '\n');
-    process.exitCode = 1;
-  });
-} else {
-  process.stderr.write('usage: package-service-updater.mjs [install|daemon]\n');
-  process.exitCode = 2;
 }
