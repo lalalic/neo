@@ -101,11 +101,32 @@ def _temporary_chat_candidates():
     }).filter(Boolean))()""") or []
 
 
+def _temporary_chat_enabled():
+    if "temporary-chat=true" in page_info().get("url", ""):
+        return True
+    actionable = actionable_temporary_chat_candidates(_temporary_chat_candidates())
+    return any(
+        "turn off temporary chat" in _normalized_text(
+            f"{candidate.get('label', '')} {candidate.get('text', '')}"
+        ).lower()
+        for candidate in actionable
+    )
+
+
+def _wait_for_temporary_chat(timeout=20):
+    return wait_until_stable(
+        lambda: {"enabled": _temporary_chat_enabled()},
+        lambda state: bool(state["enabled"]),
+        timeout=timeout,
+        phase="mode readiness",
+    )
+
+
 def _click_temporary_chat_toggle(timeout=20):
     deadline = time.time() + timeout
     last_candidates = []
     while time.time() < deadline:
-        if "temporary-chat=true" in page_info().get("url", ""):
+        if _temporary_chat_enabled():
             return "already-enabled"
         last_candidates = _temporary_chat_candidates()
         actionable = actionable_temporary_chat_candidates(last_candidates)
@@ -252,21 +273,11 @@ def _diagnostic_thread_id():
     return match.group(1) if match else None
 
 
-_new_owned_tab("https://chatgpt.com/")
+_new_owned_tab("https://chatgpt.com/?temporary-chat=true")
 wait_for_load()
 
 _click_temporary_chat_toggle()
-
-deadline = time.time() + 20
-while time.time() < deadline:
-    if "temporary-chat=true" in page_info().get("url", ""):
-        try:
-            break
-        except RuntimeError:
-            pass
-    time.sleep(.25)
-else:
-    raise RuntimeError("Temporary Chat composer readiness was not observed")
+_wait_for_temporary_chat()
 
 attachments = _upload_files(CFG.get("file", []))
 selector = _wait_for_composer()

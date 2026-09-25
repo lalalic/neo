@@ -62,8 +62,10 @@ def test_submit_driver_uses_fresh_owned_tab_and_temporary_chat():
 
     assert 'target_id = new_tab(url)' in text
     assert 'cdp("Target.createTarget"' not in text
-    assert '_new_owned_tab("https://chatgpt.com/")' in text
+    assert '_new_owned_tab("https://chatgpt.com/?temporary-chat=true")' in text
     assert "_click_temporary_chat_toggle()" in text
+    assert "_wait_for_temporary_chat()" in text
+    assert '"turn off temporary chat"' in text
     assert "Temporary Chat toggle was not actionable" in text
     assert "Temporary Chat toggle is ambiguous" in text
     assert "atexit.register(_close_owned_tabs)" in text
