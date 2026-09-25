@@ -68,3 +68,16 @@ def prompt_text_matches(observed, expected):
         and expected_n[:span] in observed_n
         and expected_n[-span:] in observed_n
     )
+
+
+def submission_receipt(turns, before_count, prompt, composer_text):
+    """Return a transport receipt after click without requiring one DOM message shape."""
+    for turn in turns[before_count:]:
+        if prompt_text_matches(turn.get("text"), prompt):
+            return {"verified_by": "user-turn", "turn": turn}
+    if not (composer_text or "").strip():
+        return {
+            "verified_by": "composer-cleared",
+            "turn": {"id": None, "text": prompt},
+        }
+    return None
