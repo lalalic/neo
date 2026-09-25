@@ -101,11 +101,20 @@ def _temporary_chat_candidates():
     }).filter(Boolean))()""") or []
 
 
+def _temporary_chat_enabled():
+    candidates = _temporary_chat_candidates()
+    return any(
+        re.search(r"turn\s+off", f"{candidate.get('label') or ''} {candidate.get('text') or ''}", re.I)
+        for candidate in candidates
+        if candidate.get("visible") and not candidate.get("disabled") and candidate.get("pointerEvents") == "auto"
+    )
+
+
 def _click_temporary_chat_toggle(timeout=20):
     deadline = time.time() + timeout
     last_candidates = []
     while time.time() < deadline:
-        if "temporary-chat=true" in page_info().get("url", ""):
+        if _temporary_chat_enabled():
             return "already-enabled"
         last_candidates = _temporary_chat_candidates()
         actionable = actionable_temporary_chat_candidates(last_candidates)
@@ -259,7 +268,7 @@ _click_temporary_chat_toggle()
 
 deadline = time.time() + 20
 while time.time() < deadline:
-    if "temporary-chat=true" in page_info().get("url", ""):
+    if _temporary_chat_enabled():
         try:
             break
         except RuntimeError:
