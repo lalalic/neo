@@ -69,6 +69,7 @@ Because Neo is public, secrets, personal data, customer data, private identifier
 - For Markcut Vision with Browser ChatGPT, read `skills/chatgpt-browser-worker/references/markcut-vision.md`; keep Markcut on its generic `vision --itt` / `--vtt` hooks rather than adding a ChatGPT-specific Markcut command.
 - If a project-local skill and a shared/global skill declare the same skill `name`, the project-local skill takes precedence within that project.
 - Do not duplicate a reusable skill as a project agent.
+- When Browser Harness verifies a reusable external-platform flow, promote or update the canonical asset in `skills/browser-platforms` rather than leaving the knowledge as one-off automation.
 - A project must not depend on another project's `runs/` directory.
 
 ### Project learning contract
