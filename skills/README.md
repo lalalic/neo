@@ -15,6 +15,8 @@ are deployment and distribution targets, not source of truth.
   semantics.
 - demo-worker — declarative computer-use demo workflow with recording and
   fresh-UI/artifact evidence gates.
+- video-director — Markcut-backed product-demo story and semantic shot intent;
+  it deliberately excludes UI automation details.
 - daemon-service-manage — inspection and PM2 lifecycle guidance for persistent
   daemons and services.
 - devmacbridge — end-to-end Mac Developer Bridge bootstrap, ChatGPT MCP connection, browser setup, events federation, and verification.

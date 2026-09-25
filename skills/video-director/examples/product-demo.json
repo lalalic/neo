@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "brief": {
+    "product": "Family Tutor",
+    "audience": "Parents evaluating a safe learning workflow",
+    "channel": "product_demo",
+    "duration_seconds": 30,
+    "style": "clear, warm, evidence-led",
+    "goal": "Show that each child gets a separate learning profile",
+    "context": {
+      "surfaces": ["Chrome extension popup"],
+      "features": ["kids list"],
+      "claims": ["one profile per child"]
+    }
+  },
+  "markcut_storyboard": "# video\nwidth:1920 height:1080 fps:30 layout:series\n",
+  "scenes": [
+    {
+      "id": "hook",
+      "purpose": "Reveal the parent problem immediately",
+      "communicates": "Every child can have a distinct learning space",
+      "visible_evidence": ["The Family Tutor kids list is visible", "Two named child profiles are visible"],
+      "presentation": {"focus": "kids list", "highlight": ["child profiles"], "text": ["A separate learning profile for each child"], "zoom": "emphasis", "duration_seconds": 6},
+      "narration": "One household, different learners, one clear place for each child."
+    },
+    {
+      "id": "proof",
+      "purpose": "Make the product value concrete",
+      "communicates": "The list makes the profile boundary understandable at a glance",
+      "visible_evidence": ["The child names remain visible in the product surface"],
+      "presentation": {"focus": "profile separation", "highlight": ["list rows"], "text": ["Keep learning journeys distinct"], "zoom": "subtle", "duration_seconds": 8}
+    }
+  ]
+}
