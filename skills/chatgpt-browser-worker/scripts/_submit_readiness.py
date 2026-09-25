@@ -50,3 +50,21 @@ def temporary_chat_enabled_state(url, candidates):
         and not candidate.get("disabled")
         and candidate.get("pointerEvents") != "none"
     )
+
+
+def prompt_text_matches(observed, expected):
+    """Verify long composer/user-turn text despite ProseMirror whitespace reshaping."""
+    import re
+    normalize = lambda value: re.sub(r"\s+", " ", value or "").strip()
+    observed_n = normalize(observed)
+    expected_n = normalize(expected)
+    if expected_n in observed_n:
+        return True
+    if not expected_n:
+        return not observed_n
+    span = min(256, max(48, len(expected_n) // 8))
+    return (
+        len(observed_n) >= int(len(expected_n) * 0.9)
+        and expected_n[:span] in observed_n
+        and expected_n[-span:] in observed_n
+    )

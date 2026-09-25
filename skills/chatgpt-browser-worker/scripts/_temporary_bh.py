@@ -233,7 +233,7 @@ def _wait_for_send_ready(selector, prompt, attachments):
     wait_until_stable(
         read_state,
         lambda state: (
-            _normalized_text(prompt) in _normalized_text(state["text"])
+            prompt_text_matches(state["text"], prompt)
             and expected.issubset(state["attachments"]["names"])
             and not state["attachments"]["pending"]
             and state["send"]["enabled"]
@@ -248,7 +248,7 @@ def _wait_user_turn(before_count, prompt, timeout=20):
     while time.time() < deadline:
         turns = _user_turns()
         for turn in turns[before_count:]:
-            if _normalized_text(prompt) in _normalized_text(turn["text"]):
+            if prompt_text_matches(turn["text"], prompt):
                 return turn
         time.sleep(.25)
     raise RuntimeError("Temporary Chat submission verification did not observe a new user turn")
@@ -315,7 +315,7 @@ else:
 
 wait_until_stable(
     lambda: {"text": _composer_text(selector)},
-    lambda state: _normalized_text(CFG["prompt"]) in _normalized_text(state["text"]),
+    lambda state: prompt_text_matches(state["text"], CFG["prompt"]),
     timeout=30,
     phase="composer readiness",
 )
