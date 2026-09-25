@@ -1,0 +1,26 @@
+platform: chrome-web-store
+status: discovered
+last_verified: null
+browser_harness:
+  compatible: true
+  evidence: "Flow skeleton only; live browser-harness verification pending."
+url_patterns:
+  - "https://chromewebstore.google.com/devconsole/*"
+  - "https://chrome.google.com/webstore/developer/dashboard*"
+authentication:
+  required: true
+  notes: "Use an already authenticated publisher session; never store credentials or session state."
+side_effects:
+  - "upload-package changes a draft/package upload"
+  - "update-listing edits listing metadata"
+  - "submit-review sends a listing for review"
+provenance:
+  source: "Neo platform skeleton"
+  migrated_code: false
+flows:
+  open-item: {status: discovered, evidence: "Contract drafted; not live-verified."}
+  upload-package: {status: discovered, evidence: "Contract drafted; not live-verified."}
+  update-listing: {status: discovered, evidence: "Contract drafted; not live-verified."}
+  submit-review: {status: discovered, evidence: "Contract drafted; not live-verified."}
+  check-status: {status: discovered, evidence: "Contract drafted; not live-verified."}
+  verify-published: {status: discovered, evidence: "Contract drafted; not live-verified."}
