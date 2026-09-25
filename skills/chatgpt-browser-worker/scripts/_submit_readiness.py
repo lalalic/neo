@@ -37,3 +37,16 @@ def actionable_temporary_chat_candidates(candidates):
         and not candidate.get("disabled")
         and candidate.get("pointerEvents") != "none"
     ]
+
+
+def temporary_chat_enabled_state(url, candidates):
+    """Recognize Temporary Chat from stable URL state with semantic UI fallback."""
+    if "temporary-chat=true" in (url or ""):
+        return True
+    return any(
+        "turn off" in f"{candidate.get('label') or ''} {candidate.get('text') or ''}".lower()
+        for candidate in candidates
+        if candidate.get("visible")
+        and not candidate.get("disabled")
+        and candidate.get("pointerEvents") != "none"
+    )

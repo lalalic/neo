@@ -102,11 +102,9 @@ def _temporary_chat_candidates():
 
 
 def _temporary_chat_enabled():
-    candidates = _temporary_chat_candidates()
-    return any(
-        re.search(r"turn\s+off", f"{candidate.get('label') or ''} {candidate.get('text') or ''}", re.I)
-        for candidate in candidates
-        if candidate.get("visible") and not candidate.get("disabled") and candidate.get("pointerEvents") == "auto"
+    return temporary_chat_enabled_state(
+        page_info().get("url", ""),
+        _temporary_chat_candidates(),
     )
 
 
@@ -164,7 +162,7 @@ def _attachment_state():
 
 def _send_state():
     return js(r"""(() => {
-      const b=document.querySelector('button[data-testid="send-button"],button[aria-label="Send prompt"]');
+      const b=document.querySelector('button[data-testid="send-button"],button[aria-label="Send prompt"],button[aria-label="Send"]');
       return {present: !!b, enabled: !!b && !b.disabled && b.getAttribute('aria-disabled') !== 'true'};
     })()""") or {"present": False, "enabled": False}
 
@@ -214,7 +212,7 @@ def _user_turns():
 
 def _click_send():
     ok = js("""(() => {
-      const b=document.querySelector('button[data-testid="send-button"],button[aria-label="Send prompt"]');
+      const b=document.querySelector('button[data-testid="send-button"],button[aria-label="Send prompt"],button[aria-label="Send"]');
       if (!b || b.disabled || b.getAttribute('aria-disabled') === 'true') return false;
       b.click(); return true;
     })()""")

@@ -67,7 +67,8 @@ def test_submit_driver_uses_fresh_owned_tab_and_temporary_chat():
     assert "Temporary Chat toggle was not actionable" in text
     assert "Temporary Chat toggle is ambiguous" in text
     assert "def _temporary_chat_enabled()" in text
-    assert text.count("temporary-chat=true") == 0
+    assert 'button[aria-label="Send"]' in text
+    assert "temporary-chat=true" in text
     assert "atexit.register(_close_owned_tabs)" in text
     assert "thinking_level" not in text
 
