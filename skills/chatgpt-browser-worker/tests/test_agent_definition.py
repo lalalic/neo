@@ -51,7 +51,9 @@ def test_browser_worker_agent_is_submit_and_close_only():
 def test_all_owned_tab_drivers_use_workspace_aware_acquisition():
     for driver in OWNED_TAB_DRIVERS:
         text = driver.read_text()
-        assert 'target_id = new_tab(url)' in text, driver.name
+        assert 'target_id = new_tab(_collision_safe_url(url))' in text, driver.name
+        assert 'def _collision_safe_url(url)' in text, driver.name
+        assert 'neo_owned_tab' in text, driver.name
         assert 'cdp("Target.createTarget"' not in text, driver.name
         assert 'switch_tab(target_id)' not in text, driver.name
         assert 'close_tab(' in text, driver.name
@@ -60,7 +62,7 @@ def test_all_owned_tab_drivers_use_workspace_aware_acquisition():
 def test_submit_driver_uses_fresh_owned_tab_and_temporary_chat():
     text = DRIVER.read_text()
 
-    assert 'target_id = new_tab(url)' in text
+    assert 'target_id = new_tab(_collision_safe_url(url))' in text
     assert 'cdp("Target.createTarget"' not in text
     assert '_new_owned_tab("https://chatgpt.com/")' in text
     assert "_click_temporary_chat_toggle()" in text
@@ -68,7 +70,7 @@ def test_submit_driver_uses_fresh_owned_tab_and_temporary_chat():
     assert "Temporary Chat toggle is ambiguous" in text
     assert "def _temporary_chat_enabled()" in text
     assert 'button[aria-label="Send"]' in text
-    assert "composer-cleared" in text
+    assert "submission_receipt(" in text
     assert "atexit.register(_close_owned_tabs)" in text
     assert "thinking_level" not in text
 

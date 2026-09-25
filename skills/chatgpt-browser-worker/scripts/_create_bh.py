@@ -2,6 +2,8 @@ import atexit
 import json
 import re
 import time
+import uuid
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from browser_harness import *
 
@@ -9,11 +11,21 @@ from browser_harness import *
 _OWNED_TABS = []
 
 
+def _collision_safe_url(url):
+    parts = urlsplit(url)
+    query = [
+        (key, value)
+        for key, value in parse_qsl(parts.query, keep_blank_values=True)
+        if key != "neo_owned_tab"
+    ] + [("neo_owned_tab", uuid.uuid4().hex)]
+    return urlunsplit(parts._replace(query=urlencode(query)))
+
+
 def _new_owned_tab(url):
     # Respect Browser Harness workspace adapters. A configured workspace may
     # override new_tab()/close_tab() to acquire and release only managed tabs;
     # raw Target.createTarget bypasses that boundary and is correctly refused.
-    target_id = new_tab(url)
+    target_id = new_tab(_collision_safe_url(url))
     _OWNED_TABS.append(target_id)
     return target_id
 
