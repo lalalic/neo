@@ -5,6 +5,10 @@ ROOT = Path(__file__).parents[1]
 AGENT = ROOT / "agents" / "browser-worker.agent.md"
 SKILL = ROOT / "SKILL.md"
 DRIVER = ROOT / "scripts" / "_temporary_bh.py"
+OWNED_TAB_DRIVERS = [
+    ROOT / "scripts" / name
+    for name in ("_temporary_bh.py", "_create_bh.py", "_infer_bh.py", "_operate_bh.py")
+]
 ORCHESTRATOR = ROOT.parent / "xchat-orchestrator" / "SKILL.md"
 
 
@@ -42,6 +46,15 @@ def test_browser_worker_agent_is_submit_and_close_only():
     assert "wait for the assistant response" in text.lower()
     assert "do not reopen or poll the conversation" in text.lower()
     assert "never as a resumable handle" in text
+
+
+def test_all_owned_tab_drivers_use_workspace_aware_acquisition():
+    for driver in OWNED_TAB_DRIVERS:
+        text = driver.read_text()
+        assert 'target_id = new_tab(url)' in text, driver.name
+        assert 'cdp("Target.createTarget"' not in text, driver.name
+        assert 'switch_tab(target_id)' not in text, driver.name
+        assert 'close_tab(' in text, driver.name
 
 
 def test_submit_driver_uses_fresh_owned_tab_and_temporary_chat():
