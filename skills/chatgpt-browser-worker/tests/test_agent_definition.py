@@ -5,6 +5,10 @@ ROOT = Path(__file__).parents[1]
 AGENT = ROOT / "agents" / "browser-worker.agent.md"
 SKILL = ROOT / "SKILL.md"
 DRIVER = ROOT / "scripts" / "_temporary_bh.py"
+OWNED_TAB_DRIVERS = tuple(
+    ROOT / "scripts" / name
+    for name in ("_temporary_bh.py", "_infer_bh.py", "_create_bh.py", "_operate_bh.py")
+)
 ORCHESTRATOR = ROOT.parent / "xchat-orchestrator" / "SKILL.md"
 
 
@@ -55,6 +59,13 @@ def test_submit_driver_uses_fresh_owned_tab_and_temporary_chat():
     assert "Temporary Chat toggle is ambiguous" in text
     assert "atexit.register(_close_owned_tabs)" in text
     assert "thinking_level" not in text
+
+
+def test_owned_tab_drivers_stay_inside_browser_workspace():
+    for driver in OWNED_TAB_DRIVERS:
+        text = driver.read_text()
+        assert "target_id = new_tab(url)" in text
+        assert 'cdp("Target.createTarget"' not in text
 
 
 def test_submit_driver_returns_after_verified_user_turn_not_assistant_result():

@@ -18,11 +18,8 @@ def _owned_target_id(target):
 
 
 def _new_owned_tab(url):
-    target_id = cdp("Target.createTarget", url="about:blank", background=True)["targetId"]
-    switch_tab(target_id)
+    target_id = new_tab(url)
     _OWNED_TABS.append(target_id)
-    if url != "about:blank":
-        goto_url(url)
     return target_id
 
 
