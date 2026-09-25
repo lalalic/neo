@@ -17,6 +17,12 @@ At session start, follow `xchat-bootstrap.md`, including its mandatory reads of 
 
 At the start of each orchestration task, discover the currently available local skills by running `~/Workspace/neo/skills/xchat-orchestrator/scripts/list-xchat-skills --project <local_path>` when a project is bound. Project-local skills under `<local_path>/skills/` override same-named shared/global skills for that project. Select auxiliary skills from their names and descriptions, then read only the relevant `SKILL.md` files before planning or delegating work. Do not assume a fixed skill set and do not preload every skill body. Explicit `#skill-name` selections from the user take precedence.
 
+## Task planning
+
+Before the orchestrator creates any initial or direct child Tasks, read the canonical Agents Relay planner agent at `/Users/chengli/Workspace/agents-relay/skills/agents-relay/agents/planner.agent.md` and apply its **Planning contract** to the decomposition. The planner agent owns the graph-first planning and durable Task-boundary rules; do not copy or maintain a second version of those rules in this skill.
+
+If that planner contract is unavailable, direct Task decomposition is blocked. The orchestrator may still create or bind the durable Job, but it must not invent ad-hoc Task boundaries.
+
 ## Operating invariants
 
 - One top-level objective maps to one GitHub PR and one Agents Relay job. Do not mix unrelated objectives in one managed PR/job.
