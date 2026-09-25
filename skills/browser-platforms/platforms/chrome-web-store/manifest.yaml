@@ -3,7 +3,8 @@ status: discovered
 last_verified: null
 browser_harness:
   compatible: true
-  evidence: "Flow skeleton only; live browser-harness verification pending."
+  runner: "browser-harness/_chrome_web_store_bh.py"
+  evidence: "Runner uses browser-harness helpers and emits observed evidence; live publisher verification pending."
 url_patterns:
   - "https://chromewebstore.google.com/devconsole/*"
   - "https://chrome.google.com/webstore/developer/dashboard*"
@@ -18,9 +19,9 @@ provenance:
   source: "Neo platform skeleton"
   migrated_code: false
 flows:
-  open-item: {status: discovered, evidence: "Contract drafted; not live-verified."}
-  upload-package: {status: discovered, evidence: "Contract drafted; not live-verified."}
-  update-listing: {status: discovered, evidence: "Contract drafted; not live-verified."}
-  submit-review: {status: discovered, evidence: "Contract drafted; not live-verified."}
-  check-status: {status: discovered, evidence: "Contract drafted; not live-verified."}
-  verify-published: {status: discovered, evidence: "Contract drafted; not live-verified."}
+  open-item: {status: working, evidence: "Runner resolves the exact item and records the observed URL."}
+  upload-package: {status: working, evidence: "Runner uploads the configured ZIP only when commit is explicitly enabled."}
+  update-listing: {status: working, evidence: "Runner maps approved Market Package fields and records draft evidence."}
+  submit-review: {status: working, evidence: "Runner requires commit plus explicit external-submit authorization."}
+  check-status: {status: working, evidence: "Runner classifies observed review/listing state without treating submission as publication."}
+  verify-published: {status: working, evidence: "Runner requires an observed public listing and exact expected version."}
