@@ -40,7 +40,7 @@ def candidate_files(project_root: Path | None = None) -> list[Path]:
     return sorted(found.values(), key=lambda p: str(p).lower())
 
 
-def parse_frontmatter(path: Path) -> dict[str, str] | None:
+def parse_frontmatter(path: Path) -> dict[str, object] | None:
     try:
         text = path.read_text(encoding="utf-8", errors="replace")
     except OSError:
@@ -60,7 +60,16 @@ def parse_frontmatter(path: Path) -> dict[str, str] | None:
     description = str(front.get("description") or "").strip()
     if not description:
         return None
-    return {"name": name, "description": description, "path": str(path)}
+    requires = front.get("requires")
+    required_skills: list[str] = []
+    if isinstance(requires, dict):
+        raw_skills = requires.get("skills")
+        if isinstance(raw_skills, list):
+            required_skills = [skill.strip() for skill in raw_skills if isinstance(skill, str) and skill.strip()]
+    result: dict[str, object] = {"name": name, "description": description, "path": str(path)}
+    if isinstance(requires, dict) and isinstance(requires.get("skills"), list):
+        result["requires"] = {"skills": required_skills}
+    return result
 
 
 def main() -> int:
@@ -95,17 +104,32 @@ def main() -> int:
             rank = 3
         return (rank, path.lower())
 
-    chosen: dict[str, dict[str, str]] = {}
+    chosen: dict[str, dict[str, object]] = {}
     for skill in sorted(parsed, key=priority):
         chosen.setdefault(skill["name"].lower(), skill)
-    skills = sorted(chosen.values(), key=lambda s: s["name"].lower())
+
+    for skill in chosen.values():
+        requires = skill.get("requires")
+        if not isinstance(requires, dict):
+            continue
+        required_skills = requires.get("skills", [])
+        missing = [name for name in required_skills if name.lower() not in chosen]
+        skill["requires_resolved"] = not missing
+        skill["missing_required_skills"] = missing
+
+    skills = sorted(chosen.values(), key=lambda s: str(s["name"]).lower())
 
     if args.markdown:
-        print("| Name | Description | Absolute path |")
-        print("|---|---|---|")
+        print("| Name | Description | Requires | Dependencies | Absolute path |")
+        print("|---|---|---|---|---|")
         for s in skills:
-            desc = s["description"].replace("|", "\\|")
-            print(f"| `{s['name']}` | {desc} | `{s['path']}` |")
+            desc = str(s["description"]).replace("|", "\\|")
+            requires = s.get("requires", {})
+            required = requires.get("skills", []) if isinstance(requires, dict) else []
+            dependency_text = ""
+            if "requires_resolved" in s:
+                dependency_text = "resolved" if s["requires_resolved"] else "missing: " + ", ".join(s["missing_required_skills"])
+            print(f"| `{s['name']}` | {desc} | {', '.join(required)} | {dependency_text} | `{s['path']}` |")
     else:
         print(json.dumps(skills, ensure_ascii=False, indent=2))
     return 0
