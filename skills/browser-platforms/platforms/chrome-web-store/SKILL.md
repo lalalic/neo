@@ -32,5 +32,10 @@ URL, item id, action, and status (`draft`, `submitted`, `pending`, `rejected`,
 `published`, or `unknown`).
 
 The input `market_package` is product-owned content supplied by Market Agent;
-this skill validates presence and maps it to store fields but does not invent
-copy or media.
+this skill validates presence and maps supplied values to store fields but does
+not invent copy or media. It accepts title, short/long description, release
+notes, reviewer test instructions, support/privacy URLs, privacy/data-use
+declarations, distribution/payment designation, permissions and host
+justifications, screenshots, posters/feature graphics, and demo video.
+`package_path` and `expected_version` are required for package upload; the ZIP's
+`manifest.json` version must match before browser interaction begins.
