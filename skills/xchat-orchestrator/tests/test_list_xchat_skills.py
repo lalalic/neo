@@ -68,6 +68,22 @@ class ListXchatSkillsTests(unittest.TestCase):
             result = self.run_discovery([Path(tmp)])
             self.assertEqual(set(result[0]), {"name", "description", "path"})
 
+    def test_markdown_reports_dependency_state(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.skill(root, "needs-browser", "requires:\n  skills:\n    - browser-harness\n")
+            old_roots, old_argv = module.ROOTS, sys.argv
+            module.ROOTS = [root]
+            sys.argv = [str(SCRIPT), "--markdown"]
+            output = io.StringIO()
+            try:
+                with redirect_stdout(output):
+                    self.assertEqual(module.main(), 0)
+            finally:
+                module.ROOTS, sys.argv = old_roots, old_argv
+            self.assertIn("Requires", output.getvalue())
+            self.assertIn("missing: browser-harness", output.getvalue())
+
 
 if __name__ == "__main__":
     unittest.main()

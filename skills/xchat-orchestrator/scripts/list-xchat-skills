@@ -65,7 +65,7 @@ def parse_frontmatter(path: Path) -> dict[str, object] | None:
     if isinstance(requires, dict):
         raw_skills = requires.get("skills")
         if isinstance(raw_skills, list):
-            required_skills = [str(skill).strip() for skill in raw_skills if str(skill).strip()]
+            required_skills = [skill.strip() for skill in raw_skills if isinstance(skill, str) and skill.strip()]
     result: dict[str, object] = {"name": name, "description": description, "path": str(path)}
     if isinstance(requires, dict) and isinstance(requires.get("skills"), list):
         result["requires"] = {"skills": required_skills}
