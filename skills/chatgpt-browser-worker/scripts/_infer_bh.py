@@ -11,11 +11,11 @@ _OWNED_TABS = []
 
 
 def _new_owned_tab(url):
-    target_id = cdp("Target.createTarget", url="about:blank", background=True)["targetId"]
-    switch_tab(target_id)
+    # Respect Browser Harness workspace adapters. A configured workspace may
+    # override new_tab()/close_tab() to acquire and release only managed tabs;
+    # raw Target.createTarget bypasses that boundary and is correctly refused.
+    target_id = new_tab(url)
     _OWNED_TABS.append(target_id)
-    if url != "about:blank":
-        goto_url(url)
     return target_id
 
 
