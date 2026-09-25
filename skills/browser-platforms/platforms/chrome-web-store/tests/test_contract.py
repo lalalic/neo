@@ -32,3 +32,9 @@ def test_runner_requires_exact_package_version_before_upload():
     source = RUNNER.read_text(encoding="utf-8")
     assert "manifest.json" in source
     assert "does not match expected_version" in source
+
+
+def test_runner_reuses_harness_real_tab_for_stable_navigation():
+    source = RUNNER.read_text(encoding="utf-8")
+    assert "ensure_real_tab()" in source
+    assert "goto_url(url)" in source

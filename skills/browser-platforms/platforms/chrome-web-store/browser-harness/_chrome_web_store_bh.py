@@ -114,7 +114,15 @@ def open_item():
         url = PUBLIC_LISTING_URL or ("https://chromewebstore.google.com/detail/" + ITEM_ID)
     else:
         url = LISTING_URL or (CONSOLE_URL + f"/store-item/{ITEM_ID}")
-    new_tab(url)
+    # Browser Workspace leases can briefly expose more than one target for a
+    # requested URL. Reuse the harness-verified real tab instead of asking the
+    # workspace layer to create another lease; this keeps navigation stable
+    # without bypassing browser-harness or changing the user's browser state.
+    if ensure_real_tab():
+        goto_url(url)
+    else:
+        # A fresh isolated browser may not have a usable page yet.
+        new_tab(url)
     wait_for_load()
     require_session()
     if ITEM_ID and ITEM_ID not in page_info().get("url", ""):
