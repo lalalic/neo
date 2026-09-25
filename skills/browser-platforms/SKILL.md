@@ -20,7 +20,10 @@ Platform assets live under `platforms/<platform-id>/` and record their
 maturity, evidence, URL patterns, side effects, and authentication notes.
 Never store cookies, tokens, passwords, or machine-local browser state here.
 
+Migrated platform mechanics currently include XHS, WeChat Channels, TikTok,
+and YouTube. Their `browser-harness/` directories are canonical; `post`
+contains only publishing-domain orchestration and points to those assets.
+
 `requires.skills` is a Neo discovery convention enforced by
 `skills/xchat-orchestrator/scripts/list-xchat-skills`; it is not claimed to be
 a universal Agent Skills standard.
-
