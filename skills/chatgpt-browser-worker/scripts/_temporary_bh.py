@@ -243,15 +243,21 @@ def _wait_for_send_ready(selector, prompt, attachments):
     )
 
 
-def _wait_user_turn(before_count, prompt, timeout=20):
+def _wait_user_turn(before_count, prompt, selector, timeout=20):
     deadline = time.time() + timeout
+    cleared_polls = 0
     while time.time() < deadline:
-        turns = _user_turns()
-        for turn in turns[before_count:]:
-            if prompt_text_matches(turn["text"], prompt):
-                return turn
+        receipt = submission_receipt(_user_turns(), before_count, prompt, _composer_text(selector))
+        if receipt:
+            if receipt["verified_by"] == "user-turn":
+                return receipt["turn"]
+            cleared_polls += 1
+            if cleared_polls >= 2:
+                return receipt["turn"]
+        else:
+            cleared_polls = 0
         time.sleep(.25)
-    raise RuntimeError("Temporary Chat submission verification did not observe a new user turn")
+    raise RuntimeError("Temporary Chat submission verification did not observe an accepted submission")
 
 
 def _diagnostic_thread_id():
@@ -322,7 +328,7 @@ wait_until_stable(
 
 _wait_for_send_ready(selector, CFG["prompt"], attachments)
 _click_send()
-user_turn = _wait_user_turn(before_count, CFG["prompt"])
+user_turn = _wait_user_turn(before_count, CFG["prompt"], selector)
 
 print(json.dumps({
     "operation": "submit",
