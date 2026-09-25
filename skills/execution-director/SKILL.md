@@ -26,4 +26,3 @@ recorder, Markcut, or network dependency.
 python skills/execution-director/scripts/contract.py skills/execution-director/examples/product-demo.json
 python -m unittest discover -s skills/execution-director/tests -p 'test_*.py'
 ```
-

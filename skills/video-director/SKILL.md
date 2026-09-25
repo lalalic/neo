@@ -64,4 +64,3 @@ not a second timeline DSL: the JSON carries semantic metadata for the next
 agent, while `markcut_storyboard` is the canonical narrative representation.
 Markcut owns validation, preview, and rendering after real media replaces the
 scene placeholders.
-
