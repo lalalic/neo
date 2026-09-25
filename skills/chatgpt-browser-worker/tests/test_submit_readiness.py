@@ -4,7 +4,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parents[1] / "scripts"))
 
-from _submit_readiness import actionable_temporary_chat_candidates, wait_until_stable
+from _submit_readiness import actionable_temporary_chat_candidates, prompt_text_matches, submission_receipt, temporary_chat_enabled_state, wait_until_stable
 
 
 class SubmitReadinessTests(unittest.TestCase):
@@ -39,6 +39,71 @@ class SubmitReadinessTests(unittest.TestCase):
             phase="send readiness",
         )
         self.assertTrue(result["enabled"])
+
+
+
+    def test_temporary_chat_enabled_prefers_url_state_over_label_variant(self):
+        candidates = [{
+            "visible": True,
+            "disabled": False,
+            "pointerEvents": "auto",
+            "label": "Temporary chat",
+            "text": "",
+        }]
+        self.assertTrue(
+            temporary_chat_enabled_state(
+                "https://chatgpt.com/?temporary-chat=true",
+                candidates,
+            )
+        )
+
+    def test_temporary_chat_enabled_accepts_turn_off_label_as_fallback(self):
+        candidates = [{
+            "visible": True,
+            "disabled": False,
+            "pointerEvents": "auto",
+            "label": "Turn off temporary chat",
+            "text": "",
+        }]
+        self.assertTrue(temporary_chat_enabled_state("https://chatgpt.com/", candidates))
+
+    def test_temporary_chat_enabled_rejects_plain_toggle_without_url_state(self):
+        candidates = [{
+            "visible": True,
+            "disabled": False,
+            "pointerEvents": "auto",
+            "label": "Temporary chat",
+            "text": "",
+        }]
+        self.assertFalse(temporary_chat_enabled_state("https://chatgpt.com/", candidates))
+
+    def test_prompt_text_matches_prosemirror_reshaping(self):
+        expected = "START " + ("alpha beta " * 200) + " END"
+        observed = "START\n\n" + ("alpha  beta\n" * 200) + " END"
+        self.assertTrue(prompt_text_matches(observed, expected))
+
+    def test_prompt_text_matches_rejects_truncated_prompt(self):
+        expected = "START " + ("alpha beta " * 200) + " END"
+        self.assertFalse(prompt_text_matches(expected[:400], expected))
+
+    def test_submission_receipt_accepts_matching_user_turn(self):
+        prompt = "hello reviewer"
+        receipt = submission_receipt(
+            [{"id": "old", "text": "old"}, {"id": "new", "text": "hello  reviewer"}],
+            1,
+            prompt,
+            "still populated",
+        )
+        self.assertEqual(receipt["verified_by"], "user-turn")
+        self.assertEqual(receipt["turn"]["id"], "new")
+
+    def test_submission_receipt_accepts_cleared_composer_for_start_ack_gate(self):
+        receipt = submission_receipt([], 0, "long prompt", "   ")
+        self.assertEqual(receipt["verified_by"], "composer-cleared")
+        self.assertIsNone(receipt["turn"]["id"])
+
+    def test_submission_receipt_rejects_nonempty_unmatched_state(self):
+        self.assertIsNone(submission_receipt([], 0, "long prompt", "long prompt"))
 
     def test_temporary_chat_actionability_ignores_hidden_duplicate(self):
         candidates = [
