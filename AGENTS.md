@@ -118,3 +118,4 @@ Publishing is handled through `skills/post` when the user explicitly asks to pos
 
 - 2026-09-19: Existing ChatGPT thread operations must open one durable `thread_id` at a time, verify the observed Project before sending or reading, and report completion only from a normalized assistant message.
 - 2026-09-19: Browser result retrieval must refuse active generation and require an observed message ID; a prior assistant bubble or synthetic fallback ID is not completion evidence.
+- 2026-09-25: Computer-use demos should receive a declarative intent and keep fresh-UI verification plus playable-artifact checks as explicit gates; contract validation alone is not E2E evidence.
