@@ -45,12 +45,18 @@ Preserve the ITT/VTT boundary conceptually: image understanding and time-aligned
 
 ## Validated Browser ChatGPT backend pattern
 
-Prior Markcut research and implementation work established a reusable optional backend pattern for the ITT/VTT layer: use the existing `chatgpt-browser-worker` through `browser-harness`, with one isolated worker-owned Temporary Chat per invocation. This is a validated integration pattern behind Markcut's generic ITT/VTT extension points, not a Markcut-specific built-in backend and not an unconditional default.
+Prior Markcut research and implementation work established the preferred backend pattern for this environment: use the existing `chatgpt-browser-worker` synchronous inference path through `browser-harness`, with one isolated worker-owned Temporary Chat per invocation. Keep this behind Markcut's generic ITT/VTT extension points rather than embedding Browser ChatGPT logic into Markcut itself.
+
+Use this backend priority below Markcut Vision:
+
+1. **Preferred/default — Browser ChatGPT Temporary Chat.** Use the existing synchronous `chatgpt-browser-worker` inference surface.
+2. **Fallback — Codex with a lightweight remote vision-capable model/profile.** Use a currently available lightweight profile such as Z.ai GLM-5.3-Flash or GPT-5.6 Luna when Browser ChatGPT is unavailable, fails validation, or cannot handle the requested media path. This is a backend implementation concern; do not hard-code model choice in the agent graph.
+3. **Last resort — local VLM.** Use local vision inference only when remote paths are unavailable or the caller explicitly requires local/offline execution. Do not make local VLM the normal default on this Mac.
 
 Preserve these constraints when this backend is selected below Markcut Vision:
 
 - **ITT / image:** attach the local image directly to the isolated Browser ChatGPT worker invocation together with the semantic vision prompt.
-- **VTT / video:** use direct video input only when the current Browser ChatGPT path supports it reliably. Otherwise deterministically reduce the video to representative frames/contact sheet plus timing context, in chronological order, so temporal meaning is preserved.
+- **VTT / video:** use direct video input only when the selected backend supports it reliably. Otherwise let Markcut deterministically reduce the video to representative chronological frames/contact sheet plus timing context, then run the same preferred/fallback image-understanding path over those frames.
 - **Isolation:** never reuse or interfere with an existing user ChatGPT tab. Each call runs in its own worker-owned Temporary Chat/session surface.
 - **Output contract:** each call gets exactly one unique durable file-output destination; the caller waits/reconciles that result, then returns the result to the ITT/VTT interface. Concurrent calls must not share output paths.
 - **Failure semantics:** truncated/invalid structured output, missing completion evidence, upload/submission failure, or worker lifecycle failure is a backend failure, not successful visual understanding.
