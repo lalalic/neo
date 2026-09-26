@@ -1,95 +1,80 @@
 # Neo Build Log Project Rules
 
-Neo Build Log is a thin Neo content project. Root `AGENTS.md` and `MISSION.md` apply first. Do not build a second workflow/runtime system inside this project.
+Neo Build Log is a thin content project. Root Neo instructions and `MISSION.md` apply first.
 
 ## Ownership
 
-Agents Relay owns durable Jobs, Tasks, scheduling, planner rounds, retries, leases, dependencies, worker/model routing, events, review, and reconciliation. Shared Neo agents/skills own reusable media understanding, Video Director, Execution Director, demo/capture/image/video execution, Markcut production, QA, publishing, and troubleshooting.
+Do not add a project-local scheduler, workflow database, task engine, routing policy, worker launcher, retry system, publication browser adapter, or lifecycle state machine.
 
-Neo Build Log owns only the Build Log-specific editorial contract and its ignored run artifacts.
+Agents Relay owns orchestration. Shared Neo skills own reusable execution capabilities. This project owns only Build-Log-specific content behavior and its ignored run artifacts.
 
-## Execution model
+## Planner contract
 
-The long-lived Agents Relay Job is `neo-build-log-daily` (PR #34). It remains ACTIVE across successful daily runs. Each requested or scheduled date creates one durable Build Log Task. Prefer one Task per day unless an intermediate result genuinely needs independent review/block/retry lifecycle.
+When a planner receives a Build Log objective:
 
-A daily Task may use an `agentGraph` made only from agents visible in the resolved Agents Relay context. Internal graph nodes are reasoning/execution roles, not durable Tasks.
+- resolve this project and use its visible project agents;
+- normally create one durable Task for one target day/episode;
+- keep evidence reconstruction, story editing, visual planning, production, render, QA, and publication inside that Task's `agentGraph` unless a phase truly needs an independent durable lifecycle;
+- never invent unavailable agents;
+- do not hard-code worker/provider/model selection;
+- do not split ordinary workflow mechanics into sibling Tasks.
 
-Typical flow:
+The preferred internal graph is:
 
 ```mermaid
 flowchart LR
-  A[collect authoritative day evidence] --> B[select strongest story]
-  B --> C[public narrative + post]
-  B --> D[Video Director -> video.md]
-  D --> E[Execution Director -> execution lanes]
-  E --> F[shared runtime agents]
-  F --> G[Markcut render + QA]
-  G --> H[post-agent publish + verify]
-  B --> I[next-day work-start brief]
+  A[build-log-editor] --> B[build-log-producer]
+  B --> C[reviewer when useful]
+  C --> D[post-agent when authorized]
 ```
 
-Do not hard-code provider/model choices here; worker-router and model-router own routing.
+The exact graph may be smaller when publication or review is not required.
 
-## Editorial contract
+## Truth and evidence
 
-Build Log is a story of real Neo work, not a changelog dump. For the target local date:
+For the target local date:
 
-- reconstruct the user's underlying intent only when supported by actual conversation/work evidence;
-- identify the problem/constraint, important attempts or failed directions, turning point, implemented result, remaining uncertainty, and useful takeaway;
-- select the strongest coherent story or small set of connected stories instead of enumerating every PR/task;
-- separate observed facts from interpretation;
-- never invent success, motivation, metrics, or missing evidence;
-- remove credentials, private identifiers, sensitive personal material, internal-only URLs, and unsuitable private context from public outputs;
-- public copy should be understandable beyond the immediate engineering thread while remaining technically accurate.
+- use authoritative conversation, Agents Relay, GitHub, runtime, and artifact evidence;
+- distinguish observed facts, interpretation, and unknowns;
+- infer intent only when supported by real discussion/work evidence;
+- never fabricate progress, success, failures, screenshots, footage, metrics, or motivations;
+- remove credentials, private identifiers, internal-only URLs, sensitive personal material, and other unsuitable private context from public outputs;
+- preserve useful authoritative references in private evidence/next-day artifacts.
 
-A strong episode normally has: hook -> problem/constraint -> investigation/attempt -> build/change -> observable result -> payoff/next hook. This is an editorial shape, not a separate workflow engine.
+## Required content outcome
 
-## Daily outputs
+Build Log is a content package, not a text-only report.
 
-Each daily Task should leave, when evidence supports them:
+A normal successful run should produce:
 
-- the evidence/source manifest or notes used to reconstruct the day;
-- the public narrative Build Log;
-- a concise social/post version;
-- canonical Markcut `video.md` from the shared Video Director;
-- Execution Director lane files and produced media when unresolved assets require execution;
-- rendered/verified video and QA notes;
-- publication receipts/status when publication is authorized and succeeds;
-- a private next-day work-start brief covering where work ended, what matters next, user-required actions, 李友/shared dependencies when applicable, autonomous follow-ups, risks, and authoritative references.
+- evidence/source notes;
+- a public narrative story;
+- concise social copy;
+- a Markcut-compatible `video.md`;
+- real captured/generated media when required and available;
+- a rendered video when technically possible;
+- observable QA notes;
+- publication receipt/status when the Task authorizes publication;
+- a private next-day work-start brief.
 
-The next-day brief is operational/private input, not public copy.
-
-## Shared production architecture
-
-Use the current shared system instead of project-local duplicates:
-
-- Video Director owns story/timeline decisions and canonical Markcut `video.md`.
-- Execution Director compiles unresolved media requirements into typed execution lanes.
-- Shared runtime agents/capabilities execute demo, capture, image, video, vision, audio/TTS, and other media needs.
-- Markcut owns preview/render semantics.
-- Shared QA/reviewer capabilities inspect observable artifacts.
-- `post` / post-agent owns publication and platform-side verification.
-- Agents Relay troubleshooter/recovery handles execution failures.
-
-If a missing capability is reusable across projects, improve the owning shared skill/agent rather than re-implementing it here.
+If real media is unavailable, do not substitute fake evidence. Preserve a truthful storyboard/capture plan and exact blocker so a retry can continue without repeating completed editorial work.
 
 ## Run contract
 
-Follow the root universal run contract:
+Use the root universal run layout:
 
 ```text
 runs/<YYYY-MM-DD[-slug]>/
 ```
 
-Use a named series wrapper only when there is a real distinct series. Do not add the redundant `runs/neo-build-log/` wrapper for future daily runs.
-
-All per-run evidence, generated content, media, Execution Director outputs, Markcut state, logs, QA, next-day brief, and publication receipts belong in the dated ignored run directory. Historical ignored runs may remain in their legacy locations; never delete the only copy merely to normalize paths.
+Do not add a redundant `runs/neo-build-log/` wrapper. Every per-run artifact belongs in the dated run: evidence, drafts, media, generated assets, Markcut state, logs, QA, next-day brief, and publication receipts.
 
 ## Publication
 
-The standing `neo-build-log-daily` Job contains the scope of autonomous publication authorization. Publication must still use the shared post workflow, verify the platform-side result, and preserve receipts. If authentication/platform state blocks publication, preserve the completed artifact plus exact blocker and do not claim success.
+Publication target and authorization belong to the autonomous Job or specific Task, not this project. When authorized, use shared `post-agent`, perform duplicate-safe platform verification, and persist the exact receipt/state. Authentication or platform blockers must be reported truthfully.
 
 ## Project learnings
 
-- 2026-09-12: Build Log stories must come from observable work rather than generic tutorials; the hook should expose the concrete gap/payoff immediately.
-- 2026-09-26: Project-local Director/Capture/audio/schema machinery duplicated capabilities now owned by shared Neo agents/skills. Keep Build Log thin: Agents Relay owns orchestration, shared capabilities own execution, and this project owns only the editorial contract plus run artifacts.
+- 2026-09-12: A Build Log should expose a concrete gap/payoff immediately and derive its story from observable work, not a generic tutorial.
+- 2026-09-26: Treat the Build Log as a content project. The tracked project defines editorial behavior and project agents; Agents Relay owns execution orchestration.
+- 2026-09-26: A prose reference to a shared role is insufficient if that role is not discoverable in resolved planner context. Build-Log-specific editorial/production roles must be real project agents; reusable execution remains in shared skills.
