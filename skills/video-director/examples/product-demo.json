@@ -6,29 +6,48 @@
     "channel": "product_demo",
     "duration_seconds": 30,
     "style": "clear, warm, evidence-led",
-    "goal": "Show that each child gets a separate learning profile",
-    "context": {
-      "surfaces": ["Chrome extension popup"],
-      "features": ["kids list"],
-      "claims": ["one profile per child"]
-    }
+    "goal": "Show separate learning profiles"
   },
-  "markcut_storyboard": "# video\nwidth:1920 height:1080 fps:30 layout:series\n",
   "scenes": [
     {
-      "id": "hook",
-      "purpose": "Reveal the parent problem immediately",
-      "communicates": "Every child can have a distinct learning space",
-      "visible_evidence": ["The Family Tutor kids list is visible", "Two named child profiles are visible"],
-      "presentation": {"focus": "kids list", "highlight": ["child profiles"], "text": ["A separate learning profile for each child"], "zoom": "emphasis", "duration_seconds": 6},
-      "narration": "One household, different learners, one clear place for each child."
-    },
-    {
-      "id": "proof",
-      "purpose": "Make the product value concrete",
-      "communicates": "The list makes the profile boundary understandable at a glance",
-      "visible_evidence": ["The child names remain visible in the product surface"],
-      "presentation": {"focus": "profile separation", "highlight": ["list rows"], "text": ["Keep learning journeys distinct"], "zoom": "subtle", "duration_seconds": 8}
+      "id": "profiles",
+      "purpose": "Reveal separate learning spaces",
+      "communicates": "Each child has a distinct profile",
+      "visible_evidence": [
+        "Two named child profiles are visible"
+      ],
+      "presentation": {
+        "focus": "kids list",
+        "highlight": [
+          "profile rows"
+        ],
+        "text": [
+          "One profile per child"
+        ],
+        "zoom": "emphasis",
+        "duration_seconds": 6
+      },
+      "narration": "Each child gets a learning space of their own.",
+      "execution": {
+        "id": "profiles-demo",
+        "type": "demo",
+        "output": "assets/profiles-demo.mp4",
+        "identity": {
+          "product": "Family Tutor",
+          "surface": "extension popup",
+          "feature": "kids list"
+        },
+        "success": {
+          "fresh_ui_required": true,
+          "visible_state": "Two named child profiles are visible"
+        },
+        "autonomy": {
+          "allowed_recovery": [
+            "reopen product surface"
+          ],
+          "boundary": "Stop if fresh UI cannot verify the state."
+        }
+      }
     }
   ]
 }

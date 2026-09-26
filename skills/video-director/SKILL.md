@@ -1,66 +1,42 @@
 ---
 name: video-director
-description: Turn product-demo and marketing intent into Markcut narrative and semantic shot intent without prescribing UI automation.
+description: Turn product-demo and marketing intent into canonical Markcut video.md with semantic execution markers, without prescribing runtime automation.
 ---
 
 # Video Director
 
-The Video Director owns the story, audience, pacing, scene order, and what
-each shot must communicate. It consumes a creative brief and emits a
-`video-director-plan-v1` document with two deliberately joined outputs:
+The Video Director owns story, audience, pacing, scene order, narration, visible evidence, and presentation intent.
 
-1. `markcut_storyboard`: Markcut Markdown Descriptive, suitable for the next
-   authoring/preview stage; and
-2. `scenes`: semantic shot intent for the Execution Director.
+Its canonical output is **Markcut Markdown** (`video.md`). There is no second canonical JSON timeline. Scenes that require media which does not yet exist carry a compact HTML comment marker that Markcut ignores but Execution Director can compile:
 
-The plan describes visible outcomes, evidence, and presentation intent. It
-must never contain coordinates, selectors, fixed click/keypress sequences, or
-instructions for how a UI automation tool should reach a state. Those details
-belong to the Demo Agent at runtime.
-
-## Contract
-
-Input is a `video-director-brief-v1` object:
-
-```json
-{
-  "product": "Family Tutor",
-  "audience": "Parents evaluating a safe learning workflow",
-  "channel": "product_demo",
-  "duration_seconds": 30,
-  "style": "clear, warm, evidence-led",
-  "goal": "Show that each child gets a separate learning profile",
-  "context": {
-    "surfaces": ["Chrome extension popup"],
-    "features": ["kids list"],
-    "claims": ["one profile per child"]
-  }
-}
+```md
+## profiles
+<!-- execution {"id":"profiles-demo","type":"demo","scene_id":"profiles",...} -->
+- video src:"assets/profiles-demo.mp4" duration:6
 ```
 
-Output scenes require a stable `id`, a `purpose`, a `communicates` sentence,
-at least one `visible_evidence` item, and `presentation` metadata. The
-presentation vocabulary is intentionally editorial: `focus`, `highlight`,
-`text`, `zoom`, and `duration_seconds`. `narration` is optional and belongs
-to the story, not to runtime execution.
+The marker describes semantic intent and expected output, not selectors, coordinates, click sequences, or tool choice.
 
-Use `scripts/contract.py` in adapters and tests. It has no browser, recorder,
-Markcut, or network dependency. `render_markcut()` emits the standard
-Markcut Markdown Descriptive root/scenes; its media sources are explicit
-scene placeholders for the downstream capture/assembly stage.
+## Flow
+
+```text
+creative brief
+  -> Video Director
+  -> video.md (canonical Markcut source)
+  -> Execution Director
+  -> execution/*.json
+  -> runtime agents
+  -> assets/*
+  -> Markcut preview/render
+```
+
+Use `scripts/contract.py` to validate authoring input and render canonical Markcut. `render_markcut()` emits stable scene IDs and execution markers for unresolved media requirements.
 
 ## Responsibility boundary
 
 | Layer | Owns | Must not own |
 | --- | --- | --- |
-| Video Director | story, audience, pacing, scene order, visible evidence, presentation | selectors, coordinates, click sequences, app/tool choice |
-| Execution Director | semantic executable shot contracts and fresh-UI success criteria | brittle automation scripts |
-| Demo Agent | runtime navigation, tool choice, recovery, screenshots, verification | story rewrites and editorial intent |
-
-## Markcut handoff
-
-Markcut remains the narrative/timeline authoring format. A director plan is
-not a second timeline DSL: the JSON carries semantic metadata for the next
-agent, while `markcut_storyboard` is the canonical narrative representation.
-Markcut owns validation, preview, and rendering after real media replaces the
-scene placeholders.
+| Video Director | story, audience, pacing, scene order, evidence, presentation, media requirement intent | selectors, coordinates, fixed UI sequences, runtime tools |
+| Execution Director | compile media requirements into typed execution lanes | runtime navigation/tool implementation |
+| Runtime agents | reach the requested state, capture/generate media, verify outputs | rewrite editorial intent |
+| Markcut | canonical timeline, preview, render after assets materialize | runtime product navigation |

@@ -1,28 +1,33 @@
 ---
 name: execution-director
-description: Turn Video Director semantic shot intent into stable executable contracts for Demo Agent.
+description: Compile unresolved media requirements from canonical Markcut video.md into typed execution/index.json and demo/capture/image/video lane files.
 ---
 
 # Execution Director
 
-The Execution Director is the contract boundary between the Video Director and
-the Demo Agent. It preserves the requested product story while adding the
-runtime-independent facts and recovery boundaries needed to execute a shot.
+Execution Director reads the canonical Markcut `video.md` produced by Video Director. It finds `<!-- execution {...} -->` markers and compiles them into an execution directory:
 
-It consumes a `video-director-plan-v1` scene and emits an
-`execution-director-plan-v1` document. The output identifies the product,
-surface, and feature; states the visible evidence that must be observed from a
-fresh UI; carries editorial presentation metadata; and defines what recovery
-and autonomy are allowed.
-
-The contract deliberately excludes selectors, coordinates, click/keypress
-sequences, and tool-specific navigation. The Demo Agent chooses the runtime
-tool and navigation strategy, then returns fresh-UI and artifact evidence.
-
-Use `scripts/contract.py` for pure validation and conversion. It has no browser,
-recorder, Markcut, or network dependency.
-
-```sh
-python skills/execution-director/scripts/contract.py skills/execution-director/examples/product-demo.json
-python -m unittest discover -s skills/execution-director/tests -p 'test_*.py'
+```text
+execution/
+├── index.json
+├── demo.json
+├── capture.json
+├── image.json
+└── video.json
 ```
+
+`index.json` is a small cross-lane manifest. Lane files carry semantic execution requirements for downstream agents. No lane contains selectors, coordinates, fixed click sequences, or tool-specific navigation.
+
+Initial lane types are deliberately limited to `demo`, `capture`, `image`, and `video`.
+
+```text
+video.md
+  -> Execution Director
+  -> execution/*.json
+  -> Demo/Capture/Image/Video agents
+  -> assets/*
+  -> materialize video.md
+  -> Markcut preview/render
+```
+
+Use `scripts/contract.py video.md execution/` to compile and validate the directory.

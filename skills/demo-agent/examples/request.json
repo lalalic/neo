@@ -1,13 +1,51 @@
 {
   "schema_version": 1,
-  "shot": {
-    "id": "profiles",
-    "identity": {"product": "Family Tutor", "surface": "extension popup", "feature": "kids list"},
-    "intent": {"purpose": "Reveal separate learning spaces", "communicates": "Each child has a distinct profile"},
-    "required_visible_evidence": ["Two named child profiles are visible"],
-    "success": {"fresh_ui_required": true, "visible_state": "The two profiles are visible in the current UI"},
-    "presentation": {"focus": "kids list", "highlight": ["profile rows"], "text": ["One profile per child"], "zoom": "emphasis", "duration_seconds": 6},
-    "autonomy": {"allowed_recovery": ["reopen the product surface", "retry the same semantic goal once"], "boundary": "Stop if the required visible state cannot be verified from fresh UI."}
+  "runtime": {
+    "allowed_tools": [
+      "browser-harness",
+      "computer-use"
+    ],
+    "capture_scope": "shot",
+    "recording_required": true
   },
-  "runtime": {"allowed_tools": ["browser-harness", "computer-use"], "capture_scope": "shot", "recording_required": true}
+  "item": {
+    "id": "profiles",
+    "identity": {
+      "product": "Family Tutor",
+      "surface": "extension popup",
+      "feature": "kids list"
+    },
+    "intent": {
+      "purpose": "Reveal separate learning spaces",
+      "communicates": "Each child has a distinct profile"
+    },
+    "required_visible_evidence": [
+      "Two named child profiles are visible"
+    ],
+    "success": {
+      "fresh_ui_required": true,
+      "visible_state": "The two profiles are visible in the current UI"
+    },
+    "presentation": {
+      "focus": "kids list",
+      "highlight": [
+        "profile rows"
+      ],
+      "text": [
+        "One profile per child"
+      ],
+      "zoom": "emphasis",
+      "duration_seconds": 6
+    },
+    "autonomy": {
+      "allowed_recovery": [
+        "reopen the product surface",
+        "retry the same semantic goal once"
+      ],
+      "boundary": "Stop if the required visible state cannot be verified from fresh UI."
+    },
+    "type": "demo",
+    "scene_id": "profiles",
+    "output": "assets/profiles-demo.mp4"
+  }
 }

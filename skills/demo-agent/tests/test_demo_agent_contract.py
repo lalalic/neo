@@ -13,8 +13,11 @@ spec.loader.exec_module(contract)
 def request():
     return {
         "schema_version": 1,
-        "shot": {
+        "item": {
             "id": "profiles",
+            "type": "demo",
+            "scene_id": "profiles",
+            "output": "assets/profiles-demo.mp4",
             "identity": {"product": "Tutor", "surface": "popup", "feature": "profiles"},
             "intent": {"purpose": "Show profiles", "communicates": "Each child has one"},
             "required_visible_evidence": ["Two profiles"],
@@ -42,11 +45,11 @@ def evidence():
 def test_request_requires_fresh_ui_and_keeps_runtime_policy_semantic():
     contract.validate_request(request())
     bad = request()
-    bad["shot"]["success"]["fresh_ui_required"] = False
+    bad["item"]["success"]["fresh_ui_required"] = False
     with pytest.raises(contract.ContractError, match="fresh_ui_required"):
         contract.validate_request(bad)
     bad = request()
-    bad["shot"]["actions"] = ["click"]
+    bad["item"]["actions"] = ["click"]
     with pytest.raises(contract.ContractError, match="automation detail"):
         contract.validate_request(bad)
 

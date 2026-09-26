@@ -1,4 +1,4 @@
-"""Pure validation for Demo Agent requests and runtime shot evidence."""
+"""Pure validation for Demo Agent demo-lane items and runtime evidence."""
 
 from __future__ import annotations
 
@@ -41,24 +41,28 @@ def _reject_automation(value: Any, path: str = "contract") -> None:
 def validate_request(request: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(request, dict) or request.get("schema_version") != 1:
         raise ContractError("request.schema_version must be 1")
-    shot = request.get("shot")
+    shot = request.get("item")
     if not isinstance(shot, dict):
-        raise ContractError("request.shot must be an Execution Director shot")
-    required = ("id", "identity", "intent", "required_visible_evidence", "success", "presentation", "autonomy")
+        raise ContractError("request.item must be a demo execution item")
+    required = ("id", "type", "scene_id", "output", "identity", "intent", "required_visible_evidence", "success", "presentation", "autonomy")
     missing = [field for field in required if field not in shot]
     if missing:
-        raise ContractError(f"request.shot missing: {', '.join(missing)}")
-    _text(shot["id"], "request.shot.id")
+        raise ContractError(f"request.item missing: {', '.join(missing)}")
+    _text(shot["id"], "request.item.id")
+    if shot["type"] != "demo":
+        raise ContractError("request.item.type must be demo")
+    _text(shot["scene_id"], "request.item.scene_id")
+    _text(shot["output"], "request.item.output")
     identity = shot["identity"]
     if not isinstance(identity, dict):
-        raise ContractError("request.shot.identity must be an object")
+        raise ContractError("request.item.identity must be an object")
     for field in ("product", "surface", "feature"):
-        _text(identity.get(field), f"request.shot.identity.{field}")
-    _strings(shot["required_visible_evidence"], "request.shot.required_visible_evidence")
+        _text(identity.get(field), f"request.item.identity.{field}")
+    _strings(shot["required_visible_evidence"], "request.item.required_visible_evidence")
     success = shot["success"]
     if not isinstance(success, dict) or success.get("fresh_ui_required") is not True:
-        raise ContractError("request.shot.success.fresh_ui_required must be true")
-    _text(success.get("visible_state"), "request.shot.success.visible_state")
+        raise ContractError("request.item.success.fresh_ui_required must be true")
+    _text(success.get("visible_state"), "request.item.success.visible_state")
     runtime = request.get("runtime")
     if not isinstance(runtime, dict):
         raise ContractError("request.runtime must be an object")
@@ -131,7 +135,7 @@ def _main(argv: list[str]) -> int:
     except (OSError, json.JSONDecodeError, ContractError) as exc:
         print(f"invalid demo-agent request: {exc}", file=sys.stderr)
         return 1
-    print(json.dumps({"valid": True, "shot_id": request["shot"]["id"], "tools": request["runtime"]["allowed_tools"]}))
+    print(json.dumps({"valid": True, "shot_id": request["item"]["id"], "tools": request["runtime"]["allowed_tools"]}))
     return 0
 
 

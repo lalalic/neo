@@ -1,64 +1,36 @@
 import importlib.util
 from pathlib import Path
-
 import pytest
 
-
 ROOT = Path(__file__).parents[1]
-spec = importlib.util.spec_from_file_location("execution_director_contract", ROOT / "scripts/contract.py")
-contract = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(contract)
+spec = importlib.util.spec_from_file_location("c", ROOT / "scripts/contract.py")
+c = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(c)
 
+def text():
+    return (ROOT / "examples/video.md").read_text()
 
-def scene():
-    return {
-        "id": "profiles",
-        "purpose": "Reveal separate learning spaces",
-        "communicates": "Each child has a distinct profile",
-        "visible_evidence": ["Two named child profiles are visible"],
-        "presentation": {"focus": "kids list", "highlight": ["profile rows"], "text": ["One profile per child"], "zoom": "emphasis", "duration_seconds": 6},
-    }
+def test_compiles_all_four_lanes():
+    index, lanes = c.compile_execution(text())
+    assert [x["type"] for x in index["items"]] == ["demo", "capture", "image", "video"]
+    assert lanes["demo"]["items"][0]["id"] == "profiles-demo"
 
+def test_write_execution_creates_nonempty_lanes(tmp_path):
+    video = tmp_path / "video.md"
+    video.write_text(text())
+    c.write_execution(video, tmp_path / "execution")
+    assert (tmp_path / "execution/index.json").exists()
+    assert (tmp_path / "execution/demo.json").exists()
+    assert (tmp_path / "execution/capture.json").exists()
+    assert (tmp_path / "execution/image.json").exists()
+    assert (tmp_path / "execution/video.json").exists()
 
-def plan():
-    return {
-        "schema_version": 1,
-        "source_scene_id": "profiles",
-        "shots": [{
-            "id": "profiles",
-            "identity": {"product": "Family Tutor", "surface": "extension popup", "feature": "kids list"},
-            "intent": {"purpose": "Reveal separate learning spaces", "communicates": "Each child has a distinct profile"},
-            "required_visible_evidence": ["Two named child profiles are visible"],
-            "success": {"fresh_ui_required": True, "visible_state": "The two profiles are visible in the current UI"},
-            "presentation": scene()["presentation"],
-            "autonomy": {"allowed_recovery": ["reopen the product surface", "retry the same semantic goal once"], "boundary": "Stop and report if the required visible state cannot be verified from fresh UI."},
-        }],
-    }
+def test_rejects_runtime_automation():
+    bad = '<!-- execution {"id":"x","type":"image","scene_id":"s","output":"a.png","prompt":"x","selector":"#x"} -->'
+    with pytest.raises(c.ContractError, match="runtime automation"):
+        c.parse_markcut(bad)
 
-
-def test_plan_and_scene_conversion_are_valid():
-    contract.validate_plan(plan())
-    converted = contract.from_video_scene(scene(), product="Family Tutor", surface="extension popup", feature="kids list", visible_state="The two profiles are visible", allowed_recovery=["reopen the surface"], boundary="Stop if fresh UI cannot verify the state.")
-    assert converted["shots"][0]["success"]["fresh_ui_required"] is True
-
-
-def test_contract_rejects_automation_details():
-    bad = plan()
-    bad["shots"][0]["coordinates"] = {"x": 1, "y": 2}
-    with pytest.raises(contract.ContractError, match="runtime automation"):
-        contract.validate_plan(bad)
-    bad = plan()
-    bad["shots"][0]["autonomy"]["boundary"] = "Use a fixed click sequence"
-    with pytest.raises(contract.ContractError, match="forbidden runtime detail"):
-        contract.validate_plan(bad)
-
-
-def test_fresh_ui_and_unique_ids_are_required():
-    bad = plan()
-    bad["shots"][0]["success"]["fresh_ui_required"] = False
-    with pytest.raises(contract.ContractError, match="fresh_ui_required"):
-        contract.validate_plan(bad)
-    bad = plan()
-    bad["shots"].append(bad["shots"][0].copy())
-    with pytest.raises(contract.ContractError, match="duplicate shot id"):
-        contract.validate_plan(bad)
+def test_duplicate_ids_rejected():
+    one = '<!-- execution {"id":"x","type":"image","scene_id":"s","output":"a.png","prompt":"x"} -->'
+    with pytest.raises(c.ContractError, match="duplicate execution id"):
+        c.parse_markcut(one + "\n" + one)
