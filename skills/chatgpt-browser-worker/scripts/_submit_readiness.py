@@ -39,6 +39,11 @@ def actionable_temporary_chat_candidates(candidates):
     ]
 
 
+def temporary_chat_entry_url():
+    """Use ChatGPT's observable Temporary Chat route for worker-owned tabs."""
+    return "https://chatgpt.com/?temporary-chat=true"
+
+
 def temporary_chat_enabled_state(url, candidates):
     """Recognize Temporary Chat from stable URL state with semantic UI fallback."""
     if "temporary-chat=true" in (url or ""):
