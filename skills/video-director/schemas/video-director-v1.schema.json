@@ -1,54 +1,23 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://neo.local/schemas/video-director-v1.schema.json",
-  "title": "Neo Video Director Plan",
+  "$id": "https://neo.local/schemas/video-director-input-v1.schema.json",
+  "title": "Neo Video Director Authoring Input",
   "type": "object",
-  "additionalProperties": false,
-  "required": ["schema_version", "brief", "markcut_storyboard", "scenes"],
+  "required": [
+    "schema_version",
+    "brief",
+    "scenes"
+  ],
   "properties": {
-    "schema_version": {"const": 1},
-    "brief": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["product", "audience", "channel", "duration_seconds", "style", "goal"],
-      "properties": {
-        "product": {"type": "string", "minLength": 1},
-        "audience": {"type": "string", "minLength": 1},
-        "channel": {"type": "string", "minLength": 1},
-        "duration_seconds": {"type": "number", "exclusiveMinimum": 0},
-        "style": {"type": "string", "minLength": 1},
-        "goal": {"type": "string", "minLength": 1},
-        "context": {"type": "object"}
-      }
+    "schema_version": {
+      "const": 1
     },
-    "markcut_storyboard": {"type": "string", "pattern": "^# video\\n"},
+    "brief": {
+      "type": "object"
+    },
     "scenes": {
       "type": "array",
-      "minItems": 1,
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["id", "purpose", "communicates", "visible_evidence", "presentation"],
-        "properties": {
-          "id": {"type": "string", "pattern": "^[a-z0-9-]+$"},
-          "purpose": {"type": "string", "minLength": 1},
-          "communicates": {"type": "string", "minLength": 1},
-          "visible_evidence": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
-          "narration": {"type": "string"},
-          "presentation": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": ["focus", "highlight", "text", "zoom", "duration_seconds"],
-            "properties": {
-              "focus": {"type": "string", "minLength": 1},
-              "highlight": {"type": "array", "items": {"type": "string"}},
-              "text": {"type": "array", "items": {"type": "string"}},
-              "zoom": {"type": "string", "enum": ["none", "subtle", "emphasis"]},
-              "duration_seconds": {"type": "number", "exclusiveMinimum": 0}
-            }
-          }
-        }
-      }
+      "minItems": 1
     }
   }
 }
