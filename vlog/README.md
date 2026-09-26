@@ -1,63 +1,33 @@
 # Vlog
 
-Vlog is a Neo monorepo project for turning real phone/desktop media into evidence-backed short-form videos. NeoX supplies phone media, Codex/agents coordinate production, and Markcut handles media analysis, storyboards, preview, and rendering.
+Vlog turns real daily media/evidence into short videos. It is intentionally a thin Neo project: Agents Relay drives each production run, shared Neo skills perform specialized work, and this directory keeps only the Vlog contract plus ignored run artifacts.
 
-The tracked project contains only the reusable production system. Every actual vlog execution—including source media, episode Markdown, SQLite state, generated narration/BGM, previews, reviews, publish receipts, and final video—belongs under ignored `runs/<YYYY-MM-DD[-slug]>/` for standalone/daily Vlogs, or `runs/<series-name>/<YYYY-MM-DD[-slug]>/` for a real named series.
+## How it runs
 
-## Project layout
+The durable `vlog-autonomous` Agents Relay Job stays active. Each requested or scheduled episode is one durable Task, for example “create and publish the Vlog for 2026-09-26.” The Task may execute an internal Agent Graph for source selection, story/edit reasoning, render QA, and publishing. Durable child Tasks are only needed for independently reviewable or independently blocked outcomes.
 
-- `AGENTS.md` — project routing and run-boundary contract.
-- `src/neo_vlog/` and `tests/` — durable workflow implementation and regression tests.
-- `config/` — reusable routing configuration.
-- `docs/` — architecture, integration, producer, and verification contracts.
-- `templates/series/` — reusable public series definitions; mutable series state belongs under `runs/<series-name>/`.
-- `templates/`, `styles/`, `personas/` — sanitized reusable content definitions.
-- `scripts/` — reusable automation.
-- `runs/` — ignored production executions and all private/generated content.
+Shared capabilities are discovered at runtime rather than reimplemented here:
 
-## Run the workflow
+- NeoX / phone-media capability — retrieve real phone photos/videos.
+- shared visual-understanding and Markcut — understand media, edit, preview, and render.
+- audio/TTS skills — narration, speech QA, BGM/SFX.
+- `post` / `post-agent` — publish and verify Xiaohongshu and WeChat Channels.
+- Agents Relay planner, troubleshooter, worker-router, model-router, lifecycle, and scheduling — execution control.
 
-Python 3.11+ is sufficient; the core runtime has no third-party dependencies. From `vlog/`:
+There is no Vlog-local workflow database, model-routing config, daemon/autopilot, Neo persona, Neo Build Log definition, generic documentary style, or travel-day template. Neo identity is inherited from root `MISSION.md`; Neo Build Log lives in its own project.
 
-```sh
-export PYTHONPATH=src
-python3 -m neo_vlog --db runs/2026-09-16-demo/state/vlog.sqlite --config config/routing.json init
-python3 -m neo_vlog --db runs/2026-09-16-demo/state/vlog.sqlite --config config/routing.json event \
-  --key demo-arrival-001 --series neo-build-log \
-  --payload '{"media_path":"runs/2026-09-16-demo/assets","source":"bootstrap-demo"}'
-python3 -m neo_vlog --db runs/2026-09-16-demo/state/vlog.sqlite --config config/routing.json run
-python3 -m neo_vlog --db runs/2026-09-16-demo/state/vlog.sqlite status
+## Artifacts
+
+Standalone/daily runs live at:
+
+```text
+runs/<YYYY-MM-DD[-slug]>/
 ```
 
-If `--db` is omitted, the CLI defaults to the standalone path `runs/<YYYY-MM-DD>-local/state/vlog.sqlite`. Callers creating a named series should pass its explicit `runs/<series-name>/<YYYY-MM-DD[-slug]>/state/vlog.sqlite` path.
+A genuine named series may use:
 
-`run` prints pending command/role plans; it does not call a model or fetch phone media by itself. A producer resolves/imports actual media into the run, claims a job, performs the planned work, then completes it with evidence or fails it with an error. Review gates bind approval to the displayed revision and artifact hash.
-
-Run regression tests with:
-
-```sh
-PYTHONPATH=src python3 -m unittest discover -s tests -v
+```text
+runs/<series-name>/<YYYY-MM-DD[-slug]>/
 ```
 
-## Markcut
-
-A run-local storyboard can be previewed/rendered directly:
-
-```sh
-npx @lalalic/markcut preview runs/<run-root>/vlog.md --storyboard
-npx @lalalic/markcut render runs/<run-root>/vlog.md --output runs/<run-root>/output/vlog.mp4
-# <run-root> = <YYYY-MM-DD[-slug]> for standalone/daily, or <series-name>/<YYYY-MM-DD[-slug]> for a named series
-```
-
-## Audio and narration
-
-- Every final vlog should include episode-appropriate BGM sourced through the installed `audio-sourcing` skill and stored inside that run.
-- Prefer usable original speech. Personal voice references/clones are private run-local inputs and are never committed.
-- If a private voice reference is unavailable, use the conversational Mandarin fallback defined in `docs/architecture.md` and `personas/ray.json`.
-- Generated narration must pass listening QA and local STT content back-check before final review.
-
-## Publishing
-
-Publishing is outside the core Vlog production state machine. When explicitly authorized, hand the approved run artifact to `skills/post` and verify platform-side state before reporting success.
-
-See `docs/architecture.md`, `docs/integrations.md`, `docs/producer.md`, and `docs/verification.md` for the detailed contracts.
+`runs/` is ignored and contains all selected/downloaded media, source manifests, Markcut sources, generated audio/video, reviews, logs, and publish receipts.

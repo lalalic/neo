@@ -1,56 +1,57 @@
-# Vlog Agent Guide
+# Vlog Project Rules
 
-Vlog is a Neo monorepo project. Root `AGENTS.md` applies first.
+Vlog is a thin Neo content project. Root `AGENTS.md` and `MISSION.md` apply first. Do not build a second workflow/runtime system inside this project.
 
-## Purpose
+## Ownership
 
-Turn real phone/desktop media and real Neo work into evidence-backed short-form vlog stories using NeoX for media access and Markcut for analysis, storyboard, preview, and rendering.
+Agents Relay owns durable Jobs, Tasks, scheduling, retries, leases, dependencies, planner rounds, worker/model routing, events, and reconciliation. Neo shared skills/agents provide phone media access, vision, audio/TTS, Markcut production, publishing, and troubleshooting. Vlog owns only Vlog-specific production rules and ignored run artifacts.
 
-## Project boundary
+## Execution model
 
-- Reusable code, docs, routing config, templates, styles, series definitions, sanitized personas, and tests are tracked here.
-- Standalone/daily production executions belong directly under `runs/<YYYY-MM-DD[-slug]>/`; only a real named series adds a level: `runs/<series-name>/<YYYY-MM-DD[-slug]>/`. All runs are ignored by Git.
-- A run contains its own imported media, episode/storyboard, generated narration/BGM, workflow database, logs, previews, reviews, publish receipts, and final renders.
-- Do not create tracked top-level `episodes/`, `runtime/`, `assets/`, `output/`, or instance-specific `data/` directories.
-- Never commit personal media, voice recordings, private URLs/IDs, LAN addresses, local account paths, credentials, or unpublished content.
+The long-lived `vlog-autonomous` Agents Relay Job remains ACTIVE. A manual or scheduled Vlog cycle creates one durable Vlog Task. Prefer one Task for one episode/day unless an intermediate result genuinely needs its own durable lifecycle.
 
-## Agent placement
+Within a Vlog Task, use an `agentGraph` when multiple reasoning roles materially improve the result. Agent Graph nodes are internal roles, not durable child Tasks. Use only agents visible in the resolved Agents Relay execution context; do not create Vlog-local copies of shared agents.
 
-Vlog currently does not require project-only role files. Reusable capabilities come from Neo `skills/` and installed local tools. If a Vlog-only role becomes durable, place it under `agents/<role>.md` and route it from this file.
+```mermaid
+flowchart LR
+  A[collect real media/evidence] --> B[understand/select story]
+  B --> C[script/edit plan]
+  C --> D[Markcut render]
+  D --> E[QA]
+  E --> F[post-agent publish + verify]
+```
+
+The exact graph may vary by episode. Do not hard-code worker/provider/model choices here; worker-router and model-router own those decisions.
+
+## Production contract
+
+- Use only real source evidence from the requested local-date window. Do not widen the window or fabricate events just to produce an episode.
+- Phone media comes from NeoX through the installed phone-media capability. Clear staged phone exports after verified local download.
+- Use shared visual-understanding/Markcut capabilities for media understanding and editing. Do not create a Vlog-local vision engine.
+- Prefer original footage and useful original sound. Use shared audio/TTS skills when narration or BGM is needed.
+- Render vertical short-form video unless the Task explicitly asks for another format.
+- Verify the observable final video, not only a command exit code.
+- Publishing is performed through the shared `post` skill / `post-agent`. The Autonomous Vlog Job is authorized to publish its truthful episode to Xiaohongshu and WeChat Channels; verify platform-side state and save receipts/status in the run.
 
 ## Run contract
 
-Use one run root per production execution. A normal daily/standalone Vlog is direct under `runs/`; a true series adds exactly one series directory:
+Follow the root universal run contract exactly:
 
 ```text
 runs/<YYYY-MM-DD[-slug]>/                 # standalone / daily
-runs/<series-name>/<YYYY-MM-DD[-slug]>/   # named series only
-
-<run-root>/
-├── source-manifest.json
-├── assets/
-├── vlog.md
-├── state/
-│   └── vlog.sqlite
-├── generated/
-├── review/
-├── logs/
-└── output/
+runs/<series-name>/<YYYY-MM-DD[-slug]>/   # real named series only
 ```
 
-`neo-vlog`, `daily-vlog`, or similar generic wrappers are not series names and must not be inserted as directory levels. A series can span many runs, but one run must not write into another run's directory. Promotion from `runs/` into tracked source requires explicit review and sanitization.
+A run may contain source manifests, selected assets, Markcut source, generated audio/video, QA notes, logs, and publish receipts. `runs/` is ignored by Git. Do not add generic wrapper directories such as `neo-vlog` or `daily-vlog`.
 
-## Workflow
+## Boundaries
 
-1. Gather/inspect real source media and record its provenance in the run.
-2. Analyze only selected media needed for the requested story.
-3. Build the run-local storyboard and audio plan.
-4. Verify observable storyboard/render behavior rather than trusting command exit status.
-5. Keep publication separate and require explicit authorization through `skills/post`.
+- Neo identity comes from root `MISSION.md`; do not duplicate a Neo persona in Vlog.
+- Human voice/profile data is not a Vlog-owned identity model. Use shared/private profile or TTS inputs when needed.
+- Neo Build Log is owned by the separate `neo-build-log/` project; do not mirror its series definition here.
+- Do not add Vlog-local SQLite job tables, schedulers, worker launchers, route/profile configs, lifecycle state machines, or persistent daemons. If orchestration capability is missing, improve Agents Relay or a shared Neo skill instead.
+- Do not create template/style/persona folders for a single default. Add reusable Vlog-only source only when multiple real uses justify it.
 
 ## Project learnings
 
-- 2026-09-12: Verify service discovery and the actual handoff API separately. Bonjour advertisement can succeed while required queue endpoints are still missing.
-- 2026-09-12: A shared handoff worker must validate Vlog intent before claiming a queue item; peek first so it does not consume another producer's work.
-- 2026-09-12: An empty, correctly filtered media search is a valid auditable outcome. Do not invent a Vlog or widen the user's requested time window just to produce content.
-- 2026-09-16: Keep one production execution self-contained in its dated run. Splitting episodes, SQLite state, renders, logs, and publish receipts across top-level folders makes provenance and cleanup harder.
+- 2026-09-26: Vlog previously duplicated Agents Relay with its own SQLite jobs, routing config, autopilot worker, personas, style, and series/template abstractions. Keep Vlog thin: Agents Relay owns orchestration; shared Neo skills own reusable capabilities; this project owns only Vlog-specific production rules and run artifacts.
