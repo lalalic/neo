@@ -266,21 +266,20 @@ def _diagnostic_thread_id():
     return match.group(1) if match else None
 
 
-_new_owned_tab("https://chatgpt.com/")
+_new_owned_tab(temporary_chat_entry_url())
 wait_for_load()
 
+# The direct Temporary Chat route is the stable primary path. Keep the UI
+# toggle as a compatibility fallback when ChatGPT ignores/redirects the route.
 _click_temporary_chat_toggle()
 
 deadline = time.time() + 20
 while time.time() < deadline:
     if _temporary_chat_enabled():
-        try:
-            break
-        except RuntimeError:
-            pass
+        break
     time.sleep(.25)
 else:
-    raise RuntimeError("Temporary Chat composer readiness was not observed")
+    raise RuntimeError("Temporary Chat activation was not observed")
 
 attachments = _upload_files(CFG.get("file", []))
 selector = _wait_for_composer()
