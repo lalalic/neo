@@ -192,7 +192,7 @@ def item_id_from_url(url):
 def dashboard_item_version(item_id):
     for candidate in dashboard_candidates():
         if item_id in candidate.get("href", ""):
-            versions = re.findall(r"\\b\\d+\\.\\d+(?:\\.\\d+){1,2}\\b", candidate.get("text", ""))
+            versions = re.findall(r"\b\d+\.\d+(?:\.\d+){1,2}\b", candidate.get("text", ""))
             return versions[0] if versions else None
     return None
 
