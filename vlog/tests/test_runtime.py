@@ -8,6 +8,7 @@ from pathlib import Path
 
 from neo_vlog import Runtime, WorkflowError
 from neo_vlog.runtime import load_config
+from neo_vlog.cli import parser
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -103,6 +104,11 @@ class RuntimeTests(unittest.TestCase):
                 restarted.retry(job_id)
         with self.assertRaises(WorkflowError):
             restarted.retry(job_id)
+
+    def test_default_run_path_is_standalone(self):
+        args = parser().parse_args(["status"])
+        self.assertRegex(args.db, r"^runs/\d{4}-\d{2}-\d{2}-local/state/vlog\.sqlite$")
+        self.assertNotIn("neo-vlog", args.db)
 
     def test_config_limit_and_cli_plan(self):
         bad = self.root / "bad.json"

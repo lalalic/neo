@@ -9,7 +9,7 @@ Turn real phone/desktop media and real Neo work into evidence-backed short-form 
 ## Project boundary
 
 - Reusable code, docs, routing config, templates, styles, series definitions, sanitized personas, and tests are tracked here.
-- Every real production execution belongs under `runs/<series-name>/<YYYY-MM-DD[-slug]>/` and is ignored by Git.
+- Standalone/daily production executions belong directly under `runs/<YYYY-MM-DD[-slug]>/`; only a real named series adds a level: `runs/<series-name>/<YYYY-MM-DD[-slug]>/`. All runs are ignored by Git.
 - A run contains its own imported media, episode/storyboard, generated narration/BGM, workflow database, logs, previews, reviews, publish receipts, and final renders.
 - Do not create tracked top-level `episodes/`, `runtime/`, `assets/`, `output/`, or instance-specific `data/` directories.
 - Never commit personal media, voice recordings, private URLs/IDs, LAN addresses, local account paths, credentials, or unpublished content.
@@ -20,10 +20,13 @@ Vlog currently does not require project-only role files. Reusable capabilities c
 
 ## Run contract
 
-Use one run root per production execution:
+Use one run root per production execution. A normal daily/standalone Vlog is direct under `runs/`; a true series adds exactly one series directory:
 
 ```text
-runs/<series-name>/<YYYY-MM-DD[-slug]>/
+runs/<YYYY-MM-DD[-slug]>/                 # standalone / daily
+runs/<series-name>/<YYYY-MM-DD[-slug]>/   # named series only
+
+<run-root>/
 ├── source-manifest.json
 ├── assets/
 ├── vlog.md
@@ -35,7 +38,7 @@ runs/<series-name>/<YYYY-MM-DD[-slug]>/
 └── output/
 ```
 
-A series can span many runs, but one run must not write into another run's directory. Promotion from `runs/` into tracked source requires explicit review and sanitization.
+`neo-vlog`, `daily-vlog`, or similar generic wrappers are not series names and must not be inserted as directory levels. A series can span many runs, but one run must not write into another run's directory. Promotion from `runs/` into tracked source requires explicit review and sanitization.
 
 ## Workflow
 

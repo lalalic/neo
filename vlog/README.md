@@ -2,7 +2,7 @@
 
 Vlog is a Neo monorepo project for turning real phone/desktop media into evidence-backed short-form videos. NeoX supplies phone media, Codex/agents coordinate production, and Markcut handles media analysis, storyboards, preview, and rendering.
 
-The tracked project contains only the reusable production system. Every actual vlog execution—including source media, episode Markdown, SQLite state, generated narration/BGM, previews, reviews, publish receipts, and final video—belongs under ignored `runs/<series-name>/<YYYY-MM-DD[-slug]>/`.
+The tracked project contains only the reusable production system. Every actual vlog execution—including source media, episode Markdown, SQLite state, generated narration/BGM, previews, reviews, publish receipts, and final video—belongs under ignored `runs/<YYYY-MM-DD[-slug]>/` for standalone/daily Vlogs, or `runs/<series-name>/<YYYY-MM-DD[-slug]>/` for a real named series.
 
 ## Project layout
 
@@ -21,15 +21,15 @@ Python 3.11+ is sufficient; the core runtime has no third-party dependencies. Fr
 
 ```sh
 export PYTHONPATH=src
-python3 -m neo_vlog --db runs/neo-vlog/2026-09-16-demo/state/vlog.sqlite --config config/routing.json init
-python3 -m neo_vlog --db runs/neo-vlog/2026-09-16-demo/state/vlog.sqlite --config config/routing.json event \
+python3 -m neo_vlog --db runs/2026-09-16-demo/state/vlog.sqlite --config config/routing.json init
+python3 -m neo_vlog --db runs/2026-09-16-demo/state/vlog.sqlite --config config/routing.json event \
   --key demo-arrival-001 --series neo-build-log \
-  --payload '{"media_path":"runs/neo-vlog/2026-09-16-demo/assets","source":"bootstrap-demo"}'
-python3 -m neo_vlog --db runs/neo-vlog/2026-09-16-demo/state/vlog.sqlite --config config/routing.json run
-python3 -m neo_vlog --db runs/neo-vlog/2026-09-16-demo/state/vlog.sqlite status
+  --payload '{"media_path":"runs/2026-09-16-demo/assets","source":"bootstrap-demo"}'
+python3 -m neo_vlog --db runs/2026-09-16-demo/state/vlog.sqlite --config config/routing.json run
+python3 -m neo_vlog --db runs/2026-09-16-demo/state/vlog.sqlite status
 ```
 
-If `--db` is omitted, the CLI defaults to `runs/neo-vlog/<YYYY-MM-DD[-slug]>/state/vlog.sqlite`.
+If `--db` is omitted, the CLI defaults to the standalone path `runs/<YYYY-MM-DD>-local/state/vlog.sqlite`. Callers creating a named series should pass its explicit `runs/<series-name>/<YYYY-MM-DD[-slug]>/state/vlog.sqlite` path.
 
 `run` prints pending command/role plans; it does not call a model or fetch phone media by itself. A producer resolves/imports actual media into the run, claims a job, performs the planned work, then completes it with evidence or fails it with an error. Review gates bind approval to the displayed revision and artifact hash.
 
@@ -44,8 +44,9 @@ PYTHONPATH=src python3 -m unittest discover -s tests -v
 A run-local storyboard can be previewed/rendered directly:
 
 ```sh
-npx @lalalic/markcut preview runs/<series-name>/<YYYY-MM-DD[-slug]>/vlog.md --storyboard
-npx @lalalic/markcut render runs/<series-name>/<YYYY-MM-DD[-slug]>/vlog.md --output runs/<series-name>/<YYYY-MM-DD[-slug]>/output/vlog.mp4
+npx @lalalic/markcut preview runs/<run-root>/vlog.md --storyboard
+npx @lalalic/markcut render runs/<run-root>/vlog.md --output runs/<run-root>/output/vlog.mp4
+# <run-root> = <YYYY-MM-DD[-slug]> for standalone/daily, or <series-name>/<YYYY-MM-DD[-slug]> for a named series
 ```
 
 ## Audio and narration

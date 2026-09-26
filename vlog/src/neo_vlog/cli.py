@@ -18,7 +18,7 @@ def _json(value: str, label: str) -> Any:
 
 def parser() -> argparse.ArgumentParser:
     root = argparse.ArgumentParser(prog="python -m neo_vlog", description="Offline vlog workflow; emits plans only.")
-    root.add_argument("--db", default=f"runs/neo-vlog/{date.today().isoformat()}-local/state/vlog.sqlite", help="run-local SQLite state path")
+    root.add_argument("--db", default=f"runs/{date.today().isoformat()}-local/state/vlog.sqlite", help="run-local SQLite state path")
     root.add_argument("--config", help="optional JSON routing configuration")
     commands = root.add_subparsers(dest="command", required=True)
 

@@ -4,7 +4,7 @@
   "tts_timbre_only": true,
   "voice_references": {
     "source": "run-local or external private store",
-    "path_contract": "runs/<series-name>/<YYYY-MM-DD[-slug]>/private/voice/<variant>.*",
+    "path_contract": "runs/<run-root>/private/voice/<variant>.*",
     "variants": [
       "talk",
       "normal",

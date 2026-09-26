@@ -1,5 +1,7 @@
 # Vlog architecture
 
+
+`<run-root>` means `YYYY-MM-DD[-slug]` for a standalone/daily Vlog, or `<series-name>/YYYY-MM-DD[-slug]` for a real named series.
 Vlog is an event-driven production system on the home Mac. Codex is the producer and conversation channel. Markcut Preview is the storyboard and final visual-review channel. Publishing to WeChat Channels and Xiaohongshu, notifications, and post-publication engagement are future adapters.
 
 ## Boundaries
@@ -28,7 +30,7 @@ The checked-in `neo-001` is an illustrative, silent three-scene technical demo. 
 
 ## Audio and voice contract
 
-Every final vlog has BGM. The producer selects one episode-appropriate track with the installed `audio-sourcing` skill, records it as an intentional run asset under `runs/<series-name>/<YYYY-MM-DD[-slug]>/assets/`, and references it with a portable relative path. Do not reuse a track merely for convenience or download from an ad-hoc web source. Put BGM on a root Markcut stream with `isBackground:true` and a volume deliberately lower than narration and meaningful location sound. Final review must listen through the ending and confirm BGM is audible, non-distracting, correctly mixed, and ends with the video.
+Every final vlog has BGM. The producer selects one episode-appropriate track with the installed `audio-sourcing` skill, records it as an intentional run asset under `runs/<run-root>/assets/`, and references it with a portable relative path. Do not reuse a track merely for convenience or download from an ad-hoc web source. Put BGM on a root Markcut stream with `isBackground:true` and a volume deliberately lower than narration and meaningful location sound. Final review must listen through the ending and confirm BGM is audible, non-distracting, correctly mixed, and ends with the video.
 
 Narration follows this voice priority: first preserve intelligible, tonally appropriate original speech from footage; otherwise generate narration with Ray's matching vocal reference. Ray's voice references describe vocal timbre only and do not make the story persona Ray or Neo. The narrative persona remains an independent reusable object. Select `talk` or `normal` by default, use `fun`/`funny` only when the scene justifies lighter tone, and reserve `sichuan` for an episode that intentionally uses that dialect. Avoid caricature and overacting.
 
