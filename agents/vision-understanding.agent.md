@@ -43,9 +43,23 @@ The current CLI owns media extraction, normalization, perception, segmentation, 
 
 Preserve the ITT/VTT boundary conceptually: image understanding and time-aligned video understanding are vision-substrate concerns owned by Markcut Vision, not by this agent. Do not invent unsupported CLI flags or duplicate Markcut's media pipeline.
 
+## Validated Browser ChatGPT backend pattern
+
+Prior Markcut research and implementation work established a reusable optional backend pattern for the ITT/VTT layer: use the existing `chatgpt-browser-worker` through `browser-harness`, with one isolated worker-owned Temporary Chat per invocation. This is a validated integration pattern behind Markcut's generic ITT/VTT extension points, not a Markcut-specific built-in backend and not an unconditional default.
+
+Preserve these constraints when this backend is selected below Markcut Vision:
+
+- **ITT / image:** attach the local image directly to the isolated Browser ChatGPT worker invocation together with the semantic vision prompt.
+- **VTT / video:** use direct video input only when the current Browser ChatGPT path supports it reliably. Otherwise deterministically reduce the video to representative frames/contact sheet plus timing context, in chronological order, so temporal meaning is preserved.
+- **Isolation:** never reuse or interfere with an existing user ChatGPT tab. Each call runs in its own worker-owned Temporary Chat/session surface.
+- **Output contract:** each call gets exactly one unique durable file-output destination; the caller waits/reconciles that result, then returns the result to the ITT/VTT interface. Concurrent calls must not share output paths.
+- **Failure semantics:** truncated/invalid structured output, missing completion evidence, upload/submission failure, or worker lifecycle failure is a backend failure, not successful visual understanding.
+
+Historical note: early Browser ChatGPT experiments exposed truncated output, false completion/stuck generation, composer/send UI drift, unreliable direct-video handling, and durable-thread recovery problems. Later Browser Worker fixes made the integration workable, and Markcut demonstrated the facade successfully. A later Markcut rollback intentionally removed the product-specific facade while preserving generic `--itt`/`--vtt` extension points. The architectural lesson is to keep Browser ChatGPT as a swappable engine behind those generic interfaces rather than embedding its browser/runtime logic into Markcut or this agent.
+
 ## Model/provider boundary
 
-Markcut Vision owns the configured vision backend. That backend may evolve independently and may use local or remote models/providers.
+Markcut Vision owns the configured vision backend. That backend may evolve independently and may use local or remote models/providers, including the validated Browser ChatGPT / Temporary Chat pattern above when configured through the generic ITT/VTT interface.
 
 This agent must **not**:
 
