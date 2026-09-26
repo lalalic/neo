@@ -9,6 +9,7 @@ from browser_harness import *
 _OWNED_TABS = []
 
 
+
 def _new_owned_tab(url):
     # Respect Browser Harness workspace adapters. A configured workspace may
     # override new_tab()/close_tab() to acquire and release only managed tabs;
