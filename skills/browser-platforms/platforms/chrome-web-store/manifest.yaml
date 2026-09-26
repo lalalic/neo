@@ -1,10 +1,10 @@
 platform: chrome-web-store
-status: verified
+status: partially_verified
 last_verified: 2026-09-26
 browser_harness:
   compatible: true
   runner: "browser-harness/_chrome_web_store_bh.py"
-  evidence: "Runner uses browser-harness helpers and emits observed evidence; Browser Workspace new-item draft was created and reopened successfully."
+  evidence: "Live verification covers Browser Workspace new-item draft creation/reopen plus Teammate and Family Tutor existing-item draft reopen/save regressions. Submit/review/publication lifecycle remains implemented but not live-verified."
 url_patterns:
   - "https://chromewebstore.google.com/devconsole/*"
   - "https://chrome.google.com/webstore/developer/dashboard*"
@@ -19,14 +19,13 @@ provenance:
   source: "Neo platform skeleton"
   migrated_code: false
 flows:
-  resolve-item: {status: working, evidence: "Runner deterministically reuses a matching publisher item or creates one only with explicit commit authorization."}
-  create-item: {status: working, evidence: "Runner uploads the initial package and captures the publisher-scoped item id; verify-draft proves the exact version after reopen."}
-  verify-draft: {status: working, evidence: "Runner reopens the exact publisher item and verifies draft status plus the dashboard package version."}
-  save-draft: {status: working, evidence: "Runner reopens an explicitly selected item and verifies the Save draft control before saving."}
-  open-item: {status: working, evidence: "Runner resolves the exact item and records the observed URL."}
-  create-item: {status: working, evidence: "Runner creates a new publisher item from an explicit package only when commit is enabled."}
-  upload-package: {status: working, evidence: "Runner uploads the configured ZIP only when commit is explicitly enabled."}
-  update-listing: {status: working, evidence: "Runner maps approved Market Package fields and records draft evidence."}
-  submit-review: {status: working, evidence: "Runner requires commit plus explicit external-submit authorization."}
-  check-status: {status: working, evidence: "Runner classifies observed review/listing state without treating submission as publication."}
-  verify-published: {status: working, evidence: "Runner requires an observed public listing and exact expected version."}
+  resolve-item: {status: verified, evidence: "Live runs resolved and reopened the intended Browser Workspace, Teammate, and Family Tutor developer items."}
+  create-item: {status: verified, evidence: "Browser Workspace was created as a new developer item from the store-compatible package, then reopened at exact version 0.2.3."}
+  verify-draft: {status: verified, evidence: "Browser Workspace draft/version was verified after reopen; Teammate and Family Tutor existing-item drafts were also reopened successfully."}
+  save-draft: {status: verified, evidence: "Draft save/reopen was exercised on Browser Workspace plus existing-item regressions for Teammate and Family Tutor."}
+  open-item: {status: verified, evidence: "Publisher-scoped item navigation was exercised across the three real extension items."}
+  upload-package: {status: verified, evidence: "Browser Workspace initial package upload was exercised during real new-item creation after deriving a store-compatible package without the manifest key."}
+  update-listing: {status: implemented_unverified, evidence: "Runner maps approved Market Package fields, but complete live listing-field coverage has not been verified as a release gate."}
+  submit-review: {status: implemented_unverified, evidence: "Runner requires commit plus explicit external-submit authorization; no real review submission has been performed by this PR."}
+  check-status: {status: implemented_unverified, evidence: "Read-only review/listing-state classification is implemented; post-submission external review states have not been live-verified by this PR."}
+  verify-published: {status: implemented_unverified, evidence: "Public exact-version verification is implemented; no authorized published listing lifecycle has been exercised by this PR."}

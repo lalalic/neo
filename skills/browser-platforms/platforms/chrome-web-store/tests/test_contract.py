@@ -25,11 +25,15 @@ def test_runner_has_explicit_action_and_side_effect_guards():
     assert "product_name" in source
 
 
-def test_manifest_covers_release_lifecycle():
+def test_manifest_covers_release_lifecycle_without_overstating_evidence():
     text = MANIFEST.read_text(encoding="utf-8")
     for flow in ("resolve-item", "create-item", "verify-draft", "save-draft", "open-item", "upload-package", "update-listing", "submit-review", "check-status", "verify-published"):
         assert flow in text
-    assert "status: working" in text
+    assert "status: partially_verified" in text
+    assert "submit-review: {status: implemented_unverified" in text
+    assert "check-status: {status: implemented_unverified" in text
+    assert "verify-published: {status: implemented_unverified" in text
+    assert "no real review submission has been performed" in text
 
 
 def test_runner_requires_exact_package_version_before_upload():
