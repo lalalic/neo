@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "source_scene_id": "profiles",
+  "shots": [
+    {
+      "id": "profiles",
+      "identity": {"product": "Family Tutor", "surface": "extension popup", "feature": "kids list"},
+      "intent": {"purpose": "Reveal separate learning spaces", "communicates": "Each child has a distinct profile"},
+      "required_visible_evidence": ["Two named child profiles are visible"],
+      "success": {"fresh_ui_required": true, "visible_state": "The two profiles are visible in the current UI"},
+      "presentation": {"focus": "kids list", "highlight": ["profile rows"], "text": ["One profile per child"], "zoom": "emphasis", "duration_seconds": 6},
+      "autonomy": {"allowed_recovery": ["reopen the product surface", "retry the same semantic goal once"], "boundary": "Stop and report if the required visible state cannot be verified from fresh UI."}
+    }
+  ]
+}
