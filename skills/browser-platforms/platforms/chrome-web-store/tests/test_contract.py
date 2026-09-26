@@ -23,7 +23,7 @@ def test_runner_has_explicit_action_and_side_effect_guards():
 
 def test_manifest_covers_release_lifecycle():
     text = MANIFEST.read_text(encoding="utf-8")
-    for flow in ("open-item", "upload-package", "update-listing", "submit-review", "check-status", "verify-published"):
+    for flow in ("open-item", "create-item", "upload-package", "update-listing", "submit-review", "check-status", "verify-published"):
         assert flow in text
     assert "status: working" in text
 
@@ -49,5 +49,20 @@ def test_runner_uses_accessible_labels_and_draft_save_control():
 
 def test_runner_derives_publisher_scoped_item_route():
     source = RUNNER.read_text(encoding="utf-8")
-    assert "webstore/devconsole/([^/]+)$" in source
-    assert "/{match.group(1)}/{ITEM_ID}/edit" in source
+    assert "publisher_id_from_url" in source
+    assert 'f"https://chrome.google.com/webstore/devconsole/{publisher_id}/{ITEM_ID}/edit"' in source
+
+
+def test_runner_bootstraps_publisher_scope_before_item_navigation():
+    source = RUNNER.read_text(encoding="utf-8")
+    assert 'goto_url(CONSOLE_URL)' in source
+    assert 'publisher-scoped developer console route not observed' in source
+    assert 'CONSOLE_URL + f"/store-item/{ITEM_ID}"' not in source
+
+
+def test_runner_supports_dry_run_new_item_creation():
+    source = RUNNER.read_text(encoding="utf-8")
+    assert '"create-item"' in source
+    assert 'would_create=True' in source
+    assert 'created item editor route not observed' in source
+    assert 'manifest key field is not allowed' in source

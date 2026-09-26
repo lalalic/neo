@@ -20,7 +20,7 @@ explicit user request.
 Invoke `browser-harness/_chrome_web_store_bh.py` through `browser-harness` with
 an approved JSON configuration. The supported actions are:
 
-`open-item`, `upload-package`, `update-listing`, `submit-review`,
+`open-item`, `create-item`, `upload-package`, `update-listing`, `submit-review`,
 `check-status`, and `verify-published`.
 
 The runner is dry-run by default. `upload-package`, `update-listing`, and
@@ -30,6 +30,11 @@ Release Agent responsible for authorization while this skill owns browser
 mechanics. Every action emits a JSON evidence record containing the observed
 URL, item id, action, and status (`draft`, `submitted`, `pending`, `rejected`,
 `published`, or `unknown`).
+
+`create-item` supports the no-existing-item path: it validates the explicit
+package, opens the publisher-scoped dashboard, creates the item only with
+`commit: true`, and returns the observed editor item id. The caller must then
+use the normal listing/update flow for that exact id.
 
 The input `market_package` is product-owned content supplied by Market Agent;
 this skill validates presence and maps supplied values to store fields but does

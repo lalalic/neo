@@ -20,6 +20,7 @@ provenance:
   migrated_code: false
 flows:
   open-item: {status: working, evidence: "Runner resolves the exact item and records the observed URL."}
+  create-item: {status: working, evidence: "Runner creates a new publisher item from an explicit package only when commit is enabled."}
   upload-package: {status: working, evidence: "Runner uploads the configured ZIP only when commit is explicitly enabled."}
   update-listing: {status: working, evidence: "Runner maps approved Market Package fields and records draft evidence."}
   submit-review: {status: working, evidence: "Runner requires commit plus explicit external-submit authorization."}

@@ -22,6 +22,7 @@ ALLOW_EXTERNAL_SUBMIT = bool(CFG.get("allow_external_submit", False))
 CONSOLE_URL = "https://chromewebstore.google.com/devconsole"
 ALLOWED_ACTIONS = {
     "open-item",
+    "create-item",
     "upload-package",
     "update-listing",
     "submit-review",
@@ -132,18 +133,33 @@ def require_session():
         fail("authenticated Chrome Web Store publisher session required")
 
 
+def publisher_id_from_url(url):
+    match = re.search(
+        r"https://(?:chrome\.google\.com/webstore/devconsole|chromewebstore\.google\.com/devconsole)/([^/]+)(?:/|$)",
+        url,
+    )
+    return match.group(1) if match else None
+
+
 def open_item():
     if ACTION == "verify-published":
         url = PUBLIC_LISTING_URL or ("https://chromewebstore.google.com/detail/" + ITEM_ID)
     else:
         url = LISTING_URL
         if not url:
-            current = page_info().get("url", "")
-            match = re.search(r"https://chrome\.google\.com/webstore/devconsole/([^/]+)$", current)
-            if match:
-                url = f"https://chrome.google.com/webstore/devconsole/{match.group(1)}/{ITEM_ID}/edit"
-            else:
-                url = CONSOLE_URL + f"/store-item/{ITEM_ID}"
+            publisher_id = publisher_id_from_url(page_info().get("url", ""))
+            if not publisher_id:
+                # The canonical console URL redirects to the publisher-scoped
+                # dashboard. Resolve that scope before constructing an item
+                # route; the generic /store-item path redirects to the public
+                # store and cannot prove the requested item was opened.
+                goto_url(CONSOLE_URL)
+                wait_for_load()
+                require_session()
+                publisher_id = publisher_id_from_url(page_info().get("url", ""))
+            if not publisher_id:
+                fail("publisher-scoped developer console route not observed")
+            url = f"https://chrome.google.com/webstore/devconsole/{publisher_id}/{ITEM_ID}/edit"
     # Browser Workspace leases can briefly expose more than one target for a
     # requested URL. Reuse the harness-verified real tab instead of asking the
     # workspace layer to create another lease; this keeps navigation stable
@@ -158,6 +174,33 @@ def open_item():
     if ITEM_ID and ITEM_ID not in page_info().get("url", ""):
         fail("observed URL does not contain the requested item id")
     return evidence("unknown", observed_item_id=ITEM_ID or None)
+
+
+def create_item():
+    observed_version = validate_package()
+    if not COMMIT:
+        return evidence("draft", dry_run=True, would_create=True,
+                        package_path=CFG["package_path"], package_version=observed_version)
+    goto_url(CONSOLE_URL)
+    wait_for_load()
+    require_session()
+    if not publisher_id_from_url(page_info().get("url", "")):
+        fail("publisher-scoped developer console route not observed")
+    if not click_text("New item") and not click_text("Add a new item"):
+        fail("new item control not observed")
+    upload_file("input[type=file]", CFG["package_path"].strip())
+    wait_for_load()
+    require_session()
+    if text_exists(["key field is not allowed"]):
+        fail("new item upload rejected: manifest key field is not allowed")
+    if text_exists(["there was a problem uploading your file"]):
+        fail("new item upload rejected by Chrome Web Store")
+    url = page_info().get("url", "")
+    match = re.search(r"/devconsole/[^/]+/([^/]+)/edit(?:$|[?#])", url)
+    if not match:
+        fail("created item editor route not observed")
+    return evidence("draft", created_item_id=match.group(1),
+                    package_version=observed_version, browser_version=visible_version())
 
 
 def upload_package():
@@ -281,17 +324,21 @@ def verify_published():
 
 if ACTION not in ALLOWED_ACTIONS:
     fail("unsupported action: " + ACTION)
-if ACTION != "open-item" and not ITEM_ID:
+if ACTION not in {"open-item", "create-item"} and not ITEM_ID:
     fail("item_id is required for this action")
 if ACTION == "open-item" and not (ITEM_ID or LISTING_URL):
     fail("item_id or listing_url is required for open-item")
-if ACTION == "upload-package":
+if ACTION in {"create-item", "upload-package"}:
     validate_package()
 
-open_item()
-if ACTION == "upload-package":
+if ACTION == "create-item":
+    create_item()
+elif ACTION == "upload-package":
+    open_item()
     upload_package()
-elif ACTION == "update-listing":
+else:
+    open_item()
+if ACTION == "update-listing":
     update_listing()
 elif ACTION == "submit-review":
     submit_review()
