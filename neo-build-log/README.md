@@ -1,72 +1,74 @@
 # Neo Build Log
 
-Neo Build Log turns the real work of building Neo into evidence-backed public stories, short written posts, and videos, while also preserving a private next-day work-start brief.
+Neo Build Log is a Neo content project that turns real work into an evidence-backed daily story package: public narrative, social copy, video, and a private next-day brief.
 
-It is intentionally a thin Neo content project. Agents Relay drives each daily production Task; shared Neo agents and skills perform research/evidence collection, video planning, execution, Markcut rendering, QA, and publishing. This directory keeps only the Build Log-specific editorial contract plus ignored run artifacts.
+The project is intentionally thin. It defines what a good Build Log is; Agents Relay decides when and how work runs.
 
-## Durable runtime
+## Project boundary
 
-The recurring autonomous Job is `neo-build-log-daily` in PR #34. It is scheduled daily at 23:00 America/Toronto and remains ACTIVE across daily runs.
+- **This project owns:** editorial truth, story shape, public/private output requirements, and Build-Log-specific agent roles.
+- **Agents Relay owns:** autonomous scheduling, planner rounds, durable Jobs/Tasks, Task Agent Graph execution, retries, dependencies, routing, leases, reconciliation, and recovery.
+- **Shared Neo skills own:** browser/capture access, media understanding, image/video generation, audio/TTS, Markcut rendering, and publication adapters.
+- **Runs own:** all real evidence, drafts, media, generated assets, QA, receipts, logs, and private operational notes.
 
-One date normally maps to one durable Task, for example:
+No Job ID, schedule, publication platform, model/provider choice, or current episode date is part of this tracked project definition.
 
-> Reconstruct and produce the Neo Build Log for 2026-09-25.
+## Execution model
 
-Within that Task, an Agent Graph may compose visible shared roles/capabilities. Durable child Tasks are only needed for independently reviewable, blockable, retryable, or externally dependent outcomes.
+One daily Build Log normally maps to one durable Agents Relay Task.
 
-## Production flow
-
-```mermaid
-flowchart LR
-  A[day evidence] --> B[story selection]
-  B --> C[public narrative / post]
-  B --> D[Video Director: Markcut video.md]
-  D --> E[Execution Director: execution/*.json]
-  E --> F[shared runtime agents]
-  F --> G[Markcut render]
-  G --> H[QA]
-  H --> I[post-agent publish + verify]
-  B --> J[next-day private brief]
+```text
+Autonomous Job
+  -> planner resolves this project
+  -> one daily Build Log Task
+       -> agentGraph
+            build-log-editor
+            -> build-log-producer
+            -> reviewer when useful
+            -> post-agent when authorized
+  -> run artifacts
 ```
 
-The project does not own its own scheduler, workflow database, model routing, capture engine, audio engine, or publishing engine.
+Internal production phases stay inside the Task Agent Graph. Create durable child Tasks only when a result genuinely needs an independent retry, blocker, approval, or external dependency boundary.
 
-## Story contract
+## Content package
 
-A Build Log should reconstruct the meaningful story behind the day's work rather than list PRs or tasks. The preferred shape is:
-
-1. concrete hook;
-2. problem or constraint;
-3. investigation, rejected attempt, or surprise;
-4. the actual build/change;
-5. observable result or unresolved state;
-6. useful payoff and natural next hook.
-
-Claims must be grounded in authoritative evidence. Public output excludes private/sensitive data and does not fabricate motivations or results.
-
-## Shared capabilities
-
-Use current shared capabilities discovered at runtime:
-
-- Agents Relay planner/lifecycle/scheduling/troubleshooter;
-- shared evidence/vision agents where visual artifacts need interpretation;
-- Video Director for canonical Markcut `video.md`;
-- Execution Director for typed execution lanes;
-- shared demo/capture/image/video/audio capabilities for asset production;
-- Markcut for preview/render;
-- shared reviewer/QA where useful;
-- `post` / post-agent for authorized publication and platform verification.
-
-## Artifacts
-
-Future daily runs live at:
+A successful run is not just a Markdown summary. It should leave a coherent package under one dated run:
 
 ```text
 runs/<YYYY-MM-DD[-slug]>/
+├── evidence.md
+├── story.md
+├── post.md
+├── video.md
+├── assets/
+├── output/
+├── qa.md
+├── publish/
+└── next-day-brief.md
 ```
 
-A run may contain evidence manifests/notes, narrative drafts, social copy, `video.md`, `execution/`, generated/captured assets, Markcut state, output video, QA notes, next-day brief, logs, and publication receipts.
+Files may be omitted when they are genuinely not applicable, but a normal Build Log should include both public story copy and a visual/video artifact path. If required source media cannot be obtained, preserve the exact blocker and a truthful storyboard/capture plan rather than fabricating visuals.
 
-`runs/` is ignored by Git. Historical runs under the former `runs/neo-build-log/` wrapper are preserved as legacy run evidence and do not need destructive migration.
+All `runs/` content is ignored by Git.
 
-See `AGENTS.md` for the enforceable project contract.
+## Editorial standard
+
+The Build Log is a story about real work, not a dump of PRs or Tasks. It should usually have:
+
+1. a concrete hook;
+2. the real problem or constraint;
+3. an attempt, failure, discovery, or decision;
+4. the actual build/change;
+5. observable evidence of the result or unresolved state;
+6. a useful payoff and natural next hook.
+
+Select the strongest coherent story from the day. Separate facts from interpretation. Never invent motivation, progress, screenshots, footage, results, or metrics.
+
+## Project agents
+
+- `build-log-editor` reconstructs the evidence-backed story and defines what the audience should see and understand.
+- `build-log-producer` turns the approved story into a real visual/video content package using shared media, Markcut, audio, QA, and capture capabilities.
+- Shared `post-agent` handles publication only when the Job/Task authorizes a platform.
+
+See `AGENTS.md` for the enforceable contract.
