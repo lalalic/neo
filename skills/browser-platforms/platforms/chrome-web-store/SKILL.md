@@ -6,10 +6,10 @@ description: "Chrome Web Store platform flows for browser-platforms."
 # Chrome Web Store
 
 Read the parent `browser-platforms` contract and `browser-harness` first.
-These assets are a platform skeleton: the flows document intended contracts,
-and the browser-harness runner provides the reusable interaction boundary.
-Live account verification is still pending, so the runner requires an
-explicit action and reports observed evidence instead of inferring success.
+These assets document the verified platform contract and use the
+browser-harness runner as the reusable interaction boundary. Live actions still
+require explicit authorization and report observed evidence instead of
+inferring success.
 
 Use only the publisher account and listing explicitly selected by the caller.
 Publishing and listing updates have external side effects and require an
@@ -20,7 +20,7 @@ explicit user request.
 Invoke `browser-harness/_chrome_web_store_bh.py` through `browser-harness` with
 an approved JSON configuration. The supported actions are:
 
-`open-item`, `create-item`, `upload-package`, `update-listing`, `submit-review`,
+`resolve-item`, `create-item`, `open-item`, `upload-package`, `update-listing`, `verify-draft`, `save-draft`, `submit-review`,
 `check-status`, and `verify-published`.
 
 The runner is dry-run by default. `upload-package`, `update-listing`, and
@@ -33,8 +33,11 @@ URL, item id, action, and status (`draft`, `submitted`, `pending`, `rejected`,
 
 `create-item` supports the no-existing-item path: it validates the explicit
 package, opens the publisher-scoped dashboard, creates the item only with
-`commit: true`, and returns the observed editor item id. The caller must then
-use the normal listing/update flow for that exact id.
+`commit: true`, and returns the observed editor item id. `resolve-item` reuses a
+matching product item and dry-runs creation when none exists. `verify-draft`
+reopens the exact item and proves the dashboard version; `save-draft` is the
+reusable no-field-change regression action. Passing a prior item id always
+reopens/reuses it, so retries do not create duplicates.
 
 The input `market_package` is product-owned content supplied by Market Agent;
 this skill validates presence and maps supplied values to store fields but does

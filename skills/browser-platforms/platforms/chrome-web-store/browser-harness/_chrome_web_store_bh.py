@@ -13,6 +13,7 @@ import zipfile
 CFG = json.load(open("__CFG_PATH__", encoding="utf-8"))
 ACTION = CFG["action"]
 ITEM_ID = CFG.get("item_id", "").strip()
+PRODUCT_NAME = CFG.get("product_name", "").strip()
 EXPECTED_VERSION = CFG.get("expected_version", "").strip()
 PUBLIC_LISTING_URL = CFG.get("public_listing_url", "").strip()
 LISTING_URL = CFG.get("listing_url", "").strip()
@@ -22,7 +23,10 @@ ALLOW_EXTERNAL_SUBMIT = bool(CFG.get("allow_external_submit", False))
 CONSOLE_URL = "https://chromewebstore.google.com/devconsole"
 ALLOWED_ACTIONS = {
     "open-item",
+    "resolve-item",
     "create-item",
+    "verify-draft",
+    "save-draft",
     "upload-package",
     "update-listing",
     "submit-review",
@@ -176,6 +180,70 @@ def open_item():
     return evidence("unknown", observed_item_id=ITEM_ID or None)
 
 
+def dashboard_candidates():
+    return js("""(() => [...document.querySelectorAll('a[href]')].map(node => ({href: node.href, text: (node.innerText || node.getAttribute('aria-label') || '').trim()})).filter(item => /\\/devconsole\\/[^/]+\\/[a-z]{32}/.test(item.href)))()""") or []
+
+
+def item_id_from_url(url):
+    match = re.search(r"/devconsole/[^/]+/([a-z]{32})/(?:edit|details)?(?:[/?#]|$)", url)
+    return match.group(1) if match else None
+
+
+def dashboard_item_version(item_id):
+    for candidate in dashboard_candidates():
+        if item_id in candidate.get("href", ""):
+            versions = re.findall(r"\\b\\d+\\.\\d+(?:\\.\\d+){1,2}\\b", candidate.get("text", ""))
+            return versions[0] if versions else None
+    return None
+
+
+def open_dashboard():
+    goto_url(CONSOLE_URL)
+    wait_for_load()
+    require_session()
+
+
+def create_or_resolve_item():
+    global ITEM_ID
+    if ITEM_ID:
+        open_item()
+        return evidence("draft", observed_item_id=ITEM_ID, reused_item=True)
+    if not PRODUCT_NAME:
+        fail("product_name is required when item_id is not supplied")
+    open_dashboard()
+    wanted = PRODUCT_NAME.lower()
+    for candidate in dashboard_candidates():
+        if wanted in candidate.get("text", "").lower():
+            ITEM_ID = item_id_from_url(candidate.get("href", ""))
+            if ITEM_ID:
+                return evidence("draft", observed_item_id=ITEM_ID, reused_item=True, listing_url=candidate.get("href"))
+    if not COMMIT:
+        return evidence("draft", dry_run=True, would_create=True, product_name=PRODUCT_NAME)
+    create_item()
+    ITEM_ID = item_id_from_url(page_info().get("url", ""))
+    return evidence("draft", created_item=True, observed_item_id=ITEM_ID, package_version=EXPECTED_VERSION,
+                    browser_version=visible_version(), version_verification="reopen-required")
+
+
+def verify_draft():
+    validate_package()
+    open_item()
+    if not text_exists(["status: draft", "draft"]):
+        fail("draft status not observed after reopening exact item")
+    open_dashboard()
+    observed = dashboard_item_version(ITEM_ID)
+    if observed != EXPECTED_VERSION:
+        fail(f"reopened draft version {observed or 'unknown'} does not match expected_version {EXPECTED_VERSION}")
+    return evidence("draft", observed_item_id=ITEM_ID, observed_version=observed, exact_version_verified=True, reopened=True)
+
+
+def save_draft():
+    open_item()
+    if not click_text("Save draft") and not click_text("Save"):
+        fail("save draft control not observed")
+    return evidence("draft", saved=True, observed_item_id=ITEM_ID)
+
+
 def create_item():
     observed_version = validate_package()
     if not COMMIT:
@@ -324,16 +392,26 @@ def verify_published():
 
 if ACTION not in ALLOWED_ACTIONS:
     fail("unsupported action: " + ACTION)
-if ACTION not in {"open-item", "create-item"} and not ITEM_ID:
+if ACTION in {"resolve-item", "create-item"}:
+    if ACTION == "create-item" and not (PRODUCT_NAME or ITEM_ID):
+        fail("product_name is required for create-item")
+    validate_package()
+    create_or_resolve_item()
+    raise SystemExit(0)
+if ACTION in {"verify-draft", "save-draft", "upload-package", "update-listing", "submit-review", "check-status", "verify-published"} and not ITEM_ID:
     fail("item_id is required for this action")
 if ACTION == "open-item" and not (ITEM_ID or LISTING_URL):
     fail("item_id or listing_url is required for open-item")
 if ACTION in {"create-item", "upload-package"}:
     validate_package()
 
-if ACTION == "create-item":
-    create_item()
-elif ACTION == "upload-package":
+if ACTION == "verify-draft":
+    verify_draft()
+    raise SystemExit(0)
+if ACTION == "save-draft":
+    save_draft()
+    raise SystemExit(0)
+if ACTION == "upload-package":
     open_item()
     upload_package()
 else:

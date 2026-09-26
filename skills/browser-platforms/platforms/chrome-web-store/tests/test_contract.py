@@ -19,11 +19,15 @@ def test_runner_has_explicit_action_and_side_effect_guards():
     assert "allow_external_submit" in source
     assert "screenshots" in source
     assert "reviewer_test_instructions" in source
+    assert '"resolve-item"' in source
+    assert '"verify-draft"' in source
+    assert '"save-draft"' in source
+    assert "product_name" in source
 
 
 def test_manifest_covers_release_lifecycle():
     text = MANIFEST.read_text(encoding="utf-8")
-    for flow in ("open-item", "create-item", "upload-package", "update-listing", "submit-review", "check-status", "verify-published"):
+    for flow in ("resolve-item", "create-item", "verify-draft", "save-draft", "open-item", "upload-package", "update-listing", "submit-review", "check-status", "verify-published"):
         assert flow in text
     assert "status: working" in text
 
@@ -66,3 +70,10 @@ def test_runner_supports_dry_run_new_item_creation():
     assert 'would_create=True' in source
     assert 'created item editor route not observed' in source
     assert 'manifest key field is not allowed' in source
+
+
+def test_runner_reuses_observed_item_before_creating():
+    source = RUNNER.read_text(encoding="utf-8")
+    assert "dashboard_candidates" in source
+    assert "reused_item=True" in source
+    assert "exact_version_verified=True" in source

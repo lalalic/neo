@@ -1,10 +1,10 @@
 platform: chrome-web-store
-status: discovered
-last_verified: null
+status: verified
+last_verified: 2026-09-26
 browser_harness:
   compatible: true
   runner: "browser-harness/_chrome_web_store_bh.py"
-  evidence: "Runner uses browser-harness helpers and emits observed evidence; live publisher verification pending."
+  evidence: "Runner uses browser-harness helpers and emits observed evidence; Browser Workspace new-item draft was created and reopened successfully."
 url_patterns:
   - "https://chromewebstore.google.com/devconsole/*"
   - "https://chrome.google.com/webstore/developer/dashboard*"
@@ -19,6 +19,10 @@ provenance:
   source: "Neo platform skeleton"
   migrated_code: false
 flows:
+  resolve-item: {status: working, evidence: "Runner deterministically reuses a matching publisher item or creates one only with explicit commit authorization."}
+  create-item: {status: working, evidence: "Runner uploads the initial package and captures the publisher-scoped item id; verify-draft proves the exact version after reopen."}
+  verify-draft: {status: working, evidence: "Runner reopens the exact publisher item and verifies draft status plus the dashboard package version."}
+  save-draft: {status: working, evidence: "Runner reopens an explicitly selected item and verifies the Save draft control before saving."}
   open-item: {status: working, evidence: "Runner resolves the exact item and records the observed URL."}
   create-item: {status: working, evidence: "Runner creates a new publisher item from an explicit package only when commit is enabled."}
   upload-package: {status: working, evidence: "Runner uploads the configured ZIP only when commit is explicitly enabled."}
