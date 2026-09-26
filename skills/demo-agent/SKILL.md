@@ -47,6 +47,23 @@ validation is not fresh-UI evidence.
 Recorder/editor implementations are adapters. The contract requires lifecycle
 and artifact facts but names no vendor or capture technology.
 
+## Manual execution fallback
+
+Runtime capability gaps do not invalidate the Director contracts. If the Demo
+Agent cannot execute a semantic shot because the required app/surface has no
+available CLI, MCP server, automation adapter, or other controllable runtime,
+it must return an explicit `manual_required` execution outcome instead of
+inventing automation or silently failing.
+
+`manual_required` means the shot remains valid and should be handed to a human
+operator/capture workflow. The handoff must preserve the semantic shot intent,
+required visible evidence, presentation guidance, and success criteria so a
+person can perform the UI actions and record the result manually.
+
+This fallback is an execution concern only. Video Director and Execution
+Director must not be rewritten to encode manual click steps, coordinates, or
+tool-specific instructions merely because an automated runtime is unavailable.
+
 Use `scripts/contract.py` for pure validation; it has no browser, recorder, or
 network dependency.
 
