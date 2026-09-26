@@ -27,8 +27,27 @@ def validate_item(item:dict[str,Any])->dict[str,Any]:
         for f in ("identity","intent","required_visible_evidence","success","presentation","autonomy"):
             if f not in item: raise ContractError(f"demo item missing {f}")
         ident=item["identity"]
+        if not isinstance(ident, dict): raise ContractError("demo identity must be an object")
         for f in ("product","surface","feature"): _text(ident.get(f),f"identity.{f}")
-        if item["success"].get("fresh_ui_required") is not True: raise ContractError("demo success.fresh_ui_required must be true")
+        intent=item["intent"]
+        if not isinstance(intent, dict): raise ContractError("demo intent must be an object")
+        for f in ("purpose","communicates"): _text(intent.get(f),f"intent.{f}")
+        evidence=item["required_visible_evidence"]
+        if not isinstance(evidence,list) or not evidence or any(not isinstance(x,str) or not x.strip() for x in evidence): raise ContractError("demo required_visible_evidence must be non-empty strings")
+        success=item["success"]
+        if not isinstance(success,dict) or success.get("fresh_ui_required") is not True: raise ContractError("demo success.fresh_ui_required must be true")
+        _text(success.get("visible_state"),"success.visible_state")
+        presentation=item["presentation"]
+        if not isinstance(presentation,dict): raise ContractError("demo presentation must be an object")
+        _text(presentation.get("focus"),"presentation.focus")
+        if presentation.get("zoom") not in {"none","subtle","emphasis"}: raise ContractError("presentation.zoom is invalid")
+        duration=presentation.get("duration_seconds")
+        if not isinstance(duration,(int,float)) or isinstance(duration,bool) or duration <= 0: raise ContractError("presentation.duration_seconds must be positive")
+        autonomy=item["autonomy"]
+        if not isinstance(autonomy,dict): raise ContractError("demo autonomy must be an object")
+        allowed=autonomy.get("allowed_recovery")
+        if not isinstance(allowed,list) or any(not isinstance(x,str) for x in allowed): raise ContractError("autonomy.allowed_recovery must be strings")
+        _text(autonomy.get("boundary"),"autonomy.boundary")
     elif item["type"]=="capture":
         if item.get("capture_kind") not in {"human","desktop"}: raise ContractError("capture_kind must be human or desktop")
         _text(item.get("description"),"capture.description")

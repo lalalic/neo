@@ -34,3 +34,16 @@ def test_duplicate_ids_rejected():
     one = '<!-- execution {"id":"x","type":"image","scene_id":"s","output":"a.png","prompt":"x"} -->'
     with pytest.raises(c.ContractError, match="duplicate execution id"):
         c.parse_markcut(one + "\n" + one)
+
+
+def test_demo_lane_rejects_incomplete_semantic_contract():
+    import json
+    marker = json.loads(c.MARKER.search(text()).group(1))
+    marker["intent"]["purpose"] = ""
+    with pytest.raises(c.ContractError, match="intent.purpose"):
+        c.validate_item(marker)
+
+    marker = json.loads(c.MARKER.search(text()).group(1))
+    marker["success"]["visible_state"] = ""
+    with pytest.raises(c.ContractError, match="success.visible_state"):
+        c.validate_item(marker)
