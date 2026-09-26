@@ -11,7 +11,7 @@ Shared capabilities are discovered at runtime rather than reimplemented here:
 - NeoX / phone-media capability — retrieve real phone photos/videos.
 - shared visual-understanding and Markcut — understand media, edit, preview, and render.
 - audio/TTS skills — narration, speech QA, BGM/SFX.
-- `post` / `post-agent` — publish and verify WeChat Channels.
+- `post` / `post-agent` — publish and verify Xiaohongshu and WeChat Channels.
 - Agents Relay planner, troubleshooter, worker-router, model-router, lifecycle, and scheduling — execution control.
 
 There is no Vlog-local workflow database, model-routing config, daemon/autopilot, Neo persona, Neo Build Log definition, generic documentary style, or travel-day template. Neo identity is inherited from root `MISSION.md`; Neo Build Log lives in its own project.

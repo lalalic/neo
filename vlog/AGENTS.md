@@ -31,7 +31,7 @@ The exact graph may vary by episode. Do not hard-code worker/provider/model choi
 - Prefer original footage and useful original sound. Use shared audio/TTS skills when narration or BGM is needed.
 - Render vertical short-form video unless the Task explicitly asks for another format.
 - Verify the observable final video, not only a command exit code.
-- Publishing is performed through the shared `post` skill / `post-agent`. The Autonomous Vlog Job is authorized to publish its truthful episode to WeChat Channels; verify platform-side state and save receipts/status in the run.
+- Publishing is performed through the shared `post` skill / `post-agent`. The Autonomous Vlog Job is authorized to publish its truthful episode to Xiaohongshu and WeChat Channels; verify platform-side state and save receipts/status in the run.
 
 ## Run contract
 
