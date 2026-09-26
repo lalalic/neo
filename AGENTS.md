@@ -119,3 +119,4 @@ Publishing is handled through `skills/post` when the user explicitly asks to pos
 - 2026-09-19: Existing ChatGPT thread operations must open one durable `thread_id` at a time, verify the observed Project before sending or reading, and report completion only from a normalized assistant message.
 - 2026-09-19: Browser result retrieval must refuse active generation and require an observed message ID; a prior assistant bubble or synthetic fallback ID is not completion evidence.
 - 2026-09-25: Chrome Web Store browser mechanics belong under `skills/browser-platforms/platforms/chrome-web-store`; keep the runner dry-run by default and require explicit authorization before upload, listing mutation, or review submission.
+- 2026-09-26: Chrome Web Store editor controls expose labels through `aria-labelledby`/`label[for]` and save drafts as `Save draft`; shared flows must resolve accessible labels and verify the publisher-scoped item URL before mutating a listing.

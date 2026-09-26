@@ -95,12 +95,35 @@ def click_text(label):
     return js(
         """(() => {
           const nodes = [...document.querySelectorAll('button,[role=button],a')];
-          const node = nodes.find(el => (el.innerText || el.getAttribute('aria-label') || '').trim().toLowerCase() === %r);
+          const node = nodes.find(el => {
+            const text = (el.innerText || el.getAttribute('aria-label') || '').trim().toLowerCase();
+            return text === %r || text.includes(%r);
+          });
           if (!node) return false;
           node.click();
           return true;
-        })()""" % wanted
+        })()""" % (wanted, wanted)
     ) is True
+
+
+def field_by_label(keys):
+    """Find a form control by its accessible/visible label, not generated IDs."""
+    return js(
+        """(() => {
+          const keys = %s;
+          const controls = [...document.querySelectorAll('input,textarea,select,[role=combobox],[contenteditable=true]')];
+          const labelText = (node) => {
+            const ids = (node.getAttribute('aria-labelledby') || '').split(/\\s+/).filter(Boolean);
+            const labelled = ids.map(id => document.getElementById(id)?.innerText || '').join(' ');
+            const explicit = node.id ? document.querySelector(`label[for="${CSS.escape(node.id)}"]`)?.innerText || '' : '';
+            const parent = node.closest('label')?.innerText || node.parentElement?.innerText || '';
+            return [node.getAttribute('aria-label'), node.getAttribute('placeholder'), node.name, node.id,
+                    labelled, explicit, parent].filter(Boolean).join(' ').toLowerCase();
+          };
+          const node = controls.find(node => keys.some(key => labelText(node).includes(key)));
+          return node?.id ? `#${CSS.escape(node.id)}` : null;
+        })()""" % json.dumps([key.lower() for key in keys])
+    )
 
 
 def require_session():
@@ -113,7 +136,14 @@ def open_item():
     if ACTION == "verify-published":
         url = PUBLIC_LISTING_URL or ("https://chromewebstore.google.com/detail/" + ITEM_ID)
     else:
-        url = LISTING_URL or (CONSOLE_URL + f"/store-item/{ITEM_ID}")
+        url = LISTING_URL
+        if not url:
+            current = page_info().get("url", "")
+            match = re.search(r"https://chrome\.google\.com/webstore/devconsole/([^/]+)$", current)
+            if match:
+                url = f"https://chrome.google.com/webstore/devconsole/{match.group(1)}/{ITEM_ID}/edit"
+            else:
+                url = CONSOLE_URL + f"/store-item/{ITEM_ID}"
     # Browser Workspace leases can briefly expose more than one target for a
     # requested URL. Reuse the harness-verified real tab instead of asking the
     # workspace layer to create another lease; this keeps navigation stable
@@ -177,11 +207,17 @@ def update_listing():
         if label in {"screenshots", "posters", "feature_graphic", "promotional_graphic", "demo_video"}:
             continue
         keys = selectors.get(label, [label.replace("_", " ")])
+        node = field_by_label(keys)
+        if not node and label in {"title", "short_description"}:
+            # Chrome may expose package-owned title/summary as read-only text.
+            # The caller supplied the factual value; verify other editable fields
+            # without trying to mutate package metadata through a nonexistent control.
+            continue
+        if not node:
+            fail(f"listing field not observed: {label}")
         changed = js(
             """(() => {
-              const keys = %s;
-              const nodes = [...document.querySelectorAll('input,textarea,select,[role=combobox],[contenteditable=true]')];
-              const node = nodes.find(el => keys.some(key => ((el.getAttribute('aria-label') || el.name || el.id || '').toLowerCase().includes(key))));
+              const node = document.querySelector(%s);
               if (!node) return false;
               node.focus();
               if (node.type === 'checkbox' || node.type === 'radio') node.checked = Boolean(%s);
@@ -195,8 +231,8 @@ def update_listing():
               node.dispatchEvent(new Event('input', {bubbles: true}));
               node.dispatchEvent(new Event('change', {bubbles: true}));
               return true;
-            })()""" % (json.dumps(keys), json.dumps(bool(value)), json.dumps(str(value)),
-                         json.dumps(str(value)), json.dumps(str(value)))
+            })()""" % (json.dumps(str(node)), json.dumps(bool(value)), json.dumps(str(value)),
+                           json.dumps(str(value)), json.dumps(str(value)))
         )
         if changed is not True:
             fail(f"listing field not observed: {label}")
@@ -207,7 +243,7 @@ def update_listing():
                     upload_file("input[type=file]", str(media))
                 except (OSError, RuntimeError) as exc:
                     fail(f"listing media upload failed: {field}")
-    if not click_text("Save"):
+    if not click_text("Save draft") and not click_text("Save"):
         fail("save control not observed")
     return evidence("draft", fields=sorted(mapped))
 

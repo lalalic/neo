@@ -38,3 +38,16 @@ def test_runner_reuses_harness_real_tab_for_stable_navigation():
     source = RUNNER.read_text(encoding="utf-8")
     assert "ensure_real_tab()" in source
     assert "goto_url(url)" in source
+
+
+def test_runner_uses_accessible_labels_and_draft_save_control():
+    source = RUNNER.read_text(encoding="utf-8")
+    assert "aria-labelledby" in source
+    assert "label[for=" in source
+    assert "Save draft" in source
+
+
+def test_runner_derives_publisher_scoped_item_route():
+    source = RUNNER.read_text(encoding="utf-8")
+    assert "webstore/devconsole/([^/]+)$" in source
+    assert "/{match.group(1)}/{ITEM_ID}/edit" in source
