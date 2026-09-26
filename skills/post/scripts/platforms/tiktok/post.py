@@ -11,8 +11,9 @@ Usage:
   python3 tiktok-post.py --video clip.mp4 --caption "My video" --visibility friends
 """
 import argparse, json, os, sys, subprocess, tempfile
+from pathlib import Path
 
-BH_SCRIPT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "_post_bh.py")
+BH_SCRIPT = Path(__file__).resolve().parents[4] / "browser-platforms/platforms/tiktok/browser-harness/_post_bh.py"
 
 # TikTok limits
 MAX_CAPTION = 4000    # chars (including hashtags)

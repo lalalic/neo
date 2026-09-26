@@ -4,10 +4,16 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parents[1] / "scripts"))
 
-from _submit_readiness import actionable_temporary_chat_candidates, prompt_text_matches, temporary_chat_enabled_state, wait_until_stable
+from _submit_readiness import actionable_temporary_chat_candidates, prompt_text_matches, submission_receipt, temporary_chat_enabled_state, temporary_chat_entry_url, wait_until_stable
 
 
 class SubmitReadinessTests(unittest.TestCase):
+    def test_temporary_chat_worker_opens_observable_mode_route(self):
+        self.assertEqual(
+            temporary_chat_entry_url(),
+            "https://chatgpt.com/?temporary-chat=true",
+        )
+
     def test_slow_attachment_does_not_fail_on_visible_filename(self):
         states = iter([
             {"names": ["report.pdf"], "pending": True},
@@ -85,6 +91,25 @@ class SubmitReadinessTests(unittest.TestCase):
     def test_prompt_text_matches_rejects_truncated_prompt(self):
         expected = "START " + ("alpha beta " * 200) + " END"
         self.assertFalse(prompt_text_matches(expected[:400], expected))
+
+    def test_submission_receipt_accepts_matching_user_turn(self):
+        prompt = "hello reviewer"
+        receipt = submission_receipt(
+            [{"id": "old", "text": "old"}, {"id": "new", "text": "hello  reviewer"}],
+            1,
+            prompt,
+            "still populated",
+        )
+        self.assertEqual(receipt["verified_by"], "user-turn")
+        self.assertEqual(receipt["turn"]["id"], "new")
+
+    def test_submission_receipt_accepts_cleared_composer_for_start_ack_gate(self):
+        receipt = submission_receipt([], 0, "long prompt", "   ")
+        self.assertEqual(receipt["verified_by"], "composer-cleared")
+        self.assertIsNone(receipt["turn"]["id"])
+
+    def test_submission_receipt_rejects_nonempty_unmatched_state(self):
+        self.assertIsNone(submission_receipt([], 0, "long prompt", "long prompt"))
 
     def test_temporary_chat_actionability_ignores_hidden_duplicate(self):
         candidates = [

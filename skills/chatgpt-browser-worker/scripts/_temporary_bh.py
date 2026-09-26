@@ -12,6 +12,7 @@ _OWNED_TABS = []
 _KEEP_OWNED_TAB_OPEN = CFG.get("close_policy", "after-start") == "never"
 
 
+
 def _new_owned_tab(url):
     # Respect Browser Harness workspace adapters. A configured workspace may
     # override new_tab()/close_tab() to acquire and release only managed tabs;
@@ -243,15 +244,21 @@ def _wait_for_send_ready(selector, prompt, attachments):
     )
 
 
-def _wait_user_turn(before_count, prompt, timeout=20):
+def _wait_user_turn(before_count, prompt, selector, timeout=20):
     deadline = time.time() + timeout
+    cleared_polls = 0
     while time.time() < deadline:
-        turns = _user_turns()
-        for turn in turns[before_count:]:
-            if prompt_text_matches(turn["text"], prompt):
-                return turn
+        receipt = submission_receipt(_user_turns(), before_count, prompt, _composer_text(selector))
+        if receipt:
+            if receipt["verified_by"] == "user-turn":
+                return receipt["turn"]
+            cleared_polls += 1
+            if cleared_polls >= 2:
+                return receipt["turn"]
+        else:
+            cleared_polls = 0
         time.sleep(.25)
-    raise RuntimeError("Temporary Chat submission verification did not observe a new user turn")
+    raise RuntimeError("Temporary Chat submission verification did not observe an accepted submission")
 
 
 def _diagnostic_thread_id():
@@ -259,21 +266,20 @@ def _diagnostic_thread_id():
     return match.group(1) if match else None
 
 
-_new_owned_tab("https://chatgpt.com/")
+_new_owned_tab(temporary_chat_entry_url())
 wait_for_load()
 
+# The direct Temporary Chat route is the stable primary path. Keep the UI
+# toggle as a compatibility fallback when ChatGPT ignores/redirects the route.
 _click_temporary_chat_toggle()
 
 deadline = time.time() + 20
 while time.time() < deadline:
     if _temporary_chat_enabled():
-        try:
-            break
-        except RuntimeError:
-            pass
+        break
     time.sleep(.25)
 else:
-    raise RuntimeError("Temporary Chat composer readiness was not observed")
+    raise RuntimeError("Temporary Chat activation was not observed")
 
 attachments = _upload_files(CFG.get("file", []))
 selector = _wait_for_composer()
@@ -322,7 +328,7 @@ wait_until_stable(
 
 _wait_for_send_ready(selector, CFG["prompt"], attachments)
 _click_send()
-user_turn = _wait_user_turn(before_count, CFG["prompt"])
+user_turn = _wait_user_turn(before_count, CFG["prompt"], selector)
 
 print(json.dumps({
     "operation": "submit",

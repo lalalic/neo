@@ -1,0 +1,23 @@
+{
+  "target": {
+    "product": "Calculator",
+    "app": "Calculator"
+  },
+  "scenario": {
+    "feature": "addition",
+    "steps": ["Enter 2", "Add 2", "Verify the result"]
+  },
+  "success": {
+    "visible_state": "The result 4 is visible",
+    "fresh_ui_required": true
+  },
+  "recording": {
+    "required": true,
+    "scope": "full_flow",
+    "format": "mp4"
+  },
+  "evidence": {
+    "artifact_required": true,
+    "fields": ["target", "scenario", "success", "artifact", "computer_use", "recoveries"]
+  }
+}

@@ -39,6 +39,11 @@ def actionable_temporary_chat_candidates(candidates):
     ]
 
 
+def temporary_chat_entry_url():
+    """Use ChatGPT's observable Temporary Chat route for worker-owned tabs."""
+    return "https://chatgpt.com/?temporary-chat=true"
+
+
 def temporary_chat_enabled_state(url, candidates):
     """Recognize Temporary Chat from stable URL state with semantic UI fallback."""
     if "temporary-chat=true" in (url or ""):
@@ -68,3 +73,16 @@ def prompt_text_matches(observed, expected):
         and expected_n[:span] in observed_n
         and expected_n[-span:] in observed_n
     )
+
+
+def submission_receipt(turns, before_count, prompt, composer_text):
+    """Return a transport receipt after click without requiring one DOM message shape."""
+    for turn in turns[before_count:]:
+        if prompt_text_matches(turn.get("text"), prompt):
+            return {"verified_by": "user-turn", "turn": turn}
+    if not (composer_text or "").strip():
+        return {
+            "verified_by": "composer-cleared",
+            "turn": {"id": None, "text": prompt},
+        }
+    return None
