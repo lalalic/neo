@@ -31,3 +31,7 @@ video.md
 ```
 
 Use `scripts/contract.py video.md execution/` to compile and validate the directory.
+
+## Markcut metadata channel
+
+Canonical `video.md` may carry `<!-- execution {...} -->` HTML comments. Markcut explicitly ignores HTML comment nodes; Execution Director is the component that reads and validates the `execution` convention. Comment contents never become part of Markcut's descriptive/render tree.
