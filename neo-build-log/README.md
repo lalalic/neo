@@ -1,70 +1,72 @@
 # Neo Build Log
 
-Neo Build Log records real work while building Neo: the problem, the attempted
-solution, and the parts worth sharing with other AI users. Each episode starts
-as source notes, becomes a story, and is expressed as Markcut-compatible
-Markdown.
+Neo Build Log turns the real work of building Neo into evidence-backed public stories, short written posts, and videos, while also preserving a private next-day work-start brief.
 
-## Layout
+It is intentionally a thin Neo content project. Agents Relay drives each daily production Task; shared Neo agents and skills perform research/evidence collection, video planning, execution, Markcut rendering, QA, and publishing. This directory keeps only the Build Log-specific editorial contract plus ignored run artifacts.
 
-- `runs/neo-build-log/<YYYY-MM-DD[-slug]>/` — Episode 001 source notes and storyboard.
-- `AGENTS.md` — project-level rules automatically applied when an agent works
-  from this directory.
-- `agents/director.md` — repeatable process for turning a solved problem into an episode.
-- `agents/capture-agent.md` — executes desktop + NeoX capture and owns the capture review gate.
-- `AUDIO_STYLE.md` — canonical narration voice, BGM identity, mix, and local TTS contract.
-- `scripts/audio/` — reproducible local TTS adapter and original BGM generator.
-- `schemas/neox-capture-tour-v1.schema.json` — repository copy of the NeoX v1
-  Capture Tour manifest contract.
+## Durable runtime
 
-Neo Build Log owns the content and story design. Markcut owns validation,
-preview, and rendering. Final rendering and publication remain user review
-steps unless explicitly requested.
+The recurring autonomous Job is `neo-build-log-daily` in PR #34. It is scheduled daily at 23:00 America/Toronto and remains ACTIVE across daily runs.
 
-## Series contract
+One date normally maps to one durable Task, for example:
 
-Each episode follows a recognizable build-log grammar: hook on the first
-screen, short Neo Build Log opener, problem/constraint, investigation or
-attempt, the real build, evidence/result, and a closing payoff with a next
-episode hook when appropriate. Real screen recording and screenshots are the
-main visual evidence, presenter footage supports the explanation, and every
-episode uses background music.
+> Reconstruct and produce the Neo Build Log for 2026-09-25.
 
-`AGENTS.md` is the short enforcement layer for Codex/agents working in this
-folder. `agents/director.md` is the canonical detailed editorial specification.
+Within that Task, an Agent Graph may compose visible shared roles/capabilities. Durable child Tasks are only needed for independently reviewable, blockable, retryable, or externally dependent outcomes.
 
-## Runtime layout
+## Production flow
 
-Neo Build Log is a series project. Reusable project contracts are tracked here; each actual episode/build execution is private run data:
+```mermaid
+flowchart LR
+  A[day evidence] --> B[story selection]
+  B --> C[public narrative / post]
+  B --> D[Video Director: Markcut video.md]
+  D --> E[Execution Director: execution/*.json]
+  E --> F[shared runtime agents]
+  F --> G[Markcut render]
+  G --> H[QA]
+  H --> I[post-agent publish + verify]
+  B --> J[next-day private brief]
+```
+
+The project does not own its own scheduler, workflow database, model routing, capture engine, audio engine, or publishing engine.
+
+## Story contract
+
+A Build Log should reconstruct the meaningful story behind the day's work rather than list PRs or tasks. The preferred shape is:
+
+1. concrete hook;
+2. problem or constraint;
+3. investigation, rejected attempt, or surprise;
+4. the actual build/change;
+5. observable result or unresolved state;
+6. useful payoff and natural next hook.
+
+Claims must be grounded in authoritative evidence. Public output excludes private/sensitive data and does not fabricate motivations or results.
+
+## Shared capabilities
+
+Use current shared capabilities discovered at runtime:
+
+- Agents Relay planner/lifecycle/scheduling/troubleshooter;
+- shared evidence/vision agents where visual artifacts need interpretation;
+- Video Director for canonical Markcut `video.md`;
+- Execution Director for typed execution lanes;
+- shared demo/capture/image/video/audio capabilities for asset production;
+- Markcut for preview/render;
+- shared reviewer/QA where useful;
+- `post` / post-agent for authorized publication and platform verification.
+
+## Artifacts
+
+Future daily runs live at:
 
 ```text
-runs/neo-build-log/<YYYY-MM-DD[-slug]>/
-├── source.md
-├── episode.md
-├── RECORDING_PLAN.md
-├── capture-tour.json
-├── CAPTURE_REVIEW.md
-├── assets/
-├── logs/
-└── output/
+runs/<YYYY-MM-DD[-slug]>/
 ```
 
-Do not split one episode across root-level log/output folders. All execution-specific content stays inside its dated run and is ignored by Git.
+A run may contain evidence manifests/notes, narrative drafts, social copy, `video.md`, `execution/`, generated/captured assets, Markcut state, output video, QA notes, next-day brief, logs, and publication receipts.
 
-## End-to-end flow
+`runs/` is ignored by Git. Historical runs under the former `runs/neo-build-log/` wrapper are preserved as legacy run evidence and do not need destructive migration.
 
-`source → Director/story → recording list → NeoX camera tour + desktop capture → capture review → Markcut storyboard → preview → user review`
-
-Each episode keeps `RECORDING_PLAN.md` as the complete shot list. Camera or
-presenter shots are also emitted as `capture-tour.json` for NeoX. The Capture
-Agent executes both capture lanes and records what actually exists in
-`CAPTURE_REVIEW.md`; only accepted media should replace recording placeholders
-in the final storyboard.
-
-## Preview
-
-From the Neo repository root:
-
-```sh
-npx @lalalic/markcut preview neo/neo-build-log/runs/neo-build-log/<YYYY-MM-DD[-slug]>/episode.md --storyboard
-```
+See `AGENTS.md` for the enforceable project contract.

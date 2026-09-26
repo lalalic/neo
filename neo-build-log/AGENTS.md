@@ -1,95 +1,95 @@
 # Neo Build Log Project Rules
 
-This directory is a content project inside Neo. When the working directory is
-`neo-build-log/` or one of its episode folders, follow this file in addition to
-the parent Neo instructions.
+Neo Build Log is a thin Neo content project. Root `AGENTS.md` and `MISSION.md` apply first. Do not build a second workflow/runtime system inside this project.
 
-Read `README.md` and `agents/director.md` before creating or revising an episode.
-`agents/director.md` is the canonical editorial contract. Markcut owns video syntax,
-validation, preview, and rendering; do not duplicate Markcut implementation
-rules here.
+## Ownership
 
-## Required episode grammar
+Agents Relay owns durable Jobs, Tasks, scheduling, planner rounds, retries, leases, dependencies, worker/model routing, events, review, and reconciliation. Shared Neo agents/skills own reusable media understanding, Video Director, Execution Director, demo/capture/image/video execution, Markcut production, QA, publishing, and troubleshooting.
 
-Every Neo Build Log episode must be shaped from real work and normally contain:
+Neo Build Log owns only the Build Log-specific editorial contract and its ignored run artifacts.
 
-1. **Hook** — the first screen must immediately state or show the concrete
-   problem, surprise, failure, or payoff. Do not begin with generic branding.
-2. **Series opener** — show `Neo Build Log`, episode number, and topic using the
-   recurring series identity. Keep it short and let it overlap the hook when
-   useful.
-3. **Problem / constraint** — explain why the issue mattered in this build.
-4. **Attempt / investigation** — show what was tried, rejected, or discovered.
-5. **Build / change** — show the actual work: screen recording, terminal, code,
-   screenshots, diagrams, or other truthful evidence.
-6. **Result / evidence** — demonstrate what now works or what was learned. Never
-   invent a successful result when evidence is missing.
-7. **Payoff + next hook** — end with one concise takeaway and, when there is a
-   credible continuation, a teaser/question for the next episode.
+## Execution model
 
-## Fixed presentation rules
+The long-lived Agents Relay Job is `neo-build-log-daily` (PR #34). It remains ACTIVE across successful daily runs. Each requested or scheduled date creates one durable Build Log Task. Prefer one Task per day unless an intermediate result genuinely needs independent review/block/retry lifecycle.
 
-- Every episode follows `AUDIO_STYLE.md`: the `Neo Builder` narration contract and
-  recurring `Neo Build Pulse` BGM are part of the series identity. Prefer the
-  user's accepted voice clone when available; otherwise use the documented
-  fallback. Narration must duck BGM rather than compete with it.
-- Real desktop/screen material is the primary visual language of the series.
-  Prefer screen recording for actions and motion; use screenshots for static
-  state or proof. Never fabricate evidence to fill a visual gap.
-- Presenter footage is part of the visual mix. The default treatment is the
-  small lower-right presenter overlay described in `agents/director.md`; use a larger
-  human shot only when it genuinely improves the story.
-- The first screen must work as a hook even before the viewer understands the
-  project. Branding is support, not the hook itself.
-- The ending must feel intentional: payoff/closing line first, then a next-step
-  teaser when one exists. Do not end on an arbitrary terminal or UI frame.
-- Spoken narration explains motivation, reasoning, and tradeoffs. On-screen
-  text should be short: hook, section cue, key fact, or takeaway—not a duplicate
-  transcript.
-- Missing footage or assets must be recorded as explicit capture placeholders,
-  never silently replaced with invented visuals or claims.
+A daily Task may use an `agentGraph` made only from agents visible in the resolved Agents Relay context. Internal graph nodes are reasoning/execution roles, not durable Tasks.
 
-## Episode outputs
+Typical flow:
 
-Keep episode-specific source facts, storyboard/Markcut Markdown, and capture
-instructions under that episode's directory. A recording plan should identify
-which beats need screen recording, screenshot/static evidence, presenter
-footage, narration, and any missing asset that still needs capture.
+```mermaid
+flowchart LR
+  A[collect authoritative day evidence] --> B[select strongest story]
+  B --> C[public narrative + post]
+  B --> D[Video Director -> video.md]
+  D --> E[Execution Director -> execution lanes]
+  E --> F[shared runtime agents]
+  F --> G[Markcut render + QA]
+  G --> H[post-agent publish + verify]
+  B --> I[next-day work-start brief]
+```
 
-Final rendering and publication remain user-review steps unless the user
-explicitly asks for them.
+Do not hard-code provider/model choices here; worker-router and model-router own routing.
 
-## Capture pipeline
+## Editorial contract
 
-An episode is not ready for Markcut merely because `episode.md` exists. The
-required project flow is:
+Build Log is a story of real Neo work, not a changelog dump. For the target local date:
 
-`source.md → story/episode draft → RECORDING_PLAN.md → capture-tour.json (camera subset) → Capture Agent → CAPTURE_REVIEW.md → accepted-media episode.md → Markcut preview → user review`
+- reconstruct the user's underlying intent only when supported by actual conversation/work evidence;
+- identify the problem/constraint, important attempts or failed directions, turning point, implemented result, remaining uncertainty, and useful takeaway;
+- select the strongest coherent story or small set of connected stories instead of enumerating every PR/task;
+- separate observed facts from interpretation;
+- never invent success, motivation, metrics, or missing evidence;
+- remove credentials, private identifiers, sensitive personal material, internal-only URLs, and unsuitable private context from public outputs;
+- public copy should be understandable beyond the immediate engineering thread while remaining technically accurate.
 
-- Read `agents/capture-agent.md` before executing capture work.
-- `RECORDING_PLAN.md` is the complete recording list across desktop and camera.
-- `capture-tour.json` is only the NeoX human/presenter subset, using the same shot IDs.
-- Validate NeoX manifests against `schemas/neox-capture-tour-v1.schema.json` and
-  prefer the live NeoX `tour.start` schema when it differs.
-- `CAPTURE_REVIEW.md` is a mandatory evidence/quality/privacy gate. Essential
-  missing or retake shots block Markcut readiness unless the Director revises
-  the story.
+A strong episode normally has: hook -> problem/constraint -> investigation/attempt -> build/change -> observable result -> payoff/next hook. This is an editorial shape, not a separate workflow engine.
 
-## Codex runtime layout
+## Daily outputs
 
-Treat `neo-build-log/` as the project working directory. The parent Neo
-`AGENTS.md` still applies.
+Each daily Task should leave, when evidence supports them:
 
-Tracked project state belongs here:
+- the evidence/source manifest or notes used to reconstruct the day;
+- the public narrative Build Log;
+- a concise social/post version;
+- canonical Markcut `video.md` from the shared Video Director;
+- Execution Director lane files and produced media when unresolved assets require execution;
+- rendered/verified video and QA notes;
+- publication receipts/status when publication is authorized and succeeds;
+- a private next-day work-start brief covering where work ended, what matters next, user-required actions, 李友/shared dependencies when applicable, autonomous follow-ups, risks, and authoritative references.
 
-- `README.md`, `AGENTS.md`, `agents/director.md`, `agents/capture-agent.md`, `AUDIO_STYLE.md`;
-- `schemas/` contracts;
-- `runs/neo-build-log/<YYYY-MM-DD[-slug]>/source.md`, `episode.md`, `RECORDING_PLAN.md`,
-  `capture-tour.json`, and `CAPTURE_REVIEW.md`.
+The next-day brief is operational/private input, not public copy.
 
-All execution state belongs inside the dated series run at `runs/neo-build-log/<YYYY-MM-DD[-slug]>/`, including logs, diagnostics, Markcut state, captured media, review files, and final output. Only reusable project rules, agents, schemas, docs, templates, and scripts stay tracked.
+## Shared production architecture
+
+Use the current shared system instead of project-local duplicates:
+
+- Video Director owns story/timeline decisions and canonical Markcut `video.md`.
+- Execution Director compiles unresolved media requirements into typed execution lanes.
+- Shared runtime agents/capabilities execute demo, capture, image, video, vision, audio/TTS, and other media needs.
+- Markcut owns preview/render semantics.
+- Shared QA/reviewer capabilities inspect observable artifacts.
+- `post` / post-agent owns publication and platform-side verification.
+- Agents Relay troubleshooter/recovery handles execution failures.
+
+If a missing capability is reusable across projects, improve the owning shared skill/agent rather than re-implementing it here.
+
+## Run contract
+
+Follow the root universal run contract:
+
+```text
+runs/<YYYY-MM-DD[-slug]>/
+```
+
+Use a named series wrapper only when there is a real distinct series. Do not add the redundant `runs/neo-build-log/` wrapper for future daily runs.
+
+All per-run evidence, generated content, media, Execution Director outputs, Markcut state, logs, QA, next-day brief, and publication receipts belong in the dated ignored run directory. Historical ignored runs may remain in their legacy locations; never delete the only copy merely to normalize paths.
+
+## Publication
+
+The standing `neo-build-log-daily` Job contains the scope of autonomous publication authorization. Publication must still use the shared post workflow, verify the platform-side result, and preserve receipts. If authentication/platform state blocks publication, preserve the completed artifact plus exact blocker and do not claim success.
 
 ## Project learnings
 
-- 2026-09-12: A build-log story should be derived from observable work, not reconstructed as a generic tutorial. The first screen needs the concrete gap/payoff, while branding supports rather than delays the hook.
-- 2026-09-12: `episode.md` is not evidence that required footage exists. Keep recording planning, actual capture, and `CAPTURE_REVIEW.md` as a gate before treating an episode as Markcut-ready.
+- 2026-09-12: Build Log stories must come from observable work rather than generic tutorials; the hook should expose the concrete gap/payoff immediately.
+- 2026-09-26: Project-local Director/Capture/audio/schema machinery duplicated capabilities now owned by shared Neo agents/skills. Keep Build Log thin: Agents Relay owns orchestration, shared capabilities own execution, and this project owns only the editorial contract plus run artifacts.
