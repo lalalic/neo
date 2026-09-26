@@ -4,10 +4,16 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parents[1] / "scripts"))
 
-from _submit_readiness import actionable_temporary_chat_candidates, prompt_text_matches, submission_receipt, temporary_chat_enabled_state, wait_until_stable
+from _submit_readiness import actionable_temporary_chat_candidates, prompt_text_matches, submission_receipt, temporary_chat_enabled_state, temporary_chat_entry_url, wait_until_stable
 
 
 class SubmitReadinessTests(unittest.TestCase):
+    def test_temporary_chat_worker_opens_observable_mode_route(self):
+        self.assertEqual(
+            temporary_chat_entry_url(),
+            "https://chatgpt.com/?temporary-chat=true",
+        )
+
     def test_slow_attachment_does_not_fail_on_visible_filename(self):
         states = iter([
             {"names": ["report.pdf"], "pending": True},
