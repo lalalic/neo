@@ -85,6 +85,8 @@ If the PR body is empty or lacks an objective, scope, non-goals, acceptance crit
 
 Prefer a fresh isolated worktree for the worker. Use an existing checkout only when it is clean or the user explicitly authorizes dirty-worktree operation. Do not automatically stash, reset, clean, or overwrite unrelated changes.
 
+All temporary worktrees created by XChat must live under `/Users/chengli/Workspace/.worktrees/`. Never create or reuse `/Users/chengli/Workspace/.xchat-worktrees` or any `.xchat-worktree*` path. Agents Relay owns `.worktrees/agents-relay/`; direct orchestrator/P0 self-work uses `.worktrees/orchestrator/`. When the owning task is terminal and its changes are durable, verify there is no unique/uncommitted work, remove the temporary worktree with `git worktree remove`, and prune stale metadata.
+
 ### 2. Establish PR metadata
 
 Maintain one small machine-readable marker in a PR comment or body. Update the existing marker instead of creating duplicates:
