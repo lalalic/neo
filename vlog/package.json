@@ -1,0 +1,13 @@
+{
+  "name": "@lalalic/neo-vlog-runtime",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "vlog-inbox-watcher": "scripts/vlog-inbox-watcher.mjs"
+  },
+  "files": [
+    "lib/",
+    "scripts/"
+  ]
+}
