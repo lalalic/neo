@@ -74,6 +74,8 @@ account Custom Instructions
 ## Rules
 
 - Projects are under `/Users/chengli/Workspace`.
+- The only allowed workspace root for temporary Git worktrees is `/Users/chengli/Workspace/.worktrees/`. Never create or use `/Users/chengli/Workspace/.xchat-worktrees` (or any `.xchat-worktree*` variant). Agents Relay uses `.worktrees/agents-relay/`; orchestrator-owned temporary worktrees use `.worktrees/orchestrator/`.
+- Temporary worktrees are task state, not project structure. After the owning work is merged/completed, verify there is no unique or uncommitted work, remove the worktree through Git, and prune stale worktree metadata.
 - Treat `scripts/list-xchat-projects` as the canonical dynamic XChat project resolver.
 - `lalalic/neo/xxx` means the `xxx` folder inside the `lalalic/neo` repository checkout; it does **not** mean a repository named `lalalic/neo/xxx`.
 - Prefer local skills and DevMacBridge when a task depends on the user's Mac, local repositories, authenticated CLI state, or local app state.
