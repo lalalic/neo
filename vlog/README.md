@@ -187,3 +187,11 @@ Final render requires both Video Director and Market Agent review to pass. Obser
 Publication platform and authorization belong to the active Agents Relay Job/Task. Vlog uses the shared `post` / `post-agent` capability and persists platform-side receipt/status. The project itself does not hard-code a platform.
 
 See `AGENTS.md` for the enforceable Planner/execution contract.
+
+## iCloud inbox watcher
+
+The optional watcher treats `manifest.json` as the producer's final-ready signal. A supported manifest is JSON with `schema_version: 1`, a safe `submission_id`, and a non-empty `media` array whose entries are either relative path strings or `{ "path": "..." }` objects. Media must be downloaded local regular files; missing, zero-byte, symlinked, absolute, or traversal paths are rejected.
+
+The watcher moves a valid submission directory atomically into `runs/YYYY-MM-DD/HH/<submission-id>/input/` before creating exactly one episode Task through Agents Relay. On restart it scans moved inputs first, so a crash after the move and before Task creation is recoverable without a local database. Relay task identity is `vlog-episode-<submission_id>`.
+
+For a persistent process, configure the existing process supervisor with `node scripts/vlog-inbox-watcher.mjs` and these deployment values: `VLOG_ICLOUD_INBOX`, `VLOG_RUNS_DIR`, `VLOG_RELAY_REPO`, `VLOG_RELAY_PR`, `VLOG_RELAY_JOB_ID`, `VLOG_RELAY_ADAPTER`, `VLOG_RELAY_PROVIDER`, `VLOG_RELAY_MODEL`, and optionally `VLOG_RELAY_AGENT` and `VLOG_WATCH_INTERVAL_MS`. Provider/model/agent selection is intentionally deployment-owned and is never hard-coded by Vlog.
