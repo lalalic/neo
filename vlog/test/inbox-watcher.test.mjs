@@ -56,14 +56,15 @@ test('rejects traversal and malformed manifests', async () => {
 
 test('restart and move-before-create recovery remain idempotent', async () => {
   const f = await fixture(manifest); const r = relay();
+  const now = new Date('2026-09-27T15:00:00Z');
   const original = r.createTask; r.createTask = async () => { throw new Error('simulated crash window'); };
-  await assert.rejects(processSubmission(f.source, { runsDir: f.runs, relay: r }));
+  await assert.rejects(processSubmission(f.source, { runsDir: f.runs, relay: r, now }));
   r.createTask = original;
-  const recovered = await scanOnce({ inboxDir: f.root, runsDir: f.runs, relay: r, now: new Date('2026-09-27T15:00:00Z') });
+  const recovered = await scanOnce({ inboxDir: f.root, runsDir: f.runs, relay: r, now });
   assert.equal(recovered[0].status, 'task-created'); assert.equal(r.created.length, 1);
-  const again = await scanOnce({ inboxDir: f.root, runsDir: f.runs, relay: r, now: new Date('2026-09-27T15:00:00Z') });
+  const again = await scanOnce({ inboxDir: f.root, runsDir: f.runs, relay: r, now });
   assert.equal(again[0].status, 'already-tasked'); assert.equal(r.created.length, 1);
-  const hour = String(new Date('2026-09-27T15:00:00Z').getHours()).padStart(2, '0');
+  const hour = String(now.getHours()).padStart(2, '0');
   const movedManifest = path.join(f.runs, '2026-09-27', hour, 'submission-1', 'input', 'manifest.json');
   assert.equal(await readFile(movedManifest, 'utf8') !== '', true);
 });
