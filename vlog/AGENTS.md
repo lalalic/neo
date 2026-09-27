@@ -1,57 +1,182 @@
 # Vlog Project Rules
 
-Vlog is a thin Neo content project. Root `AGENTS.md` and `MISSION.md` apply first. Do not build a second workflow/runtime system inside this project.
+Vlog is a thin Neo content project. Root `AGENTS.md` and `MISSION.md` apply first.
+
+## Planner topology — primary contract
+
+This chart is the primary asset for Planner.
+
+```text
+                           VLOG JOB
+                              │
+                              v
+               ┌──────────────────────────┐
+               │ ONE TOP-LEVEL EPISODE    │
+               │ TASK                     │
+               │ vlog-YYYY-MM-DD[-slug]   │
+               └────────────┬─────────────┘
+                            │
+                            v
+                       agentGraph
+                            │
+                            v
+                  ┌─────────────────┐
+                  │ vlog-editor     │
+                  │ source + story  │
+                  │ visual brief    │
+                  └────────┬────────┘
+                           │
+                           v
+                  ┌─────────────────┐
+                  │ vlog-producer   │
+                  │ production draft│
+                  └────────┬────────┘
+                           │
+                  ┌────────┴─────────┐
+                  │                  │
+                  v                  v
+         ┌────────────────┐  ┌────────────────┐
+         │ Video Director │  │ Market Agent   │
+         │ REQUIRED REVIEW│  │ REQUIRED REVIEW│
+         └───────┬────────┘  └───────┬────────┘
+                 │                   │
+                 └─────────┬─────────┘
+                           │
+                     BOTH PASS
+                           │
+                           v
+                  ┌─────────────────┐
+                  │ final render+QA │
+                  └────────┬────────┘
+                           │
+                           v
+                  ┌─────────────────┐
+                  │ post-agent      │
+                  │ when authorized │
+                  └─────────────────┘
+```
+
+One episode = **exactly one top-level durable Task**.
+
+Never create sibling top-level Tasks for source collection, media analysis, story, edit planning, production, review, render, QA, or publication of the same episode.
+
+If a phase truly needs an independent durable lifecycle, create a child/descendant Task under the episode Task. Valid reasons include external wait, explicit approval, isolated retry/reconciliation boundary, durable blocker, or independently resumed work.
+
+Use only discoverable agents. Do not invent agent names or hard-code worker/provider/model selection.
 
 ## Ownership
 
-Agents Relay owns durable Jobs, Tasks, scheduling, retries, leases, dependencies, planner rounds, worker/model routing, events, and reconciliation. Neo shared skills/agents provide phone media access, vision, audio/TTS, Markcut production, publishing, and troubleshooting. Vlog owns only Vlog-specific production rules and ignored run artifacts.
+```text
+Vlog-specific judgment
+  -> vlog-editor / vlog-producer / this contract
 
-## Execution model
+Agents Relay lifecycle
+  -> Job / Task / graph / retry / routing / events / reconcile
 
-The long-lived `vlog-autonomous` Agents Relay Job remains ACTIVE. A manual or scheduled Vlog cycle creates one durable Vlog Task. Prefer one Task for one episode/day unless an intermediate result genuinely needs its own durable lifecycle.
-
-Within a Vlog Task, use an `agentGraph` when multiple reasoning roles materially improve the result. Agent Graph nodes are internal roles, not durable child Tasks. Use only agents visible in the resolved Agents Relay execution context; do not create Vlog-local copies of shared agents.
-
-```mermaid
-flowchart LR
-  A[collect real media/evidence] --> B[understand/select story]
-  B --> C[script/edit plan]
-  C --> D[Markcut render]
-  D --> E[QA]
-  E --> F[post-agent publish + verify]
+Reusable capability
+  -> shared Neo agent/skill
 ```
 
-The exact graph may vary by episode. Do not hard-code worker/provider/model choices here; worker-router and model-router own those decisions.
+Do not build Vlog-local copies of phone-media access, vision, Video Director, Execution Director, image/video generation, audio/TTS, Markcut, Market Agent, post adapters, model router, worker router, or troubleshooting.
 
-## Production contract
+## Source and story contract
 
-- Use only real source evidence from the requested local-date window. Do not widen the window or fabricate events just to produce an episode.
-- Phone media comes from NeoX through the installed phone-media capability. Clear staged phone exports after verified local download.
-- Use shared visual-understanding/Markcut capabilities for media understanding and editing. Do not create a Vlog-local vision engine.
-- Prefer original footage and useful original sound. Use shared audio/TTS skills when narration or BGM is needed.
-- Render vertical short-form video unless the Task explicitly asks for another format.
-- Verify the observable final video, not only a command exit code.
-- Publishing is performed through the shared `post` skill / `post-agent`. The Autonomous Vlog Job is authorized to publish its truthful episode to Xiaohongshu and WeChat Channels; verify platform-side state and save receipts/status in the run.
+Use only authoritative real media/evidence from the requested source window. Phone media should come through the installed shared phone-media/NeoX capability when needed.
+
+PRs or system logs may support context when the episode is about technical work, but Vlog remains story-first rather than artifact-list-first.
+
+The editor must produce one coherent arc:
+
+```text
+real media
+   ↓
+source-manifest.json
+   ↓
+HOOK -> MOMENT/TENSION -> DEVELOPMENT -> PAYOFF
+   ↓
+visual-brief.md
+```
+
+Do not widen dates, fabricate activities, or imply that media shows something it does not show.
+
+## Visual-direction contract
+
+`visual-brief.md` is the primary creative asset consumed by Producer and Video Director.
+
+For each beat specify:
+
+- audience intent;
+- exact source media/evidence;
+- selected shot/image/audio or missing capture requirement;
+- crop/composition/visual treatment;
+- motion/transition relationship;
+- text/graphic/chart/diagram needs when they add meaning;
+- original sound / narration / BGM / SFX intent.
+
+Video Director turns the creative intent into canonical `video.md`. Execution Director compiles unresolved media requirements when needed. Runtime agents materialize assets; Markcut renders.
+
+## Production quality
+
+- Prefer real footage and useful original sound.
+- Narration is optional. If used, it must use the user's approved voice identity unless an explicit fallback is authorized.
+- BGM/SFX are deliberate editorial choices, not mandatory filler; mix them around dialogue/original sound.
+- Use strong composition, meaningful cuts, motion, transitions, effects, and pacing.
+- Use charts, diagrams, generated explanatory images, screenshots, or kinetic typography only when they improve comprehension without pretending to be real source evidence.
+- Render vertical short-form video unless the Task specifies another format.
+- Verify the observable final video, including picture, sound, pacing, and source truth.
+
+## Mandatory pre-render gate
+
+Final render is forbidden until both required reviews pass:
+
+```text
+Production Draft
+      │
+      ├────────────► Video Director Review
+      │                  │
+      │            PASS / CHANGE_REQUIRED
+      │
+      └────────────► Market Agent Review
+                         │
+                   PASS / CHANGE_REQUIRED
+
+PASS + PASS -> Final Render
+```
+
+Video Director reviews hook, story-to-scene translation, shot selection, pacing, visual grammar, cuts/transitions/effects, and sound design.
+
+Market Agent reviews audience clarity, hook/cover strength, emotional or curiosity pull, platform fit, and whether the episode works for someone without internal context.
+
+Persist review evidence under `reviews/`. Required changes must be incorporated and re-reviewed.
 
 ## Run contract
 
-Follow the root universal run contract exactly:
-
 ```text
-runs/<YYYY-MM-DD[-slug]>/                 # standalone / daily
-runs/<series-name>/<YYYY-MM-DD[-slug]>/   # real named series only
+runs/<YYYY-MM-DD[-slug]>/
+├── source-manifest.json
+├── story.md
+├── post.md
+├── visual-brief.md
+├── video.md
+├── execution/
+├── assets/
+├── reviews/
+│   ├── video-director.md
+│   └── market.md
+├── output/
+├── qa.md
+└── publish/
 ```
 
-A run may contain source manifests, selected assets, Markcut source, generated audio/video, QA notes, logs, and publish receipts. `runs/` is ignored by Git. Do not add generic wrapper directories such as `neo-vlog` or `daily-vlog`.
+A genuine named series may use `runs/<series-name>/<YYYY-MM-DD[-slug]>/`. Do not create generic wrappers such as `runs/neo-vlog/` or `runs/daily-vlog/`.
 
-## Boundaries
+All per-run artifacts belong in the run root. `runs/` is ignored by Git.
 
-- Neo identity comes from root `MISSION.md`; do not duplicate a Neo persona in Vlog.
-- Human voice/profile data is not a Vlog-owned identity model. Use shared/private profile or TTS inputs when needed.
-- Neo Build Log is owned by the separate `neo-build-log/` project; do not mirror its series definition here.
-- Do not add Vlog-local SQLite job tables, schedulers, worker launchers, route/profile configs, lifecycle state machines, or persistent daemons. If orchestration capability is missing, improve Agents Relay or a shared Neo skill instead.
-- Do not create template/style/persona folders for a single default. Add reusable Vlog-only source only when multiple real uses justify it.
+## Publication
+
+Publication target/authorization comes from the active Job/Task. Use shared `post-agent`, verify platform-side state, and persist the receipt/status. A successful click or adapter exit code is not publication proof.
 
 ## Project learnings
 
-- 2026-09-26: Vlog previously duplicated Agents Relay with its own SQLite jobs, routing config, autopilot worker, personas, style, and series/template abstractions. Keep Vlog thin: Agents Relay owns orchestration; shared Neo skills own reusable capabilities; this project owns only Vlog-specific production rules and run artifacts.
+- 2026-09-26: Vlog previously duplicated Agents Relay with local jobs, routing, autopilot, personas, style, and templates. Keep the project thin.
+- 2026-09-27: Follow the shared `neo-project` contract: chart-first human/planner docs, one top-level Task per episode, discoverable project agents, shared capabilities, explicit run handoffs, and observable acceptance gates.
