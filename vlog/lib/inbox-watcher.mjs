@@ -5,6 +5,10 @@ import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
 export const SUPPORTED_SCHEMA_VERSION = 1;
+export const VLOG_EPISODE_AGENT_GRAPH = [
+  'flowchart LR',
+  '  editor[agent:vlog-editor] --> producer[agent:vlog-producer]',
+].join('\n');
 
 const isSafeSubmissionId = (value) =>
   typeof value === 'string' && /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(value);
@@ -125,13 +129,7 @@ export function createCliRelayClient(config = {}) {
   const repo = required('VLOG_RELAY_REPO');
   const pr = required('VLOG_RELAY_PR');
   const jobId = required('VLOG_RELAY_JOB_ID');
-  const adapter = required('VLOG_RELAY_ADAPTER');
-  const model = env.VLOG_RELAY_MODEL;
-  const provider = env.VLOG_RELAY_PROVIDER;
-  if ((adapter === 'codex' || adapter === 'chatgpt') && (!model || !provider)) {
-    throw new Error('VLOG_RELAY_PROVIDER and VLOG_RELAY_MODEL are required for model-backed adapters');
-  }
-  const base = ['--yes', 'agents-relay'];
+  const base = ['--yes', '--package', 'agents-relay@latest', 'agents-relay'];
   const storage = ['--repo', repo, '--pr', pr, '--id', jobId];
   const run = async (args, input) => {
     const { stdout } = await execFileAsync('npx', [...base, ...args], { input, maxBuffer: 10 * 1024 * 1024 });
@@ -139,10 +137,14 @@ export function createCliRelayClient(config = {}) {
   };
   return {
     listTasks: () => run(['task', 'list', ...storage]),
-    createTask: ({ taskId, input }) => {
-      const args = ['task', 'create', ...storage, '--task-id', taskId, '--adapter', adapter, '--output', 'task-pr', '--input', input];
-      if (provider) args.push('--provider', provider);
-      if (model) args.push('--model', model);
+    createTask: ({ taskId, input, agentGraph }) => {
+      const args = [
+        'task', 'create', ...storage,
+        '--task-id', taskId,
+        '--output', 'task-pr',
+        '--input', input,
+        '--agent-graph', agentGraph,
+      ];
       if (env.VLOG_RELAY_AGENT) args.push('--agent', env.VLOG_RELAY_AGENT);
       return run(args);
     },
@@ -159,7 +161,11 @@ export async function processMovedInput(inputDir, { runsDir, relay, now = new Da
   const runDir = path.dirname(inputDir);
   const taskId = `vlog-episode-${checked.submissionId}`;
   if (await taskExists(relay, taskId, checked.manifestPath)) return { status: 'already-tasked', taskId, runDir };
-  await relay.createTask({ taskId, input: taskInput({ ...checked, runDir }) });
+  await relay.createTask({
+    taskId,
+    input: taskInput({ ...checked, runDir }),
+    agentGraph: VLOG_EPISODE_AGENT_GRAPH,
+  });
   return { status: 'task-created', taskId, runDir };
 }
 

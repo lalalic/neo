@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, readFile, stat } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { processSubmission, scanOnce } from '../lib/inbox-watcher.mjs';
+import { processSubmission, scanOnce, VLOG_EPISODE_AGENT_GRAPH } from '../lib/inbox-watcher.mjs';
 
 async function fixture(manifest, media = { 'media/clip.mov': 'video' }) {
   const root = await mkdtemp(path.join(os.tmpdir(), 'vlog-watcher-'));
@@ -19,7 +19,13 @@ async function fixture(manifest, media = { 'media/clip.mov': 'video' }) {
 }
 function relay() {
   const created = [];
-  return { created, listTasks: async () => created, createTask: async (task) => { created.push({ id: task.taskId, input: task.input }); } };
+  return {
+    created,
+    listTasks: async () => created,
+    createTask: async (task) => {
+      created.push({ id: task.taskId, input: task.input, agentGraph: task.agentGraph });
+    },
+  };
 }
 const manifest = { schema_version: 1, submission_id: 'submission-1', instruction: 'make a vlog', media: [{ path: 'media/clip.mov' }] };
 
@@ -28,6 +34,8 @@ test('moves a valid submission and creates one task pointing at moved input', as
   const result = await processSubmission(f.source, { runsDir: f.runs, relay: r, now: new Date('2026-09-27T15:00:00Z') });
   assert.equal(result.status, 'task-created');
   assert.equal(r.created.length, 1);
+  assert.equal(r.created[0].agentGraph, VLOG_EPISODE_AGENT_GRAPH);
+  assert.match(r.created[0].agentGraph, /editor\[agent:vlog-editor\] --> producer\[agent:vlog-producer\]/);
   const hour = String(new Date('2026-09-27T15:00:00Z').getHours()).padStart(2, '0');
   assert.ok(r.created[0].input.includes(path.join(f.runs, '2026-09-27', hour, 'submission-1', 'input', 'manifest.json')));
   await stat(path.join(f.runs, '2026-09-27', hour, 'submission-1', 'input', 'media', 'clip.mov'));
