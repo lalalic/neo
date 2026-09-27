@@ -15,7 +15,7 @@ No Job ID, schedule, publication platform, model/provider choice, or current epi
 
 ## Execution model
 
-One daily Build Log normally maps to one durable Agents Relay Task.
+One Build Log episode maps to **exactly one top-level durable Agents Relay Task**. Any exceptional durable sub-work must be a child/descendant of that episode Task, never another top-level sibling.
 
 ```text
 Autonomous Job
@@ -29,7 +29,7 @@ Autonomous Job
   -> run artifacts
 ```
 
-Internal production phases stay inside the Task Agent Graph. Create durable child Tasks only when a result genuinely needs an independent retry, blocker, approval, or external dependency boundary.
+Internal production phases stay inside the Task Agent Graph. Evidence, story, visual design, narration, BGM, poster, reviews, render, QA, and publication belong to that one episode outcome. Create durable child Tasks only for genuine independent retry/blocker/approval/external-wait boundaries, and keep them under the episode top-level Task.
 
 ## Content package
 
@@ -54,16 +54,30 @@ All `runs/` content is ignored by Git.
 
 ## Editorial standard
 
-The Build Log is a story about real work, not a dump of PRs or Tasks. It should usually have:
+The Build Log is a human story about building, failing, discovering, deciding, and making something work—not a PR recap, Task dump, changelog, or release-note video. PRs and Tasks are supporting evidence, never the story structure. It should usually have:
 
-1. a concrete hook;
+1. a concrete first-beat hook that creates tension, surprise, curiosity, or payoff;
 2. the real problem or constraint;
 3. an attempt, failure, discovery, or decision;
 4. the actual build/change;
 5. observable evidence of the result or unresolved state;
-6. a useful payoff and natural next hook.
+6. a useful payoff and natural next hook;
+7. a poster/cover that communicates the same hook at a glance.
 
 Select the strongest coherent story from the day. Separate facts from interpretation. Never invent motivation, progress, screenshots, footage, results, or metrics.
+
+## Video quality and pre-render gate
+
+A normal episode must use the user's approved voice identity for narration and include BGM mixed under narration. Do not silently substitute generic TTS. Use charts, diagrams, explanatory/generated images, real screenshots/screen recordings, kinetic typography, polished visual components, deliberate motion, transitions, effects, timing, and visual hierarchy where they improve the story. Avoid videos made mainly of static text cards.
+
+The poster/cover is a first-class artifact and must expose the hook.
+
+Before final video generation, the production draft (`video.md`, poster/cover, narration/BGM plan, visual plan, transitions/effects, and preview when possible) must pass both:
+
+1. **Video Director review** — hook, story-to-scene translation, pacing, visual grammar, charts/images/components, motion/transitions/effects, narration/BGM plan.
+2. **Market Agent review** — audience clarity, hook strength, poster/cover, positioning, platform fit, and avoidance of internal/PR-centric framing.
+
+Required changes must be incorporated and re-reviewed before final render. A technically valid Markcut file is not enough.
 
 ## Project agents
 
