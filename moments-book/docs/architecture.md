@@ -85,6 +85,14 @@ This yields one complete video with year-level parent scenes and Moment-level
 sub-scenes. A year can later be previewed/recomposed as a subtree without
 changing the memoir's canonical chronology.
 
+`moments_book.renderers` generates this structure directly from a validated
+manifest. Static images paired with narration are emitted with
+`isBackground:true`; map leaves are emitted only for `gps.status=observed`.
+Visible place names remain book captions and never become coordinates. The
+generated hierarchy is checked in-process and the resulting source should then
+be passed to
+`npm exec --yes --package=@lalalic/markcut -- markcut verify <source>`.
+
 ## Book structure
 
 The book mirrors the same hierarchy:

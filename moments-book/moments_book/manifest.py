@@ -76,12 +76,23 @@ def _number(value: Any, path: str) -> float:
     return value
 
 
+def _relative_path(value: Any, path: str, field: str) -> None:
+    if value is None:
+        return
+    if not isinstance(value, str) or not value:
+        _fail(path, f"{field} must be a non-empty run-relative path")
+    source = Path(value)
+    if source.is_absolute() or ".." in source.parts:
+        _fail(path, f"{field} must be a run-relative path")
+
+
 def _media(media: Any, path: str) -> None:
     media = _obj(media, path)
     _required(media, ("id", "kind", "originalMatch", "gps"), path)
     _id(media["id"], f"{path}.id")
     if media["kind"] not in {"image", "video", "unknown"}:
         _fail(f"{path}.kind", "must be image, video, or unknown")
+    _relative_path(media.get("originalAsset"), f"{path}.originalAsset", "originalAsset")
 
     match = _obj(media["originalMatch"], f"{path}.originalMatch")
     _required(match, ("status",), f"{path}.originalMatch")

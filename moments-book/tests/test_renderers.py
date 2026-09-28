@@ -43,6 +43,7 @@ FIXTURE = {
 
 @pytest.fixture
 def assets(tmp_path):
+    (tmp_path / "manifest.json").write_text("{}")
     (tmp_path / "original.jpg").write_bytes(b"original image")
     (tmp_path / "capture.mov").write_bytes(b"baseline movie")
     return tmp_path
@@ -51,8 +52,8 @@ def assets(tmp_path):
 @pytest.fixture
 def manifest(assets):
     value = copy.deepcopy(FIXTURE)
-    value["years"][0]["moments"][0]["media"][0]["originalAsset"] = str(assets / "original.jpg")
-    value["years"][1]["moments"][0]["media"][0]["wechatEvidence"] = str(assets / "capture.mov")
+    value["years"][0]["moments"][0]["media"][0]["originalAsset"] = "original.jpg"
+    value["years"][1]["moments"][0]["media"][0]["wechatEvidence"] = "capture.mov"
     return value
 
 
@@ -102,9 +103,9 @@ def test_missing_background_flag_fails_validation(manifest):
         validate_markcut(manifest, markcut)
 
 
-def test_write_outputs_copies_assets_and_reports_shared_ids(manifest, tmp_path):
+def test_write_outputs_copies_assets_and_reports_shared_ids(manifest, assets, tmp_path):
     output = tmp_path / "rendered"
-    paths = write_outputs(manifest, output)
+    paths = write_outputs(manifest, output, manifest_path=assets / "manifest.json")
     assert paths["book"].is_file()
     assert paths["markcut"].is_file()
     assert (output / "assets/media-001.jpg").read_bytes() == b"original image"

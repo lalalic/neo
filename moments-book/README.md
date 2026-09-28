@@ -86,3 +86,19 @@ Then visually review the rendered video before treating the run as complete.
 Phone reachability is an external runtime dependency. If a phone is unavailable,
 the run waits and resumes later; the durable project objective is not failed or
 reset.
+
+## Rendering
+
+After a canonical manifest and its run-relative media files exist, render either
+or both products without changing the manifest:
+
+```sh
+python -m moments_book.cli runs/<run>/manifest.json runs/<run>/outputs both
+npm exec --yes --package=@lalalic/markcut -- markcut verify \
+  runs/<run>/outputs/video/memoir.md
+```
+
+`book` writes editable `book.md`, printable `book.html`, and copied assets.
+`video` writes one nested `memoir.md` source and copied assets. `both` writes a
+`render-summary.json` that records the same ordered Moment IDs used by both
+products.
