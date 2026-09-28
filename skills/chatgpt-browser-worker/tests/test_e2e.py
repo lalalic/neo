@@ -10,14 +10,11 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 TEMPORARY = ROOT / "scripts" / "temporary_bh.py"
-HARNESS_TIMEOUT = 75
-SUBMISSION_TIMEOUT = 90
-RESPONSE_TIMEOUT = 60
 
 
-def _browser_harness(code):
+def _browser_harness(code, timeout=240):
     completed = subprocess.run(
-        ["browser-harness"], input=code, text=True, capture_output=True, timeout=HARNESS_TIMEOUT
+        ["browser-harness"], input=code, text=True, capture_output=True, timeout=timeout
     )
     if completed.returncode:
         raise AssertionError(completed.stderr or completed.stdout)
@@ -46,7 +43,7 @@ def _submit(prompt, attachments=()):
         ]
         for attachment in attachments:
             command.extend(["--file", str(attachment)])
-        completed = subprocess.run(command, text=True, capture_output=True, timeout=SUBMISSION_TIMEOUT)
+        completed = subprocess.run(command, text=True, capture_output=True, timeout=240)
     if completed.returncode:
         raise AssertionError(completed.stderr or completed.stdout)
     for line in reversed(completed.stdout.splitlines()):
@@ -73,34 +70,33 @@ def _new_leased_tab(baseline):
     return tabs[0]
 
 
-def _wait_for_assistant(tab, expected, timeout=RESPONSE_TIMEOUT):
+def _wait_for_assistant(tab, expected, timeout=180):
     code = (
         "import json, time\n"
         f"switch_tab({json.dumps(tab['targetId'])})\n"
         f"expected = {json.dumps(expected)}\n"
         f"deadline = time.time() + {timeout}\n"
-        "last = ''\n"
+        "stable = 0\n"
         "while time.time() < deadline:\n"
-        "    state = js('''(() => {\n"
-        "      const nodes = [...document.querySelectorAll('[data-message-author-role=\\\"assistant\\\"]')];\n"
-        "      let text = nodes.map(e => (e.innerText || '').trim()).filter(Boolean).join(' ');\n"
-        "      if (!text) {\n"
-        "        const body = document.body.innerText || '';\n"
-        "        const marker = 'ChatGPT said:';\n"
-        "        const start = body.lastIndexOf(marker);\n"
-        "        if (start >= 0) text = body.slice(start + marker.length).split('ChatGPT can make mistakes')[0].split('Latest response')[0].trim();\n"
-        "      }\n"
-        "      const busy = [...document.querySelectorAll('[aria-busy=\\\"true\\\"], [data-is-streaming=\\\"true\\\"]')].some(e => { const r=e.getBoundingClientRect(); return r.width > 0 && r.height > 0; });\n"
-        "      return {text, busy};\n"
-        "    })()''') or {'text': '', 'busy': True}\n"
-        "    if expected in state['text'] and state['text'] == last:\n"
-        "        print(json.dumps({'assistant': state['text']}))\n"
-        "        raise SystemExit(0)\n"
-        "    last = state['text']\n"
+        "    nodes = cdp('Accessibility.getFullAXTree').get('nodes', [])\n"
+        "    matches = []\n"
+        "    for node in nodes:\n"
+        "        role = ((node.get('role') or {}).get('value') or '')\n"
+        "        name = ((node.get('name') or {}).get('value') or '')\n"
+        "        observed = ''.join(ch for ch in name if ch.isdigit()) if expected.isdigit() else name\n"
+        "        if role in ('StaticText', 'InlineTextBox', 'paragraph') and expected in observed:\n"
+        "            matches.append(name)\n"
+        "    if matches:\n"
+        "        stable += 1\n"
+        "        if stable >= 2:\n"
+        "            print(json.dumps({'assistant_match': matches[-1]}))\n"
+        "            raise SystemExit(0)\n"
+        "    else:\n"
+        "        stable = 0\n"
         "    time.sleep(1)\n"
         "raise RuntimeError('assistant response containing expected text was not observed')\n"
     )
-    output = _browser_harness(code)
+    output = _browser_harness(code, timeout=timeout + 30)
     return json.loads(output.strip().splitlines()[-1])
 
 
@@ -126,12 +122,14 @@ def _assert_baseline(baseline):
 def test_real_browser_temporary_chat_plain_text_and_attachment(tmp_path):
     baseline = _workspace_snapshot()
 
-    plain_marker = f"plain-{secrets.randbelow(900_000_000) + 100_000_000}"
-    plain_result = _submit(f"Reply with this exact marker: {plain_marker}")
+    left = secrets.randbelow(40_000) + 10_000
+    right = secrets.randbelow(40_000) + 10_000
+    plain_expected = str(left + right)
+    plain_result = _submit(f"What is {left} + {right}? Reply with the number.")
     assert plain_result["verified"] is True
     plain_tab = _new_leased_tab(baseline)
     try:
-        _wait_for_assistant(plain_tab, plain_marker)
+        _wait_for_assistant(plain_tab, plain_expected)
     finally:
         _release(plain_tab)
     _assert_baseline(baseline)

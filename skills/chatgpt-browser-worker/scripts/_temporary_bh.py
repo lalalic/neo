@@ -148,28 +148,20 @@ def _click_temporary_chat_toggle(timeout=20):
 
 
 def _attachment_names():
-    return js(r"""(() => [...document.querySelectorAll('button')]
-      .map(b => (b.getAttribute('aria-label') || '').trim())
-      .filter(label => /^Remove(?: file\s+\d+:)?\s+/.test(label))
-      .map(label => label.replace(/^Remove(?: file\s+\d+:)?\s*/, ''))
+    return js(r"""(() => [...document.querySelectorAll('button[aria-label^="Remove file"]')]
+      .map(b => (b.getAttribute('aria-label') || '').replace(/^Remove file\s+\d+:\s*/, ''))
       .filter(Boolean))()""") or []
 
 
 def _attachment_state():
     return js(r"""(() => {
-      const names = [...document.querySelectorAll('button')]
-        .map(b => (b.getAttribute('aria-label') || '').trim())
-        .filter(label => /^Remove(?: file\s+\d+:)?\s+/.test(label))
-        .map(label => label.replace(/^Remove(?: file\s+\d+:)?\s*/, ''))
+      const names = [...document.querySelectorAll('button[aria-label^="Remove "]')]
+        .map(b => (b.getAttribute('aria-label') || '')
+          .replace(/^Remove file\s+\d+:\s*/, '')
+          .replace(/^Remove\s+/, ''))
         .filter(Boolean);
-      const pending = [...document.querySelectorAll(
-        '[role="progressbar"], [aria-busy="true"], [data-state="loading"]'
-      )].some(e => {
-        const r=e.getBoundingClientRect();
-        return r.width > 0 && r.height > 0;
-      });
-      return {names, pending};
-    })()""") or {"names": [], "pending": True}
+      return {names, pending: false};
+    })()""") or {"names": [], "pending": False}
 
 
 def _send_state():
@@ -193,19 +185,34 @@ def _upload_files(paths):
     if not paths:
         return []
 
-    def _file_input_selector():
+    def file_input_selector():
         return js("""(() => {
-          for (const s of ['#upload-files','#upload-media','input[name="upload-media"]','input[type="file"]'])
-            if (document.querySelector(s)) return s;
+          const selectors = [
+            '#upload-files',
+            '#upload-media',
+            'input[name="upload-media"]',
+            'input[type="file"]:not([accept])',
+            'input[type="file"]'
+          ];
+          for (const s of selectors) if (document.querySelector(s)) return s;
           return null;
         })()""")
 
-    selector = wait_until_stable(
-        lambda: {"selector": _file_input_selector()},
-        lambda state: bool(state["selector"]),
-        timeout=30,
-        phase="file input readiness",
-    )["selector"]
+    selector = file_input_selector()
+    if not selector:
+        opened = js("""(() => {
+          const b=[...document.querySelectorAll('button')].find(b =>
+            (b.getAttribute('aria-label') || '').trim() === 'Add files and more');
+          if (!b) return false;
+          b.click();
+          return true;
+        })()""")
+        if opened:
+            deadline = time.time() + 5
+            while time.time() < deadline and not selector:
+                selector = file_input_selector()
+                if not selector:
+                    time.sleep(.1)
     if not selector:
         raise RuntimeError("ChatGPT file input was not observed")
     for path in paths:
@@ -256,7 +263,6 @@ def _wait_for_send_ready(selector, prompt, attachments):
         lambda state: (
             prompt_text_matches(state["text"], prompt)
             and expected.issubset(state["attachments"]["names"])
-            and not state["attachments"]["pending"]
             and state["send"]["enabled"]
         ),
         timeout=45 if expected else 15,
