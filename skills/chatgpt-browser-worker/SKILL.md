@@ -84,3 +84,7 @@ durable thread identity or reopen dependency.
 See `references/inference.md` for the command contract. Do not use this
 synchronous surface as a replacement for the browser-worker agent when the
 requested output is a managed task/PR or durable file artifact.
+
+For Markcut Vision, keep Markcut generic and plug this synchronous command into
+its existing `vision --itt` / `--vtt` CLI-template hooks. See
+`references/markcut-vision.md` for concrete examples.

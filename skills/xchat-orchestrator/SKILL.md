@@ -11,11 +11,17 @@ The active XChat assistant owns the top-level objective. Agents Relay owns manag
 
 ## Session project binding
 
-At session start, follow `xchat-bootstrap.md`. When Project/Space instructions provide `xchat_project`, resolve it with `scripts/list-xchat-projects --resolve <xchat_project>` before project-dependent work. Bind the returned project identity, `local_path`, `git_root`, and `repo` once and inherit that exact context into every managed task and executor. Read the applicable `AGENTS.md` / `README.md`; do not require a separate XChat metadata file or central JSON registry. Keep the binding sticky unless the user explicitly switches project/path/repository.
+At session start, follow `xchat-bootstrap.md`, including its mandatory reads of the Agents Relay task/job contract and orchestrator workflows before any project binding. When Project/Space instructions provide `xchat_project`, resolve it with `scripts/list-xchat-projects --resolve <xchat_project>` before project-dependent work. Bind the returned project identity, `local_path`, `git_root`, and `repo` once and inherit that exact context into every managed task and executor. Read the applicable `AGENTS.md` / `README.md`; do not require a separate XChat metadata file or central JSON registry. Keep the binding sticky unless the user explicitly switches project/path/repository.
 
 ## Capability discovery
 
 At the start of each orchestration task, discover the currently available local skills by running `~/Workspace/neo/skills/xchat-orchestrator/scripts/list-xchat-skills --project <local_path>` when a project is bound. Project-local skills under `<local_path>/skills/` override same-named shared/global skills for that project. Select auxiliary skills from their names and descriptions, then read only the relevant `SKILL.md` files before planning or delegating work. Do not assume a fixed skill set and do not preload every skill body. Explicit `#skill-name` selections from the user take precedence.
+
+## Task planning
+
+Before the orchestrator creates any initial or direct child Tasks, read the canonical Agents Relay planner agent at `/Users/chengli/Workspace/agents-relay/skills/agents-relay/agents/planner.agent.md` and apply its **Planning contract** to the decomposition. The planner agent owns the graph-first planning and durable Task-boundary rules; do not copy or maintain a second version of those rules in this skill.
+
+If that planner contract is unavailable, direct Task decomposition is blocked. The orchestrator may still create or bind the durable Job, but it must not invent ad-hoc Task boundaries.
 
 ## Operating invariants
 
@@ -78,6 +84,8 @@ Before mutation, check:
 If the PR body is empty or lacks an objective, scope, non-goals, acceptance criteria, validation commands, or merge policy, add or request that information before implementation.
 
 Prefer a fresh isolated worktree for the worker. Use an existing checkout only when it is clean or the user explicitly authorizes dirty-worktree operation. Do not automatically stash, reset, clean, or overwrite unrelated changes.
+
+All temporary worktrees created by XChat must live under `/Users/chengli/Workspace/.worktrees/`. Never create or reuse `/Users/chengli/Workspace/.xchat-worktrees` or any `.xchat-worktree*` path. Agents Relay owns `.worktrees/agents-relay/`; direct orchestrator/P0 self-work uses `.worktrees/orchestrator/`. When the owning task is terminal and its changes are durable, verify there is no unique/uncommitted work, remove the temporary worktree with `git worktree remove`, and prune stale metadata.
 
 ### 2. Establish PR metadata
 

@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Capture Execution Lane v1",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "items"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "type",
+          "scene_id",
+          "output",
+          "capture_kind",
+          "description"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "type": {
+            "const": "capture"
+          },
+          "scene_id": {
+            "type": "string"
+          },
+          "output": {
+            "type": "string"
+          },
+          "capture_kind": {
+            "enum": [
+              "human",
+              "desktop"
+            ]
+          },
+          "description": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

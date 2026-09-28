@@ -5,6 +5,10 @@ ROOT = Path(__file__).parents[1]
 AGENT = ROOT / "agents" / "browser-worker.agent.md"
 SKILL = ROOT / "SKILL.md"
 DRIVER = ROOT / "scripts" / "_temporary_bh.py"
+OWNED_TAB_DRIVERS = [
+    ROOT / "scripts" / name
+    for name in ("_temporary_bh.py", "_create_bh.py", "_infer_bh.py", "_operate_bh.py")
+]
 ORCHESTRATOR = ROOT.parent / "xchat-orchestrator" / "SKILL.md"
 
 
@@ -44,12 +48,29 @@ def test_browser_worker_agent_is_submit_and_close_only():
     assert "never as a resumable handle" in text
 
 
+def test_all_owned_tab_drivers_use_workspace_aware_acquisition():
+    for driver in OWNED_TAB_DRIVERS:
+        text = driver.read_text()
+        assert 'target_id = new_tab(url)' in text, driver.name
+        assert '_collision_safe_url' not in text, driver.name
+        assert 'neo_owned_tab' not in text, driver.name
+        assert 'cdp("Target.createTarget"' not in text, driver.name
+        assert 'switch_tab(target_id)' not in text, driver.name
+        assert 'close_tab(' in text, driver.name
+
+
 def test_submit_driver_uses_fresh_owned_tab_and_temporary_chat():
     text = DRIVER.read_text()
 
-    assert 'cdp("Target.createTarget", url="about:blank", background=True)' in text
-    assert '_new_owned_tab("https://chatgpt.com/")' in text
-    assert "Temporary Chat toggle was not uniquely observed" in text
+    assert 'target_id = new_tab(url)' in text
+    assert 'cdp("Target.createTarget"' not in text
+    assert '_new_owned_tab(temporary_chat_entry_url())' in text
+    assert "_click_temporary_chat_toggle()" in text
+    assert "Temporary Chat toggle was not actionable" in text
+    assert "Temporary Chat toggle is ambiguous" in text
+    assert "def _temporary_chat_enabled()" in text
+    assert 'button[aria-label="Send"]' in text
+    assert "submission_receipt(" in text
     assert "atexit.register(_close_owned_tabs)" in text
     assert "thinking_level" not in text
 

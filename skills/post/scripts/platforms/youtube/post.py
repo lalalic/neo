@@ -9,8 +9,9 @@ Usage:
   python3 yt-post.py --video clip.mp4 --title "Title" --tags "tag1,tag2" --thumbnail cover.jpg --public
 """
 import argparse, json, os, sys, subprocess, tempfile
+from pathlib import Path
 
-BH_SCRIPT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "_post_bh.py")
+BH_SCRIPT = Path(__file__).resolve().parents[4] / "browser-platforms/platforms/youtube/browser-harness/_post_bh.py"
 
 # YouTube limits
 MAX_TITLE = 100      # chars

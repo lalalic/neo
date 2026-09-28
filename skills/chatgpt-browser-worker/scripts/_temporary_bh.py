@@ -12,12 +12,13 @@ _OWNED_TABS = []
 _KEEP_OWNED_TAB_OPEN = CFG.get("close_policy", "after-start") == "never"
 
 
+
 def _new_owned_tab(url):
-    target_id = cdp("Target.createTarget", url="about:blank", background=True)["targetId"]
-    switch_tab(target_id)
+    # Respect Browser Harness workspace adapters. A configured workspace may
+    # override new_tab()/close_tab() to acquire and release only managed tabs;
+    # raw Target.createTarget bypasses that boundary and is correctly refused.
+    target_id = new_tab(url)
     _OWNED_TABS.append(target_id)
-    if url != "about:blank":
-        goto_url(url)
     return target_id
 
 
@@ -82,6 +83,63 @@ def _normalized_text(value):
     return re.sub(r"\s+", " ", value or "").strip()
 
 
+def _temporary_chat_candidates():
+    return js(r"""(() => [...document.querySelectorAll('button')].map((b, index) => {
+      const label=(b.getAttribute('aria-label') || '').trim();
+      const text=(b.innerText || '').trim();
+      const semantic=/temporary/i.test(label + ' ' + text) && /chat/i.test(label + ' ' + text);
+      if (!semantic) return null;
+      const r=b.getBoundingClientRect();
+      const style=getComputedStyle(b);
+      return {
+        index,
+        label,
+        text,
+        visible:r.width > 0 && r.height > 0 && style.visibility !== 'hidden' && style.display !== 'none',
+        disabled:!!b.disabled || b.getAttribute('aria-disabled') === 'true',
+        pointerEvents:style.pointerEvents,
+      };
+    }).filter(Boolean))()""") or []
+
+
+def _temporary_chat_enabled():
+    return temporary_chat_enabled_state(
+        page_info().get("url", ""),
+        _temporary_chat_candidates(),
+    )
+
+
+def _click_temporary_chat_toggle(timeout=20):
+    deadline = time.time() + timeout
+    last_candidates = []
+    while time.time() < deadline:
+        if _temporary_chat_enabled():
+            return "already-enabled"
+        last_candidates = _temporary_chat_candidates()
+        actionable = actionable_temporary_chat_candidates(last_candidates)
+        if len(actionable) == 1:
+            clicked = js(f"""(() => {{
+              const b=[...document.querySelectorAll('button')][{int(actionable[0]["index"])}];
+              if (!b) return false;
+              const r=b.getBoundingClientRect();
+              const style=getComputedStyle(b);
+              if (!(r.width > 0 && r.height > 0) || b.disabled ||
+                  b.getAttribute('aria-disabled') === 'true' || style.pointerEvents === 'none') return false;
+              b.click();
+              return true;
+            }})()""")
+            if clicked:
+                return "clicked"
+        elif len(actionable) > 1:
+            labels = [candidate.get("label") or candidate.get("text") or "<unnamed>" for candidate in actionable]
+            raise RuntimeError(f"Temporary Chat toggle is ambiguous: {len(actionable)} actionable controls {labels}")
+        time.sleep(.25)
+    raise RuntimeError(
+        "Temporary Chat toggle was not actionable after "
+        f"{timeout}s; semantic candidates={last_candidates}"
+    )
+
+
 def _attachment_names():
     return js(r"""(() => [...document.querySelectorAll('button[aria-label^="Remove file"]')]
       .map(b => (b.getAttribute('aria-label') || '').replace(/^Remove file\s+\d+:\s*/, ''))
@@ -105,7 +163,7 @@ def _attachment_state():
 
 def _send_state():
     return js(r"""(() => {
-      const b=document.querySelector('button[data-testid="send-button"],button[aria-label="Send prompt"]');
+      const b=document.querySelector('button[data-testid="send-button"],button[aria-label="Send prompt"],button[aria-label="Send"]');
       return {present: !!b, enabled: !!b && !b.disabled && b.getAttribute('aria-disabled') !== 'true'};
     })()""") or {"present": False, "enabled": False}
 
@@ -155,7 +213,7 @@ def _user_turns():
 
 def _click_send():
     ok = js("""(() => {
-      const b=document.querySelector('button[data-testid="send-button"],button[aria-label="Send prompt"]');
+      const b=document.querySelector('button[data-testid="send-button"],button[aria-label="Send prompt"],button[aria-label="Send"]');
       if (!b || b.disabled || b.getAttribute('aria-disabled') === 'true') return false;
       b.click(); return true;
     })()""")
@@ -176,7 +234,7 @@ def _wait_for_send_ready(selector, prompt, attachments):
     wait_until_stable(
         read_state,
         lambda state: (
-            _normalized_text(prompt) in _normalized_text(state["text"])
+            prompt_text_matches(state["text"], prompt)
             and expected.issubset(state["attachments"]["names"])
             and not state["attachments"]["pending"]
             and state["send"]["enabled"]
@@ -186,15 +244,21 @@ def _wait_for_send_ready(selector, prompt, attachments):
     )
 
 
-def _wait_user_turn(before_count, prompt, timeout=20):
+def _wait_user_turn(before_count, prompt, selector, timeout=20):
     deadline = time.time() + timeout
+    cleared_polls = 0
     while time.time() < deadline:
-        turns = _user_turns()
-        for turn in turns[before_count:]:
-            if _normalized_text(prompt) in _normalized_text(turn["text"]):
-                return turn
+        receipt = submission_receipt(_user_turns(), before_count, prompt, _composer_text(selector))
+        if receipt:
+            if receipt["verified_by"] == "user-turn":
+                return receipt["turn"]
+            cleared_polls += 1
+            if cleared_polls >= 2:
+                return receipt["turn"]
+        else:
+            cleared_polls = 0
         time.sleep(.25)
-    raise RuntimeError("Temporary Chat submission verification did not observe a new user turn")
+    raise RuntimeError("Temporary Chat submission verification did not observe an accepted submission")
 
 
 def _diagnostic_thread_id():
@@ -202,30 +266,20 @@ def _diagnostic_thread_id():
     return match.group(1) if match else None
 
 
-_new_owned_tab("https://chatgpt.com/")
+_new_owned_tab(temporary_chat_entry_url())
 wait_for_load()
 
-enabled = js("""(() => {
-  const matches=[...document.querySelectorAll('button')].filter(
-    b => (b.getAttribute('aria-label') || '').trim() === 'Temporary chat'
-  );
-  if (matches.length !== 1) return false;
-  matches[0].click();
-  return true;
-})()""")
-if not enabled:
-    raise RuntimeError("Temporary Chat toggle was not uniquely observed")
+# The direct Temporary Chat route is the stable primary path. Keep the UI
+# toggle as a compatibility fallback when ChatGPT ignores/redirects the route.
+_click_temporary_chat_toggle()
 
 deadline = time.time() + 20
 while time.time() < deadline:
-    if "temporary-chat=true" in page_info().get("url", ""):
-        try:
-            break
-        except RuntimeError:
-            pass
+    if _temporary_chat_enabled():
+        break
     time.sleep(.25)
 else:
-    raise RuntimeError("Temporary Chat composer readiness was not observed")
+    raise RuntimeError("Temporary Chat activation was not observed")
 
 attachments = _upload_files(CFG.get("file", []))
 selector = _wait_for_composer()
@@ -267,14 +321,14 @@ else:
 
 wait_until_stable(
     lambda: {"text": _composer_text(selector)},
-    lambda state: _normalized_text(CFG["prompt"]) in _normalized_text(state["text"]),
+    lambda state: prompt_text_matches(state["text"], CFG["prompt"]),
     timeout=30,
     phase="composer readiness",
 )
 
 _wait_for_send_ready(selector, CFG["prompt"], attachments)
 _click_send()
-user_turn = _wait_user_turn(before_count, CFG["prompt"])
+user_turn = _wait_user_turn(before_count, CFG["prompt"], selector)
 
 print(json.dumps({
     "operation": "submit",

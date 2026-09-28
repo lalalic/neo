@@ -11,7 +11,7 @@ import tempfile
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-BH_SCRIPT = HERE / "_manage_bh.py"
+BH_SCRIPT = Path(__file__).resolve().parents[4] / "browser-platforms/platforms/xhs/browser-harness/_manage_bh.py"
 
 
 def parser() -> argparse.ArgumentParser:

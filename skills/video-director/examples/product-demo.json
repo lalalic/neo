@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "brief": {
+    "product": "Family Tutor",
+    "audience": "Parents evaluating a safe learning workflow",
+    "channel": "product_demo",
+    "duration_seconds": 30,
+    "style": "clear, warm, evidence-led",
+    "goal": "Show separate learning profiles"
+  },
+  "scenes": [
+    {
+      "id": "profiles",
+      "purpose": "Reveal separate learning spaces",
+      "communicates": "Each child has a distinct profile",
+      "visible_evidence": [
+        "Two named child profiles are visible"
+      ],
+      "presentation": {
+        "focus": "kids list",
+        "highlight": [
+          "profile rows"
+        ],
+        "text": [
+          "One profile per child"
+        ],
+        "zoom": "emphasis",
+        "duration_seconds": 6
+      },
+      "narration": "Each child gets a learning space of their own.",
+      "execution": {
+        "id": "profiles-demo",
+        "type": "demo",
+        "output": "assets/profiles-demo.mp4",
+        "identity": {
+          "product": "Family Tutor",
+          "surface": "extension popup",
+          "feature": "kids list"
+        },
+        "success": {
+          "fresh_ui_required": true,
+          "visible_state": "Two named child profiles are visible"
+        },
+        "autonomy": {
+          "allowed_recovery": [
+            "reopen product surface"
+          ],
+          "boundary": "Stop if fresh UI cannot verify the state."
+        }
+      }
+    }
+  ]
+}

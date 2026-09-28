@@ -1,62 +1,197 @@
 # Vlog
 
-Vlog is a Neo monorepo project for turning real phone/desktop media into evidence-backed short-form videos. NeoX supplies phone media, Codex/agents coordinate production, and Markcut handles media analysis, storyboards, preview, and rendering.
+Vlog turns real daily media and evidence into one coherent short-form story and verified publication outcome. It is a thin Neo content project: Vlog owns the editorial/production contract; Agents Relay owns orchestration; shared Neo capabilities own reusable media, vision, rendering, and publishing implementation.
 
-The tracked project contains only the reusable production system. Every actual vlog execution—including source media, episode Markdown, SQLite state, generated narration/BGM, previews, reviews, publish receipts, and final video—belongs under ignored `runs/<series-name>/<YYYY-MM-DD[-slug]>/`.
+## Human mental model
 
-## Project layout
+This chart is the primary architecture asset for understanding Vlog.
 
-- `AGENTS.md` — project routing and run-boundary contract.
-- `src/neo_vlog/` and `tests/` — durable workflow implementation and regression tests.
-- `config/` — reusable routing configuration.
-- `docs/` — architecture, integration, producer, and verification contracts.
-- `templates/series/` — reusable public series definitions; mutable series state belongs under `runs/<series-name>/`.
-- `templates/`, `styles/`, `personas/` — sanitized reusable content definitions.
-- `scripts/` — reusable automation.
-- `runs/` — ignored production executions and all private/generated content.
+```text
+                         NEO VLOG
 
-## Run the workflow
-
-Python 3.11+ is sufficient; the core runtime has no third-party dependencies. From `vlog/`:
-
-```sh
-export PYTHONPATH=src
-python3 -m neo_vlog --db runs/neo-vlog/2026-09-16-demo/state/vlog.sqlite --config config/routing.json init
-python3 -m neo_vlog --db runs/neo-vlog/2026-09-16-demo/state/vlog.sqlite --config config/routing.json event \
-  --key demo-arrival-001 --series neo-build-log \
-  --payload '{"media_path":"runs/neo-vlog/2026-09-16-demo/assets","source":"bootstrap-demo"}'
-python3 -m neo_vlog --db runs/neo-vlog/2026-09-16-demo/state/vlog.sqlite --config config/routing.json run
-python3 -m neo_vlog --db runs/neo-vlog/2026-09-16-demo/state/vlog.sqlite status
+              ┌──────────────────────┐
+              │ Autonomous Vlog Job  │
+              └──────────┬───────────┘
+                         │
+                         v
+              ┌──────────────────────┐
+              │ ONE Episode Task     │
+              │ YYYY-MM-DD[-slug]    │
+              └──────────┬───────────┘
+                         │
+                         v
+              ┌──────────────────────┐
+              │ Real Source Media    │
+              │ photos / video/audio │
+              └──────────┬───────────┘
+                         │
+                         v
+              ┌──────────────────────┐
+              │ Story + Visual Brief │
+              │ hook / arc / payoff  │
+              └──────────┬───────────┘
+                         │
+                         v
+              ┌──────────────────────┐
+              │ Production Draft     │
+              │ video.md + assets    │
+              │ sound / motion       │
+              └──────────┬───────────┘
+                         │
+                 ┌───────┴────────┐
+                 │                │
+                 v                v
+        ┌────────────────┐  ┌────────────────┐
+        │ Video Director │  │ Market Agent   │
+        │ Review         │  │ Review         │
+        └───────┬────────┘  └───────┬────────┘
+                │                   │
+                └─────────┬─────────┘
+                          │
+                    BOTH PASS
+                          │
+                          v
+              ┌──────────────────────┐
+              │ Final Render + QA    │
+              └──────────┬───────────┘
+                         │
+                         v
+              ┌──────────────────────┐
+              │ Authorized Publish   │
+              │ + platform receipt   │
+              └──────────────────────┘
 ```
 
-If `--db` is omitted, the CLI defaults to `runs/neo-vlog/<YYYY-MM-DD[-slug]>/state/vlog.sqlite`.
+The durable unit is the **episode**, not each production phase. One episode is one top-level Task; normal source selection, story, edit planning, rendering, QA, and publishing live inside its agentGraph.
 
-`run` prints pending command/role plans; it does not call a model or fetch phone media by itself. A producer resolves/imports actual media into the run, claims a job, performs the planned work, then completes it with evidence or fails it with an error. Review gates bind approval to the displayed revision and artifact hash.
+## Ownership map
 
-Run regression tests with:
-
-```sh
-PYTHONPATH=src python3 -m unittest discover -s tests -v
+```text
+┌──────────────────────────────┐
+│ vlog                         │
+│                              │
+│ real-media story contract    │
+│ episode hook / arc / quality │
+│ vlog-editor / vlog-producer  │
+└──────────────┬───────────────┘
+               │
+               v
+┌──────────────────────────────┐
+│ Agents Relay                 │
+│                              │
+│ Job / Task / agentGraph      │
+│ retry / routing / events     │
+│ leases / reconcile / recover │
+└──────────────┬───────────────┘
+               │
+               v
+┌──────────────────────────────┐
+│ Shared Neo capabilities      │
+│                              │
+│ phone media / vision         │
+│ Video + Execution Director   │
+│ image/video/audio / Markcut  │
+│ Market / post / QA           │
+└──────────────────────────────┘
 ```
 
-## Markcut
+Vlog does not own a scheduler, database, worker launcher, routing policy, model policy, browser publisher, media engine, or lifecycle state machine.
 
-A run-local storyboard can be previewed/rendered directly:
+## Episode artifact flow
 
-```sh
-npx @lalalic/markcut preview runs/<series-name>/<YYYY-MM-DD[-slug]>/vlog.md --storyboard
-npx @lalalic/markcut render runs/<series-name>/<YYYY-MM-DD[-slug]>/vlog.md --output runs/<series-name>/<YYYY-MM-DD[-slug]>/output/vlog.mp4
+`visual-brief.md` is the primary creative handoff for downstream production. `video.md` is the canonical executable Markcut source.
+
+```text
+real phone/media evidence
+        │
+        v
+source-manifest.json
+        │
+        v
+story.md
+        │
+        v
+visual-brief.md        <-- creative direction
+        │
+        ├── hook / story beats
+        ├── selected source media
+        ├── visual treatment
+        ├── motion / transitions
+        └── sound / narration intent
+        │
+        v
+video.md               <-- canonical Markcut source
+        │
+        v
+execution/ + assets/
+        │
+        v
+reviews/
+        │
+        v
+final video + QA
+        │
+        v
+publish receipt
 ```
 
-## Audio and narration
+Normal run layout:
 
-- Every final vlog should include episode-appropriate BGM sourced through the installed `audio-sourcing` skill and stored inside that run.
-- Prefer usable original speech. Personal voice references/clones are private run-local inputs and are never committed.
-- If a private voice reference is unavailable, use the conversational Mandarin fallback defined in `docs/architecture.md` and `personas/ray.json`.
-- Generated narration must pass listening QA and local STT content back-check before final review.
+```text
+runs/<YYYY-MM-DD[-slug]>/
+├── source-manifest.json
+├── story.md
+├── post.md
+├── visual-brief.md
+├── video.md
+├── execution/
+├── assets/
+├── reviews/
+│   ├── video-director.md
+│   └── market.md
+├── output/
+├── qa.md
+└── publish/
+```
 
-## Publishing
+A genuine named series may use `runs/<series-name>/<YYYY-MM-DD[-slug]>/`. `runs/` is ignored by Git.
 
-Publishing is outside the core Vlog production state machine. When explicitly authorized, hand the approved run artifact to `skills/post` and verify platform-side state before reporting success.
+## Story standard
 
-See `docs/architecture.md`, `docs/integrations.md`, `docs/producer.md`, and `docs/verification.md` for the detailed contracts.
+A Vlog is not a chronological media dump. Select one coherent story from the real source window:
+
+```text
+HOOK
+  ↓
+Moment / Tension / Question
+  ↓
+Development / Discovery
+  ↓
+Best visual evidence
+  ↓
+Payoff / feeling / next question
+```
+
+Do not widen the source window or fabricate events just to create a story.
+
+## Production quality
+
+Original footage and useful original sound are first-class assets. Narration is optional; when narration is used, use the user's approved voice identity rather than silently substituting generic TTS. BGM/SFX should be intentional and support the source audio rather than mechanically covering it.
+
+Use strong visual composition, purposeful cuts, charts/diagrams/images when they genuinely explain something, kinetic typography when useful, and deliberate motion/transitions/effects. Do not turn real-life footage into a static slideshow unless the story calls for it.
+
+Final render requires both Video Director and Market Agent review to pass. Observable QA must check the actual video, not only render exit status.
+
+## Publication
+
+Publication platform and authorization belong to the active Agents Relay Job/Task. Vlog uses the shared `post` / `post-agent` capability and persists platform-side receipt/status. The project itself does not hard-code a platform.
+
+See `AGENTS.md` for the enforceable Planner/execution contract.
+
+## iCloud inbox watcher
+
+The optional watcher treats `manifest.json` as the producer's final-ready signal. A supported manifest is JSON with `schema_version: 1`, a safe `submission_id`, and a non-empty `media` array whose entries are either relative path strings or `{ "path": "..." }` objects. Media must be downloaded local regular files; missing, zero-byte, symlinked, absolute, or traversal paths are rejected.
+
+The watcher moves a valid submission directory atomically into `runs/YYYY-MM-DD/HH/<submission-id>/input/` before creating exactly one episode Task through Agents Relay. On restart it scans moved inputs first, so a crash after the move and before Task creation is recoverable without a local database. Relay task identity is `vlog-episode-<submission_id>`.
+
+For a persistent process, package `vlog/` with `npm pack` and run the resulting `vlog-inbox-watcher` bin through the existing process supervisor via `npx --package <tarball> vlog-inbox-watcher` (do not point PM2 at a developer checkout). Configure these deployment values: `VLOG_ICLOUD_INBOX`, `VLOG_RUNS_DIR`, `VLOG_RELAY_REPO`, `VLOG_RELAY_PR`, `VLOG_RELAY_JOB_ID`, and optionally `VLOG_RELAY_AGENT` and `VLOG_WATCH_INTERVAL_MS`. The watcher creates a normal model-backed Task without adapter/provider/model constraints, so Agents Relay performs the required worker-router then model-router selection. The Task carries the canonical Vlog episode agent graph `vlog-editor -> vlog-producer`; the producer contract owns the required Video Director and Market review gate plus render/QA and authorized publication.

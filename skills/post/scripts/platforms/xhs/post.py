@@ -14,8 +14,9 @@ Usage (video):
   python3 xhs-post.py --video clip.mp4 --title "标题" --body "描述" --tags "旅行,美食" --publish
 """
 import argparse, json, os, sys, subprocess, tempfile
+from pathlib import Path
 
-BH_SCRIPT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "_post_bh.py")
+BH_SCRIPT = Path(__file__).resolve().parents[4] / "browser-platforms/platforms/xhs/browser-harness/_post_bh.py"
 
 # XHS limits
 MAX_TITLE = 20    # chars (CJK counts as 1)

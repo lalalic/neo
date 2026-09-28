@@ -1,0 +1,4 @@
+{
+  "deprecated": true,
+  "replacement": "video.md -> execution/*.json"
+}

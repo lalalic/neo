@@ -1,10 +1,19 @@
 # Events Bus Protocol
 
-This document is the canonical contract for progress and lifecycle events exchanged between Neo orchestrators and sub-agents. Transport is intentionally separate from this protocol. The current implementation uses NATS internally, but the event model must remain usable with another transport later.
+This document describes the current Neo orchestration profile carried over the shared event bus. The bus itself is intentionally dumb transport: it forwards an opaque producer identity plus producer-defined data and does not interpret Job, Task, Execution, agent, component, or lifecycle semantics. Those meanings belong to the Producer/Consumer contract. The current Neo profile still projects fields such as `job_id`, `task_id`, and `type` into the compatibility envelope and NATS subject for routing; consumers must not mistake those transport conveniences for bus-owned business semantics.
 
 ## Goal
 
 A user must not have to ask "what is happening?" while an orchestrated job is running. Every long-running sub-agent must publish structured lifecycle/progress events, and the orchestrator that owns the job must actively surface user-visible milestones.
+
+
+## Source identity boundary
+
+The launcher assigns the producer an opaque source identity defined by the Producer/Consumer contract and passes it into the worker. The worker copies that identity verbatim on every event for that execution. The bus does not parse or authorize the identity.
+
+The current object-shaped compatibility envelope represents this as `source.id`. Fields such as `source.agent`, `source.component`, and `source.host` may exist as diagnostics, but consumers MUST NOT use them as a substitute for the contract-defined source identity. Likewise, payload flags such as `worker_owned` are application data, not transport-level identity.
+
+For Agents Relay, the application contract currently encodes an execution source as `job/<job-id>/task/<task-id>/execution/<execution-id>`. That encoding is owned by Agents Relay, not by events-bus. Other systems may use a different encoding as long as their Producer and Consumer agree.
 
 ## Correlation model
 
@@ -74,6 +83,7 @@ Every event is UTF-8 JSON with these fields:
   "status": "running",
   "timestamp": "2026-09-13T19:12:00Z",
   "source": {
+    "id": "producer-defined-opaque-identity",
     "agent": "codex",
     "host": "chengli.local"
   },

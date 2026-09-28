@@ -34,6 +34,7 @@ const event = {
   status,
   timestamp: new Date().toISOString(),
   source: {
+    ...(process.env.NEO_EVENT_SOURCE ? { id: process.env.NEO_EVENT_SOURCE } : {}),
     agent: process.env.NEO_AGENT || "agent",
     host: os.hostname(),
   },

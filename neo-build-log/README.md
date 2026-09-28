@@ -1,70 +1,201 @@
 # Neo Build Log
 
-Neo Build Log records real work while building Neo: the problem, the attempted
-solution, and the parts worth sharing with other AI users. Each episode starts
-as source notes, becomes a story, and is expressed as Markcut-compatible
-Markdown.
+Neo Build Log turns real Neo work into one evidence-backed daily story package: story, social copy, poster, polished short-form video, publication evidence, and a private next-day brief.
 
-## Layout
+This project is intentionally thin: it defines the content contract; Agents Relay owns orchestration and runtime lifecycle.
 
-- `runs/neo-build-log/<YYYY-MM-DD[-slug]>/` — Episode 001 source notes and storyboard.
-- `AGENTS.md` — project-level rules automatically applied when an agent works
-  from this directory.
-- `agents/director.md` — repeatable process for turning a solved problem into an episode.
-- `agents/capture-agent.md` — executes desktop + NeoX capture and owns the capture review gate.
-- `AUDIO_STYLE.md` — canonical narration voice, BGM identity, mix, and local TTS contract.
-- `scripts/audio/` — reproducible local TTS adapter and original BGM generator.
-- `schemas/neox-capture-tour-v1.schema.json` — repository copy of the NeoX v1
-  Capture Tour manifest contract.
+## Human mental model
 
-Neo Build Log owns the content and story design. Markcut owns validation,
-preview, and rendering. Final rendering and publication remain user review
-steps unless explicitly requested.
-
-## Series contract
-
-Each episode follows a recognizable build-log grammar: hook on the first
-screen, short Neo Build Log opener, problem/constraint, investigation or
-attempt, the real build, evidence/result, and a closing payoff with a next
-episode hook when appropriate. Real screen recording and screenshots are the
-main visual evidence, presenter footage supports the explanation, and every
-episode uses background music.
-
-`AGENTS.md` is the short enforcement layer for Codex/agents working in this
-folder. `agents/director.md` is the canonical detailed editorial specification.
-
-## Runtime layout
-
-Neo Build Log is a series project. Reusable project contracts are tracked here; each actual episode/build execution is private run data:
+This chart is the primary architecture asset for understanding the project.
 
 ```text
-runs/neo-build-log/<YYYY-MM-DD[-slug]>/
-├── source.md
-├── episode.md
-├── RECORDING_PLAN.md
-├── capture-tour.json
-├── CAPTURE_REVIEW.md
+                    NEO BUILD LOG 2.0
+
+              ┌──────────────────────┐
+              │ Autonomous Daily Job │
+              └──────────┬───────────┘
+                         │
+                         v
+              ┌──────────────────────┐
+              │ ONE Episode Task     │
+              │ YYYY-MM-DD           │
+              └──────────┬───────────┘
+                         │
+                         v
+              ┌──────────────────────┐
+              │ Evidence + Story     │
+              │ Hook / Tension       │
+              │ Turning Point        │
+              │ Payoff               │
+              └──────────┬───────────┘
+                         │
+                         v
+              ┌──────────────────────┐
+              │ Production Draft     │
+              │ video.md             │
+              │ poster / voice / BGM │
+              │ visuals / motion     │
+              └──────────┬───────────┘
+                         │
+                 ┌───────┴────────┐
+                 │                │
+                 v                v
+        ┌────────────────┐  ┌────────────────┐
+        │ Video Director │  │ Market Agent   │
+        │ Review         │  │ Review         │
+        └───────┬────────┘  └───────┬────────┘
+                │                   │
+                └─────────┬─────────┘
+                          │
+                    BOTH PASS
+                          │
+                          v
+              ┌──────────────────────┐
+              │ Final Render + QA    │
+              └──────────┬───────────┘
+                         │
+                         v
+              ┌──────────────────────┐
+              │ Publish + Receipt    │
+              └──────────────────────┘
+```
+
+The central idea is simple:
+
+- one episode is one story;
+- one story is one top-level durable Task;
+- production work stays inside that episode Task;
+- final render happens only after Video Director and Market Agent both pass the draft.
+
+## Ownership map
+
+```text
+┌─────────────────────────────┐
+│ neo-build-log               │
+│                             │
+│ story contract              │
+│ hook / poster               │
+│ quality bar                 │
+│ project agents              │
+└──────────────┬──────────────┘
+               │
+               v
+┌─────────────────────────────┐
+│ Agents Relay                │
+│                             │
+│ schedule / Job / Task       │
+│ agentGraph / retry          │
+│ routing / events            │
+│ reconciliation / recovery   │
+└──────────────┬──────────────┘
+               │
+               v
+┌─────────────────────────────┐
+│ Shared Neo capabilities     │
+│                             │
+│ Video Director / Market     │
+│ browser / vision / media    │
+│ TTS / BGM / Markcut / post  │
+└─────────────────────────────┘
+```
+
+Neo Build Log does not own a local scheduler, workflow engine, retry engine, browser adapter, media engine, model router, or publication state machine.
+
+## Episode artifact flow
+
+The most important per-episode asset for production is `visual-brief.md`: it translates story intent into visual execution. `video.md` is the executable Markcut specification derived from it.
+
+```text
+Real work
+   │
+   v
+ evidence.md
+   │
+   v
+ story.md
+   │
+   v
+ visual-brief.md      <-- primary visual direction asset
+   │
+   ├── hook / poster
+   ├── chart / diagram / image / screen evidence
+   ├── motion / transition intent
+   ├── narration / approved voice
+   └── BGM / audio intent
+   │
+   v
+ video.md             <-- executable video specification
+   │
+   v
+ reviews/
+   ├── video-director.md
+   └── market.md
+   │
+   v
+ final MP4 + QA
+   │
+   v
+ publish receipt
+```
+
+A normal run lives under:
+
+```text
+runs/<YYYY-MM-DD[-slug]>/
+├── evidence.md
+├── story.md
+├── post.md
+├── visual-brief.md
+├── video.md
+├── poster/
 ├── assets/
-├── logs/
-└── output/
+├── reviews/
+│   ├── video-director.md
+│   └── market.md
+├── output/
+├── qa.md
+├── publish/
+└── next-day-brief.md
 ```
 
-Do not split one episode across root-level log/output folders. All execution-specific content stays inside its dated run and is ignored by Git.
+All `runs/` content is ignored by Git.
 
-## End-to-end flow
+## Story standard
 
-`source → Director/story → recording list → NeoX camera tour + desktop capture → capture review → Markcut storyboard → preview → user review`
+A Build Log is a human story about building, failing, discovering, deciding, and making something work. PRs, commits, Tasks, and events are evidence sources, not the episode outline.
 
-Each episode keeps `RECORDING_PLAN.md` as the complete shot list. Camera or
-presenter shots are also emitted as `capture-tour.json` for NeoX. The Capture
-Agent executes both capture lanes and records what actually exists in
-`CAPTURE_REVIEW.md`; only accepted media should replace recording placeholders
-in the final storyboard.
+The narrative normally follows:
 
-## Preview
-
-From the Neo repository root:
-
-```sh
-npx @lalalic/markcut preview neo/neo-build-log/runs/neo-build-log/<YYYY-MM-DD[-slug]>/episode.md --storyboard
+```text
+HOOK
+  ↓
+Problem / Tension
+  ↓
+Attempt / Failure / Investigation
+  ↓
+Discovery / Turning Point
+  ↓
+Actual Change
+  ↓
+Observable Result
+  ↓
+Payoff / Next Question
 ```
+
+The first beat and poster must communicate the hook immediately. Do not open with branding, a date, a PR number, or a changelog.
+
+## Video quality bar
+
+A normal final video requires the user's approved narration voice, BGM ducked under narration, rich visual treatment, deliberate motion/transitions/effects, and observable QA. Use charts, diagrams, explanatory images, screenshots, recordings, kinetic typography, and other strong visual components when they communicate the story better than prose.
+
+A technically valid Markcut file is not sufficient acceptance.
+
+## Project agents
+
+- `build-log-editor` owns story reconstruction, hook, poster hook, and `visual-brief.md`.
+- `build-log-producer` owns the production draft, review gates, final render, and QA.
+- shared `market` reviews audience clarity, hook, poster, positioning, and platform fit.
+- shared Video Director reviews scene structure, pacing, visuals, motion, transitions/effects, and audio intent.
+- shared `post-agent` handles authorized publication.
+
+See `AGENTS.md` for the planner/execution contract.

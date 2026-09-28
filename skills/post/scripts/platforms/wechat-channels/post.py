@@ -11,8 +11,9 @@ Usage:
   python3 wechat-channels-post.py --video vid.mp4 --desc "text" --tags "话题1,话题2"
 """
 import argparse, json, os, sys, subprocess, tempfile
+from pathlib import Path
 
-BH_SCRIPT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "_post_bh.py")
+BH_SCRIPT = Path(__file__).resolve().parents[4] / "browser-platforms/platforms/wechat-channels/browser-harness/_post_bh.py"
 
 # WeChat Channels limits
 MAX_DESC = 1000       # chars

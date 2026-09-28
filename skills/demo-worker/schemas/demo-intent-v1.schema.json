@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://neo.local/schemas/demo-intent-v1.schema.json",
+  "title": "Neo Demo Worker intent",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["target", "scenario", "success", "recording", "evidence"],
+  "properties": {
+    "target": {"type": "object", "required": ["product", "app"], "properties": {"product": {"type": "string", "minLength": 1}, "app": {"type": "string", "minLength": 1}, "url": {"type": "string", "format": "uri"}}, "additionalProperties": false},
+    "scenario": {"type": "object", "required": ["feature", "steps"], "properties": {"feature": {"type": "string", "minLength": 1}, "steps": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}}, "additionalProperties": false},
+    "success": {"type": "object", "required": ["visible_state", "fresh_ui_required"], "properties": {"visible_state": {"type": "string", "minLength": 1}, "fresh_ui_required": {"const": true}}, "additionalProperties": false},
+    "recording": {"type": "object", "required": ["required", "scope", "format"], "properties": {"required": {"const": true}, "scope": {"type": "string", "minLength": 1}, "format": {"type": "string", "minLength": 1}}, "additionalProperties": false},
+    "evidence": {"type": "object", "required": ["artifact_required", "fields"], "properties": {"artifact_required": {"const": true}, "fields": {"type": "array", "uniqueItems": true, "items": {"type": "string"}}}, "additionalProperties": false}
+  }
+}

@@ -66,8 +66,10 @@ Because Neo is public, secrets, personal data, customer data, private identifier
 - Project-only roles live in `<project>/agents/<role>.md`.
 - Project-only capabilities may live in `<project>/skills/<skill>/`; they are visible only when that project is the active XChat project.
 - Cross-project reusable capabilities live in root `skills/<skill>/`.
+- For Markcut Vision with Browser ChatGPT, read `skills/chatgpt-browser-worker/references/markcut-vision.md`; keep Markcut on its generic `vision --itt` / `--vtt` hooks rather than adding a ChatGPT-specific Markcut command.
 - If a project-local skill and a shared/global skill declare the same skill `name`, the project-local skill takes precedence within that project.
 - Do not duplicate a reusable skill as a project agent.
+- When Browser Harness verifies a reusable external-platform flow, promote or update the canonical asset in `skills/browser-platforms` rather than leaving the knowledge as one-off automation.
 - A project must not depend on another project's `runs/` directory.
 
 ### Project learning contract
@@ -99,7 +101,7 @@ Workflow: intent → implement → audit against source contracts → verify as 
 
 For delegated or background work, use the `events-bus` contract in `skills/events-bus/references/protocol.md`. The owning orchestrator must create and propagate one `job_id`, subscribe before launching sub-agents, and proactively surface user-visible milestones, blocked/failure states, resource-release events such as `phone.released`, and completion. Writing progress only to a child process log is not sufficient.
 
-Audit sources: current user request, the accepted architecture in `vlog/docs/architecture.md`, installed Markcut/NeoX skills, local executable help, and observable artifacts. Do not replace an observable result with a successful exit code.
+Audit sources: current user request, the active project `AGENTS.md`/`README.md`, installed task-relevant skills, local executable help, and observable artifacts. Do not replace an observable result with a successful exit code.
 
 For browser verification use `agent-browser` connected to the user's CDP port 64086 and close only the new testing tab. Keep manual assets in `assets/`; preserve Markcut caches. Use `npx` or `uvx` for missing Node/Python applications. Any PM2-managed service must execute/restart from its package launcher (`npx` for npm/Node, `uvx` for PyPI/Python), not from a local repository checkout. Use `apply_patch` for edits.
 
@@ -115,5 +117,12 @@ Publishing is handled through `skills/post` when the user explicitly asks to pos
 
 ## Project learnings
 
+- 2026-09-26: Chrome Web Store new-item uploads reject extension manifests containing a `key`; preserve the authoritative source package, derive a store-compatible upload artifact without that field, and verify the assigned item/version only after reopening the publisher dashboard.
+- 2026-09-25: Chrome Web Store browser mechanics belong under `skills/browser-platforms/platforms/chrome-web-store`; keep the runner dry-run by default and require explicit authorization before upload, listing mutation, or review submission.
+- 2026-09-26: Chrome Web Store editor controls expose labels through `aria-labelledby`/`label[for]` and save drafts as `Save draft`; shared flows must resolve accessible labels and verify the publisher-scoped item URL before mutating a listing.
+- 2026-09-26: Chrome Web Store new-item uploads can reject an otherwise valid local extension package before an editor exists; report the visible package error (for example, a disallowed manifest `key`) as the blocker instead of misclassifying it as navigation failure.
+
 - 2026-09-19: Existing ChatGPT thread operations must open one durable `thread_id` at a time, verify the observed Project before sending or reading, and report completion only from a normalized assistant message.
 - 2026-09-19: Browser result retrieval must refuse active generation and require an observed message ID; a prior assistant bubble or synthetic fallback ID is not completion evidence.
+- 2026-09-25: Computer-use demos should receive a declarative intent and keep fresh-UI verification plus playable-artifact checks as explicit gates; contract validation alone is not E2E evidence.
+- 2026-09-25: Product-demo story contracts should emit Markcut Markdown plus semantic visible evidence, while rejecting automation-shaped fields and language so runtime navigation remains owned by downstream execution agents.

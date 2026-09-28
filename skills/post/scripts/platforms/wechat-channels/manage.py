@@ -10,7 +10,7 @@ import tempfile
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-BH_SCRIPT = HERE / "_manage_bh.py"
+BH_SCRIPT = Path(__file__).resolve().parents[4] / "browser-platforms/platforms/wechat-channels/browser-harness/_manage_bh.py"
 
 
 def parser() -> argparse.ArgumentParser:
@@ -37,7 +37,7 @@ def main() -> int:
         code = (
             BH_SCRIPT.read_text()
             .replace("__CFG_PATH__", descriptor.name)
-            .replace("__ADAPTER_DIR__", str(HERE))
+            .replace("__ADAPTER_DIR__", str(BH_SCRIPT.parent))
         )
         completed = subprocess.run(["browser-harness"], input=code, text=True, timeout=180)
         return completed.returncode

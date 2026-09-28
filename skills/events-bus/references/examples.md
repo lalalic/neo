@@ -13,7 +13,7 @@
   "type": "publish.upload.progress",
   "status": "running",
   "timestamp": "2026-09-13T19:12:00Z",
-  "source": {"agent": "codex", "host": "chengli.local"},
+  "source": {"id": "job/01abc/task/encode/execution/exec-1", "agent": "codex", "host": "chengli.local"},
   "visibility": "user",
   "level": "info",
   "message": "小红书视频上传中 66%",
