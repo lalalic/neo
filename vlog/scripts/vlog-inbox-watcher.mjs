@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 import path from 'node:path';
-import { scanOnce, createCliRelayClient } from '../lib/inbox-watcher.mjs';
+import { scanOnce, createCliRelayClient, NEOX_ICLOUD_INBOX_RELATIVE } from '../lib/inbox-watcher.mjs';
 
 const env = process.env;
-const inboxDir = path.resolve(env.VLOG_ICLOUD_INBOX ?? path.join(env.HOME ?? '.', 'Library/Mobile Documents/com~apple~CloudDocs/Vlog Inbox'));
+const inboxDir = path.resolve(env.VLOG_ICLOUD_INBOX ?? path.join(env.HOME ?? '.', NEOX_ICLOUD_INBOX_RELATIVE));
 const runsDir = path.resolve(env.VLOG_RUNS_DIR ?? path.join(process.cwd(), 'runs'));
 const intervalMs = Number(env.VLOG_WATCH_INTERVAL_MS ?? 5000);
 const relay = createCliRelayClient();

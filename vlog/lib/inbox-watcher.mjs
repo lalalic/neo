@@ -5,6 +5,7 @@ import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
 export const SUPPORTED_SCHEMA_VERSION = 1;
+export const NEOX_ICLOUD_INBOX_RELATIVE = 'Library/Mobile Documents/iCloud~com~neox~app/Documents/Vlog Inbox';
 export const VLOG_EPISODE_AGENT_GRAPH = [
   'flowchart LR',
   '  editor[agent:vlog-editor] --> producer[agent:vlog-producer]',
