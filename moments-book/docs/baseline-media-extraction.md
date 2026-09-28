@@ -94,7 +94,7 @@ For every baseline media capture record:
 | `cropApplied` | whether Moments Book changed the captured rectangle |
 | `overlayState` | `none-observed`, `present`, or `unknown` |
 | `sourceMetadataPreserved` | always `false` for baseline window capture |
-| `originalCaptureTime` | `unknown` unless later enrichment proves it |
+| `originalCaptureTime` | status object: `observed`, `missing`, or `unknown` |
 | `gps` | `unknown` unless later original-media enrichment proves it |
 | `locationText` | separate visible WeChat text; never promoted to GPS |
 
@@ -113,6 +113,23 @@ privacy-safe derived-file measurement portion of this contract.
 | Original capture time | unknown | observed from metadata when present | observed only if MCP proves it | observed when proved |
 | GPS/altitude | unknown | observed only from matched original metadata | observed only if MCP proves it | observed when proved |
 | Completion allowed without enrichment | yes | yes | yes | yes |
+
+## Optional enrichment adapter
+
+`moments_book.media_enrichment.match_original_media()` scores unique
+original candidates from capture-time proximity, visual similarity, media kind,
+dimensions, and sibling ordering. A match requires confidence of at least `0.9`
+and at least two positive evidence signals; a close second candidate remains
+`unmatched` with ambiguity evidence.
+
+`enrich_manifest()` preserves the baseline when no original library is
+available. When a match is accepted, it reads the minimum ExifTool date/GPS
+tags, records EXIF or QuickTime provenance, and preserves timezone-naive EXIF
+times in `originalCaptureTime` without claiming timezone-correct `capturedAt`.
+Checked-but-absent metadata is `missing`; unreadable metadata is `unknown`.
+Invalid or out-of-range coordinates are also unknown. Visible WeChat location
+text stays in `locationText` and is never promoted to GPS. Original paths,
+metadata, and coordinates remain private run data.
 
 ## Graceful-degradation rules
 

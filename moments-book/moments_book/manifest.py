@@ -47,13 +47,17 @@ def _id(value: Any, path: str) -> None:
 
 
 def _timestamp(value: Any, path: str) -> datetime:
+    return _timestamp_value(value, path, require_timezone=True)
+
+
+def _timestamp_value(value: Any, path: str, *, require_timezone: bool = True) -> datetime:
     if not isinstance(value, str):
         _fail(path, "must be an ISO-8601 timestamp or null")
     try:
         timestamp = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError:
         _fail(path, "must be an ISO-8601 timestamp")
-    if timestamp.tzinfo is None:
+    if require_timezone and timestamp.tzinfo is None:
         _fail(path, "must include a timezone offset")
     return timestamp
 
@@ -98,6 +102,35 @@ def _media(media: Any, path: str) -> None:
     elif media.get("originalAsset") is not None:
         _fail(f"{path}.originalAsset", "is only allowed for matched media")
 
+    if media.get("capturedAt") is not None:
+        _timestamp_value(media["capturedAt"], f"{path}.capturedAt")
+    capture_time = media.get("originalCaptureTime")
+    if capture_time is not None:
+        capture_time = _obj(capture_time, f"{path}.originalCaptureTime")
+        _required(capture_time, ("status",), f"{path}.originalCaptureTime")
+        capture_status = capture_time["status"]
+        if capture_status not in _GPS_STATES:
+            _fail(f"{path}.originalCaptureTime.status", "has an invalid state")
+        if capture_status == "observed":
+            _required(
+                capture_time,
+                ("value", "source", "evidence"),
+                f"{path}.originalCaptureTime",
+            )
+            _timestamp_value(
+                capture_time["value"],
+                f"{path}.originalCaptureTime.value",
+                require_timezone=False,
+            )
+            if capture_time["source"] not in {"exif", "quicktime"}:
+                _fail(f"{path}.originalCaptureTime.source", "must be exif or quicktime")
+            _nonempty_strings(
+                capture_time["evidence"],
+                f"{path}.originalCaptureTime.evidence",
+            )
+        elif any(capture_time.get(name) is not None for name in ("value", "source")):
+            _fail(f"{path}.originalCaptureTime", "value and source require status=observed")
+
     gps = _obj(media["gps"], f"{path}.gps")
     _required(gps, ("status",), f"{path}.gps")
     status = gps["status"]
@@ -117,6 +150,8 @@ def _media(media: Any, path: str) -> None:
         _fail(f"{path}.gps", "coordinates require status=observed")
     if gps.get("altitudeMeters") is not None:
         _number(gps["altitudeMeters"], f"{path}.gps.altitudeMeters")
+        if status != "observed":
+            _fail(f"{path}.gps.altitudeMeters", "requires status=observed")
 
 
 def validate_manifest(manifest: Any, schema_path: str | Path | None = None) -> dict[str, Any]:

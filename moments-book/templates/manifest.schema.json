@@ -73,6 +73,19 @@
         "wechatEvidence": { "type": ["string", "null"] },
         "originalAsset": { "type": ["string", "null"] },
         "capturedAt": { "type": ["string", "null"] },
+        "originalCaptureTime": {
+          "type": "object",
+          "required": ["status"],
+          "properties": {
+            "status": { "enum": ["observed", "missing", "unknown"] },
+            "value": { "type": ["string", "null"] },
+            "source": { "enum": ["exif", "quicktime", null] },
+            "evidence": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          }
+        },
         "originalMatch": {
           "type": "object",
           "required": ["status"],
