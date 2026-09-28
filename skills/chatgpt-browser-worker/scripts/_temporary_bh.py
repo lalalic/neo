@@ -43,7 +43,11 @@ def _composer():
         if (r.width>0 && r.height>0) return '#prompt-textarea';
       }
       const fallback = [...document.querySelectorAll('textarea,[contenteditable="true"]')]
-        .find(e => { const r=e.getBoundingClientRect(); return r.width>0 && r.height>0 && !e.disabled; });
+        .find(e => {
+          if (e.id === 'pending-home-input') return false;
+          const r=e.getBoundingClientRect();
+          return r.width>0 && r.height>0 && !e.disabled;
+        });
       if (!fallback) return null;
       return fallback.tagName === 'TEXTAREA' ? 'textarea' : '[contenteditable="true"]';
     })()""")
@@ -55,7 +59,10 @@ def _composer():
 def _composer_text(selector):
     return js(f"""(() => {{
       const e=document.querySelector({json.dumps(selector)});
-      return e ? ((e.innerText ?? e.value) || '') : '';
+      if (!e) return '';
+      return e.getAttribute('contenteditable') === 'true'
+        ? (e.innerText || '')
+        : (e.value || '');
     }})()""") or ""
 
 

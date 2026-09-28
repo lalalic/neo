@@ -133,5 +133,10 @@ class SubmitReadinessTests(unittest.TestCase):
         self.assertEqual(len(actionable_temporary_chat_candidates(candidates)), 2)
 
 
+    def test_worker_ignores_transient_pending_home_composer(self):
+        driver = (Path(__file__).parents[1] / "scripts" / "_temporary_bh.py").read_text()
+        self.assertIn("e.id === 'pending-home-input'", driver)
+
+
 if __name__ == "__main__":
     unittest.main()
