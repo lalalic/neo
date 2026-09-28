@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/neo/moments-book/manifest.schema.json",
+  "title": "Moments Book Run Manifest",
+  "type": "object",
+  "required": ["schemaVersion", "source", "years"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "source": {
+      "type": "object",
+      "required": ["kind"],
+      "properties": {
+        "kind": { "const": "wechat-moments" },
+        "collector": { "const": "phone-harness" }
+      },
+      "additionalProperties": true
+    },
+    "selection": {
+      "type": "object",
+      "properties": {
+        "mode": { "enum": ["latest-distinct-years", "explicit-years"] },
+        "yearCount": { "type": "integer", "minimum": 1 },
+        "years": {
+          "type": "array",
+          "items": { "type": "integer" },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": true
+    },
+    "years": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/year" }
+    }
+  },
+  "$defs": {
+    "year": {
+      "type": "object",
+      "required": ["year", "moments"],
+      "properties": {
+        "year": { "type": "integer" },
+        "moments": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/moment" }
+        }
+      }
+    },
+    "moment": {
+      "type": "object",
+      "required": ["id", "media"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "postedAt": { "type": ["string", "null"] },
+        "text": { "type": ["string", "null"] },
+        "locationText": { "type": ["string", "null"] },
+        "sourceEvidence": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "media": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/media" }
+        }
+      }
+    },
+    "media": {
+      "type": "object",
+      "required": ["id", "kind", "originalMatch", "gps"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "kind": { "enum": ["image", "video", "unknown"] },
+        "wechatEvidence": { "type": ["string", "null"] },
+        "originalAsset": { "type": ["string", "null"] },
+        "capturedAt": { "type": ["string", "null"] },
+        "originalMatch": {
+          "type": "object",
+          "required": ["status"],
+          "properties": {
+            "status": { "enum": ["matched", "unmatched", "unknown"] },
+            "confidence": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+            "evidence": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          }
+        },
+        "gps": {
+          "type": "object",
+          "required": ["status"],
+          "properties": {
+            "status": { "enum": ["observed", "missing", "unknown"] },
+            "latitude": { "type": ["number", "null"], "minimum": -90, "maximum": 90 },
+            "longitude": { "type": ["number", "null"], "minimum": -180, "maximum": 180 },
+            "altitudeMeters": { "type": ["number", "null"] }
+          }
+        }
+      }
+    }
+  }
+}
