@@ -155,17 +155,13 @@ def _attachment_names():
 
 def _attachment_state():
     return js(r"""(() => {
-      const names = [...document.querySelectorAll('button[aria-label^="Remove file"]')]
-        .map(b => (b.getAttribute('aria-label') || '').replace(/^Remove file\s+\d+:\s*/, ''))
+      const names = [...document.querySelectorAll('button[aria-label^="Remove "]')]
+        .map(b => (b.getAttribute('aria-label') || '')
+          .replace(/^Remove file\s+\d+:\s*/, '')
+          .replace(/^Remove\s+/, ''))
         .filter(Boolean);
-      const pending = [...document.querySelectorAll(
-        '[role="progressbar"], [aria-busy="true"], [data-state="loading"]'
-      )].some(e => {
-        const r=e.getBoundingClientRect();
-        return r.width > 0 && r.height > 0;
-      });
-      return {names, pending};
-    })()""") or {"names": [], "pending": True}
+      return {names, pending: false};
+    })()""") or {"names": [], "pending": False}
 
 
 def _send_state():
@@ -188,11 +184,35 @@ def _wait_for_attachments(expected, timeout=45):
 def _upload_files(paths):
     if not paths:
         return []
-    selector = js("""(() => {
-      for (const s of ['#upload-files','#upload-media','input[name="upload-media"]','input[type="file"]'])
-        if (document.querySelector(s)) return s;
-      return null;
-    })()""")
+
+    def file_input_selector():
+        return js("""(() => {
+          const selectors = [
+            '#upload-files',
+            '#upload-media',
+            'input[name="upload-media"]',
+            'input[type="file"]:not([accept])',
+            'input[type="file"]'
+          ];
+          for (const s of selectors) if (document.querySelector(s)) return s;
+          return null;
+        })()""")
+
+    selector = file_input_selector()
+    if not selector:
+        opened = js("""(() => {
+          const b=[...document.querySelectorAll('button')].find(b =>
+            (b.getAttribute('aria-label') || '').trim() === 'Add files and more');
+          if (!b) return false;
+          b.click();
+          return true;
+        })()""")
+        if opened:
+            deadline = time.time() + 5
+            while time.time() < deadline and not selector:
+                selector = file_input_selector()
+                if not selector:
+                    time.sleep(.1)
     if not selector:
         raise RuntimeError("ChatGPT file input was not observed")
     for path in paths:
@@ -243,7 +263,6 @@ def _wait_for_send_ready(selector, prompt, attachments):
         lambda state: (
             prompt_text_matches(state["text"], prompt)
             and expected.issubset(state["attachments"]["names"])
-            and not state["attachments"]["pending"]
             and state["send"]["enabled"]
         ),
         timeout=45 if expected else 15,
