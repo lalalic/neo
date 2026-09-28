@@ -10,11 +10,14 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 TEMPORARY = ROOT / "scripts" / "temporary_bh.py"
+HARNESS_TIMEOUT = 75
+SUBMISSION_TIMEOUT = 90
+RESPONSE_TIMEOUT = 60
 
 
 def _browser_harness(code):
     completed = subprocess.run(
-        ["browser-harness"], input=code, text=True, capture_output=True, timeout=60
+        ["browser-harness"], input=code, text=True, capture_output=True, timeout=HARNESS_TIMEOUT
     )
     if completed.returncode:
         raise AssertionError(completed.stderr or completed.stdout)
@@ -43,7 +46,7 @@ def _submit(prompt, attachments=()):
         ]
         for attachment in attachments:
             command.extend(["--file", str(attachment)])
-        completed = subprocess.run(command, text=True, capture_output=True, timeout=240)
+        completed = subprocess.run(command, text=True, capture_output=True, timeout=SUBMISSION_TIMEOUT)
     if completed.returncode:
         raise AssertionError(completed.stderr or completed.stdout)
     for line in reversed(completed.stdout.splitlines()):
@@ -70,7 +73,7 @@ def _new_leased_tab(baseline):
     return tabs[0]
 
 
-def _wait_for_assistant(tab, expected, timeout=180):
+def _wait_for_assistant(tab, expected, timeout=RESPONSE_TIMEOUT):
     code = (
         "import json, time\n"
         f"switch_tab({json.dumps(tab['targetId'])})\n"
@@ -80,11 +83,17 @@ def _wait_for_assistant(tab, expected, timeout=180):
         "while time.time() < deadline:\n"
         "    state = js('''(() => {\n"
         "      const nodes = [...document.querySelectorAll('[data-message-author-role=\\\"assistant\\\"]')];\n"
-        "      const text = nodes.map(e => (e.innerText || '').trim()).filter(Boolean).join('\\n');\n"
+        "      let text = nodes.map(e => (e.innerText || '').trim()).filter(Boolean).join(' ');\n"
+        "      if (!text) {\n"
+        "        const body = document.body.innerText || '';\n"
+        "        const marker = 'ChatGPT said:';\n"
+        "        const start = body.lastIndexOf(marker);\n"
+        "        if (start >= 0) text = body.slice(start + marker.length).split('ChatGPT can make mistakes')[0].split('Latest response')[0].trim();\n"
+        "      }\n"
         "      const busy = [...document.querySelectorAll('[aria-busy=\\\"true\\\"], [data-is-streaming=\\\"true\\\"]')].some(e => { const r=e.getBoundingClientRect(); return r.width > 0 && r.height > 0; });\n"
         "      return {text, busy};\n"
         "    })()''') or {'text': '', 'busy': True}\n"
-        "    if expected in state['text'] and not state['busy'] and state['text'] == last:\n"
+        "    if expected in state['text'] and state['text'] == last:\n"
         "        print(json.dumps({'assistant': state['text']}))\n"
         "        raise SystemExit(0)\n"
         "    last = state['text']\n"

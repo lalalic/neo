@@ -148,15 +148,19 @@ def _click_temporary_chat_toggle(timeout=20):
 
 
 def _attachment_names():
-    return js(r"""(() => [...document.querySelectorAll('button[aria-label^="Remove file"]')]
-      .map(b => (b.getAttribute('aria-label') || '').replace(/^Remove file\s+\d+:\s*/, ''))
+    return js(r"""(() => [...document.querySelectorAll('button')]
+      .map(b => (b.getAttribute('aria-label') || '').trim())
+      .filter(label => /^Remove(?: file\s+\d+:)?\s+/.test(label))
+      .map(label => label.replace(/^Remove(?: file\s+\d+:)?\s*/, ''))
       .filter(Boolean))()""") or []
 
 
 def _attachment_state():
     return js(r"""(() => {
-      const names = [...document.querySelectorAll('button[aria-label^="Remove file"]')]
-        .map(b => (b.getAttribute('aria-label') || '').replace(/^Remove file\s+\d+:\s*/, ''))
+      const names = [...document.querySelectorAll('button')]
+        .map(b => (b.getAttribute('aria-label') || '').trim())
+        .filter(label => /^Remove(?: file\s+\d+:)?\s+/.test(label))
+        .map(label => label.replace(/^Remove(?: file\s+\d+:)?\s*/, ''))
         .filter(Boolean);
       const pending = [...document.querySelectorAll(
         '[role="progressbar"], [aria-busy="true"], [data-state="loading"]'
@@ -188,11 +192,20 @@ def _wait_for_attachments(expected, timeout=45):
 def _upload_files(paths):
     if not paths:
         return []
-    selector = js("""(() => {
-      for (const s of ['#upload-files','#upload-media','input[name="upload-media"]','input[type="file"]'])
-        if (document.querySelector(s)) return s;
-      return null;
-    })()""")
+
+    def _file_input_selector():
+        return js("""(() => {
+          for (const s of ['#upload-files','#upload-media','input[name="upload-media"]','input[type="file"]'])
+            if (document.querySelector(s)) return s;
+          return null;
+        })()""")
+
+    selector = wait_until_stable(
+        lambda: {"selector": _file_input_selector()},
+        lambda state: bool(state["selector"]),
+        timeout=30,
+        phase="file input readiness",
+    )["selector"]
     if not selector:
         raise RuntimeError("ChatGPT file input was not observed")
     for path in paths:
