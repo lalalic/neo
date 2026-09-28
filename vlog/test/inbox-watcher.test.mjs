@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, readFile, stat } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { processSubmission, scanOnce, VLOG_EPISODE_AGENT_GRAPH } from '../lib/inbox-watcher.mjs';
+import { processSubmission, scanOnce, VLOG_EPISODE_AGENT_GRAPH, NEOX_ICLOUD_INBOX_RELATIVE } from '../lib/inbox-watcher.mjs';
 
 async function fixture(manifest, media = { 'media/clip.mov': 'video' }) {
   const root = await mkdtemp(path.join(os.tmpdir(), 'vlog-watcher-'));
@@ -28,6 +28,10 @@ function relay() {
   };
 }
 const manifest = { schema_version: 1, submission_id: 'submission-1', instruction: 'make a vlog', media: [{ path: 'media/clip.mov' }] };
+
+test('uses the canonical Neox iCloud container path by default', () => {
+  assert.equal(NEOX_ICLOUD_INBOX_RELATIVE, 'Library/Mobile Documents/iCloud~com~neox~app/Documents/Vlog Inbox');
+});
 
 test('moves a valid submission and creates one task pointing at moved input', async () => {
   const f = await fixture(manifest); const r = relay();
