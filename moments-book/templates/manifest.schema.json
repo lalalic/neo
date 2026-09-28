@@ -41,7 +41,8 @@
         "year": { "type": "integer" },
         "moments": {
           "type": "array",
-          "items": { "$ref": "#/$defs/moment" }
+          "items": { "$ref": "#/$defs/moment" },
+          "minItems": 1
         }
       }
     },
@@ -91,7 +92,11 @@
             "status": { "enum": ["observed", "missing", "unknown"] },
             "latitude": { "type": ["number", "null"], "minimum": -90, "maximum": 90 },
             "longitude": { "type": ["number", "null"], "minimum": -180, "maximum": 180 },
-            "altitudeMeters": { "type": ["number", "null"] }
+            "altitudeMeters": { "type": ["number", "null"] },
+            "evidence": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
           }
         }
       }

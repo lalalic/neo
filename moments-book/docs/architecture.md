@@ -35,6 +35,12 @@ GPS semantics are strict:
 - `gps.status=missing`: metadata was checked and no coordinates were present;
 - `gps.status=unknown`: original metadata was not available or not checked.
 
+Provenance claims carry evidence: a matched original requires an asset
+reference, confidence, and matching evidence; observed GPS requires the
+coordinate source and matched original media. Years are ordered newest first,
+and known Moments within each year are ordered newest first with timezone-aware
+timestamps.
+
 Human-readable location text from WeChat or prose inference is stored
 separately and never promoted to observed coordinates.
 

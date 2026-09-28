@@ -6,6 +6,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 import json
+import math
 import re
 
 
@@ -49,9 +50,26 @@ def _timestamp(value: Any, path: str) -> datetime:
     if not isinstance(value, str):
         _fail(path, "must be an ISO-8601 timestamp or null")
     try:
-        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+        timestamp = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError:
         _fail(path, "must be an ISO-8601 timestamp")
+    if timestamp.tzinfo is None:
+        _fail(path, "must include a timezone offset")
+    return timestamp
+
+
+def _nonempty_strings(value: Any, path: str) -> list[str]:
+    if not isinstance(value, list) or not value:
+        _fail(path, "must be a non-empty array")
+    if not all(isinstance(item, str) and item for item in value):
+        _fail(path, "must contain non-empty strings")
+    return value
+
+
+def _number(value: Any, path: str) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+        _fail(path, "must be a finite number")
+    return value
 
 
 def _media(media: Any, path: str) -> None:
@@ -66,11 +84,18 @@ def _media(media: Any, path: str) -> None:
     if match["status"] not in _MATCH_STATES:
         _fail(f"{path}.originalMatch.status", "has an invalid state")
     confidence = match.get("confidence")
-    if confidence is not None and (not isinstance(confidence, (int, float)) or isinstance(confidence, bool) or not 0 <= confidence <= 1):
-        _fail(f"{path}.originalMatch.confidence", "must be between 0 and 1 or null")
-    if match["status"] == "matched" and confidence is None:
-        _fail(f"{path}.originalMatch.confidence", "is required for matched media")
-    if match["status"] != "matched" and media.get("originalAsset") is not None:
+    if confidence is not None:
+        confidence = _number(confidence, f"{path}.originalMatch.confidence")
+        if not 0 <= confidence <= 1:
+            _fail(f"{path}.originalMatch.confidence", "must be between 0 and 1 or null")
+    if match["status"] == "matched":
+        if confidence is None:
+            _fail(f"{path}.originalMatch.confidence", "is required for matched media")
+        _required(match, ("evidence",), f"{path}.originalMatch")
+        _nonempty_strings(match["evidence"], f"{path}.originalMatch.evidence")
+        if not isinstance(media.get("originalAsset"), str) or not media["originalAsset"]:
+            _fail(f"{path}.originalAsset", "is required for matched media")
+    elif media.get("originalAsset") is not None:
         _fail(f"{path}.originalAsset", "is only allowed for matched media")
 
     gps = _obj(media["gps"], f"{path}.gps")
@@ -80,14 +105,18 @@ def _media(media: Any, path: str) -> None:
         _fail(f"{path}.gps.status", "has an invalid state")
     coords = (gps.get("latitude"), gps.get("longitude"))
     if status == "observed":
-        if any(not isinstance(v, (int, float)) or isinstance(v, bool) for v in coords):
-            _fail(f"{path}.gps", "observed GPS requires numeric latitude and longitude")
+        for coordinate_path, coordinate in zip(("latitude", "longitude"), coords):
+            _number(coordinate, f"{path}.gps.{coordinate_path}")
         if not -90 <= coords[0] <= 90 or not -180 <= coords[1] <= 180:
             _fail(f"{path}.gps", "coordinates are out of range")
+        _required(gps, ("evidence",), f"{path}.gps")
+        _nonempty_strings(gps["evidence"], f"{path}.gps.evidence")
+        if match["status"] != "matched":
+            _fail(f"{path}.gps.status", "observed GPS requires matched original media")
     elif any(v is not None for v in coords):
         _fail(f"{path}.gps", "coordinates require status=observed")
-    if gps.get("altitudeMeters") is not None and not isinstance(gps["altitudeMeters"], (int, float)):
-        _fail(f"{path}.gps.altitudeMeters", "must be numeric or null")
+    if gps.get("altitudeMeters") is not None:
+        _number(gps["altitudeMeters"], f"{path}.gps.altitudeMeters")
 
 
 def validate_manifest(manifest: Any, schema_path: str | Path | None = None) -> dict[str, Any]:
@@ -114,6 +143,8 @@ def validate_manifest(manifest: Any, schema_path: str | Path | None = None) -> d
     years = _array(root["years"], "manifest.years")
     seen_years: set[int] = set()
     seen_moments: set[str] = set()
+    seen_media: set[str] = set()
+    previous_year: int | None = None
     for year_index, year in enumerate(years):
         year_path = f"manifest.years[{year_index}]"
         year = _obj(year, year_path)
@@ -122,7 +153,10 @@ def validate_manifest(manifest: Any, schema_path: str | Path | None = None) -> d
             _fail(f"{year_path}.year", "must be a calendar year")
         if year["year"] in seen_years:
             _fail(f"{year_path}.year", "year is duplicated")
+        if previous_year is not None and year["year"] >= previous_year:
+            _fail(f"{year_path}.year", "years must be chronological, newest first")
         seen_years.add(year["year"])
+        previous_year = year["year"]
         moments = _array(year["moments"], f"{year_path}.moments")
         previous: datetime | None = None
         for moment_index, moment in enumerate(moments):
@@ -141,17 +175,16 @@ def validate_manifest(manifest: Any, schema_path: str | Path | None = None) -> d
                 if previous is not None and current > previous:
                     _fail(f"{path}.postedAt", "moments must be chronological, newest first")
                 previous = current
-            if moment.get("sourceEvidence") is not None and not all(isinstance(v, str) and v for v in _array(moment["sourceEvidence"], f"{path}.sourceEvidence")):
-                _fail(f"{path}.sourceEvidence", "must contain non-empty strings")
+            if moment.get("sourceEvidence") is not None:
+                _nonempty_strings(moment["sourceEvidence"], f"{path}.sourceEvidence")
             media = _array(moment["media"], f"{path}.media")
-            media_ids: set[str] = set()
             for media_index, item in enumerate(media):
                 media_path = f"{path}.media[{media_index}]"
                 _media(item, media_path)
                 item_id = item["id"]
-                if item_id in media_ids:
-                    _fail(f"{media_path}.id", "media ID is duplicated within the moment")
-                media_ids.add(item_id)
+                if item_id in seen_media:
+                    _fail(f"{media_path}.id", "media ID is duplicated within the run")
+                seen_media.add(item_id)
     selection = root.get("selection")
     if selection is not None:
         selection = _obj(selection, "manifest.selection")
