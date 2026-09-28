@@ -19,6 +19,8 @@ phone-harness -> own WeChat Moments -> normalized manifest
 
 The normalized manifest is the single source of truth for both outputs.
 
+The required baseline media path is documented in docs/baseline-media-extraction.md. It treats iPhone Mirroring captures as display-derived evidence and never as original media or metadata.
+
 ## First validation
 
 The first real end-to-end validation uses the project owner's own account and

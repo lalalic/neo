@@ -17,6 +17,8 @@ flowchart LR
 The manifest is the contract boundary. Extraction may evolve independently from
 book and video presentation as long as the manifest remains valid.
 
+Baseline capture is intentionally weaker than original-media enrichment: phone-harness captures the iPhone Mirroring window, so those assets are display-derived evidence. See baseline-media-extraction.md for still/video strategies, measurable capture properties, and the A/B/C/D capability matrix.
+
 ## Data model
 
 At minimum a run manifest contains:
