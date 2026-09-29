@@ -5,3 +5,7 @@ workers_dev = true
 
 [observability]
 enabled = true
+
+[[routes]]
+pattern = "stripe.qili2.com"
+custom_domain = true
