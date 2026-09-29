@@ -77,6 +77,14 @@ npm exec --yes --package=@lalalic/markcut -- markcut verify runs/<date-slug>/ren
 
 Then visually review the rendered video before treating the run as complete.
 
+## Real-post extractor
+
+The production extractor uses **one WeChat post = one manifest Moment**. It
+segments album viewports using the visible date rail, de-duplicates revisited
+posts, checkpoints after every accepted post, opens ordered media for the best
+available iPhone-Mirroring capture, handles `加载更多`, and resumes after phone
+disconnects. See `docs/real-moment-extraction.md`.
+
 ## Dependencies
 
 - shared `phone-harness` skill for user-controlled phone navigation
