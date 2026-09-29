@@ -84,3 +84,8 @@ Before calling a run complete:
 4. media matches and GPS claims carry evidence/confidence;
 5. book and video reference the same Moment IDs;
 6. Markcut source verifies and rendered output is visually reviewed.
+
+## Project learnings
+
+
+- 2026-09-29: iPhone Mirroring may report `session state: ready` while phone-harness window capture still returns 0 bytes. Before real extraction, require `phone-harness --doctor ios` to pass `window capture works`; if it says Screen Recording permission needs a terminal restart, treat the run as externally blocked rather than retrying WeChat navigation.
