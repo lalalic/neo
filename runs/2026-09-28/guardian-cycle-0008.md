@@ -1,14 +1,13 @@
-# Guardian cycle 0008
+## Guardian cycle 0008
 
 - Job: `chatgpt-worker-hourly-guardian`
 - Task: `[2026-09-28 21]`
-- Execution: `edcad08e-8ce2-475f-b21f-cbb310a28e43`
-- Source checkout: `/Users/chengli/Workspace/neo`
-- Synced revision: `8aba7f4` (`origin/main`)
-- Outcome tag: `pass`
-- Classification: transient browser-harness capacity/setup failure on the first attempt; the required unchanged retry passed. No code regression indicated and no repair work was created.
+- Execution: `61384434-5f0e-4e5e-a69e-a32faf9741d7`
+- Repository tested: `/Users/chengli/Workspace/neo`
+- Revision after sync: `8aba7f4` (`origin/main`)
+- Required tag: `pass`
 
-## Required command
+### Command
 
 ```bash
 cd /Users/chengli/Workspace/neo
@@ -17,21 +16,19 @@ git reset --hard origin/main
 CHATGPT_BROWSER_E2E=1 python3 -m pytest -q skills/chatgpt-browser-worker/tests/test_e2e.py -s
 ```
 
-## Attempt 1 (current execution)
+### Attempts
 
-- Exit code: `1`
-- Result: failed in 5.46s
-- Evidence: `RuntimeError: Workspace tab could not be uniquely mapped to a CDP target`
-- Failure occurred during browser-harness workspace-tab setup before the test assertion.
+1. Exit `1` after `7.16s`.
+   - `test_real_browser_temporary_chat_plain_text_and_attachment` failed at `_new_leased_tab`.
+   - Observed: `expected one new lease, got [1653619690, 1653619717]`.
+2. Unchanged retry: exit `0` after `25.15s`.
+   - Output: `{"e2e": "passed", "plain_text": "passed", "attachment_fact_number": "236643554", "leases_restored": true}`
+   - Pytest: `1 passed in 25.15s`.
 
-## Required unchanged retry (current execution)
+### Classification
 
-- Exit code: `0`
-- Result: `1 passed in 18.71s`
-- Output: `{"e2e": "passed", "plain_text": "passed", "attachment_fact_number": "493040563", "leases_restored": true}`
+The required unchanged retry passed, so this cycle is `pass`. The first failure was a transient browser-harness lease-capacity/state observation; it did not reproduce as a code regression. No source changes were made.
 
-The retry completed the deterministic real-browser E2E successfully and restored browser-harness leases.
+### Event transport note
 
-## Event transport note
-
-The federated events publisher rejected the required literal task ID `[2026-09-28 21]` because its connector schema enforces `^[A-Za-z0-9_-]+$` for `event.task_id`. The published lifecycle events therefore use the connector-normalized task ID `2026-09-28-21`, while preserving the exact declared task ID in `data.declared_task_id` and the required execution source identity.
+The federated events publisher rejected the literal task ID `[2026-09-28 21]` because its connector schema enforces `^[A-Za-z0-9_-]+$`. Lifecycle events therefore use the connector-normalized field `2026-09-28_21`, while preserving the exact declared task ID in `data.declared_task_id` and the required execution source identity.
