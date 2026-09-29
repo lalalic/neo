@@ -3,23 +3,28 @@
 - Job: `chatgpt-worker-hourly-guardian`
 - Task: `[2026-09-28 21]`
 - Task URL: https://github.com/lalalic/neo/pull/89#issuecomment-5880313243
-- Execution: `aea96050-62df-447b-81b9-813f6e54a5d7`
-- Expected PR head: `46d9a159dc38baae5a50d010c303bfb3e08d030e`
-- Synced E2E checkout: `/Users/chengli/Workspace/neo` at `origin/main` (`3b38572`)
+- Expected outcome tag: `pass`
+- Attempts: `2` (one unchanged retry)
+- Classification: browser-harness-capacity / transient first-attempt failure; retry passed
 
 ## Command
 
-```bash
+```sh
 cd /Users/chengli/Workspace/neo
 git fetch origin main
 git reset --hard origin/main
 CHATGPT_BROWSER_E2E=1 python3 -m pytest -q skills/chatgpt-browser-worker/tests/test_e2e.py -s
 ```
 
-## Evidence
+## Output
 
-- First run: failed in `20.62s` at `_assert_baseline`; observed leased tabs `[1653619919]` while the baseline expected `[1653619919, 1653619927]`.
-- Required unchanged retry: passed in `20.85s`.
-- Retry output: `{"e2e": "passed", "plain_text": "passed", "attachment_fact_number": "729873678", "leases_restored": true}` and `1 passed`.
-- Classification: transient browser-harness lease-baseline inconsistency; no code change made.
-- Deterministic E2E tag: `pass`.
+```text
+First attempt: `F` — `RuntimeError: assistant response containing expected text was not observed` after `184.43s`.
+Unchanged retry: `{"e2e": "passed", "plain_text": "passed", "attachment_fact_number": "727061586", "leases_restored": true}`
+`1 passed in 17.46s`
+```
+
+- First attempt exit code: `1` — `RuntimeError: assistant response containing expected text was not observed` after `184.43s`.
+- Unchanged retry exit code: `0` — `{"e2e": "passed", "plain_text": "passed", "attachment_fact_number": "727061586", "leases_restored": true}` and `1 passed in 17.46s`.
+- Evidence: the deterministic real E2E passed on the required unchanged retry. The first failure was a transient browser-harness observation failure; no code change was made.
+- Terminal event tag: `data.tag = "pass"`
