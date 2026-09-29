@@ -35,3 +35,11 @@ The retry completed the deterministic real-browser E2E successfully and restored
 ## Event transport note
 
 The federated events publisher rejected the required literal task ID `[2026-09-28 21]` because its connector schema enforces `^[A-Za-z0-9_-]+$` for `event.task_id`. The published lifecycle events therefore use the connector-normalized task ID `2026-09-28-21`, while preserving the exact declared task ID in `data.declared_task_id` and the required execution source identity.
+
+## Current execution `90a71bec-aa5b-401f-8423-f6c5d221d751`
+
+- Sync: `origin/main` at `8aba7f4 Hourly ChatGPT worker E2E guardian (#88)`.
+- Attempt 1 exit code: `1`; attachment phase failed with `RuntimeError: Temporary Chat attachment presence was not observed ready` after the plain-text phase.
+- Required exact unchanged retry exit code: `0`.
+- Retry output: `{"e2e": "passed", "plain_text": "passed", "attachment_fact_number": "242804744", "leases_restored": true}` and `1 passed in 17.41s`.
+- Classification: `pass`; transient browser-harness attachment readiness on attempt 1, not a reproducible code regression. No code changes or repair job were created.
