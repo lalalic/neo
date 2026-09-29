@@ -1,30 +1,30 @@
 # Guardian cycle 0009
 
-- Task: `[2026-09-28 22]`
 - Job: `chatgpt-worker-hourly-guardian`
-- Execution date: 2026-09-29
-- Classification: pass
-- Exit code: `0`
-- Synced local checkout: `origin/main` at `3b38572`
+- Task: `[2026-09-28 22]`
+- Execution: `e99dd1b4-c5a1-4489-89b5-3e8991f44b61`
+- Checkout: managed PR checkout at `d71f20b7cffe65acf4442248ffa6afa4d67db588`
+- Executor: Codex locally on MacBridge
 
 ## Command
 
 ```bash
-cd /Users/chengli/Workspace/neo
-git fetch origin main
-git reset --hard origin/main
 CHATGPT_BROWSER_E2E=1 python3 -m pytest -q skills/chatgpt-browser-worker/tests/test_e2e.py -s
 ```
 
-## Observed output
+The required repository sync was performed with `git fetch origin main` in the managed checkout. The protected primary checkout was not reset.
 
-```text
-From github.com:lalalic/neo
- * branch            main       -> FETCH_HEAD
-HEAD is now at 3b38572 Merge pull request #90 from lalalic/chore/enable-autonomous-scheduler
-{"e2e": "passed", "plain_text": "passed", "attachment_fact_number": "368011607", "leases_restored": true}
-.
-1 passed in 21.60s
+## Attempts
+
+1. First run: failed after 41.49s while uploading the temporary-chat attachment. The browser harness raised `RuntimeError: Temporary Chat attachment presence was not observed ready` from `_upload_files`; the plain-text phase had completed before this failure.
+2. Required unchanged retry: passed in 20.28s, exit code `0`.
+
+Passing output:
+
+```json
+{"e2e": "passed", "plain_text": "passed", "attachment_fact_number": "530024763", "leases_restored": true}
 ```
 
-The fixed E2E passed on the first attempt. No retry, code changes, or repair task were needed.
+## Classification
+
+Overall deterministic E2E outcome: **pass** (`data.tag=pass`). The first failure was a transient browser-harness/attachment-readiness failure, not a reproducible code regression; the unchanged retry passed. No source code was edited.
