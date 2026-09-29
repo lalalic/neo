@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any, Iterable, Protocol
 import json
 import re
+from difflib import SequenceMatcher
 
 from .manifest import validate_manifest
 
@@ -181,9 +182,32 @@ class RealMomentCollector:
     def _save(self) -> None:
         self.checkpoint.save(self.checkpoint_path)
 
+    @staticmethod
+    def _normalized_text(value: str | None) -> str:
+        if not value:
+            return ""
+        return re.sub(r"\s+", "", value).replace("…", "").lower()
+
+    def _is_duplicate(self, post: PostObservation, fp: str) -> bool:
+        if fp in self.checkpoint.seen_fingerprints:
+            return True
+        posted = _posted_at(post)
+        incoming = self._normalized_text(post.text)
+        if not incoming or posted is None:
+            return False
+        for moment in self.checkpoint.moments:
+            if moment.get("postedAt") != posted:
+                continue
+            existing = self._normalized_text(moment.get("text"))
+            if not existing:
+                continue
+            if SequenceMatcher(None, incoming, existing).ratio() >= 0.82:
+                return True
+        return False
+
     def _accept_post(self, post: PostObservation) -> bool:
         fp = post.fingerprint()
-        if fp in self.checkpoint.seen_fingerprints:
+        if self._is_duplicate(post, fp):
             return False
 
         if post.year not in self.checkpoint.selected_years:

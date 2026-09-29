@@ -130,6 +130,18 @@ def test_duplicate_revisit_dedupes(tmp_path):
     assert len(collector.to_manifest()["years"][0]["moments"]) == 1
 
 
+
+def test_duplicate_revisit_with_small_ocr_variation_dedupes(tmp_path):
+    p1 = post(key=None, text="空气飘着各种香味，各种\n鸟在叫，感觉整个山林都", date="2025-04-06T12:00:00+00:00", year=2025)
+    p2 = post(key=None, text="空气飘若各种香味各种\n鸟在叫 感觉整个山林都", date="2025-04-06T12:00:00+00:00", year=2025)
+    adapter = FakeAdapter([
+        ViewportObservation((p1,)),
+        ViewportObservation((p2,), reached_end=True),
+    ])
+    collector = RealMomentCollector(adapter, checkpoint_path=tmp_path / "cp.json")
+    collector.run()
+    assert len(collector.checkpoint.moments) == 1
+
 def test_load_more_boundary(tmp_path):
     adapter = FakeAdapter([
         ViewportObservation((post(key="a"),), has_load_more=True),
