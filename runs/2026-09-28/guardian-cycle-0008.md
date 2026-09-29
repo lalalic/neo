@@ -3,40 +3,23 @@
 - Job: `chatgpt-worker-hourly-guardian`
 - Task: `[2026-09-28 21]`
 - Task URL: https://github.com/lalalic/neo/pull/89#issuecomment-5880313243
-- Execution: `0cd45160-09a9-4577-b905-333abf138d33`
-- Classification: `pass`
-- Attempt: first attempt; unchanged retry not required
+- Execution: `aea96050-62df-447b-81b9-813f6e54a5d7`
+- Expected PR head: `46d9a159dc38baae5a50d010c303bfb3e08d030e`
+- Synced E2E checkout: `/Users/chengli/Workspace/neo` at `origin/main` (`3b38572`)
 
 ## Command
 
-```sh
+```bash
 cd /Users/chengli/Workspace/neo
 git fetch origin main
 git reset --hard origin/main
 CHATGPT_BROWSER_E2E=1 python3 -m pytest -q skills/chatgpt-browser-worker/tests/test_e2e.py -s
 ```
 
-## Output
+## Evidence
 
-```text
-From github.com:lalalic/neo
- * branch            main       -> FETCH_HEAD
-HEAD is now at 3b38572 Merge pull request #90 from lalalic/chore/enable-autonomous-scheduler
-
-******************************************************************************
-libedit detected - readline will not be well behaved, including but not limited to:
-   * crashes on tab completion
-   * incorrect history navigation
-   * corrupting long-lines
-   * failure to wrap or indent lines properly
-
-It is highly recommended that you install gnureadline, which is installable with:
-     xpip install gnureadline
-******************************************************************************
-{"e2e": "passed", "plain_text": "passed", "attachment_fact_number": "927149952", "leases_restored": true}
-.
-1 passed in 18.44s
-```
-
-- Exit code: `0`
-- Evidence: the deterministic real E2E completed successfully; no environment/auth/rate-limit/browser-harness failure occurred; no code change was made.
+- First run: failed in `20.62s` at `_assert_baseline`; observed leased tabs `[1653619919]` while the baseline expected `[1653619919, 1653619927]`.
+- Required unchanged retry: passed in `20.85s`.
+- Retry output: `{"e2e": "passed", "plain_text": "passed", "attachment_fact_number": "729873678", "leases_restored": true}` and `1 passed`.
+- Classification: transient browser-harness lease-baseline inconsistency; no code change made.
+- Deterministic E2E tag: `pass`.
