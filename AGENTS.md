@@ -69,7 +69,7 @@ Because Neo is public, secrets, personal data, customer data, private identifier
 - For Markcut Vision with Browser ChatGPT, read `skills/chatgpt-browser-worker/references/markcut-vision.md`; keep Markcut on its generic `vision --itt` / `--vtt` hooks rather than adding a ChatGPT-specific Markcut command.
 - If a project-local skill and a shared/global skill declare the same skill `name`, the project-local skill takes precedence within that project.
 - Do not duplicate a reusable skill as a project agent.
-- When Browser Harness verifies a reusable external-platform flow, promote or update the canonical asset in `skills/browser-platforms` rather than leaving the knowledge as one-off automation.
+- When Browser Harness verifies a reusable external-platform flow, promote or update the canonical `browser-platforms` skill installed from the sibling Workspace checkout rather than leaving the knowledge as one-off automation.
 - A project must not depend on another project's `runs/` directory.
 
 ### Project learning contract
@@ -118,7 +118,7 @@ Publishing is handled through `skills/post` when the user explicitly asks to pos
 ## Project learnings
 
 - 2026-09-26: Chrome Web Store new-item uploads reject extension manifests containing a `key`; preserve the authoritative source package, derive a store-compatible upload artifact without that field, and verify the assigned item/version only after reopening the publisher dashboard.
-- 2026-09-25: Chrome Web Store browser mechanics belong under `skills/browser-platforms/platforms/chrome-web-store`; keep the runner dry-run by default and require explicit authorization before upload, listing mutation, or review submission.
+- 2026-09-25: Chrome Web Store browser mechanics belong under the `browser-platforms` skill's `platforms/chrome-web-store`; keep the runner dry-run by default and require explicit authorization before upload, listing mutation, or review submission.
 - 2026-09-26: Chrome Web Store editor controls expose labels through `aria-labelledby`/`label[for]` and save drafts as `Save draft`; shared flows must resolve accessible labels and verify the publisher-scoped item URL before mutating a listing.
 - 2026-09-26: Chrome Web Store new-item uploads can reject an otherwise valid local extension package before an editor exists; report the visible package error (for example, a disallowed manifest `key`) as the blocker instead of misclassifying it as navigation failure.
 

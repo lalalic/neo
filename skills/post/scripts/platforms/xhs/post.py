@@ -16,7 +16,8 @@ Usage (video):
 import argparse, json, os, sys, subprocess, tempfile
 from pathlib import Path
 
-BH_SCRIPT = Path(__file__).resolve().parents[4] / "browser-platforms/platforms/xhs/browser-harness/_post_bh.py"
+BROWSER_PLATFORMS_ROOT = Path(os.environ.get("BROWSER_PLATFORMS_ROOT", Path.home() / ".agents/skills/browser-platforms")).expanduser()
+BH_SCRIPT = BROWSER_PLATFORMS_ROOT / "platforms/xhs/browser-harness/_post_bh.py"
 
 # XHS limits
 MAX_TITLE = 20    # chars (CJK counts as 1)
