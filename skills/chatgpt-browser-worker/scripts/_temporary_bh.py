@@ -10,6 +10,7 @@ from browser_harness import *
 CFG = json.load(open("__CFG_PATH__", encoding="utf-8"))
 _OWNED_TABS = []
 _KEEP_OWNED_TAB_OPEN = CFG.get("close_policy", "after-start") == "never"
+_SUBMISSION_SUCCEEDED = False
 
 
 
@@ -23,7 +24,9 @@ def _new_owned_tab(url):
 
 
 def _close_owned_tabs():
-    if _KEEP_OWNED_TAB_OPEN:
+    # close-policy=never preserves an owned tab only after a verified submit.
+    # Any failure before that point must release this worker's own lease.
+    if _KEEP_OWNED_TAB_OPEN and _SUBMISSION_SUCCEEDED:
         return
     while _OWNED_TABS:
         try:
@@ -360,6 +363,7 @@ before_count = len(_user_turns())
 _wait_for_send_ready(selector, prompt, attachments)
 _click_send()
 receipt = _wait_user_turn(before_count, prompt, selector)
+_SUBMISSION_SUCCEEDED = True
 
 print(json.dumps({
     "operation": "submit",

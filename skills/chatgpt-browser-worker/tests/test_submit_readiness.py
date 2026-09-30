@@ -146,6 +146,12 @@ class SubmitReadinessTests(unittest.TestCase):
         self.assertIn('temporary_chat_entry_url(CFG["prompt"])', driver)
         self.assertIn("URL-first is the normal path", driver)
 
+    def test_never_policy_keeps_owned_tab_only_after_verified_submit(self):
+        driver = (Path(__file__).parents[1] / "scripts" / "_temporary_bh.py").read_text()
+        self.assertIn("_SUBMISSION_SUCCEEDED = False", driver)
+        self.assertIn("if _KEEP_OWNED_TAB_OPEN and _SUBMISSION_SUCCEEDED:", driver)
+        self.assertIn("_SUBMISSION_SUCCEEDED = True", driver)
+
 
 if __name__ == "__main__":
     unittest.main()
