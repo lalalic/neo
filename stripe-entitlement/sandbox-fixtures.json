@@ -1,0 +1,23 @@
+{
+  "sandboxAccountId": "acct_1UKte4RVTLD3xHrD",
+  "product": "team-mate",
+  "oneTime": {
+    "productId": "prod_VMA4KFwf8fnJfi",
+    "priceId": "price_1ULRknRVTLD3xHrDYgi0GPXR",
+    "paymentLinkId": "plink_1ULRkpRVTLD3xHrDR94H3565",
+    "paymentLinkUrl": "https://buy.stripe.com/test_5kQaEZ69QekbgQibS0ffy00",
+    "unitAmount": 199,
+    "currency": "usd",
+    "plan": "one_time"
+  },
+  "weekly": {
+    "productId": "prod_VMA5GqJImKXnfU",
+    "priceId": "price_1ULRksRVTLD3xHrD6ZJmrQiu",
+    "paymentLinkId": "plink_1ULRkuRVTLD3xHrDa7I9rXvz",
+    "paymentLinkUrl": "https://buy.stripe.com/test_5kQ4gBaq66RJbvY2hqffy01",
+    "unitAmount": 199,
+    "currency": "usd",
+    "interval": "week",
+    "plan": "weekly"
+  }
+}

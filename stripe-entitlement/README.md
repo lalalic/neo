@@ -64,6 +64,14 @@ For Payment Link based integrations, product identity may be declared on the rec
 
 If Checkout Session, Subscription, and Price metadata do not declare a product id, the Worker reads the Price's Stripe Product and accepts Product metadata `product=<id>` or legacy `appid=<id>`. This requires only `Products: Read` in addition to Checkout Sessions and Subscriptions read access.
 
+## Stripe sandbox payment E2E
+
+`npm run test:e2e:sandbox` validates the two MeetMate sandbox payment definitions against Stripe and exercises the production entitlement resolver with a disposable weekly trial subscription.
+
+The sandbox contains a 1.99 USD one-time Payment Link and a 1.99 USD/week recurring Payment Link, both tagged with `product=team-mate`. The E2E creates no charge: it validates the real Product/Price/Payment Link objects, creates a disposable 7-day weekly trial subscription, verifies active entitlement, verifies product isolation, cancels it, and verifies inactive entitlement.
+
+Only non-secret sandbox object IDs and Payment Link URLs are stored in `sandbox-fixtures.json`. The Stripe sandbox credential stays in the local or CI Stripe CLI profile selected by `STRIPE_E2E_CONFIG`.
+
 ## Real Stripe Test Mode E2E
 
 Unit tests remain fully mocked and run with `npm test`. `npm run test:e2e` uses the authenticated Stripe CLI in Test Mode against one persistent real Stripe fixture:
