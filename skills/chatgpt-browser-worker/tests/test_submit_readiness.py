@@ -4,7 +4,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parents[1] / "scripts"))
 
-from _submit_readiness import actionable_temporary_chat_candidates, prompt_text_matches, submission_receipt, temporary_chat_enabled_state, temporary_chat_entry_url, thread_entry_url, wait_until_stable
+from _submit_readiness import actionable_temporary_chat_candidates, prompt_text_matches, submission_receipt, temporary_chat_enabled_state, temporary_chat_entry_url, wait_until_stable
 
 
 class SubmitReadinessTests(unittest.TestCase):
@@ -51,21 +51,6 @@ class SubmitReadinessTests(unittest.TestCase):
         self.assertTrue(result["enabled"])
 
 
-
-    def test_existing_thread_entry_url_preserves_thread_and_prefills_prompt(self):
-        self.assertEqual(
-            thread_entry_url("https://chatgpt.com/c/thread-123", "hello world"),
-            "https://chatgpt.com/c/thread-123?prompt=hello+world",
-        )
-        self.assertEqual(
-            thread_entry_url(
-                "https://chatgpt.com/g/g-p-project/project/c/thread-123?foo=bar",
-                "hello",
-            ),
-            "https://chatgpt.com/g/g-p-project/project/c/thread-123?foo=bar&prompt=hello",
-        )
-        with self.assertRaises(ValueError):
-            thread_entry_url("https://example.com/c/thread-123", "hello")
 
     def test_temporary_chat_enabled_prefers_url_state_over_label_variant(self):
         candidates = [{
@@ -161,7 +146,6 @@ class SubmitReadinessTests(unittest.TestCase):
         thread = (Path(__file__).parents[1] / "scripts" / "_thread_bh.py").read_text()
         self.assertIn("temporary_chat_entry_url(prompt)", temporary)
         self.assertIn("_new_owned_tab(thread_url)", thread)
-        self.assertNotIn("thread_entry_url(thread_url, prompt)", thread)
         self.assertIn("saved composer draft during hydration", thread)
         common = (Path(__file__).parents[1] / "scripts" / "_submit_bh.py").read_text()
         self.assertIn("def _fill_prompt_if_needed", common)

@@ -19,10 +19,9 @@ else:
         f"observed {urlsplit(page_info().get('url', '')).path.rstrip('/')!r}"
     )
 
-# Existing threads restore their saved composer draft during hydration. Do not
-# use ?prompt= here: that prefill can be overwritten by the saved draft. Wait
-# until the live composer itself is stable, then let the shared submitter
-# explicitly replace that draft with this turn's prompt.
+# Existing threads restore their saved composer draft during hydration. Wait
+# until the live composer itself is stable, then explicitly replace that draft
+# with this turn's prompt.
 wait_until_stable(
     lambda: {"selector": _composer()},
     lambda state: bool(state["selector"]),
