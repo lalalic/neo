@@ -138,8 +138,16 @@ export class EventsBusCore {
   history(jobId, afterCursor = 0, limit = 100, taskId = null, order = 'asc') {
     if (!safeJobId(jobId)) throw new Error('job_id must contain only letters, digits, _ or -');
     if (order !== 'asc' && order !== 'desc') throw new Error('order must be asc or desc');
-    this.refreshHistory();
-    const matching = this.events.filter(row => row.cursor > afterCursor && row.event?.job_id === jobId && (!taskId || row.event?.task_id === taskId));
+    let matching = [];
+    try {
+      for (const line of fs.readFileSync(this.config.historyFile, 'utf8').split(/\r?\n/)) {
+        if (!line) continue;
+        try {
+          const row = JSON.parse(line);
+          if (Number.isInteger(row.cursor) && row.cursor > afterCursor && row.event?.job_id === jobId && (!taskId || row.event?.task_id === taskId)) matching.push(row);
+        } catch {}
+      }
+    } catch { /* empty history */ }
     const bounded = Math.max(1, Math.min(500, limit));
     const rows = order === 'desc' ? matching.slice(-bounded).reverse() : matching.slice(0, bounded);
     const nextCursor = order === 'desc' ? (rows[0]?.cursor ?? afterCursor) : (rows.at(-1)?.cursor ?? afterCursor);
