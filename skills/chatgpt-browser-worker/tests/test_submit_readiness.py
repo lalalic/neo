@@ -13,6 +13,10 @@ class SubmitReadinessTests(unittest.TestCase):
             temporary_chat_entry_url(),
             "https://chatgpt.com/?temporary-chat=true",
         )
+        self.assertEqual(
+            temporary_chat_entry_url("hello world"),
+            "https://chatgpt.com/?temporary-chat=true&prompt=hello+world",
+        )
 
     def test_slow_attachment_does_not_fail_on_visible_filename(self):
         states = iter([
@@ -136,6 +140,17 @@ class SubmitReadinessTests(unittest.TestCase):
     def test_worker_ignores_transient_pending_home_composer(self):
         driver = (Path(__file__).parents[1] / "scripts" / "_temporary_bh.py").read_text()
         self.assertIn("e.id === 'pending-home-input'", driver)
+
+    def test_worker_uses_url_prefill_before_dom_fallback(self):
+        driver = (Path(__file__).parents[1] / "scripts" / "_temporary_bh.py").read_text()
+        self.assertIn('temporary_chat_entry_url(CFG["prompt"])', driver)
+        self.assertIn("URL-first is the normal path", driver)
+
+    def test_never_policy_keeps_owned_tab_only_after_verified_submit(self):
+        driver = (Path(__file__).parents[1] / "scripts" / "_temporary_bh.py").read_text()
+        self.assertIn("_SUBMISSION_SUCCEEDED = False", driver)
+        self.assertIn("if _KEEP_OWNED_TAB_OPEN and _SUBMISSION_SUCCEEDED:", driver)
+        self.assertIn("_SUBMISSION_SUCCEEDED = True", driver)
 
 
 if __name__ == "__main__":

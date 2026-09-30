@@ -10,6 +10,7 @@ from browser_harness import *
 CFG = json.load(open("__CFG_PATH__", encoding="utf-8"))
 _OWNED_TABS = []
 _KEEP_OWNED_TAB_OPEN = CFG.get("close_policy", "after-start") == "never"
+_SUBMISSION_SUCCEEDED = False
 
 
 
@@ -23,7 +24,9 @@ def _new_owned_tab(url):
 
 
 def _close_owned_tabs():
-    if _KEEP_OWNED_TAB_OPEN:
+    # close-policy=never preserves an owned tab only after a verified submit.
+    # Any failure before that point must release this worker's own lease.
+    if _KEEP_OWNED_TAB_OPEN and _SUBMISSION_SUCCEEDED:
         return
     while _OWNED_TABS:
         try:
@@ -277,10 +280,10 @@ def _wait_user_turn(before_count, prompt, selector, timeout=20):
         receipt = submission_receipt(_user_turns(), before_count, prompt, _composer_text(selector))
         if receipt:
             if receipt["verified_by"] == "user-turn":
-                return receipt["turn"]
+                return receipt
             cleared_polls += 1
             if cleared_polls >= 2:
-                return receipt["turn"]
+                return receipt
         else:
             cleared_polls = 0
         time.sleep(.25)
@@ -292,7 +295,7 @@ def _diagnostic_thread_id():
     return match.group(1) if match else None
 
 
-_new_owned_tab(temporary_chat_entry_url())
+_new_owned_tab(temporary_chat_entry_url(CFG["prompt"]))
 wait_for_load()
 
 # The direct Temporary Chat route is the stable primary path. Keep the UI
@@ -307,54 +310,60 @@ while time.time() < deadline:
 else:
     raise RuntimeError("Temporary Chat activation was not observed")
 
-attachments = _upload_files(CFG.get("file", []))
 selector = _wait_for_composer()
-before_count = len(_user_turns())
 prompt = CFG["prompt"]
-is_contenteditable = bool(js(f"""(() => {{
-  const e=document.querySelector({json.dumps(selector)});
-  return !!e && e.getAttribute('contenteditable') === 'true';
-}})()"""))
-if is_contenteditable:
-    cleared = js(f"""(() => {{
+
+# URL-first is the normal path: ChatGPT consumes ?prompt= and hydrates the
+# ProseMirror composer. Keep the old DOM insertion only as a compatibility
+# fallback if that prefill ever stops matching.
+if not prompt_text_matches(_composer_text(selector), prompt):
+    is_contenteditable = bool(js(f"""(() => {{
       const e=document.querySelector({json.dumps(selector)});
-      if (!e) return false;
-      e.focus();
-      const sel=window.getSelection();
-      const range=document.createRange();
-      range.selectNodeContents(e);
-      sel.removeAllRanges();
-      sel.addRange(range);
-      document.execCommand('delete', false, null);
-      return true;
-    }})()""")
-    if not cleared:
-        raise RuntimeError("Temporary Chat contenteditable composer could not be cleared")
-    for offset in range(0, len(prompt), 256):
-        chunk = prompt[offset:offset + 256]
-        inserted = js(f"""(() => {{
+      return !!e && e.getAttribute('contenteditable') === 'true';
+    }})()"""))
+    if is_contenteditable:
+        cleared = js(f"""(() => {{
           const e=document.querySelector({json.dumps(selector)});
           if (!e) return false;
           e.focus();
-          const ok=document.execCommand('insertText', false, {json.dumps(chunk)});
-          e.dispatchEvent(new InputEvent('input', {{bubbles:true,inputType:'insertText',data:{json.dumps(chunk)}}}));
-          return ok;
+          const sel=window.getSelection();
+          const range=document.createRange();
+          range.selectNodeContents(e);
+          sel.removeAllRanges();
+          sel.addRange(range);
+          document.execCommand('delete', false, null);
+          return true;
         }})()""")
-        if not inserted:
-            raise RuntimeError(f"Temporary Chat composer rejected prompt chunk at offset {offset}")
-else:
-    fill_input(selector, prompt, clear_first=True)
+        if not cleared:
+            raise RuntimeError("Temporary Chat contenteditable composer could not be cleared")
+        for offset in range(0, len(prompt), 256):
+            chunk = prompt[offset:offset + 256]
+            inserted = js(f"""(() => {{
+              const e=document.querySelector({json.dumps(selector)});
+              if (!e) return false;
+              e.focus();
+              const ok=document.execCommand('insertText', false, {json.dumps(chunk)});
+              e.dispatchEvent(new InputEvent('input', {{bubbles:true,inputType:'insertText',data:{json.dumps(chunk)}}}));
+              return ok;
+            }})()""")
+            if not inserted:
+                raise RuntimeError(f"Temporary Chat composer rejected prompt chunk at offset {offset}")
+    else:
+        fill_input(selector, prompt, clear_first=True)
 
 wait_until_stable(
     lambda: {"text": _composer_text(selector)},
-    lambda state: prompt_text_matches(state["text"], CFG["prompt"]),
+    lambda state: prompt_text_matches(state["text"], prompt),
     timeout=30,
     phase="composer readiness",
 )
 
-_wait_for_send_ready(selector, CFG["prompt"], attachments)
+attachments = _upload_files(CFG.get("file", []))
+before_count = len(_user_turns())
+_wait_for_send_ready(selector, prompt, attachments)
 _click_send()
-user_turn = _wait_user_turn(before_count, CFG["prompt"], selector)
+receipt = _wait_user_turn(before_count, prompt, selector)
+_SUBMISSION_SUCCEEDED = True
 
 print(json.dumps({
     "operation": "submit",
@@ -362,7 +371,8 @@ print(json.dumps({
     "temporary": True,
     "attachments": attachments,
     "diagnostic_thread_id": _diagnostic_thread_id(),
-    "user_message_id": user_turn.get("id") or None,
+    "user_message_id": receipt["turn"].get("id") or None,
+    "verified_by": receipt["verified_by"],
     "verified": True,
 }, ensure_ascii=False), flush=True)
 

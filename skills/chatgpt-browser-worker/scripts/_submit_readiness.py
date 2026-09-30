@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import time
 from collections.abc import Callable, Mapping
+from urllib.parse import urlencode
 
 
 def wait_until_stable(
@@ -39,9 +40,12 @@ def actionable_temporary_chat_candidates(candidates):
     ]
 
 
-def temporary_chat_entry_url():
-    """Use ChatGPT's observable Temporary Chat route for worker-owned tabs."""
-    return "https://chatgpt.com/?temporary-chat=true"
+def temporary_chat_entry_url(prompt=""):
+    """Open Temporary Chat and let ChatGPT prefill the prompt from the URL."""
+    query = {"temporary-chat": "true"}
+    if prompt:
+        query["prompt"] = prompt
+    return "https://chatgpt.com/?" + urlencode(query)
 
 
 def temporary_chat_enabled_state(url, candidates):
