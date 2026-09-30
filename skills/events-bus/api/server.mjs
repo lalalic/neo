@@ -20,7 +20,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && url.pathname === '/config') return json(res, 200, { natsUrl: config.natsUrl, apiUrl: config.apiUrl, dataDir: config.dataDir, subjectPrefix: config.subjectPrefix });
     if (req.method === 'GET' && url.pathname === '/health') return json(res, 200, await core.health());
     const job = url.searchParams.get('job') || '';
-    if (req.method === 'GET' && url.pathname === '/events') return json(res, 200, core.history(job, int(url.searchParams.get('after'), 0), int(url.searchParams.get('limit'), 100), url.searchParams.get('task')));
+    if (req.method === 'GET' && url.pathname === '/events') return json(res, 200, core.history(job, int(url.searchParams.get('after'), 0), int(url.searchParams.get('limit'), 100), url.searchParams.get('task'), url.searchParams.get('order') || 'asc'));
     if (req.method === 'GET' && url.pathname === '/status') return json(res, 200, core.status(job));
     if (req.method === 'GET' && url.pathname === '/watch') return json(res, 200, await core.watch(job));
     if (req.method === 'GET' && url.pathname === '/wait') return json(res, 200, await core.wait(job, int(url.searchParams.get('after'), 0), int(url.searchParams.get('timeout'), 25000), int(url.searchParams.get('limit'), 100)));

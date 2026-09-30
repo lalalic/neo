@@ -135,10 +135,15 @@ export class EventsBusCore {
     const rows = this.events.filter(row => row.event?.job_id === jobId);
     return { job_id: jobId, watch_established: true, after_cursor: rows.at(-1)?.cursor ?? 0, buffered_event_count: rows.length, worker_liveness: this.processLiveness(jobId) };
   }
-  history(jobId, afterCursor = 0, limit = 100, taskId = null) {
+  history(jobId, afterCursor = 0, limit = 100, taskId = null, order = 'asc') {
     if (!safeJobId(jobId)) throw new Error('job_id must contain only letters, digits, _ or -');
-    const rows = this.rowsForJob(jobId, afterCursor, limit, taskId);
-    return { job_id: jobId, events: rows, next_cursor: rows.at(-1)?.cursor ?? afterCursor };
+    if (order !== 'asc' && order !== 'desc') throw new Error('order must be asc or desc');
+    this.refreshHistory();
+    const matching = this.events.filter(row => row.cursor > afterCursor && row.event?.job_id === jobId && (!taskId || row.event?.task_id === taskId));
+    const bounded = Math.max(1, Math.min(500, limit));
+    const rows = order === 'desc' ? matching.slice(-bounded).reverse() : matching.slice(0, bounded);
+    const nextCursor = order === 'desc' ? (rows[0]?.cursor ?? afterCursor) : (rows.at(-1)?.cursor ?? afterCursor);
+    return { job_id: jobId, events: rows, next_cursor: nextCursor, order };
   }
   status(jobId) {
     const rows = this.rowsForJob(jobId, 0, 500); const latest = rows.at(-1) ?? null;
