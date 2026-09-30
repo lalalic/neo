@@ -24,6 +24,7 @@ Recommended environment variables:
 - `NEO_JOB_ID` — required for every event belonging to an orchestrated job.
 - `NEO_ORCHESTRATOR_ID` — stable identifier for the orchestrator instance/session when available.
 - `NEO_TASK_ID` — identifier for the current task/sub-agent.
+  Task IDs are payload correlation identities and must be preserved literally; unlike `job_id`, they do not need to be NATS-subject-safe and may contain spaces or punctuation.
 - `NEO_PARENT_TASK_ID` — parent task when work is nested.
 - `NEO_NATS_URL` — transport endpoint; default `nats://127.0.0.1:4222`.
 - `NEO_EVENTS_BUS_DIR` — absolute path to the loaded events-bus skill directory for local workers.
