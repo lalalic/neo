@@ -53,3 +53,13 @@ plan = weekly             # optional but recommended
 ```
 
 Clients must send their expected product id in every entitlement request. The Worker compares it with Stripe metadata before returning an active entitlement. A valid subscription for one product therefore cannot unlock another product. Future products only need to choose a stable product id, add matching Stripe metadata, and call this same endpoint.
+
+
+### Product identity fallback
+
+For Payment Link based integrations, product identity may be declared on the recurring Stripe Price metadata instead of duplicated onto every Checkout Session or Subscription. Supported Price metadata keys are `product=<id>` or legacy-compatible `appid=<id>`; `plan=<id>` is optional. This keeps the shared service stateless and lets each app own its Stripe Price configuration.
+
+
+### Product metadata fallback
+
+If Checkout Session, Subscription, and Price metadata do not declare a product id, the Worker reads the Price's Stripe Product and accepts Product metadata `product=<id>` or legacy `appid=<id>`. This requires only `Products: Read` in addition to Checkout Sessions and Subscriptions read access.
