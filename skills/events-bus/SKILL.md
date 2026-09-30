@@ -28,6 +28,27 @@ The canonical protocol is `references/protocol.md` inside this skill. Read it be
 
 As a general transparency rule, whenever an agent/worker is selected or started, the component that owns that selection or launch MUST publish a user-visible event identifying the model and reasoning/thinking level when those values are known. The exact semantic event name and `data` shape belong to that component/skill, not to events-bus. Never invent a model or thinking level that was not actually selected.
 
+
+## Runtime architecture and ownership
+
+`events-bus` is the single owner of the event capability layer: transport setup, runtime connection discovery, persistence/replay, cursor semantics, and the reusable operations behind every adapter.
+
+```text
+                    events-bus core
+                 /        |        \
+              CLI        MCP       HTTP API
+               |          |           |
+               +----------+-----------+
+                          |
+                 NATS + history store
+```
+
+The adapters MUST remain thin. CLI, MCP, and HTTP call the same core methods for `publish`, `watch`, `wait`, `history`, `status`, and `health`; they must not implement separate event stores or cursor behavior. A standalone `api/server.mjs` process owns the continuous `neo.events.job.>` subscription and persists history even when no MCP client is connected.
+
+Runtime connection discovery is also owned here. `core/config.mjs` resolves and persists one machine-readable runtime configuration containing `natsUrl`, `apiUrl`, `dataDir`, and `subjectPrefix`. Consumers such as Agents Relay use that contract for both native realtime NATS and the history API rather than defining independent endpoints. `node cli/events-bus.mjs config` prints the resolved configuration; `node cli/events-bus.mjs setup` installs/supervises the NATS and history/API processes through PM2.
+
+Agents Relay uses native NATS publish/subscribe for lifecycle-critical realtime events and reads replay/history through the events-bus HTTP API. Hosted ChatGPT and sandboxed workers use the MCP adapter. Direct local workers may use the CLI or `NEO_EVENTS_EMIT`. The JSONL history file is an events-bus implementation detail and must not be read directly by Relay or dashboards.
+
 ## Orchestrator workflow
 
 1. Generate one unique `job_id` before starting any child work.
