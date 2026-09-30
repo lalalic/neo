@@ -7,7 +7,7 @@ This project is reusable payment infrastructure. Keep it stateless unless a futu
 - Return only normalized entitlement information; never return customer, card, invoice, or raw Stripe objects.
 - Subscription status is active only for Stripe `active` or `trialing`.
 - Clients own caching policy. This service answers current Stripe state and must use `Cache-Control: no-store`.
-- Tests must mock Stripe HTTP calls; tests must never hit Stripe production APIs.
+- Unit tests must mock Stripe HTTP calls. The explicit `npm run test:e2e` path may call the dedicated Stripe Test Mode Worker/API fixture; tests must never hit Stripe production APIs.
 
 ## Project learnings
 

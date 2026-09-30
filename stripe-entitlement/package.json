@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "test": "node --test test/*.test.js",
-    "deploy": "wrangler deploy"
+    "deploy": "wrangler deploy",
+    "test:e2e": "node e2e/test-mode.mjs"
   },
   "devDependencies": {
     "wrangler": "^4.143.1"
