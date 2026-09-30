@@ -63,12 +63,18 @@ def _thread_submit(thread_url, prompt, attachments=()):
 
 
 def _create_persistent_thread():
-    marker = f"THREAD_CREATE_{secrets.token_hex(6)}"
-    code = CREATE_THREAD_BH.read_text(encoding="utf-8").replace(
-        "__MARKER__", json.dumps(marker)
-    )
-    output = _browser_harness(code)
-    return json.loads(output.strip().splitlines()[-1])["thread_url"]
+    last_error = None
+    for _ in range(2):
+        marker = f"THREAD_CREATE_{secrets.token_hex(6)}"
+        code = CREATE_THREAD_BH.read_text(encoding="utf-8").replace(
+            "__MARKER__", json.dumps(marker)
+        )
+        try:
+            output = _browser_harness(code)
+            return json.loads(output.strip().splitlines()[-1])["thread_url"]
+        except AssertionError as exc:
+            last_error = exc
+    raise last_error
 
 def _submit(prompt, attachments=()):
     with tempfile.TemporaryDirectory(prefix="chatgpt-browser-e2e-") as run_dir:

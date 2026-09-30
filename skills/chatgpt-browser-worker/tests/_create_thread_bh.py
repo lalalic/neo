@@ -39,7 +39,7 @@ try:
     if not clicked:
         raise RuntimeError("persistent thread send failed")
 
-    deadline = time.time() + 30
+    deadline = time.time() + 90
     thread_url = None
     while time.time() < deadline:
         url = js("location.href") or ""

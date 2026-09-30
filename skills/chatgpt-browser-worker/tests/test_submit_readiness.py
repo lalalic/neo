@@ -156,11 +156,13 @@ class SubmitReadinessTests(unittest.TestCase):
         driver = (Path(__file__).parents[1] / "scripts" / "_submit_bh.py").read_text()
         self.assertIn("e.id === 'pending-home-input'", driver)
 
-    def test_worker_uses_url_prefill_before_dom_fallback(self):
+    def test_worker_uses_mode_specific_prompt_delivery(self):
         temporary = (Path(__file__).parents[1] / "scripts" / "_temporary_bh.py").read_text()
         thread = (Path(__file__).parents[1] / "scripts" / "_thread_bh.py").read_text()
         self.assertIn("temporary_chat_entry_url(prompt)", temporary)
-        self.assertIn("thread_entry_url(thread_url, prompt)", thread)
+        self.assertIn("_new_owned_tab(thread_url)", thread)
+        self.assertNotIn("thread_entry_url(thread_url, prompt)", thread)
+        self.assertIn("saved composer draft during hydration", thread)
         common = (Path(__file__).parents[1] / "scripts" / "_submit_bh.py").read_text()
         self.assertIn("def _fill_prompt_if_needed", common)
 
