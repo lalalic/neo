@@ -4,5 +4,8 @@
   "type": "module",
   "dependencies": {
     "@nats-io/transport-node": "^3.4.0"
+  },
+  "scripts": {
+    "test": "node --test mcp/*.test.mjs"
   }
 }

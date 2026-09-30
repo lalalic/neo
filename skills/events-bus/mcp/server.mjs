@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import crypto from "node:crypto";
+import { JOB_ID_PATTERN, safeJobId, safeTaskId } from "./validation.mjs";
 import { connect } from "@nats-io/transport-node";
 
 const SERVER_NAME = "events-bus-mcp";
@@ -38,10 +39,6 @@ const TERMINAL_JOB_TYPES = new Set([
   "job.cancelled",
 ]);
 
-function safeJobId(value) {
-  return typeof value === "string" && /^[A-Za-z0-9_-]+$/.test(value);
-}
-
 function safeType(value) {
   return typeof value === "string" && /^[A-Za-z0-9_.-]+$/.test(value);
 }
@@ -53,7 +50,7 @@ function nonEmptyString(value) {
 function normalizePublishEvent(input) {
   if (!input || typeof input !== "object" || Array.isArray(input)) return { error: "event must be an object" };
   if (!safeJobId(input.job_id)) return { error: "invalid event.job_id" };
-  if (!safeJobId(input.task_id)) return { error: "invalid event.task_id" };
+  if (!safeTaskId(input.task_id)) return { error: "invalid event.task_id" };
   if (!safeType(input.type)) return { error: "invalid event.type" };
   if (!EVENT_STATUSES.has(input.status)) return { error: "invalid event.status" };
   if (!EVENT_VISIBILITIES.has(input.visibility)) return { error: "invalid event.visibility" };
@@ -297,8 +294,8 @@ const TOOLS = [
           properties: {
             version: { type: "integer", const: 1 },
             event_id: { type: "string", minLength: 1 },
-            job_id: { type: "string", pattern: "^[A-Za-z0-9_-]+$", description: "Use the caller-provided literal job_id; never use placeholders such as inherited/current." },
-            task_id: { type: "string", pattern: "^[A-Za-z0-9_-]+$", description: "Use the caller-provided literal task_id." },
+            job_id: { type: "string", pattern: JOB_ID_PATTERN, description: "Use the caller-provided literal job_id; never use placeholders such as inherited/current." },
+            task_id: { type: "string", minLength: 1, description: "Use the caller-provided literal task_id; task IDs are payload correlation values and are not restricted to NATS-safe job ID characters." },
             parent_task_id: { type: ["string", "null"] },
             orchestrator_id: { type: ["string", "null"] },
             type: { type: "string", pattern: "^[A-Za-z0-9_.-]+$" },
