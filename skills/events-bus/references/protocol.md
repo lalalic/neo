@@ -51,7 +51,7 @@ HTTP endpoints are local by default:
 ```text
 GET  /config
 GET  /health
-GET  /events?job=<job_id>&task=<task_id?>&after=<cursor?>&limit=<n?>
+GET  /events?job=<job_id>&task=<task_id?>&after=<cursor?>&limit=<n?>&order=asc|desc
 GET  /watch?job=<job_id>
 GET  /wait?job=<job_id>&after=<cursor>&timeout=<ms>&limit=<n?>
 GET  /status?job=<job_id>

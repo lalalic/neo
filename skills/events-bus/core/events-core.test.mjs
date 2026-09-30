@@ -24,5 +24,7 @@ test('core owns history cursor/filter semantics', () => {
   const two=normalizePublishEvent({job_id:'job1',task_id:'a task',type:'task.completed',status:'succeeded',visibility:'orchestrator',message:'done'}).event;
   core.appendEvent('test.job1.task.started',one); core.appendEvent('test.job1.task.completed',two);
   const history=core.history('job1',0,10,'a task');
-  assert.equal(history.events.length,2); assert.equal(history.next_cursor,2); assert.equal(core.status('job1').terminal.event.type,'task.completed');
+  assert.equal(history.events.length,2); assert.equal(history.next_cursor,2); assert.equal(history.order,'asc');
+  const recent=core.history('job1',0,1,'a task','desc'); assert.equal(recent.events[0].event.type,'task.completed'); assert.equal(recent.order,'desc');
+  assert.equal(core.status('job1').terminal.event.type,'task.completed');
 });
