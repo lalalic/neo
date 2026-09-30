@@ -159,10 +159,10 @@ class SubmitReadinessTests(unittest.TestCase):
     def test_worker_uses_url_prefill_before_dom_fallback(self):
         temporary = (Path(__file__).parents[1] / "scripts" / "_temporary_bh.py").read_text()
         thread = (Path(__file__).parents[1] / "scripts" / "_thread_bh.py").read_text()
-        self.assertIn('temporary_chat_entry_url(CFG["prompt"])', temporary)
-        self.assertIn("URL-first is the normal path", temporary)
+        self.assertIn("temporary_chat_entry_url(prompt)", temporary)
         self.assertIn("thread_entry_url(thread_url, prompt)", thread)
-        self.assertIn("URL prefill is primary for existing threads too", thread)
+        common = (Path(__file__).parents[1] / "scripts" / "_submit_bh.py").read_text()
+        self.assertIn("def _fill_prompt_if_needed", common)
 
     def test_submission_receipt_polling_retries_transient_runtime_errors(self):
         driver = (Path(__file__).parents[1] / "scripts" / "_submit_bh.py").read_text()
@@ -175,10 +175,8 @@ class SubmitReadinessTests(unittest.TestCase):
         thread = (Path(__file__).parents[1] / "scripts" / "_thread_bh.py").read_text()
         self.assertIn('"targetId": target_id', common)
         self.assertIn('"tabId": tabs[0].get("tabId")', common)
-        self.assertIn('"owned_tab_id": (_OWNED_TABS[-1].get("tabId")', temporary)
-        self.assertIn('"owned_target_id": (_OWNED_TABS[-1].get("targetId")', temporary)
-        self.assertIn('"owned_tab_id": (_OWNED_TABS[-1].get("tabId")', thread)
-        self.assertIn('"owned_target_id": (_OWNED_TABS[-1].get("targetId")', thread)
+        self.assertIn("_submit_current_page", temporary)
+        self.assertIn("_submit_current_page", thread)
 
     def test_never_policy_keeps_owned_tab_only_after_verified_submit(self):
         common = (Path(__file__).parents[1] / "scripts" / "_submit_bh.py").read_text()
@@ -187,8 +185,7 @@ class SubmitReadinessTests(unittest.TestCase):
         self.assertIn("_SUBMISSION_SUCCEEDED = False", common)
         self.assertIn("if _KEEP_OWNED_TAB_OPEN and _SUBMISSION_SUCCEEDED:", common)
         self.assertIn('current.get("tabId") == owned["tabId"]', common)
-        self.assertIn("_SUBMISSION_SUCCEEDED = True", temporary)
-        self.assertIn("_SUBMISSION_SUCCEEDED = True", thread)
+        self.assertIn("_SUBMISSION_SUCCEEDED = True", common)
 
 
 if __name__ == "__main__":

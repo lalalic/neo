@@ -11,6 +11,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 TEMPORARY = ROOT / "scripts" / "temporary_bh.py"
 THREAD = ROOT / "scripts" / "thread_bh.py"
+CREATE_THREAD_BH = Path(__file__).with_name("_create_thread_bh.py")
 
 
 def _browser_harness(code, timeout=240):
@@ -63,77 +64,9 @@ def _thread_submit(thread_url, prompt, attachments=()):
 
 def _create_persistent_thread():
     marker = f"THREAD_CREATE_{secrets.token_hex(6)}"
-    code = r"""
-import json, time
-from urllib.parse import quote
-owned = None
-try:
-    marker = __MARKER__
-    owned = new_tab("https://chatgpt.com/?prompt=" + quote(marker))
-    deadline = time.time() + 30
-    while time.time() < deadline:
-        state = js("""(() => {
-          const e=document.querySelector('#prompt-textarea')
-            || [...document.querySelectorAll('textarea,[contenteditable="true"]')]
-              .find(e=>{const r=e.getBoundingClientRect();return r.width>0&&r.height>0&&!e.disabled});
-          const b=document.querySelector(
-            'button[data-testid="send-button"],button[aria-label="Send prompt"],button[aria-label="Send"]'
-          );
-          return {text:e?(e.innerText||e.value||''):'', send:!!b&&!b.disabled&&b.getAttribute('aria-disabled')!=='true'};
-        })()""") or {}
-        if marker in (state.get("text") or "") and state.get("send"):
-            break
-        time.sleep(.25)
-    else:
-        raise RuntimeError("persistent thread composer was not ready")
-
-    clicked = js("""(() => {
-      const b=document.querySelector(
-        'button[data-testid="send-button"],button[aria-label="Send prompt"],button[aria-label="Send"]'
-      );
-      if(!b||b.disabled)return false;
-      b.click();
-      return true;
-    })()""")
-    if not clicked:
-        raise RuntimeError("persistent thread send failed")
-
-    deadline = time.time() + 30
-    thread_url = None
-    while time.time() < deadline:
-        url = js("location.href") or ""
-        if "/c/" in url and "local-chatgpt%3A" not in url:
-            thread_url = url.split("?", 1)[0]
-            break
-        time.sleep(.25)
-    if not thread_url:
-        raise RuntimeError("persistent thread URL was not created")
-
-    deadline = time.time() + 90
-    stable = 0
-    while time.time() < deadline:
-        assistant_count = int(js(
-            "document.querySelectorAll('[data-message-author-role=\"assistant\"]').length"
-        ) or 0)
-        stop_present = bool(js(
-            "!!document.querySelector('button[data-testid=\"stop-button\"],button[aria-label*=\"Stop\" i]')"
-        ))
-        done = assistant_count > 0 and not stop_present
-        stable = stable + 1 if done else 0
-        if stable >= 2:
-            break
-        time.sleep(.5)
-    else:
-        raise RuntimeError("persistent thread first turn did not finish")
-
-    print(json.dumps({"thread_url": thread_url}))
-finally:
-    if owned:
-        try:
-            close_tab(owned)
-        except Exception:
-            pass
-""".replace("__MARKER__", json.dumps(marker))
+    code = CREATE_THREAD_BH.read_text(encoding="utf-8").replace(
+        "__MARKER__", json.dumps(marker)
+    )
     output = _browser_harness(code)
     return json.loads(output.strip().splitlines()[-1])["thread_url"]
 

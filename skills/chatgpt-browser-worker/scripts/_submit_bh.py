@@ -54,24 +54,29 @@ atexit.register(_close_owned_tabs)
 
 def _composer():
     selector = js("""(() => {
-      const preferred = document.querySelector('#prompt-textarea');
-      if (preferred) {
-        const r=preferred.getBoundingClientRect();
-        if (r.width>0 && r.height>0) return '#prompt-textarea';
+      const selectors = [
+        '#prompt-textarea',
+        '[contenteditable="true"][data-composer-markdown]',
+        '[contenteditable="true"][data-lexical-editor="true"]',
+        'textarea'
+      ];
+      for (const selector of selectors) {
+        const e=document.querySelector(selector);
+        if (!e || e.id === 'pending-home-input' || e.disabled) continue;
+        const r=e.getBoundingClientRect();
+        if (r.width>0 && r.height>0) return selector;
       }
-      const fallback = [...document.querySelectorAll('textarea,[contenteditable="true"]')]
-        .find(e => {
-          if (e.id === 'pending-home-input') return false;
+      const visible = [...document.querySelectorAll('[contenteditable="true"]')]
+        .filter(e => {
+          if (e.id === 'pending-home-input' || e.disabled) return false;
           const r=e.getBoundingClientRect();
-          return r.width>0 && r.height>0 && !e.disabled;
+          return r.width>0 && r.height>0;
         });
-      if (!fallback) return null;
-      return fallback.tagName === 'TEXTAREA' ? 'textarea' : '[contenteditable="true"]';
+      return visible.length === 1 ? '[contenteditable="true"]' : null;
     })()""")
     if not selector:
-        raise RuntimeError("Temporary Chat composer was not observed")
+        raise RuntimeError("ChatGPT composer was not observed")
     return selector
-
 
 def _composer_text(selector):
     return js(f"""(() => {{
@@ -269,13 +274,18 @@ def _wait_for_send_ready(selector, prompt, attachments):
     expected = set(attachments)
 
     def read_state():
+        try:
+            live_selector = _composer()
+        except RuntimeError:
+            live_selector = selector
         return {
-            "text": _composer_text(selector),
+            "selector": live_selector,
+            "text": _composer_text(live_selector),
             "attachments": _attachment_state(),
             "send": _send_state(),
         }
 
-    wait_until_stable(
+    return wait_until_stable(
         read_state,
         lambda state: (
             prompt_text_matches(state["text"], prompt)
@@ -327,3 +337,122 @@ def _diagnostic_thread_id():
     return match.group(1) if match else None
 
 
+
+
+def _fill_prompt_if_needed(prompt, mode_label, timeout=30):
+    deadline = time.time() + timeout
+    last_error = None
+    while time.time() < deadline:
+        selector = _wait_for_composer(timeout=min(5, max(1, deadline - time.time())))
+        if prompt_text_matches(_composer_text(selector), prompt):
+            return selector
+
+        is_contenteditable = bool(js(f"""(() => {{
+          const e=document.querySelector({json.dumps(selector)});
+          return !!e && e.getAttribute('contenteditable') === 'true';
+        }})()"""))
+        try:
+            if is_contenteditable:
+                cleared = js(f"""(() => {{
+                  const e=document.querySelector({json.dumps(selector)});
+                  if (!e) return false;
+                  e.focus();
+                  const sel=window.getSelection();
+                  const range=document.createRange();
+                  range.selectNodeContents(e);
+                  sel.removeAllRanges();
+                  sel.addRange(range);
+                  document.execCommand('delete', false, null);
+                  return true;
+                }})()""")
+                if not cleared:
+                    raise RuntimeError(
+                        f"{mode_label} contenteditable composer could not be cleared"
+                    )
+                for offset in range(0, len(prompt), 256):
+                    chunk = prompt[offset:offset + 256]
+                    inserted = js(f"""(() => {{
+                      const e=document.querySelector({json.dumps(selector)});
+                      if (!e) return false;
+                      e.focus();
+                      const ok=document.execCommand(
+                        'insertText', false, {json.dumps(chunk)}
+                      );
+                      e.dispatchEvent(new InputEvent('input', {{
+                        bubbles:true,
+                        inputType:'insertText',
+                        data:{json.dumps(chunk)}
+                      }}));
+                      return ok;
+                    }})()""")
+                    if not inserted:
+                        raise RuntimeError(
+                            f"{mode_label} composer rejected prompt chunk at offset {offset}"
+                        )
+            else:
+                fill_input(selector, prompt, clear_first=True)
+            return selector
+        except RuntimeError as exc:
+            # ChatGPT can replace textarea with ProseMirror during hydration.
+            # Re-resolve the live composer instead of keeping a stale selector.
+            last_error = exc
+            time.sleep(.25)
+
+    suffix = f"; last fill error: {last_error}" if last_error else ""
+    raise RuntimeError(f"{mode_label} composer could not be filled{suffix}")
+
+
+def _live_composer_state():
+    try:
+        selector = _composer()
+    except RuntimeError:
+        return {"selector": None, "text": ""}
+    return {"selector": selector, "text": _composer_text(selector)}
+
+
+def _submit_current_page(prompt, *, temporary, mode_label):
+    _fill_prompt_if_needed(prompt, mode_label)
+    composer_state = wait_until_stable(
+        _live_composer_state,
+        lambda state: (
+            bool(state["selector"])
+            and prompt_text_matches(state["text"], prompt)
+        ),
+        timeout=30,
+        phase=f"{mode_label} composer readiness",
+    )
+    selector = composer_state["selector"]
+
+    attachments = _upload_files(CFG.get("file", []))
+    before_count = len(_user_turns())
+
+    send_state = _wait_for_send_ready(selector, prompt, attachments)
+    if isinstance(send_state, dict) and send_state.get("selector"):
+        selector = send_state["selector"]
+
+    _click_send()
+    receipt = _wait_user_turn(before_count, prompt, selector)
+    global _SUBMISSION_SUCCEEDED
+    _SUBMISSION_SUCCEEDED = True
+    owned = _OWNED_TABS[-1] if _OWNED_TABS else {}
+    return {
+        "operation": "submit",
+        "status": "submitted",
+        "temporary": temporary,
+        "attachments": attachments,
+        "diagnostic_thread_id": _diagnostic_thread_id(),
+        "user_message_id": receipt["turn"].get("id") or None,
+        "owned_tab_id": owned.get("tabId"),
+        "owned_target_id": owned.get("targetId"),
+        "verified_by": receipt["verified_by"],
+        "verified": True,
+    }
+
+def _wait_for_release():
+    release_file = CFG.get("release_file")
+    if not release_file:
+        raise RuntimeError("worker release file was not configured")
+    if CFG.get("close_policy", "after-start") == "never":
+        raise SystemExit(0)
+    while not os.path.exists(release_file):
+        time.sleep(.1)
