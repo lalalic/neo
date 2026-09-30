@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import time
 from collections.abc import Callable, Mapping
-from urllib.parse import urlencode
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 
 def wait_until_stable(
@@ -47,6 +47,20 @@ def temporary_chat_entry_url(prompt=""):
         query["prompt"] = prompt
     return "https://chatgpt.com/?" + urlencode(query)
 
+
+
+def thread_entry_url(thread_url, prompt=""):
+    """Open one existing ChatGPT thread and prefill its composer from the URL."""
+    parts = urlsplit(thread_url)
+    if parts.scheme != "https" or parts.netloc != "chatgpt.com" or "/c/" not in parts.path:
+        raise ValueError("thread_url must be an existing https://chatgpt.com/.../c/... thread")
+    query = dict(parse_qsl(parts.query, keep_blank_values=True))
+    query.pop("temporary-chat", None)
+    if prompt:
+        query["prompt"] = prompt
+    else:
+        query.pop("prompt", None)
+    return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), ""))
 
 def temporary_chat_enabled_state(url, candidates):
     """Recognize Temporary Chat from stable URL state with semantic UI fallback."""

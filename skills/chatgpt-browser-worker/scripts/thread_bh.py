@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Submit one isolated Temporary Chat task through browser-harness."""
+"""Submit one task to an existing ChatGPT thread through browser-harness."""
 from __future__ import annotations
 
 import argparse
@@ -8,15 +8,15 @@ import os
 import subprocess
 import tempfile
 
-
 HERE = os.path.dirname(os.path.abspath(__file__))
+READINESS_HELPER = os.path.join(HERE, "_submit_readiness.py")
 COMMON_DRIVER = os.path.join(HERE, "_submit_bh.py")
-BH_SCRIPT = os.path.join(HERE, "_temporary_bh.py")
-READINESS_HELPER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "_submit_readiness.py")
+THREAD_DRIVER = os.path.join(HERE, "_thread_bh.py")
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
+    parser.add_argument("--thread-url", required=True)
     parser.add_argument("--prompt", required=True)
     parser.add_argument("--file", action="append", default=[])
     parser.add_argument("--release-file", required=True)
@@ -26,10 +26,10 @@ def main() -> int:
         json.dump(vars(args), handle, ensure_ascii=False)
         config_path = handle.name
     try:
-        helper = open(READINESS_HELPER, encoding="utf-8").read()
-        common = open(COMMON_DRIVER, encoding="utf-8").read()
-        code = helper + "\n" + common + "\n" + open(BH_SCRIPT, encoding="utf-8").read()
-        code = code.replace("__CFG_PATH__", config_path)
+        code = "\n".join(
+            open(path, encoding="utf-8").read()
+            for path in (READINESS_HELPER, COMMON_DRIVER, THREAD_DRIVER)
+        ).replace("__CFG_PATH__", config_path)
         return subprocess.run(["browser-harness"], input=code, text=True, timeout=180).returncode
     finally:
         os.unlink(config_path)

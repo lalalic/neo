@@ -4,7 +4,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parents[1] / "scripts"))
 
-from _submit_readiness import actionable_temporary_chat_candidates, prompt_text_matches, submission_receipt, temporary_chat_enabled_state, temporary_chat_entry_url, wait_until_stable
+from _submit_readiness import actionable_temporary_chat_candidates, prompt_text_matches, submission_receipt, temporary_chat_enabled_state, temporary_chat_entry_url, thread_entry_url, wait_until_stable
 
 
 class SubmitReadinessTests(unittest.TestCase):
@@ -51,6 +51,21 @@ class SubmitReadinessTests(unittest.TestCase):
         self.assertTrue(result["enabled"])
 
 
+
+    def test_existing_thread_entry_url_preserves_thread_and_prefills_prompt(self):
+        self.assertEqual(
+            thread_entry_url("https://chatgpt.com/c/thread-123", "hello world"),
+            "https://chatgpt.com/c/thread-123?prompt=hello+world",
+        )
+        self.assertEqual(
+            thread_entry_url(
+                "https://chatgpt.com/g/g-p-project/project/c/thread-123?foo=bar",
+                "hello",
+            ),
+            "https://chatgpt.com/g/g-p-project/project/c/thread-123?foo=bar&prompt=hello",
+        )
+        with self.assertRaises(ValueError):
+            thread_entry_url("https://example.com/c/thread-123", "hello")
 
     def test_temporary_chat_enabled_prefers_url_state_over_label_variant(self):
         candidates = [{
@@ -138,19 +153,42 @@ class SubmitReadinessTests(unittest.TestCase):
 
 
     def test_worker_ignores_transient_pending_home_composer(self):
-        driver = (Path(__file__).parents[1] / "scripts" / "_temporary_bh.py").read_text()
+        driver = (Path(__file__).parents[1] / "scripts" / "_submit_bh.py").read_text()
         self.assertIn("e.id === 'pending-home-input'", driver)
 
     def test_worker_uses_url_prefill_before_dom_fallback(self):
-        driver = (Path(__file__).parents[1] / "scripts" / "_temporary_bh.py").read_text()
-        self.assertIn('temporary_chat_entry_url(CFG["prompt"])', driver)
-        self.assertIn("URL-first is the normal path", driver)
+        temporary = (Path(__file__).parents[1] / "scripts" / "_temporary_bh.py").read_text()
+        thread = (Path(__file__).parents[1] / "scripts" / "_thread_bh.py").read_text()
+        self.assertIn('temporary_chat_entry_url(CFG["prompt"])', temporary)
+        self.assertIn("URL-first is the normal path", temporary)
+        self.assertIn("thread_entry_url(thread_url, prompt)", thread)
+        self.assertIn("URL prefill is primary for existing threads too", thread)
+
+    def test_submission_receipt_polling_retries_transient_runtime_errors(self):
+        driver = (Path(__file__).parents[1] / "scripts" / "_submit_bh.py").read_text()
+        self.assertIn("except RuntimeError as exc:", driver)
+        self.assertIn("observation is read-only", driver)
+
+    def test_worker_records_exact_owned_workspace_tab_identity(self):
+        common = (Path(__file__).parents[1] / "scripts" / "_submit_bh.py").read_text()
+        temporary = (Path(__file__).parents[1] / "scripts" / "_temporary_bh.py").read_text()
+        thread = (Path(__file__).parents[1] / "scripts" / "_thread_bh.py").read_text()
+        self.assertIn('"targetId": target_id', common)
+        self.assertIn('"tabId": tabs[0].get("tabId")', common)
+        self.assertIn('"owned_tab_id": (_OWNED_TABS[-1].get("tabId")', temporary)
+        self.assertIn('"owned_target_id": (_OWNED_TABS[-1].get("targetId")', temporary)
+        self.assertIn('"owned_tab_id": (_OWNED_TABS[-1].get("tabId")', thread)
+        self.assertIn('"owned_target_id": (_OWNED_TABS[-1].get("targetId")', thread)
 
     def test_never_policy_keeps_owned_tab_only_after_verified_submit(self):
-        driver = (Path(__file__).parents[1] / "scripts" / "_temporary_bh.py").read_text()
-        self.assertIn("_SUBMISSION_SUCCEEDED = False", driver)
-        self.assertIn("if _KEEP_OWNED_TAB_OPEN and _SUBMISSION_SUCCEEDED:", driver)
-        self.assertIn("_SUBMISSION_SUCCEEDED = True", driver)
+        common = (Path(__file__).parents[1] / "scripts" / "_submit_bh.py").read_text()
+        temporary = (Path(__file__).parents[1] / "scripts" / "_temporary_bh.py").read_text()
+        thread = (Path(__file__).parents[1] / "scripts" / "_thread_bh.py").read_text()
+        self.assertIn("_SUBMISSION_SUCCEEDED = False", common)
+        self.assertIn("if _KEEP_OWNED_TAB_OPEN and _SUBMISSION_SUCCEEDED:", common)
+        self.assertIn('current.get("tabId") == owned["tabId"]', common)
+        self.assertIn("_SUBMISSION_SUCCEEDED = True", temporary)
+        self.assertIn("_SUBMISSION_SUCCEEDED = True", thread)
 
 
 if __name__ == "__main__":

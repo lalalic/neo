@@ -1,24 +1,32 @@
-_new_owned_tab(temporary_chat_entry_url(CFG["prompt"]))
+thread_url = CFG["thread_url"]
+prompt = CFG["prompt"]
+entry_url = thread_entry_url(thread_url, prompt)
+_new_owned_tab(entry_url)
 wait_for_load()
 
-# The direct Temporary Chat route is the stable primary path. Keep the UI
-# toggle as a compatibility fallback when ChatGPT ignores/redirects the route.
-_click_temporary_chat_toggle()
+# Existing-thread mode must stay on the requested conversation. Query/hash
+# differences are allowed; redirecting to another conversation is not.
+def _thread_path(url):
+    from urllib.parse import urlsplit
+    return urlsplit(url).path.rstrip("/")
 
+expected_path = _thread_path(thread_url)
 deadline = time.time() + 20
 while time.time() < deadline:
-    if _temporary_chat_enabled():
+    current_url = js("location.href") or ""
+    if _thread_path(current_url) == expected_path:
         break
     time.sleep(.25)
 else:
-    raise RuntimeError("Temporary Chat activation was not observed")
+    raise RuntimeError(
+        f"Existing ChatGPT thread redirect mismatch: expected {expected_path!r}, "
+        f"observed {_thread_path(js('location.href') or '')!r}"
+    )
 
 selector = _wait_for_composer()
-prompt = CFG["prompt"]
 
-# URL-first is the normal path: ChatGPT consumes ?prompt= and hydrates the
-# ProseMirror composer. Keep the old DOM insertion only as a compatibility
-# fallback if that prefill ever stops matching.
+# URL prefill is primary for existing threads too. Keep the same bounded DOM
+# insertion fallback as Temporary Chat for product compatibility.
 if not prompt_text_matches(_composer_text(selector), prompt):
     is_contenteditable = bool(js(f"""(() => {{
       const e=document.querySelector({json.dumps(selector)});
@@ -38,7 +46,7 @@ if not prompt_text_matches(_composer_text(selector), prompt):
           return true;
         }})()""")
         if not cleared:
-            raise RuntimeError("Temporary Chat contenteditable composer could not be cleared")
+            raise RuntimeError("Existing thread contenteditable composer could not be cleared")
         for offset in range(0, len(prompt), 256):
             chunk = prompt[offset:offset + 256]
             inserted = js(f"""(() => {{
@@ -50,7 +58,7 @@ if not prompt_text_matches(_composer_text(selector), prompt):
               return ok;
             }})()""")
             if not inserted:
-                raise RuntimeError(f"Temporary Chat composer rejected prompt chunk at offset {offset}")
+                raise RuntimeError(f"Existing thread composer rejected prompt chunk at offset {offset}")
     else:
         fill_input(selector, prompt, clear_first=True)
 
@@ -58,7 +66,7 @@ wait_until_stable(
     lambda: {"text": _composer_text(selector)},
     lambda state: prompt_text_matches(state["text"], prompt),
     timeout=30,
-    phase="composer readiness",
+    phase="existing thread composer readiness",
 )
 
 attachments = _upload_files(CFG.get("file", []))
@@ -71,7 +79,8 @@ _SUBMISSION_SUCCEEDED = True
 print(json.dumps({
     "operation": "submit",
     "status": "submitted",
-    "temporary": True,
+    "temporary": False,
+    "thread_url": (js("location.href") or "").split("?", 1)[0],
     "attachments": attachments,
     "diagnostic_thread_id": _diagnostic_thread_id(),
     "user_message_id": receipt["turn"].get("id") or None,
@@ -81,9 +90,6 @@ print(json.dumps({
     "verified": True,
 }, ensure_ascii=False), flush=True)
 
-# Keep the owned Temporary Chat tab alive until Relay observes the worker's
-# post-launch task.started acknowledgement.  The parent releases this file;
-# atexit then closes only this worker-owned tab.
 release_file = CFG.get("release_file")
 if not release_file:
     raise RuntimeError("worker release file was not configured")
