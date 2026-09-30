@@ -26,11 +26,37 @@ Recommended environment variables:
 - `NEO_TASK_ID` — identifier for the current task/sub-agent.
   Task IDs are payload correlation identities and must be preserved literally; unlike `job_id`, they do not need to be NATS-subject-safe and may contain spaces or punctuation.
 - `NEO_PARENT_TASK_ID` — parent task when work is nested.
-- `NEO_NATS_URL` — transport endpoint; default `nats://127.0.0.1:4222`.
+- `NEO_EVENTS_BUS_CONFIG` — optional path to the machine-readable events-bus runtime configuration. By default it is `runtime.json` under `EVENTS_BUS_DATA_DIR`.
+- `EVENTS_BUS_DATA_DIR` — events-bus private runtime/history directory.
+- `NEO_NATS_URL` — transport endpoint override; default `nats://127.0.0.1:4222`.
+- `NEO_EVENTS_API_URL` — history/API endpoint override; default `http://127.0.0.1:4223`.
+- `NEO_EVENTS_API_HOST` / `NEO_EVENTS_API_PORT` — local history/API bind override.
+- `NEO_EVENTS_SUBJECT_PREFIX` — subject prefix override; default `neo.events.job`.
 - `NEO_EVENTS_BUS_DIR` — absolute path to the loaded events-bus skill directory for local workers.
 - `NEO_EVENTS_EMIT` — absolute path to `scripts/emit.mjs`; use it only for direct non-sandbox local workers that can reach NATS. Sandboxed Codex workers should use MCP `events__publish`.
 
 The `job_id` is the primary routing key. Do not use a process ID, Codex thread ID, chat ID, or host name as a substitute.
+
+
+## Runtime service and adapters
+
+The event runtime has one reusable core. The CLI, MCP server, and HTTP API are adapters over that core and therefore share validation, event normalization, NATS publication, persistence, cursors, history, watch/wait, status, and health semantics.
+
+The standalone HTTP/history service (`api/server.mjs`) is the continuous recorder. It subscribes to `<subjectPrefix>.>` and persists received rows independently of any MCP client lifetime. Consumers must use supported core adapters instead of reading `events.jsonl` directly.
+
+Runtime discovery is machine-readable through `core/config.mjs` and `events-bus config`. The resolved contract contains `natsUrl`, `apiUrl`, `dataDir`, and `subjectPrefix`. Agents Relay consumes this contract: direct NATS is used for realtime lifecycle flow, while replay/history is read from the events-bus HTTP API.
+
+HTTP endpoints are local by default:
+
+```text
+GET  /config
+GET  /health
+GET  /events?job=<job_id>&task=<task_id?>&after=<cursor?>&limit=<n?>
+GET  /watch?job=<job_id>
+GET  /wait?job=<job_id>&after=<cursor>&timeout=<ms>&limit=<n?>
+GET  /status?job=<job_id>
+POST /events
+```
 
 ## Current transport subject convention
 
