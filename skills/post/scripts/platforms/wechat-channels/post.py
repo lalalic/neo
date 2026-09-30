@@ -13,7 +13,8 @@ Usage:
 import argparse, json, os, sys, subprocess, tempfile
 from pathlib import Path
 
-BH_SCRIPT = Path(__file__).resolve().parents[4] / "browser-platforms/platforms/wechat-channels/browser-harness/_post_bh.py"
+BROWSER_PLATFORMS_ROOT = Path(os.environ.get("BROWSER_PLATFORMS_ROOT", Path.home() / ".agents/skills/browser-platforms")).expanduser()
+BH_SCRIPT = BROWSER_PLATFORMS_ROOT / "platforms/wechat-channels/browser-harness/_post_bh.py"
 
 # WeChat Channels limits
 MAX_DESC = 1000       # chars

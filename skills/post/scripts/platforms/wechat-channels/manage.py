@@ -10,7 +10,8 @@ import tempfile
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-BH_SCRIPT = Path(__file__).resolve().parents[4] / "browser-platforms/platforms/wechat-channels/browser-harness/_manage_bh.py"
+BROWSER_PLATFORMS_ROOT = Path(os.environ.get("BROWSER_PLATFORMS_ROOT", Path.home() / ".agents/skills/browser-platforms")).expanduser()
+BH_SCRIPT = BROWSER_PLATFORMS_ROOT / "platforms/wechat-channels/browser-harness/_manage_bh.py"
 
 
 def parser() -> argparse.ArgumentParser:

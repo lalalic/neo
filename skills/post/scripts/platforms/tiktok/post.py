@@ -13,7 +13,8 @@ Usage:
 import argparse, json, os, sys, subprocess, tempfile
 from pathlib import Path
 
-BH_SCRIPT = Path(__file__).resolve().parents[4] / "browser-platforms/platforms/tiktok/browser-harness/_post_bh.py"
+BROWSER_PLATFORMS_ROOT = Path(os.environ.get("BROWSER_PLATFORMS_ROOT", Path.home() / ".agents/skills/browser-platforms")).expanduser()
+BH_SCRIPT = BROWSER_PLATFORMS_ROOT / "platforms/tiktok/browser-harness/_post_bh.py"
 
 # TikTok limits
 MAX_CAPTION = 4000    # chars (including hashtags)
