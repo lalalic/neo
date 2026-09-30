@@ -1,0 +1,12 @@
+{
+  "purpose": "Persistent Stripe Test Mode fixture for real-path stripe-entitlement E2E. Do not delete or cancel.",
+  "product": "team-mate",
+  "plan": "e2e-weekly",
+  "checkoutSessionId": "cs_test_a1z4JGvR9mN92zoSfZLLUk37smv8bDgazV2ZxcX7nc5SCMDZ1P1zLLLKS5",
+  "subscriptionId": "sub_1ULN38HKHUCpvkuPl6hWqsxD",
+  "customerId": "cus_VM5DXBt0IZhHRh",
+  "expectedStatuses": [
+    "active",
+    "trialing"
+  ]
+}

@@ -63,3 +63,23 @@ For Payment Link based integrations, product identity may be declared on the rec
 ### Product metadata fallback
 
 If Checkout Session, Subscription, and Price metadata do not declare a product id, the Worker reads the Price's Stripe Product and accepts Product metadata `product=<id>` or legacy `appid=<id>`. This requires only `Products: Read` in addition to Checkout Sessions and Subscriptions read access.
+
+## Real Stripe Test Mode E2E
+
+Unit tests remain fully mocked and run with `npm test`. `npm run test:e2e` uses the authenticated Stripe CLI in Test Mode against one persistent real Stripe fixture:
+
+```text
+persistent Test Checkout Session
+  -> persistent Test Subscription
+  -> real Stripe Test API via Stripe CLI
+  -> production resolveEntitlement() code
+  -> normalized active entitlement
+```
+
+The non-secret fixture IDs are stored in `test-mode-fixture.json`. The fixture is a `$0/week` Test Mode subscription and is intentionally kept active; do not delete or cancel it. No Stripe secret is stored in Git or passed to the test process.
+
+Run:
+
+```bash
+npm run test:e2e
+```
