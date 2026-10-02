@@ -10,6 +10,13 @@ const ROOT = resolve(HERE, '..');
 const AGENT_PATH = resolve(ROOT, 'agents/escalation.agent.md');
 const SCHEMA_PATH = resolve(ROOT, 'agents/escalation-result.schema.json');
 
+const DEFAULT_ON_NEEDS_USER = `If this escalation genuinely requires the human user:
+
+1. Prefer using wechat-bro to send the notification to File Helper.
+2. If WeChat-bro or File Helper is unavailable or delivery fails, use iMessage to send the message to the user themself.
+3. Tell the user the exact blocked action, what they need to do, and how completion can be detected.
+4. Verify delivery when possible.`;
+
 function usage() {
   return `Usage:
   neo escalation --intent TEXT --blocked-on TEXT [options]
@@ -45,7 +52,7 @@ export function parseEscalationArgs(args) {
     intent: textOption(args, '--intent', '--intent-file'),
     blockedOn: textOption(args, '--blocked-on', '--blocked-on-file'),
     context: textOption(args, '--context', '--context-file'),
-    onNeedsUser: textOption(args, '--on-needs-user', '--on-needs-user-file'),
+    onNeedsUser: textOption(args, '--on-needs-user', '--on-needs-user-file') ?? DEFAULT_ON_NEEDS_USER,
     cwd: valueFor(args, '--cwd') ?? process.cwd(),
     codexCommand: valueFor(args, '--codex-command') ?? 'codex'
   };

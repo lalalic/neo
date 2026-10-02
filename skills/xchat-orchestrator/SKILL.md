@@ -192,7 +192,7 @@ Use the public registry/package metadata for verification rather than trusting a
 
 ## Recovery and stopping rules
 
-- Before stopping for a permission/authentication boundary or asking the human to perform an action, call Neo's `neo escalation` CLI with the blocked intent/context. The escalation agent uses elevated local Codex execution to try and verify the action first. If the caller has a preferred user-notification path, pass it as `--on-needs-user` (or file form); only a structured `needs_user` result means the remaining action is genuinely human-only.
+- Before stopping for a permission/authentication boundary or asking the human to perform an action, call Neo's `neo escalation` CLI with the blocked intent/context. The escalation agent uses elevated local Codex execution to try and verify the action first. If the caller has a preferred user-notification path, pass it as `--on-needs-user` (or file form). If no override is supplied, Neo uses its default `on_needs_user` instruction: prefer WeChat-bro to File Helper, then fall back to iMessage to the user themself. This default only controls notification after `needs_user`; it does not make escalation more eager to involve the user. Only a structured `needs_user` result means the remaining action is genuinely human-only.
 - Retry transport failures without counting them as implementation iterations.
 - Count failed implementation/review cycles. After three unsuccessful iterations using one approach, change approach or ask the user.
 - Stop for ambiguous scope, repository or branch mismatch, missing credentials, permission failure, unexpected concurrent changes, unsafe/destructive consequences, or inability to validate.

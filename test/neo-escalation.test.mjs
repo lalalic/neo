@@ -6,6 +6,26 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { buildEscalationPrompt, codexArgs, parseEscalationArgs, runEscalation } from '../.bin/neo.mjs';
 
+test('defaults user notification instruction to WeChat File Helper with iMessage fallback', () => {
+  const parsed = parseEscalationArgs([
+    '--intent', 'finish release',
+    '--blocked-on', 'MFA required'
+  ]);
+  assert.match(parsed.onNeedsUser, /wechat-bro/i);
+  assert.match(parsed.onNeedsUser, /File Helper/);
+  assert.match(parsed.onNeedsUser, /iMessage/);
+  assert.match(parsed.onNeedsUser, /user themself/);
+});
+
+test('caller-provided user notification instruction overrides the default', () => {
+  const parsed = parseEscalationArgs([
+    '--intent', 'finish release',
+    '--blocked-on', 'MFA required',
+    '--on-needs-user', 'Use Discord channel #ops.'
+  ]);
+  assert.equal(parsed.onNeedsUser, 'Use Discord channel #ops.');
+});
+
 test('parseEscalationArgs accepts optional user notification instruction', () => {
   const parsed = parseEscalationArgs([
     '--intent', 'publish extension',
