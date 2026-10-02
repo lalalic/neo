@@ -1,5 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, symlinkSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 import { buildEscalationPrompt, codexArgs, parseEscalationArgs, runEscalation } from '../.bin/neo.mjs';
 
 test('parseEscalationArgs accepts optional user notification instruction', () => {
@@ -58,4 +62,13 @@ test('needs_user requires a concrete human action', () => {
       return { status: 0, stdout: JSON.stringify({ status: 'needs_user', summary: 'MFA remains' }), stderr: '' };
     }
   }), /requires user_action/);
+});
+
+
+test('CLI executes when invoked through an npm-style symlink', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'neo-cli-symlink-'));
+  const link = join(dir, 'neo');
+  symlinkSync(resolve('.bin/neo.mjs'), link);
+  const output = execFileSync(link, ['escalation', '--help'], { encoding: 'utf8' });
+  assert.match(output, /neo escalation --intent TEXT --blocked-on TEXT/);
 });
