@@ -1,1 +1,0 @@
-../../../../browser-platforms/platforms/youtube/browser-harness/_post_bh.py

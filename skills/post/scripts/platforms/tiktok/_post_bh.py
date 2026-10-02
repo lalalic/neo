@@ -1,1 +1,0 @@
-../../../../browser-platforms/platforms/tiktok/browser-harness/_post_bh.py

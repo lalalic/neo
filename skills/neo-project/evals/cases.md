@@ -11,8 +11,8 @@ Input: One episode requires an independently resumable human approval after the 
 Expected: approval/recovery work may be a child Task under the episode Task; do not create a second top-level episode sibling.
 
 ## 3. Shared browser publishing already exists
-Input: Project needs WeChat Channels posting and `post` skill already supports it.
-Expected: reference shared `post` capability; do not add a project-local browser publisher.
+Input: Project needs WeChat Channels posting and shared `post-agent` already supports it through Browser Workspace.
+Expected: reference shared `post-agent`; do not add a project-local browser publisher.
 
 ## 4. Project-specific editorial behavior
 Input: Vlog needs a role that selects a human story from phone media using Vlog-specific rules.

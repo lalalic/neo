@@ -33,7 +33,7 @@ Markcut decides **how the video tells it**.
 8. Apply Markcut's review contract to the actual viewer experience and revise
    authoring problems before treating the highlight as ready.
 9. Render only when the requested workflow reaches that stage. Publish through
-   Neo's `post` skill only after explicit user authorization.
+   the shared `post-agent` only after explicit user authorization.
 
 ## Source and privacy contract
 

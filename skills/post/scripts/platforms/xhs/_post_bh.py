@@ -1,1 +1,0 @@
-../../../../browser-platforms/platforms/xhs/browser-harness/_post_bh.py

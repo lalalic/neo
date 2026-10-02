@@ -184,7 +184,7 @@ Final render requires both Video Director and Market Agent review to pass. Obser
 
 ## Publication
 
-Publication platform and authorization belong to the active Agents Relay Job/Task. Vlog uses the shared `post` / `post-agent` capability and persists platform-side receipt/status. The project itself does not hard-code a platform.
+Publication platform and authorization belong to the active Agents Relay Job/Task. Vlog uses the shared `post-agent` and persists platform-side receipt/status. The project itself does not hard-code a platform.
 
 See `AGENTS.md` for the enforceable Planner/execution contract.
 
