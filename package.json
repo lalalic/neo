@@ -6,7 +6,11 @@
   "author": "",
   "type": "commonjs",
   "main": "index.js",
+  "bin": {
+    "neo": ".bin/neo.mjs"
+  },
   "scripts": {
+    "test": "node --test test/*.test.mjs",
     "push": "GIT_SSH_COMMAND=\"ssh -i ~/.ssh/id_ed25519_1 -o IdentitiesOnly=yes\" git push"
   }
 }
