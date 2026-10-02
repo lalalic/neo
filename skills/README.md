@@ -10,9 +10,6 @@ are deployment and distribution targets, not source of truth.
   through GitHub pull requests.
 - codex-handoff — deprecated Drive handoff protocol retained temporarily for
   migration only.
-- chatgpt-browser-worker — durable ChatGPT web-thread lifecycle contract on top
-  of browser-harness, with verified Project binding and explicit thinking-level
-  semantics.
 - video-director — Markcut-backed product-demo story and semantic shot intent;
   it deliberately excludes UI automation details.
 - execution-director — stable semantic executable shot contracts for Demo Agent,
