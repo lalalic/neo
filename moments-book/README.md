@@ -19,6 +19,8 @@ phone-harness -> own WeChat Moments -> normalized manifest
 
 The normalized manifest is the single source of truth for both outputs.
 
+The required baseline media path is documented in docs/baseline-media-extraction.md. It treats iPhone Mirroring captures as display-derived evidence and never as original media or metadata.
+
 ## First validation
 
 The first real end-to-end validation uses the project owner's own account and
@@ -51,6 +53,37 @@ runs/<YYYY-MM-DD[-slug]>/
 ```
 
 Everything under `runs/` is private runtime state and is ignored by Git.
+
+## Renderers
+
+After a run has a valid `manifest.json`, render both outputs from that one
+canonical input:
+
+```sh
+python3 -m moments_book.renderers runs/<date-slug>/manifest.json runs/<date-slug>/rendered
+```
+
+This writes `book.md`, `video.md`, `verification.json`, and local copies of the
+selected media under `assets/`. Matched original media is preferred; otherwise
+the renderer uses the phone-harness capture referenced by `wechatEvidence`.
+Media metadata, GPS, and the chosen provenance remain explicit in the manifest
+and book. Markcut maps are emitted only for `gps.status=observed`.
+
+Run the authoritative Markcut parser after rendering:
+
+```sh
+npm exec --yes --package=@lalalic/markcut -- markcut verify runs/<date-slug>/rendered/video.md
+```
+
+Then visually review the rendered video before treating the run as complete.
+
+## Real-post extractor
+
+The production extractor uses **one WeChat post = one manifest Moment**. It
+segments album viewports using the visible date rail, de-duplicates revisited
+posts, checkpoints after every accepted post, opens ordered media for the best
+available iPhone-Mirroring capture, handles `加载更多`, and resumes after phone
+disconnects. See `docs/real-moment-extraction.md`.
 
 ## Dependencies
 
