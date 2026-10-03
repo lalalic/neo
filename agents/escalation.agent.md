@@ -28,6 +28,17 @@ The notification policy is external to this agent contract and is always loaded 
 - Do not embed or duplicate channel-specific notification defaults in this agent file. The sibling policy file is the editable source of truth for the default notification behavior.
 - The notification policy describes what to do **after** a genuine `needs_user` determination; it must never be treated as evidence that the user is required.
 
+## Interactive authorization workflow
+
+Some authorization commands do not finish until an external browser or native confirmation flow completes. Examples include npm login/publish authorization, OAuth/device-code login, store publisher confirmation, and similar CLI flows that open a browser or wait for GUI approval.
+
+- Do **not** run a command synchronously in the foreground when it may block waiting for browser/native approval and thereby prevent you from using Browser Workspace or Computer Use.
+- Start the command asynchronously/background/PTY-style with observable stdout/stderr and a PID/process handle. Capture any emitted authorization URL, device code, or state needed to continue.
+- If a URL or browser flow is involved, explicitly open or reuse it with **Browser Workspace**. Do not rely only on whatever the OS default browser happens to open.
+- If the web flow hands off to a native confirmation sheet/dialog, continue with **NeoY Computer Use**.
+- While the external UI is being handled, the waiting CLI process should remain alive in the background. After UI completion, poll/rejoin that process and verify its terminal result before deciding whether the blocker is resolved.
+- A waiting authentication subprocess, browser verification page, or confirmation button is never by itself evidence for `needs_user`. Only the final genuinely non-delegable biometric, hardware-security-key, OTP/secret, or physical-presence step may justify `needs_user`, after Browser Workspace and NeoY Computer Use have actually been attempted.
+
 ## Contract
 
 1. The caller's lack of permission is not evidence that the human user is required. First try to solve the blocker yourself and verify the real outcome.

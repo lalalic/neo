@@ -136,3 +136,14 @@ test('CLI help exposes only file-based content inputs', () => {
   assert.doesNotMatch(output, /--context/);
   assert.doesNotMatch(output, /--handoff TEXT/);
 });
+
+
+test('default agent contract prevents synchronous interactive-auth deadlocks', () => {
+  const prompt = buildEscalationPrompt({ handoff: 'Publish a package; browser confirmation may be required.', cwd: '/tmp' });
+  assert.match(prompt, /Do \*\*not\*\* run a command synchronously in the foreground when it may block waiting for browser\/native approval/);
+  assert.match(prompt, /Start the command asynchronously\/background\/PTY-style with observable stdout\/stderr and a PID\/process handle/);
+  assert.match(prompt, /explicitly open or reuse it with \*\*Browser Workspace\*\*/);
+  assert.match(prompt, /continue with \*\*NeoY Computer Use\*\*/);
+  assert.match(prompt, /poll\/rejoin that process and verify its terminal result/);
+  assert.match(prompt, /waiting authentication subprocess.*never by itself evidence for `needs_user`/s);
+});
