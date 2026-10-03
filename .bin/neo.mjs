@@ -21,15 +21,13 @@ const DEFAULT_ON_NEEDS_USER = `If this escalation genuinely requires the human u
 
 function usage() {
   return `Usage:
-  neo escalation --intent TEXT --blocked-on TEXT [options]
+  neo escalation --handoff-file PATH [options]
 
 Options:
-  --intent TEXT | --intent-file PATH
-  --blocked-on TEXT | --blocked-on-file PATH
-  --context TEXT | --context-file PATH
-  --on-needs-user TEXT | --on-needs-user-file PATH
-  --cwd PATH                    Working directory for local Codex (default: current directory)
-  --codex-command PATH          Override Codex executable (default: codex)
+  --handoff-file PATH            Required handoff file containing the full escalation request
+  --on-needs-user-file PATH      Optional notification-policy override file
+  --cwd PATH                     Working directory for local Codex (default: current directory)
+  --codex-command PATH           Override Codex executable (default: codex)
 `;
 }
 
@@ -41,26 +39,27 @@ function valueFor(args, name) {
   return value;
 }
 
-function textOption(args, inlineName, fileName) {
-  const inline = valueFor(args, inlineName);
-  const file = valueFor(args, fileName);
-  if (inline && file) throw new Error(`${inlineName} and ${fileName} are mutually exclusive`);
-  if (file) return file === '-' ? readFileSync(0, 'utf8') : readFileSync(file, 'utf8');
-  return inline;
+function fileOption(args, name) {
+  const file = valueFor(args, name);
+  if (file === undefined) return undefined;
+  if (file === '-') throw new Error(`${name} requires a file path; stdin is not supported`);
+  return readFileSync(file, 'utf8');
 }
 
 export function parseEscalationArgs(args) {
+  const allowed = new Set(['--handoff-file', '--on-needs-user-file', '--cwd', '--codex-command']);
+  for (let index = 0; index < args.length; index += 2) {
+    const name = args[index];
+    if (!allowed.has(name)) throw new Error(`unknown escalation option: ${name}`);
+  }
   const request = {
-    intent: textOption(args, '--intent', '--intent-file'),
-    blockedOn: textOption(args, '--blocked-on', '--blocked-on-file'),
-    context: textOption(args, '--context', '--context-file'),
-    onNeedsUser: textOption(args, '--on-needs-user', '--on-needs-user-file'),
+    handoff: fileOption(args, '--handoff-file'),
+    onNeedsUser: fileOption(args, '--on-needs-user-file'),
     cwd: valueFor(args, '--cwd') ?? process.cwd(),
     codexCommand: valueFor(args, '--codex-command') ?? 'codex'
   };
   if (request.onNeedsUser === undefined) request.onNeedsUser = DEFAULT_ON_NEEDS_USER;
-  if (!request.intent) throw new Error('escalation requires --intent or --intent-file');
-  if (!request.blockedOn) throw new Error('escalation requires --blocked-on or --blocked-on-file');
+  if (!request.handoff || !request.handoff.trim()) throw new Error('escalation requires --handoff-file PATH');
   return request;
 }
 
@@ -70,9 +69,7 @@ export function buildEscalationPrompt(request, agentContract = readFileSync(AGEN
 # Escalation request
 
 ${JSON.stringify({
-    intent: request.intent,
-    blocked_on: request.blockedOn,
-    context: request.context ?? null,
+    handoff: request.handoff,
     on_needs_user: request.onNeedsUser ?? null
   }, null, 2)}
 `;

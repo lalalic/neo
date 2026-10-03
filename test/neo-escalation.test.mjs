@@ -1,45 +1,60 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, symlinkSync } from 'node:fs';
+import { mkdtempSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { buildEscalationPrompt, codexArgs, parseEscalationArgs, runEscalation } from '../.bin/neo.mjs';
 
-test('defaults user notification instruction to WeChat File Helper with iMessage fallback', () => {
-  const parsed = parseEscalationArgs([
-    '--intent', 'finish release',
-    '--blocked-on', 'MFA required'
-  ]);
+function tempFile(name, content) {
+  const dir = mkdtempSync(join(tmpdir(), 'neo-escalation-'));
+  const path = join(dir, name);
+  writeFileSync(path, content);
+  return path;
+}
+
+test('reads one required free-form handoff file and applies default notification policy', () => {
+  const handoff = tempFile('handoff.md', '# Goal\nFinish the release.\n\nCurrent state: publishing is blocked.');
+  const parsed = parseEscalationArgs(['--handoff-file', handoff]);
+  assert.match(parsed.handoff, /Finish the release/);
   assert.match(parsed.onNeedsUser, /wechat-bro/i);
   assert.match(parsed.onNeedsUser, /File Helper/);
   assert.match(parsed.onNeedsUser, /iMessage/);
-  assert.match(parsed.onNeedsUser, /user themself/);
   assert.match(parsed.onNeedsUser, /phone-readable/);
-  assert.match(parsed.onNeedsUser, /ASCII status block/);
 });
 
-test('caller-provided user notification instruction overrides the default', () => {
-  const parsed = parseEscalationArgs([
-    '--intent', 'finish release',
-    '--blocked-on', 'MFA required',
-    '--on-needs-user', 'Use Discord channel #ops.'
-  ]);
+test('notification policy override is file-only', () => {
+  const handoff = tempFile('handoff.md', 'Complete the authorization flow.');
+  const notify = tempFile('notify.md', 'Use Discord channel #ops.');
+  const parsed = parseEscalationArgs(['--handoff-file', handoff, '--on-needs-user-file', notify]);
   assert.equal(parsed.onNeedsUser, 'Use Discord channel #ops.');
 });
 
-test('parseEscalationArgs accepts optional user notification instruction', () => {
-  const parsed = parseEscalationArgs([
-    '--intent', 'publish extension',
-    '--blocked-on', 'identity verification',
-    '--context', 'publisher tab is already open',
-    '--on-needs-user', 'Use wechat-bro to notify File Helper and verify delivery.',
-    '--cwd', '/tmp/example'
-  ]);
-  assert.equal(parsed.intent, 'publish extension');
-  assert.equal(parsed.blockedOn, 'identity verification');
-  assert.match(parsed.onNeedsUser, /wechat-bro/);
-  assert.equal(parsed.cwd, '/tmp/example');
+test('rejects stdin and inline or legacy task-content options', () => {
+  assert.throws(() => parseEscalationArgs(['--handoff-file', '-']), /requires a file path/);
+  for (const option of ['--handoff', '--intent', '--intent-file', '--blocked-on', '--blocked-on-file', '--context', '--context-file', '--on-needs-user']) {
+    assert.throws(() => parseEscalationArgs([option, 'x']), /use --handoff-file PATH/);
+  }
+});
+
+test('requires a non-empty handoff file', () => {
+  const empty = tempFile('handoff.md', '   \n');
+  assert.throws(() => parseEscalationArgs([]), /requires --handoff-file PATH/);
+  assert.throws(() => parseEscalationArgs(['--handoff-file', empty]), /requires --handoff-file PATH/);
+});
+
+test('prompt carries one handoff payload plus notification policy', () => {
+  const prompt = buildEscalationPrompt({
+    handoff: 'Finish the release. Current blocker is a verification prompt. Completion means registry is updated.',
+    onNeedsUser: 'Send iMessage to the user with the exact action.'
+  }, 'First solve the blocker. Only use needs_user for genuinely non-delegable actions.');
+  assert.match(prompt, /First solve the blocker/);
+  assert.match(prompt, /Finish the release/);
+  assert.match(prompt, /"handoff"/);
+  assert.match(prompt, /"on_needs_user"/);
+  assert.doesNotMatch(prompt, /"intent"/);
+  assert.doesNotMatch(prompt, /"blocked_on"/);
+  assert.doesNotMatch(prompt, /"context"/);
 });
 
 test('Codex invocation uses elevated local execution permissions at the top level', () => {
@@ -50,28 +65,15 @@ test('Codex invocation uses elevated local execution permissions at the top leve
   assert.deepEqual(args.slice(-3), ['-C', '/tmp/example', '-']);
 });
 
-
 test('Codex invocation accepts an explicit NeoY MCP URL override', () => {
   const args = codexArgs({ cwd: '/tmp/example', neoyMcpUrl: 'http://127.0.0.1:9999/mcp' });
   assert.deepEqual(args.slice(0, 2), ['-c', 'mcp_servers.neoy.url=\"http://127.0.0.1:9999/mcp\"']);
 });
 
-test('prompt requires self-resolution before needs_user and carries fallback verbatim', () => {
-  const prompt = buildEscalationPrompt({
-    intent: 'finish release',
-    blockedOn: 'verification prompt',
-    context: 'authenticated browser exists',
-    onNeedsUser: 'Send iMessage to the user with the exact action.'
-  }, 'First solve the blocker. Only use needs_user for genuinely non-delegable actions.');
-  assert.match(prompt, /First solve the blocker/);
-  assert.match(prompt, /Send iMessage to the user with the exact action/);
-  assert.match(prompt, /on_needs_user/);
-});
-
 test('runEscalation parses resolved structured output', () => {
   let observed;
   const result = runEscalation({
-    intent: 'push branch', blockedOn: 'caller permission denied', cwd: '/tmp', codexCommand: 'codex'
+    handoff: 'Push the branch after resolving the caller permission issue.', cwd: '/tmp', codexCommand: 'codex'
   }, {
     agentContract: 'Resolve it and return JSON.',
     spawnSyncImpl(command, args, options) {
@@ -80,12 +82,12 @@ test('runEscalation parses resolved structured output', () => {
     }
   });
   assert.equal(observed.command, 'codex');
-  assert.match(observed.options.input, /push branch/);
+  assert.match(observed.options.input, /Push the branch/);
   assert.equal(result.status, 'resolved');
 });
 
 test('needs_user requires a concrete human action', () => {
-  assert.throws(() => runEscalation({ intent: 'x', blockedOn: 'y', cwd: '/tmp' }, {
+  assert.throws(() => runEscalation({ handoff: 'Complete the flow.', cwd: '/tmp' }, {
     agentContract: 'Return JSON.',
     spawnSyncImpl() {
       return { status: 0, stdout: JSON.stringify({ status: 'needs_user', summary: 'MFA remains' }), stderr: '' };
@@ -93,14 +95,8 @@ test('needs_user requires a concrete human action', () => {
   }), /requires user_action/);
 });
 
-
-
 test('default agent contract makes Computer Use and Browser Workspace primary before needs_user', () => {
-  const prompt = buildEscalationPrompt({
-    intent: 'enable a permission',
-    blockedOn: 'System Settings toggle is off',
-    cwd: '/tmp'
-  });
+  const prompt = buildEscalationPrompt({ handoff: 'Enable the System Settings permission and verify it.', cwd: '/tmp' });
   assert.match(prompt, /primary tools are \*\*Computer Use\*\* and \*\*Browser Workspace\*\*/);
   assert.match(prompt, /must attempt it yourself with Computer Use or Browser Workspace before considering `needs_user`/);
   assert.match(prompt, /permission toggle, unlock button, browser authorization screen, or settings page is not by itself proof/);
@@ -108,19 +104,20 @@ test('default agent contract makes Computer Use and Browser Workspace primary be
 });
 
 test('default agent contract requires mobile-friendly user notifications', () => {
-  const prompt = buildEscalationPrompt({
-    intent: 'complete authorization',
-    blockedOn: 'human-only OTP remains',
-    cwd: '/tmp'
-  });
+  const prompt = buildEscalationPrompt({ handoff: 'Complete authorization; only a human-only OTP may remain.', cwd: '/tmp' });
   assert.match(prompt, /concise and phone-readable/);
   assert.match(prompt, /short bullet list or a small ASCII status block/);
 });
 
-test('CLI executes when invoked through an npm-style symlink', () => {
+test('CLI help exposes only file-based content inputs', () => {
   const dir = mkdtempSync(join(tmpdir(), 'neo-cli-symlink-'));
   const link = join(dir, 'neo');
   symlinkSync(resolve('.bin/neo.mjs'), link);
   const output = execFileSync(link, ['escalation', '--help'], { encoding: 'utf8' });
-  assert.match(output, /neo escalation --intent TEXT --blocked-on TEXT/);
+  assert.match(output, /neo escalation --handoff-file PATH/);
+  assert.match(output, /--on-needs-user-file PATH/);
+  assert.doesNotMatch(output, /--intent/);
+  assert.doesNotMatch(output, /--blocked-on/);
+  assert.doesNotMatch(output, /--context/);
+  assert.doesNotMatch(output, /--handoff TEXT/);
 });
