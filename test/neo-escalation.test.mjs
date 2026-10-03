@@ -44,9 +44,16 @@ test('parseEscalationArgs accepts optional user notification instruction', () =>
 
 test('Codex invocation uses elevated local execution permissions at the top level', () => {
   const args = codexArgs({ cwd: '/tmp/example' });
-  assert.deepEqual(args.slice(0, 5), ['--sandbox', 'danger-full-access', '--ask-for-approval', 'never', 'exec']);
+  assert.deepEqual(args.slice(0, 2), ['-c', 'mcp_servers.neoy.url=\"http://127.0.0.1:6767/mcp\"']);
+  assert.deepEqual(args.slice(2, 7), ['--sandbox', 'danger-full-access', '--ask-for-approval', 'never', 'exec']);
   assert.ok(args.includes('--output-schema'));
   assert.deepEqual(args.slice(-3), ['-C', '/tmp/example', '-']);
+});
+
+
+test('Codex invocation accepts an explicit NeoY MCP URL override', () => {
+  const args = codexArgs({ cwd: '/tmp/example', neoyMcpUrl: 'http://127.0.0.1:9999/mcp' });
+  assert.deepEqual(args.slice(0, 2), ['-c', 'mcp_servers.neoy.url=\"http://127.0.0.1:9999/mcp\"']);
 });
 
 test('prompt requires self-resolution before needs_user and carries fallback verbatim', () => {
