@@ -4,7 +4,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { buildEscalationPrompt, codexArgs, parseEscalationArgs, runEscalation } from '../.bin/neo.mjs';
+import { buildEscalationPrompt, codexArgs, parseEscalationArgs, readRequiredTextFile, runEscalation } from '../.bin/neo.mjs';
 
 function tempFile(name, content) {
   const dir = mkdtempSync(join(tmpdir(), 'neo-escalation-'));
@@ -13,7 +13,7 @@ function tempFile(name, content) {
   return path;
 }
 
-test('reads one required free-form handoff file and applies default notification policy', () => {
+test('reads one required free-form handoff file and applies default notification policy file', () => {
   const handoff = tempFile('handoff.md', '# Goal\nFinish the release.\n\nCurrent state: publishing is blocked.');
   const parsed = parseEscalationArgs(['--handoff-file', handoff]);
   assert.match(parsed.handoff, /Finish the release/);
@@ -23,11 +23,26 @@ test('reads one required free-form handoff file and applies default notification
   assert.match(parsed.onNeedsUser, /phone-readable/);
 });
 
+test('default notification policy is loaded from the editable agent-side file', () => {
+  const handoff = tempFile('handoff.md', 'Complete the authorization flow.');
+  const customDefault = tempFile('default-notify.md', 'Default policy from file.');
+  const parsed = parseEscalationArgs(['--handoff-file', handoff], { defaultNeedsUserPath: customDefault });
+  assert.equal(parsed.onNeedsUser, 'Default policy from file.');
+});
+
 test('notification policy override is file-only', () => {
   const handoff = tempFile('handoff.md', 'Complete the authorization flow.');
   const notify = tempFile('notify.md', 'Use Discord channel #ops.');
   const parsed = parseEscalationArgs(['--handoff-file', handoff, '--on-needs-user-file', notify]);
   assert.equal(parsed.onNeedsUser, 'Use Discord channel #ops.');
+});
+
+test('missing or empty selected notification policy fails clearly', () => {
+  const handoff = tempFile('handoff.md', 'Complete the authorization flow.');
+  const empty = tempFile('notify.md', '   \n');
+  assert.throws(() => parseEscalationArgs(['--handoff-file', handoff], { defaultNeedsUserPath: '/tmp/definitely-missing-needs-user-policy.md' }), /default needs-user policy could not be read/);
+  assert.throws(() => parseEscalationArgs(['--handoff-file', handoff, '--on-needs-user-file', empty]), /--on-needs-user-file is empty/);
+  assert.throws(() => readRequiredTextFile(empty, 'test policy'), /test policy is empty/);
 });
 
 test('rejects stdin and inline or legacy task-content options', () => {
@@ -40,7 +55,7 @@ test('rejects stdin and inline or legacy task-content options', () => {
 test('requires a non-empty handoff file', () => {
   const empty = tempFile('handoff.md', '   \n');
   assert.throws(() => parseEscalationArgs([]), /requires --handoff-file PATH/);
-  assert.throws(() => parseEscalationArgs(['--handoff-file', empty]), /requires --handoff-file PATH/);
+  assert.throws(() => parseEscalationArgs(['--handoff-file', empty]), /--handoff-file is empty/);
 });
 
 test('prompt carries one handoff payload plus notification policy', () => {
