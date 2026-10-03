@@ -118,6 +118,15 @@ test('default agent contract makes Computer Use and Browser Workspace primary be
   assert.match(prompt, /unknown password\/secret, OTP\/MFA, biometric check/);
 });
 
+test('default agent contract requires concrete NeoY Computer Use evidence before giving up native UI', () => {
+  const prompt = buildEscalationPrompt({ handoff: 'Open a browser publisher console and handle any verification surface.', cwd: '/tmp' });
+  assert.match(prompt, /Computer Use evidence gate/);
+  assert.match(prompt, /computer\.list_apps/);
+  assert.match(prompt, /computer\.get_app_state/);
+  assert.match(prompt, /Google Chrome/);
+  assert.match(prompt, /failed built-in CUA call does not satisfy this gate/i);
+});
+
 test('default agent contract requires mobile-friendly user notifications', () => {
   const prompt = buildEscalationPrompt({ handoff: 'Complete authorization; only a human-only OTP may remain.', cwd: '/tmp' });
   assert.match(prompt, /concise and phone-readable/);
