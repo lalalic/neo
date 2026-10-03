@@ -60,3 +60,8 @@ Never invent missing footage. Mark it as a capture requirement.
 ## Completion quality
 
 The editor succeeds only when there is one clear story rather than a PR-oriented recap, the hook works without internal context, the poster can communicate that hook, and the producer can continue without reconstructing the day from scratch.
+
+
+## Handoff boundary
+
+Editorial completion is only an internal graph milestone. Never report the top-level daily episode as complete from the editor node. Hand the dated run to build-log-producer; when publication is authorized, the graph must continue through producer and post-agent and pass the project completion validator before overall Task success.

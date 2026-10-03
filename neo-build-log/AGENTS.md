@@ -230,3 +230,14 @@ Publication target and authorization belong to the autonomous Job or specific Ta
 - 2026-09-26: Build-Log-specific roles must be real discoverable project agents; reusable execution remains in shared skills.
 - 2026-09-27: One episode has exactly one top-level durable Task; exceptional durable work may exist only beneath it.
 - 2026-09-27: Final render requires Video Director + Market Agent review. Hook, poster, approved voice, BGM, rich visuals, motion/transitions/effects, and story-first framing are required.
+
+
+## Mechanical episode-completion gate
+
+For an authorized daily Build Log run, the top-level episode Task MUST NOT become SUCCEEDED merely because editorial/storyboard work completed or blockers were documented.
+
+Before reporting episode success, run the project validator with the dated run and require publication. A non-zero result means the episode remains incomplete. Preserve the concrete blocker and recovery evidence; do not convert it to success.
+
+The validator requires both pre-render reviews, a final MP4, and a Xiaohongshu publication receipt in addition to the normal episode artifacts.
+
+Planner must treat missing validator acceptance as objective_status=in_progress, never satisfied.
