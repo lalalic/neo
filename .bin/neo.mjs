@@ -9,15 +9,9 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '..');
 const AGENT_PATH = resolve(ROOT, 'agents/escalation.agent.md');
 const SCHEMA_PATH = resolve(ROOT, 'agents/escalation-result.schema.json');
+const DEFAULT_NEEDS_USER_PATH = resolve(ROOT, 'agents/escalation-needs-user.md');
 const DEFAULT_NEOY_MCP_URL = process.env.NEOY_MCP_URL ?? 'http://127.0.0.1:6767/mcp';
 
-const DEFAULT_ON_NEEDS_USER = `If this escalation genuinely requires the human user:
-
-1. Prefer using wechat-bro to send the notification to File Helper.
-2. If WeChat-bro or File Helper is unavailable or delivery fails, use iMessage to send the message to the user themself.
-3. Keep the message concise and phone-readable. Use a short bullet list or a small ASCII status block, not a paragraph.
-4. Include only the blocked item, the single exact user action required, and how completion will be detected.
-5. Verify delivery when possible.`;
 
 function usage() {
   return `Usage:
@@ -39,26 +33,36 @@ function valueFor(args, name) {
   return value;
 }
 
+export function readRequiredTextFile(path, label = 'file') {
+  let content;
+  try {
+    content = readFileSync(path, 'utf8');
+  } catch (error) {
+    throw new Error(`${label} could not be read: ${path}: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  if (!content.trim()) throw new Error(`${label} is empty: ${path}`);
+  return content;
+}
+
 function fileOption(args, name) {
   const file = valueFor(args, name);
   if (file === undefined) return undefined;
   if (file === '-') throw new Error(`${name} requires a file path; stdin is not supported`);
-  return readFileSync(file, 'utf8');
+  return readRequiredTextFile(file, name);
 }
 
-export function parseEscalationArgs(args) {
+export function parseEscalationArgs(args, options = {}) {
   const allowed = new Set(['--handoff-file', '--on-needs-user-file', '--cwd', '--codex-command']);
   for (let index = 0; index < args.length; index += 2) {
     const name = args[index];
-    if (!allowed.has(name)) throw new Error(`unknown escalation option: ${name}`);
+    if (!allowed.has(name)) throw new Error(`unknown escalation option: ${name}; use --handoff-file PATH`);
   }
   const request = {
     handoff: fileOption(args, '--handoff-file'),
-    onNeedsUser: fileOption(args, '--on-needs-user-file'),
+    onNeedsUser: fileOption(args, '--on-needs-user-file') ?? readRequiredTextFile(options.defaultNeedsUserPath ?? DEFAULT_NEEDS_USER_PATH, 'default needs-user policy'),
     cwd: valueFor(args, '--cwd') ?? process.cwd(),
     codexCommand: valueFor(args, '--codex-command') ?? 'codex'
   };
-  if (request.onNeedsUser === undefined) request.onNeedsUser = DEFAULT_ON_NEEDS_USER;
   if (!request.handoff || !request.handoff.trim()) throw new Error('escalation requires --handoff-file PATH');
   return request;
 }
