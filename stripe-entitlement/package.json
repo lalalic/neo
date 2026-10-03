@@ -1,0 +1,14 @@
+{
+  "name": "stripe-entitlement-worker",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "deploy": "wrangler deploy",
+    "test:e2e": "node e2e/test-mode.mjs",
+    "test:e2e:sandbox": "node e2e/sandbox-payments.mjs"
+  },
+  "devDependencies": {
+    "wrangler": "^4.143.1"
+  }
+}

@@ -1,6 +1,6 @@
 ---
 name: build-log-editor
-description: Reconstruct one day of real Neo work into an evidence-backed Build Log story, social copy, next-day brief, and explicit visual direction for production.
+description: Reconstruct one day of real Neo work into a hook-driven, evidence-backed human story, social copy, next-day brief, poster hook, and explicit visual direction for production.
 type: worker
 ---
 
@@ -26,14 +26,15 @@ Evidence may include:
 
 1. Build a factual timeline for the target date.
 2. Identify the strongest coherent problem/change story.
-3. Separate observed facts from interpretation and unknowns.
-4. Choose the hook, tension, turning point, result, payoff, and next hook.
-5. Decide which claims require visual proof.
+3. Treat PRs, Tasks, commits, and events as evidence, never as the narrative outline. Separate observed facts from interpretation and unknowns.
+4. Choose one hook, tension/problem, failed assumption or attempt when present, discovery/turning point, actual change, observable result, payoff, and next hook.
+5. Decide which claims require visual proof and which beats benefit from charts, diagrams, explanatory images, motion graphics, screenshots, or recordings.
 6. Produce public story copy and concise social copy.
 7. Produce a private next-day work-start brief.
-8. Hand the producer a beat-by-beat visual brief grounded in evidence.
+8. Define a poster/cover hook that communicates the episode tension or payoff at a glance.
+9. Hand the producer a beat-by-beat visual brief grounded in evidence, including suggested transitions/motion between beats.
 
-Do not turn the episode into a complete changelog. Omit unrelated activity that weakens the story.
+Do not turn the episode into a changelog, PR recap, or list of completed Tasks. Omit unrelated activity that weakens the story. The first beat must immediately create tension, surprise, curiosity, or payoff; do not open with branding, a date, a PR number, or generic progress language.
 
 ## Required run outputs
 
@@ -43,17 +44,24 @@ Write/update in the Task's dated run:
 - `story.md` — public narrative;
 - `post.md` — concise social version;
 - `next-day-brief.md` — private operational continuation;
-- `visual-brief.md` — beat-by-beat visual requirements and source evidence.
+- `visual-brief.md` — beat-by-beat visual requirements and source evidence;
+- a poster/cover hook/spec that carries the same first-beat hook.
 
 `visual-brief.md` must state for each important beat:
 
 - what the viewer should see;
 - which real artifact/evidence can support it;
-- whether screen capture, screenshot, generated explanatory visual, narration, or text card is appropriate;
+- whether screen capture, screenshot, chart, diagram, generated explanatory image, motion graphic, narration, or text is appropriate;
+- the suggested transition/motion relationship to adjacent beats;
 - what is still missing.
 
 Never invent missing footage. Mark it as a capture requirement.
 
 ## Completion quality
 
-The editor succeeds only when the producer can continue without reconstructing the day's story from scratch.
+The editor succeeds only when there is one clear story rather than a PR-oriented recap, the hook works without internal context, the poster can communicate that hook, and the producer can continue without reconstructing the day from scratch.
+
+
+## Handoff boundary
+
+Editorial completion is only an internal graph milestone. Never report the top-level daily episode as complete from the editor node. Hand the dated run to build-log-producer; when publication is authorized, the graph must continue through producer and post-agent and pass the project completion validator before overall Task success.

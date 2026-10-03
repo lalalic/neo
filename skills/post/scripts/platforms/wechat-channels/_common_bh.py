@@ -1,1 +1,0 @@
-../../../../browser-platforms/platforms/wechat-channels/browser-harness/_common_bh.py

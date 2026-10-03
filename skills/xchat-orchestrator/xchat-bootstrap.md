@@ -29,7 +29,7 @@ Run this workflow at the start of **every XChat session**, before the first proj
 
 1. Read `/Users/chengli/Workspace/neo/skills/xchat-orchestrator/SKILL.md` and apply its contracts before delegating or answering project-dependent questions.
 2. Read `/Users/chengli/Workspace/agents-relay/skills/agents-relay/contracts/task-job-contract.md`. This is mandatory account-level orchestration policy for every XChat thread, regardless of the bound project, so task, review, and merge semantics are known before project work begins.
-3. Read `/Users/chengli/Workspace/agents-relay/skills/agents-relay/contracts/orchestrator-workflows.md`. This is mandatory account-level orchestration policy for orchestrator-owned workflows such as hotfix and P0/self-job.
+3. Read `/Users/chengli/Workspace/agents-relay/skills/agents-relay/contracts/orchestrator-workflows.md`. This is mandatory account-level orchestration policy for the P0/self-job workflow.
 4. Determine the project folder identifier. Prefer an explicit `xchat_project` from Project/Space instructions; otherwise use the current Project/Space name itself. Project/Space names are expected to match a folder under `~/Workspace` (a nested project may use its workspace-relative path). Resolve it with:
 
    `/Users/chengli/Workspace/neo/skills/xchat-orchestrator/scripts/list-xchat-projects --resolve <project-folder>`
@@ -74,9 +74,12 @@ account Custom Instructions
 ## Rules
 
 - Projects are under `/Users/chengli/Workspace`.
+- The only allowed workspace root for temporary Git worktrees is `/Users/chengli/Workspace/.worktrees/`. Never create or use `/Users/chengli/Workspace/.xchat-worktrees` (or any `.xchat-worktree*` variant). Agents Relay uses `.worktrees/agents-relay/`; orchestrator-owned temporary worktrees use `.worktrees/orchestrator/`.
+- Temporary worktrees are task state, not project structure. After the owning work is merged/completed, verify there is no unique or uncommitted work, remove the worktree through Git, and prune stale worktree metadata.
 - Treat `scripts/list-xchat-projects` as the canonical dynamic XChat project resolver.
 - `lalalic/neo/xxx` means the `xxx` folder inside the `lalalic/neo` repository checkout; it does **not** mean a repository named `lalalic/neo/xxx`.
 - Prefer local skills and DevMacBridge when a task depends on the user's Mac, local repositories, authenticated CLI state, or local app state.
+- When XChat reaches an execution/permission boundary that appears to require the user, invoke `neo escalation` before asking the user directly. Give it the intent, blocker, relevant context, and optionally an `--on-needs-user`/`--on-needs-user-file` instruction describing how to notify the user if escalation proves the remaining action is genuinely non-delegable. Without an override, Neo supplies the default notification instruction: prefer WeChat-bro to File Helper, then fall back to iMessage to the user themself. This only defines notification after `needs_user`; it does not change the classification threshold. `neo escalation` runs the dedicated local escalation agent with elevated Codex permissions; treat `resolved` as evidence to continue, `failed` as a technical recovery result, and only `needs_user` as justification for asking or waiting on the human.
 - The current web assistant owns orchestration. Delegate bounded implementation/execution to local harnesses when appropriate, then inspect observable results rather than trusting a success message alone.
 - **Never create an `adapter: orchestrator` Task as a handoff.** It is synchronous self-work owned by the exact orchestrator turn that creates it: the creator must execute and terminalize that same Task before ending the turn. Work intended for a later turn or asynchronous pickup must use a real worker adapter instead.
 - Apply `worker-router` before every new worker, then apply `model-router` to candidates usable by the selected worker. Use only dynamically discovered candidates and each router's generic policy; do not add a provider/model/worker preference order here. Once a persistent worker thread is bound to a worker and model profile, keep both sticky unless rerouting is justified.

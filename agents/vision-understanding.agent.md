@@ -45,11 +45,11 @@ Preserve the ITT/VTT boundary conceptually: image understanding and time-aligned
 
 ## Validated Browser ChatGPT backend pattern
 
-Prior Markcut research and implementation work established the preferred backend pattern for this environment: use the existing `chatgpt-browser-worker` synchronous inference path through `browser-harness`, with one isolated worker-owned Temporary Chat per invocation. Keep this behind Markcut's generic ITT/VTT extension points rather than embedding Browser ChatGPT logic into Markcut itself.
+Prior Markcut research and implementation work established the preferred backend pattern for this environment: use the existing Agents Relay `chatgpt-worker` agent + Browser Workspace `chatgpt` platform synchronous inference path through `browser-harness`, with one isolated worker-owned Temporary Chat per invocation. Keep this behind Markcut's generic ITT/VTT extension points rather than embedding Browser ChatGPT logic into Markcut itself.
 
 Use this backend priority below Markcut Vision:
 
-1. **Preferred/default — Browser ChatGPT Temporary Chat.** Use the existing synchronous `chatgpt-browser-worker` inference surface.
+1. **Preferred/default — Browser ChatGPT Temporary Chat.** Use the existing synchronous Agents Relay `chatgpt-worker` agent + Browser Workspace `chatgpt` platform inference surface.
 2. **Fallback — Codex with a lightweight remote vision-capable model/profile.** Use a currently available lightweight profile such as Z.ai GLM-5.3-Flash or GPT-5.6 Luna when Browser ChatGPT is unavailable, fails validation, or cannot handle the requested media path. This is a backend implementation concern; do not hard-code model choice in the agent graph.
 3. **Last resort — local VLM.** Use local vision inference only when remote paths are unavailable or the caller explicitly requires local/offline execution. Do not make local VLM the normal default on this Mac.
 

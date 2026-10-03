@@ -4,5 +4,15 @@
   "type": "module",
   "dependencies": {
     "@nats-io/transport-node": "^3.4.0"
+  },
+  "scripts": {
+    "test": "node --test core/*.test.mjs mcp/*.test.mjs",
+    "config": "node cli/events-bus.mjs config",
+    "health": "node cli/events-bus.mjs health",
+    "setup": "node cli/events-bus.mjs setup",
+    "serve": "node api/server.mjs"
+  },
+  "bin": {
+    "events-bus": "cli/events-bus.mjs"
   }
 }

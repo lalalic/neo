@@ -66,10 +66,10 @@ Because Neo is public, secrets, personal data, customer data, private identifier
 - Project-only roles live in `<project>/agents/<role>.md`.
 - Project-only capabilities may live in `<project>/skills/<skill>/`; they are visible only when that project is the active XChat project.
 - Cross-project reusable capabilities live in root `skills/<skill>/`.
-- For Markcut Vision with Browser ChatGPT, read `skills/chatgpt-browser-worker/references/markcut-vision.md`; keep Markcut on its generic `vision --itt` / `--vtt` hooks rather than adding a ChatGPT-specific Markcut command.
+- For Markcut Vision with Browser ChatGPT, read `Browser Workspace `platforms/chatgpt` for ChatGPT browser inference mechanics`; keep Markcut on its generic `vision --itt` / `--vtt` hooks rather than adding a ChatGPT-specific Markcut command.
 - If a project-local skill and a shared/global skill declare the same skill `name`, the project-local skill takes precedence within that project.
 - Do not duplicate a reusable skill as a project agent.
-- When Browser Harness verifies a reusable external-platform flow, promote or update the canonical asset in `skills/browser-platforms` rather than leaving the knowledge as one-off automation.
+- When Browser Harness verifies a reusable external-platform flow, promote or update the canonical `browser-platforms` skill installed from the sibling Workspace checkout rather than leaving the knowledge as one-off automation.
 - A project must not depend on another project's `runs/` directory.
 
 ### Project learning contract
@@ -105,7 +105,7 @@ Audit sources: current user request, the active project `AGENTS.md`/`README.md`,
 
 For browser verification use `agent-browser` connected to the user's CDP port 64086 and close only the new testing tab. Keep manual assets in `assets/`; preserve Markcut caches. Use `npx` or `uvx` for missing Node/Python applications. Any PM2-managed service must execute/restart from its package launcher (`npx` for npm/Node, `uvx` for PyPI/Python), not from a local repository checkout. Use `apply_patch` for edits.
 
-Publishing is handled through `skills/post` when the user explicitly asks to post or publish; a prepare/preview/draft request is not publication authorization. Engagement remains deferred unless explicitly requested. Keep personal media, workflow databases, generated media, and credentials out of Git.
+Publishing is handled through shared `agents/post-agent.md` when the user explicitly asks to post or publish; a prepare/preview/draft request is not publication authorization. Engagement remains deferred unless explicitly requested. Keep personal media, workflow databases, generated media, and credentials out of Git.
 
 ## Reflections
 
@@ -118,7 +118,7 @@ Publishing is handled through `skills/post` when the user explicitly asks to pos
 ## Project learnings
 
 - 2026-09-26: Chrome Web Store new-item uploads reject extension manifests containing a `key`; preserve the authoritative source package, derive a store-compatible upload artifact without that field, and verify the assigned item/version only after reopening the publisher dashboard.
-- 2026-09-25: Chrome Web Store browser mechanics belong under `skills/browser-platforms/platforms/chrome-web-store`; keep the runner dry-run by default and require explicit authorization before upload, listing mutation, or review submission.
+- 2026-09-25: Chrome Web Store browser mechanics belong under the `browser-platforms` skill's `platforms/chrome-web-store`; keep the runner dry-run by default and require explicit authorization before upload, listing mutation, or review submission.
 - 2026-09-26: Chrome Web Store editor controls expose labels through `aria-labelledby`/`label[for]` and save drafts as `Save draft`; shared flows must resolve accessible labels and verify the publisher-scoped item URL before mutating a listing.
 - 2026-09-26: Chrome Web Store new-item uploads can reject an otherwise valid local extension package before an editor exists; report the visible package error (for example, a disallowed manifest `key`) as the blocker instead of misclassifying it as navigation failure.
 

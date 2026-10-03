@@ -1,13 +1,13 @@
 # Family Tutor Agent Guide
 
-Use `../skills/family-tutor/SKILL.md` as the reusable tutoring/runtime contract. Family Tutor is browser-backed; do not reintroduce the obsolete Codex-only backend.
+Use the standalone Family Tutor repository/capability as the reusable tutoring/runtime contract. Family Tutor is browser-backed; do not reintroduce the obsolete Codex-only backend.
 
 - This top-level directory is a public Neo project definition, not a family instance.
 - Use `runs/family/` as the private family root. Keep each learner's durable tutoring memory at `runs/family/<child-id>/AGENTS.md`; ChatGPT owns tutor thread history, so do not mirror it into local session folders.
 - Keep real learner names/details, Discord IDs, parent observations, secrets, learner memory, and browser runtime state inside the run or another private store. Do not persist transcripts locally.
 - The only durable learner memory/instruction file is each child's `AGENTS.md`; do not add learning-state, parent-directive, transcript, or other durable learner-state files.
 - Do not copy instance-specific configuration into tracked `config/` or `data/` directories.
-- The project `AGENTS.md` is the entrypoint; tutoring behavior itself is reusable skill behavior, so it stays in `skills/family-tutor/` rather than a duplicated project `agents/` role.
+- The project `AGENTS.md` is the entrypoint; tutoring behavior itself belongs to the standalone Family Tutor capability rather than a duplicated Neo project `agents/` role.
 
 ## NotebookLM-assisted study contract
 
@@ -71,7 +71,7 @@ Use `../skills/family-tutor/SKILL.md` as the reusable tutoring/runtime contract.
 - Each learner's `child-id` is canonical and MUST equal the Discord child channel name and the ChatGPT Project suffix exactly: `#sammy` ↔ `sammy` ↔ `neo/family-tutor/sammy`.
 - Do not maintain aliases or a second routing map. A mismatch is a configuration error and must be surfaced clearly.
 - The child channel name selects the learner. The existing persistent thread binding selects the thread inside that learner's Project; never infer a target from open browser tabs, tab titles, or tab order.
-- Each learner ChatGPT Project is dedicated to exactly one learner and keeps a small, stable Project Instruction contract. Shared tutoring behavior remains authoritative here and in `../skills/family-tutor/`; evolving learner facts remain only in `runs/family/<child-id>/AGENTS.md`.
+- Each learner ChatGPT Project is dedicated to exactly one learner and keeps a small, stable Project Instruction contract. Shared tutoring behavior remains authoritative in the standalone Family Tutor capability; evolving learner facts remain only in `runs/family/<child-id>/AGENTS.md`.
 - The reusable Project Instructions template is `templates/student-project-instructions.md`.
 - Child-facing answers should use concise Discord-friendly Markdown. Simple math may use readable Unicode/plain text; complex equations, graphs, geometry, chemistry, molecular structures, circuits, biology figures, and other STEM visuals should use the Family Tutor rendering path rather than unreadable ASCII art, with a short explanation of what to notice.
 

@@ -34,7 +34,7 @@ If that planner contract is unavailable, direct Task decomposition is blocked. T
 - Managed execution is submitted to Agents Relay; the orchestrator must not run a parallel launch/wait/recovery loop for the same task.
 - Every managed child inherits the bound project identity, `local_path`, `git_root`, and `repo`; children do not independently re-resolve context.
 - Every new managed worker is routed through `worker-router` first, using dynamically discovered usable worker capabilities and fresh Agents Relay resource facts when available. Then run `model-router` only against candidates usable by the selected worker. Do not encode provider/model/worker preference order or a concrete identity in this orchestration contract.
-- **Browser ChatGPT worker output is fixed at task creation.** When `chatgpt-browser-worker` is selected for a child task, read that skill before creating the child and include exactly one declared durable output in the task prompt: either **task/PR output** with the exact managed task/PR identity and required final action, or **file output** with the exact authoritative file path. Do not launch the Browser ChatGPT worker without this declaration, and do not leave the worker to choose its own output destination. Progress and terminal success/failure still use the normal event contract; events are not a third output mode.
+- **Browser ChatGPT worker output is fixed at task creation.** When Agents Relay `chatgpt-worker` agent + Browser Workspace `chatgpt` platform is selected for a child task, read that skill before creating the child and include exactly one declared durable output in the task prompt: either **task/PR output** with the exact managed task/PR identity and required final action, or **file output** with the exact authoritative file path. Do not launch the Browser ChatGPT worker without this declaration, and do not leave the worker to choose its own output destination. Progress and terminal success/failure still use the normal event contract; events are not a third output mode.
 - GitHub PR state, head SHA, checks, reviews, and comments are the workflow record. Do not require Google Drive, `HANDOFF.md`, `STATUS.md`, `STATE`, or a task directory for GitHub-backed work.
 - Use GitHub tools for reads when available. Authenticated `gh` may be used for GitHub reads and lifecycle mutations not owned by Agents Relay, but creation/adoption/repair of an orchestrated PR/job must go through the Agents Relay CLI.
 - Use the exact repository, branch, PR, job ID, and Codex thread resolved during preflight. Never guess among multiple local checkouts, jobs, or threads.
@@ -84,6 +84,8 @@ Before mutation, check:
 If the PR body is empty or lacks an objective, scope, non-goals, acceptance criteria, validation commands, or merge policy, add or request that information before implementation.
 
 Prefer a fresh isolated worktree for the worker. Use an existing checkout only when it is clean or the user explicitly authorizes dirty-worktree operation. Do not automatically stash, reset, clean, or overwrite unrelated changes.
+
+All temporary worktrees created by XChat must live under `/Users/chengli/Workspace/.worktrees/`. Never create or reuse `/Users/chengli/Workspace/.xchat-worktrees` or any `.xchat-worktree*` path. Agents Relay owns `.worktrees/agents-relay/`; direct orchestrator/P0 self-work uses `.worktrees/orchestrator/`. When the owning task is terminal and its changes are durable, verify there is no unique/uncommitted work, remove the temporary worktree with `git worktree remove`, and prune stale metadata.
 
 ### 2. Establish PR metadata
 
@@ -141,7 +143,7 @@ Before managed execution, Relay enforces the task/job lease and correlation stat
 
 Give the managed worker the objective, acceptance criteria, allowed scope, current PR head SHA, and required validation. The worker may inspect, edit, test, commit, and push only the task branch.
 
-For a child executed through `chatgpt-browser-worker`, the handoff is incomplete until the prompt also contains the required output declaration from that skill (`task/PR` or `file`). This decision belongs to the orchestrator at child-task creation time.
+For a child executed through Agents Relay `chatgpt-worker` agent + Browser Workspace `chatgpt` platform, the handoff is incomplete until the prompt also contains the required output declaration from that skill (`task/PR` or `file`). This decision belongs to the orchestrator at child-task creation time.
 
 Require the worker to:
 
@@ -190,6 +192,7 @@ Use the public registry/package metadata for verification rather than trusting a
 
 ## Recovery and stopping rules
 
+- Before stopping for a permission/authentication boundary or asking the human to perform an action, call Neo's `neo escalation` CLI with the blocked intent/context. The escalation agent uses elevated local Codex execution to try and verify the action first. If the caller has a preferred user-notification path, pass it as `--on-needs-user` (or file form). If no override is supplied, Neo uses its default `on_needs_user` instruction: prefer WeChat-bro to File Helper, then fall back to iMessage to the user themself. This default only controls notification after `needs_user`; it does not make escalation more eager to involve the user. Only a structured `needs_user` result means the remaining action is genuinely human-only.
 - Retry transport failures without counting them as implementation iterations.
 - Count failed implementation/review cycles. After three unsuccessful iterations using one approach, change approach or ask the user.
 - Stop for ambiguous scope, repository or branch mismatch, missing credentials, permission failure, unexpected concurrent changes, unsafe/destructive consequences, or inability to validate.
