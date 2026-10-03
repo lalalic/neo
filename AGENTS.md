@@ -89,6 +89,12 @@ Every Neo project must learn from real work. After a meaningful implementation, 
 
 Root `.gitignore` ignores `**/runs/`. Project code must write runtime artifacts there by construction rather than depending on media-extension ignores.
 
+### Canonical runs execution boundary
+
+`runs/` is the canonical persistent execution workspace for a Neo Project. Work whose durable output belongs under `runs/` must execute directly in that canonical project directory (for example `/Users/chengli/Workspace/neo/neo-build-log/runs/...`), not inside an Agents Relay or other temporary Git worktree.
+
+This is a strong contract: source-code changes may use isolated worktrees, but run production, continuation, review, QA, render, publication, receipts, and other run descendants must share the same canonical `runs/` tree. Never copy or commit ignored run artifacts merely to transfer state between Tasks, and never allow a fresh checkout to hide or replace prior run evidence.
+
 ### Neo orchestrator control plane
 
 At a Neo session or recovery, read `MISSION.md`, then the private top-level `.run/PLAN.md` when present, then `.run/state.json` and its task files. Review the durable plan before selecting or delegating tasks; decompose reviewed work into tasks owned by projects/workers, and feed evidence and results into later plan reviews. `.run/` is ignored and holds only the portfolio plan, current state index, per-task handoff records, and review/decision history; project execution artifacts remain in each project's `runs/`. Before and after every handoff, record task owner, project, worker/thread/profile when applicable, authoritative references, last observed state, next action, and `requires_user`. Reconcile `.run` against GitHub, events-bus, worker, and artifact state before acting; `.run` never overrides authoritative state. See `docs/control-plane.md`.
