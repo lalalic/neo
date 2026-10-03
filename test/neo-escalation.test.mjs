@@ -15,6 +15,8 @@ test('defaults user notification instruction to WeChat File Helper with iMessage
   assert.match(parsed.onNeedsUser, /File Helper/);
   assert.match(parsed.onNeedsUser, /iMessage/);
   assert.match(parsed.onNeedsUser, /user themself/);
+  assert.match(parsed.onNeedsUser, /phone-readable/);
+  assert.match(parsed.onNeedsUser, /ASCII status block/);
 });
 
 test('caller-provided user notification instruction overrides the default', () => {
@@ -84,6 +86,29 @@ test('needs_user requires a concrete human action', () => {
   }), /requires user_action/);
 });
 
+
+
+test('default agent contract makes Computer Use and Browser Workspace primary before needs_user', () => {
+  const prompt = buildEscalationPrompt({
+    intent: 'enable a permission',
+    blockedOn: 'System Settings toggle is off',
+    cwd: '/tmp'
+  });
+  assert.match(prompt, /primary tools are \*\*Computer Use\*\* and \*\*Browser Workspace\*\*/);
+  assert.match(prompt, /must attempt it yourself with Computer Use or Browser Workspace before considering `needs_user`/);
+  assert.match(prompt, /permission toggle, unlock button, browser authorization screen, or settings page is not by itself proof/);
+  assert.match(prompt, /unknown password\/secret, OTP\/MFA, biometric check/);
+});
+
+test('default agent contract requires mobile-friendly user notifications', () => {
+  const prompt = buildEscalationPrompt({
+    intent: 'complete authorization',
+    blockedOn: 'human-only OTP remains',
+    cwd: '/tmp'
+  });
+  assert.match(prompt, /concise and phone-readable/);
+  assert.match(prompt, /short bullet list or a small ASCII status block/);
+});
 
 test('CLI executes when invoked through an npm-style symlink', () => {
   const dir = mkdtempSync(join(tmpdir(), 'neo-cli-symlink-'));
