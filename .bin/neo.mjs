@@ -52,10 +52,11 @@ export function parseEscalationArgs(args) {
     intent: textOption(args, '--intent', '--intent-file'),
     blockedOn: textOption(args, '--blocked-on', '--blocked-on-file'),
     context: textOption(args, '--context', '--context-file'),
-    onNeedsUser: textOption(args, '--on-needs-user', '--on-needs-user-file') ?? DEFAULT_ON_NEEDS_USER,
+    onNeedsUser: textOption(args, '--on-needs-user', '--on-needs-user-file'),
     cwd: valueFor(args, '--cwd') ?? process.cwd(),
     codexCommand: valueFor(args, '--codex-command') ?? 'codex'
   };
+  if (request.onNeedsUser === undefined) request.onNeedsUser = DEFAULT_ON_NEEDS_USER;
   if (!request.intent) throw new Error('escalation requires --intent or --intent-file');
   if (!request.blockedOn) throw new Error('escalation requires --blocked-on or --blocked-on-file');
   return request;
