@@ -66,10 +66,10 @@ Because Neo is public, secrets, personal data, customer data, private identifier
 - Project-only roles live in `<project>/agents/<role>.md`.
 - Project-only capabilities may live in `<project>/skills/<skill>/`; they are visible only when that project is the active XChat project.
 - Cross-project reusable capabilities live in root `skills/<skill>/`.
-- For Markcut Vision with Browser ChatGPT, read `Browser Workspace `platforms/chatgpt` for ChatGPT browser inference mechanics`; keep Markcut on its generic `vision --itt` / `--vtt` hooks rather than adding a ChatGPT-specific Markcut command.
+- Keep Markcut on its generic `vision --itt` / `--vtt` hooks and route synchronous image/video understanding through the dedicated Markcut/vision backend; do not repurpose the asynchronous Agents Relay ChatGPT worker as an inference API.
 - If a project-local skill and a shared/global skill declare the same skill `name`, the project-local skill takes precedence within that project.
 - Do not duplicate a reusable skill as a project agent.
-- When Browser Harness verifies a reusable external-platform flow, promote or update the canonical `browser-platforms` skill installed from the sibling Workspace checkout rather than leaving the knowledge as one-off automation.
+- When Browser Workspace verifies a reusable external-platform flow, promote or update the canonical Browser Workspace platform implementation in the sibling Workspace checkout rather than leaving the knowledge as one-off automation.
 - A project must not depend on another project's `runs/` directory.
 
 ### Project learning contract

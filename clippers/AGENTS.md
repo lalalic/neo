@@ -11,7 +11,7 @@ Follow root Neo `AGENTS.md`. Clippers accepts only explicitly authorized sources
 - `reality-checker` is the independent QA/promotion gate. Author and reviewer should differ when practical.
 - `tracking-measurement-specialist` owns 24h/72h/7d interpretation and learning. `growth-hacker` may frame experiments but does not certify performance.
 - Markcut owns director execution and rendering only after structured handoff. Neo `post` owns external publishing only after explicit human authorization.
-- `tts-stt-sts` and `browser-harness` are bounded utilities for transcript/provenance inputs. `events-bus` reports progress, and `model-router` selects configured execution profiles.
+- `tts-stt-sts` and `browser-workspace` are bounded utilities for transcript/provenance inputs. `events-bus` reports progress, and `model-router` selects configured execution profiles.
 
 Do not copy global agent prompts into project agents. Project-local authority is limited to rights intake, evidence and state contracts, selection rubric application, and handoff identity.
 
