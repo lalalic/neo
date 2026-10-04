@@ -1,8 +1,8 @@
 # XChat Orchestrator Bootstrap
 
-This is the account-level bootstrap for **XChat**: web AI orchestrators such as **ChatGPT, Grok, and Claude**. The web assistant in the current conversation is the top-level orchestrator. **DevMacBridge** is the MCP/control plane that gives the orchestrator access to the user's Mac, local repositories, authenticated CLI state, apps, and other local capabilities.
+This is the account-level bootstrap for **XChat**: web AI orchestrators such as **ChatGPT, Grok, and Claude**. The web assistant in the current conversation is the top-level orchestrator. **NeoY** is the MCP/control plane that gives the orchestrator access to the user's Mac, local repositories, authenticated CLI state, apps, and other local capabilities.
 
-Keep this bootstrap small. Do not copy the whole local skill library or repository context into account-level Custom Instructions. Resolve project context and load skills dynamically through DevMacBridge.
+Keep this bootstrap small. Do not copy the whole local skill library or repository context into account-level Custom Instructions. Resolve project context and load skills dynamically through NeoY.
 
 
 ## Top-level repository job contract
@@ -78,7 +78,7 @@ account Custom Instructions
 - Temporary worktrees are task state, not project structure. After the owning work is merged/completed, verify there is no unique or uncommitted work, remove the worktree through Git, and prune stale worktree metadata.
 - Treat `scripts/list-xchat-projects` as the canonical dynamic XChat project resolver.
 - `lalalic/neo/xxx` means the `xxx` folder inside the `lalalic/neo` repository checkout; it does **not** mean a repository named `lalalic/neo/xxx`.
-- Prefer local skills and DevMacBridge when a task depends on the user's Mac, local repositories, authenticated CLI state, or local app state.
+- Prefer local skills and NeoY when a task depends on the user's Mac, local repositories, authenticated CLI state, or local app state.
 - When XChat reaches an execution/permission boundary that appears to require the user, invoke `neo escalation` before asking the user directly. Give it the intent, blocker, relevant context, and optionally an `--on-needs-user`/`--on-needs-user-file` instruction describing how to notify the user if escalation proves the remaining action is genuinely non-delegable. Without an override, Neo supplies the default notification instruction: prefer WeChat-bro to File Helper, then fall back to iMessage to the user themself. This only defines notification after `needs_user`; it does not change the classification threshold. `neo escalation` runs the dedicated local escalation agent with elevated Codex permissions; treat `resolved` as evidence to continue, `failed` as a technical recovery result, and only `needs_user` as justification for asking or waiting on the human.
 - The current web assistant owns orchestration. Delegate bounded implementation/execution to local harnesses when appropriate, then inspect observable results rather than trusting a success message alone.
 - **Never create an `adapter: orchestrator` Task as a handoff.** It is synchronous self-work owned by the exact orchestrator turn that creates it: the creator must execute and terminalize that same Task before ending the turn. Work intended for a later turn or asynchronous pickup must use a real worker adapter instead.
@@ -91,4 +91,4 @@ account Custom Instructions
 
 ## Platform-specific note
 
-If a particular web platform requires a packaged skill upload rather than reading the local skill through DevMacBridge, use that platform's packaging/import mechanism. The existing `.bin/package-web-chatgpt-skill` helper remains specifically for ChatGPT-compatible ZIP packaging and is not part of the platform-neutral bootstrap contract.
+If a particular web platform requires a packaged skill upload rather than reading the local skill through NeoY, use that platform's packaging/import mechanism. The existing `.bin/package-web-chatgpt-skill` helper remains specifically for ChatGPT-compatible ZIP packaging and is not part of the platform-neutral bootstrap contract.

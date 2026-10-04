@@ -7,7 +7,7 @@ description: Orchestrate a closed-loop coding task through a GitHub pull request
 
 Use this skill when the user invokes `@orchestrator` or asks the current XChat assistant to drive a repository task through a pull request until it is merged, intentionally closed, blocked, or awaiting a user decision.
 
-The active XChat assistant owns the top-level objective. Agents Relay owns managed worker launch, wait, recovery, and reconciliation. GitHub is the durable PR/job record, DevMacBridge is the local control channel, and `events-bus` is the correlated progress stream.
+The active XChat assistant owns the top-level objective. Agents Relay owns managed worker launch, wait, recovery, and reconciliation. GitHub is the durable PR/job record, NeoY is the local control channel, and `events-bus` is the correlated progress stream.
 
 ## Session project binding
 
@@ -77,7 +77,7 @@ Before mutation, check:
 
 - PR state, base branch, head SHA, body, changed files, commits, reviews, unresolved threads, and checks.
 - `git status --porcelain=v2 -b`, remote URL, current branch, and current commit.
-- Mac bridge health, including the existence of the configured PTY helper rather than trusting a boolean health flag alone.
+- NeoY health, including the existence of the configured PTY helper rather than trusting a boolean health flag alone.
 - `gh auth status` and read access to the target repository.
 - The selected Codex executable, profile/model, and supported continuation commands.
 

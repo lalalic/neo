@@ -77,4 +77,4 @@ For a daily episode whose Job authorizes publication, producer completion is not
 
 Before any agent reports the overall episode as successful, run the project episode-completion validator with publication required. If it fails because review, render, media, tooling, or publication evidence is missing, keep the episode incomplete and preserve/recover the blocker. Documenting a blocker is not completion.
 
-When Markcut invocation fails, verify capability discovery before classifying it unavailable. In the standard MacBridge environment, try the installed package contract with npx -y @lalalic/markcut and, when present, the canonical local checkout at /Users/chengli/Workspace/markcut/bin/markcut. A single failed invocation form is not evidence that Markcut is unavailable.
+When Markcut invocation fails, verify capability discovery before classifying it unavailable. In the standard NeoY environment, try the installed package contract with npx -y @lalalic/markcut and, when present, the canonical local checkout at /Users/chengli/Workspace/markcut/bin/markcut. A single failed invocation form is not evidence that Markcut is unavailable.

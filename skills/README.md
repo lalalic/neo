@@ -16,7 +16,6 @@ are deployment and distribution targets, not source of truth.
   with fresh-UI success criteria and explicit recovery boundaries.
 - daemon-service-manage — inspection and PM2 lifecycle guidance for persistent
   daemons and services.
-- devmacbridge — end-to-end Mac Developer Bridge bootstrap, ChatGPT MCP connection, browser setup, events federation, and verification.
 - events-bus — correlated lifecycle/progress protocol and orchestrator display
   contract for long-running Neo jobs, including its internal event-bus transport.
 - skill-builder — capability-first creation, review, and evaluation of agent skills.
