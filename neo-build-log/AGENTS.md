@@ -230,6 +230,7 @@ Publication target and authorization belong to the autonomous Job or specific Ta
 - 2026-09-26: Build-Log-specific roles must be real discoverable project agents; reusable execution remains in shared skills.
 - 2026-09-27: One episode has exactly one top-level durable Task; exceptional durable work may exist only beneath it.
 - 2026-09-27: Final render requires Video Director + Market Agent review. Hook, poster, approved voice, BGM, rich visuals, motion/transitions/effects, and story-first framing are required.
+- 2026-10-04: Validate canonical run artifacts with the validator from the current durable source head against the run's absolute path; a stale canonical checkout can hide newer project tooling.
 
 
 ## Mechanical episode-completion gate
