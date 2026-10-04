@@ -18,7 +18,7 @@ Use installed shared capabilities rather than implementing project-local engines
 - shared `market` agent for required audience/positioning/poster review;
 - `markcut` for video structure, preview, and rendering;
 - `understand-image-video` for visual inspection;
-- `browser-harness` or other approved capture capabilities for real UI evidence when required;
+- `browser-workspace` or other approved capture capabilities for real UI evidence when required;
 - `create-image-video` only for clearly explanatory/generated visuals, never as fake evidence;
 - chart/diagram capabilities when relationships or progression are clearer visually;
 - `audio-sourcing` for BGM/SFX and `tts-stt-sts` using the user's approved voice identity;

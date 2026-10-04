@@ -27,7 +27,7 @@ If an input required for a target is absent, report the exact blocker. Do not in
 
 ## Target execution contract
 
-For every target, compose the narrowest target-specific skill/tool that owns its mechanics. Browser stores must use `browser-platforms` and therefore `browser-harness`; do not duplicate selectors or browser procedures here.
+For every target, compose the narrowest target-specific skill/tool that owns its mechanics. Browser stores must use Browser Workspace platform actions; do not duplicate selectors or browser procedures here.
 
 Use this logical flow:
 
@@ -88,6 +88,6 @@ When a target has not been live-verified, say so explicitly. Implemented automat
 
 For Chrome Web Store releases:
 
-`Release Agent -> browser-platforms/chrome-web-store -> browser-harness`
+`Release Agent -> Browser Workspace chrome-web-store platform`
 
 The currently verified evidence covers developer-item resolution, new-item creation, package/version validation, draft save/reopen, and existing-item draft regression behavior. Submit-for-review, external review/status observation, and public exact-version verification remain implemented but not live-verified until a real authorized release exercises them.

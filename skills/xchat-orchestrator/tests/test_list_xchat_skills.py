@@ -45,17 +45,17 @@ class ListXchatSkillsTests(unittest.TestCase):
     def test_dependency_metadata_and_missing_resolution(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            self.skill(root, "needs-browser", "requires:\n  skills:\n    - browser-harness\n")
+            self.skill(root, "needs-browser", "requires:\n  skills:\n    - browser-workspace\n")
             result = self.run_discovery([root])
-            self.assertEqual(result[0]["requires"]["skills"], ["browser-harness"])
+            self.assertEqual(result[0]["requires"]["skills"], ["browser-workspace"])
             self.assertFalse(result[0]["requires_resolved"])
-            self.assertEqual(result[0]["missing_required_skills"], ["browser-harness"])
+            self.assertEqual(result[0]["missing_required_skills"], ["browser-workspace"])
 
     def test_dependency_resolves_from_active_skill_set(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            self.skill(root, "browser-harness")
-            self.skill(root, "needs-browser", "requires:\n  skills:\n    - browser-harness\n")
+            self.skill(root, "browser-workspace")
+            self.skill(root, "needs-browser", "requires:\n  skills:\n    - browser-workspace\n")
             result = {skill["name"]: skill for skill in self.run_discovery([root])}
             self.assertTrue(result["needs-browser"]["requires_resolved"])
             self.assertEqual(result["needs-browser"]["missing_required_skills"], [])
@@ -71,7 +71,7 @@ class ListXchatSkillsTests(unittest.TestCase):
     def test_markdown_reports_dependency_state(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            self.skill(root, "needs-browser", "requires:\n  skills:\n    - browser-harness\n")
+            self.skill(root, "needs-browser", "requires:\n  skills:\n    - browser-workspace\n")
             old_roots, old_argv = module.ROOTS, sys.argv
             module.ROOTS = [root]
             sys.argv = [str(SCRIPT), "--markdown"]
@@ -82,7 +82,7 @@ class ListXchatSkillsTests(unittest.TestCase):
             finally:
                 module.ROOTS, sys.argv = old_roots, old_argv
             self.assertIn("Requires", output.getvalue())
-            self.assertIn("missing: browser-harness", output.getvalue())
+            self.assertIn("missing: browser-workspace", output.getvalue())
 
 
 if __name__ == "__main__":

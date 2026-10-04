@@ -43,29 +43,23 @@ The current CLI owns media extraction, normalization, perception, segmentation, 
 
 Preserve the ITT/VTT boundary conceptually: image understanding and time-aligned video understanding are vision-substrate concerns owned by Markcut Vision, not by this agent. Do not invent unsupported CLI flags or duplicate Markcut's media pipeline.
 
-## Validated Browser ChatGPT backend pattern
+## Vision backend pattern
 
-Prior Markcut research and implementation work established the preferred backend pattern for this environment: use the existing Agents Relay `chatgpt-worker` agent + Browser Workspace `chatgpt` platform synchronous inference path through `browser-harness`, with one isolated worker-owned Temporary Chat per invocation. Keep this behind Markcut's generic ITT/VTT extension points rather than embedding Browser ChatGPT logic into Markcut itself.
+The Agents Relay `chatgpt-worker` is asynchronous delegation only and is not a synchronous vision-inference backend. Keep ITT/VTT behind the dedicated Markcut/vision capability boundary.
 
-Use this backend priority below Markcut Vision:
+Backend selection below Markcut Vision is an implementation concern of that vision capability. Prefer a configured remote vision-capable backend, fall back to another supported remote profile when necessary, and use a local VLM only when remote paths are unavailable or local/offline execution is explicitly required. Do not hard-code provider/model choice in the agent graph.
 
-1. **Preferred/default — Browser ChatGPT Temporary Chat.** Use the existing synchronous Agents Relay `chatgpt-worker` agent + Browser Workspace `chatgpt` platform inference surface.
-2. **Fallback — Codex with a lightweight remote vision-capable model/profile.** Use a currently available lightweight profile such as Z.ai GLM-5.3-Flash or GPT-5.6 Luna when Browser ChatGPT is unavailable, fails validation, or cannot handle the requested media path. This is a backend implementation concern; do not hard-code model choice in the agent graph.
-3. **Last resort — local VLM.** Use local vision inference only when remote paths are unavailable or the caller explicitly requires local/offline execution. Do not make local VLM the normal default on this Mac.
+Preserve these constraints:
 
-Preserve these constraints when this backend is selected below Markcut Vision:
-
-- **ITT / image:** attach the local image directly to the isolated Browser ChatGPT worker invocation together with the semantic vision prompt.
-- **VTT / video:** use direct video input only when the selected backend supports it reliably. Otherwise let Markcut deterministically reduce the video to representative chronological frames/contact sheet plus timing context, then run the same preferred/fallback image-understanding path over those frames.
-- **Isolation:** never reuse or interfere with an existing user ChatGPT tab. Each call runs in its own worker-owned Temporary Chat/session surface.
-- **Output contract:** each call gets exactly one unique durable file-output destination; the caller waits/reconciles that result, then returns the result to the ITT/VTT interface. Concurrent calls must not share output paths.
-- **Failure semantics:** truncated/invalid structured output, missing completion evidence, upload/submission failure, or worker lifecycle failure is a backend failure, not successful visual understanding.
-
-Historical note: early Browser ChatGPT experiments exposed truncated output, false completion/stuck generation, composer/send UI drift, unreliable direct-video handling, and durable-thread recovery problems. Later Browser Worker fixes made the integration workable, and Markcut demonstrated the facade successfully. A later Markcut rollback intentionally removed the product-specific facade while preserving generic `--itt`/`--vtt` extension points. The architectural lesson is to keep Browser ChatGPT as a swappable engine behind those generic interfaces rather than embedding its browser/runtime logic into Markcut or this agent.
+- **ITT / image:** pass the local image through the dedicated Markcut/vision inference capability together with the semantic vision prompt.
+- **VTT / video:** use direct video input only when the selected vision backend supports it reliably. Otherwise let Markcut deterministically reduce the video to representative chronological frames/contact sheet plus timing context, then use the same vision capability over those frames.
+- **Isolation:** browser/session mechanics, if any, belong to the selected vision backend and must not interfere with user browser state.
+- **Output contract:** each call gets exactly one unique durable output destination when the backend requires one; concurrent calls must not share output paths.
+- **Failure semantics:** truncated/invalid structured output, missing completion evidence, upload/submission failure, or backend lifecycle failure is a backend failure, not successful visual understanding.
 
 ## Model/provider boundary
 
-Markcut Vision owns the configured vision backend. That backend may evolve independently and may use local or remote models/providers, including the validated Browser ChatGPT / Temporary Chat pattern above when configured through the generic ITT/VTT interface.
+Markcut Vision owns the configured vision backend. That backend may evolve independently and may use supported local or remote models/providers behind the generic ITT/VTT interface.
 
 This agent must **not**:
 
