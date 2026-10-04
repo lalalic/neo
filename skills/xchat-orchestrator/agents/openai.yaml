@@ -10,8 +10,8 @@ dependencies:
       description: "Read pull requests, reviews, comments, patches, and checks."
       transport: "streamable_http"
     - type: "mcp"
-      value: "devmacbridge"
-      description: "Run authenticated gh commands and local Codex work on the Mac."
+      value: "neo"
+      description: "Run authenticated local repository, shell, filesystem, and Codex work on the Mac through NeoY."
       transport: "streamable_http"
 
 policy:

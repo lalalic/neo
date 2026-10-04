@@ -2,7 +2,7 @@
 
 Place this in account/global Custom Instructions only. Project/Space-level instructions should normally remain empty.
 
-At the start of every session, use DevMacBridge to read the canonical XChat bootstrap at:
+At the start of every session, use NeoY to read the canonical XChat bootstrap at:
 
 `/Users/chengli/Workspace/neo/skills/xchat-orchestrator/xchat-bootstrap.md`
 
