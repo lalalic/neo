@@ -1,5 +1,6 @@
 from pathlib import Path
 import importlib.util
+import pytest
 
 SCRIPT = Path(__file__).parents[1] / "scripts" / "validate_episode_completion.py"
 spec = importlib.util.spec_from_file_location("validator", SCRIPT)
@@ -11,11 +12,15 @@ def write(p: Path, text="ok"):
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(text)
 
+@pytest.fixture(autouse=True)
+def valid_media(monkeypatch):
+    monkeypatch.setattr(m, "probe_stream_types", lambda _path: {"audio", "video"})
+
 def fill(tmp_path: Path):
     for rel in m.REQUIRED_FILES:
         write(tmp_path / rel, "PASS" if rel.startswith("reviews/") else "ok")
     write(tmp_path / "output/final.mp4", "test")
-    write(tmp_path / "publish/xiaohongshu.md", "Platform: Xiaohongshu\nNote ID: test\n")
+    write(tmp_path / "publish/xhs-receipt.md", "Platform: Xiaohongshu\nNote ID: test\n")
 
 def test_editorial_only_is_not_complete(tmp_path):
     for rel in ("evidence.md","story.md","post.md","visual-brief.md","video.md","qa.md","next-day-brief.md"):
@@ -26,9 +31,14 @@ def test_editorial_only_is_not_complete(tmp_path):
 
 def test_publication_receipt_required(tmp_path):
     fill(tmp_path)
-    (tmp_path / "publish/xiaohongshu.md").unlink()
+    (tmp_path / "publish/xhs-receipt.md").unlink()
     assert any("publication receipt" in e for e in m.validate(tmp_path, True))
 
 def test_complete_run_passes(tmp_path):
     fill(tmp_path)
     assert m.validate(tmp_path, True) == []
+
+def test_final_mp4_requires_audio_and_video(tmp_path, monkeypatch):
+    fill(tmp_path)
+    monkeypatch.setattr(m, "probe_stream_types", lambda _path: {"video"})
+    assert any("audio and video" in e for e in m.validate(tmp_path, True))

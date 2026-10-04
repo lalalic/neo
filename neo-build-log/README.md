@@ -160,6 +160,12 @@ runs/<YYYY-MM-DD[-slug]>/
 
 All `runs/` content is ignored by Git.
 
+Validate a completed dated run before accepting it:
+
+```sh
+python3 scripts/validate_episode_completion.py runs/2026-10-02 --require-publication
+```
+
 ## Story standard
 
 A Build Log is a human story about building, failing, discovering, deciding, and making something work. PRs, commits, Tasks, and events are evidence sources, not the episode outline.

@@ -1,13 +1,26 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 import argparse
+import json
 from pathlib import Path
+import subprocess
 import sys
 
 REQUIRED_FILES = [
     "evidence.md","story.md","post.md","visual-brief.md","video.md","qa.md",
     "next-day-brief.md","reviews/video-director.md","reviews/market.md",
 ]
+
+PUBLICATION_RECEIPTS = ("publish/xhs-receipt.md", "publish/xiaohongshu.md")
+
+def probe_stream_types(path: Path) -> set[str]:
+    result = subprocess.run(
+        ["ffprobe", "-v", "error", "-show_entries", "stream=codec_type", "-of", "json", str(path)],
+        capture_output=True, text=True, check=False,
+    )
+    if result.returncode != 0:
+        return set()
+    return {stream.get("codec_type", "") for stream in json.loads(result.stdout).get("streams", [])}
 
 def validate(run: Path, require_publication: bool) -> list[str]:
     errors = []
@@ -22,12 +35,15 @@ def validate(run: Path, require_publication: bool) -> list[str]:
             if "PASS" not in t or "CHANGE_REQUIRED" in t:
                 errors.append(f"review has not passed: {rel}")
     out = run / "output"
-    if not out.is_dir() or not list(out.glob("*.mp4")):
+    videos = list(out.glob("*.mp4")) if out.is_dir() else []
+    if not videos:
         errors.append("missing final rendered MP4 under output/")
+    elif not {"audio", "video"}.issubset(probe_stream_types(videos[0])):
+        errors.append("final rendered MP4 must contain audio and video streams")
     if require_publication:
-        receipt = run / "publish" / "xiaohongshu.md"
-        if not receipt.is_file() or receipt.stat().st_size == 0:
-            errors.append("missing Xiaohongshu publication receipt: publish/xiaohongshu.md")
+        receipts = [run / rel for rel in PUBLICATION_RECEIPTS]
+        if not any(path.is_file() and path.stat().st_size > 0 for path in receipts):
+            errors.append("missing Xiaohongshu publication receipt: publish/xhs-receipt.md")
     return errors
 
 def main() -> int:
