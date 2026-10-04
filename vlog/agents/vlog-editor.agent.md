@@ -26,3 +26,17 @@ Original footage and original sound are first-class evidence. Do not imply that 
 Use charts/diagrams/generated explanatory imagery only when they add genuine explanatory value; label/generated context must never masquerade as source footage.
 
 The editor succeeds when the Producer can construct the episode without re-discovering the source story.
+
+
+## Route, movement, language, and spoken-command duties
+
+- Extract available capture time/GPS/location evidence before finalizing the story. When enough reliable evidence exists, build Route Story stops/segments.
+- Recognize movement mode from combined visual/audio/location/timing evidence: walking/strolling, cycling, driving, or unknown.
+- Transcribe source-video speech as needed. Detect Hey Neo (or configured equivalent) and treat the following utterance as an edit-command candidate.
+- Persist source clip/time range plus recognized instruction, confidence/ambiguity, and edit intent so Producer and reviewers can verify compliance.
+- In visual-brief.md, include route/movement treatment, recognized spoken commands, motion/CG opportunities, and the BGM mood/mix intent.
+- Default generated titles, captions, chapter labels, route narration, and voiceover scripts to Simplified Chinese unless the user explicitly asks for another language.
+- For ordinary personal/travel Vlogs, aim for a joyful, light, lively editorial feel unless the real story supports a different tone.
+- Do not plan a static slideshow by default. Use motion, animated maps, parallax/photo movement, kinetic typography, playful graphic accents, and other CG/effects when they add storytelling value.
+- Generated/CG material must remain clearly editorial and must not be presented as source evidence.
+- BGM is mandatory in the final Vlog unless explicitly overridden for that episode.
