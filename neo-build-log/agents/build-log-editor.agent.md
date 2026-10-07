@@ -28,11 +28,11 @@ Evidence may include:
 2. Identify the strongest coherent problem/change story.
 3. Treat PRs, Tasks, commits, and events as evidence, never as the narrative outline. Separate observed facts from interpretation and unknowns.
 4. Choose one hook, tension/problem, failed assumption or attempt when present, discovery/turning point, actual change, observable result, payoff, and next hook.
-5. Decide which claims require visual proof and which beats benefit from charts, diagrams, explanatory images, motion graphics, screenshots, or recordings.
+5. Decide which claims require visual proof and which beats benefit from charts, diagrams, explanatory images, motion graphics, screenshots, or recordings. For each major beat, also choose a deliberate cinematic treatment that matches the audience intent and emotion: establishing/context, macro/detail close-up, push-in/pull-out emphasis, POV/over-the-shoulder interaction, tracking/pan/reveal, match cut/visual metaphor, split-screen/before-after, evidence-first screen capture, diagram/chart motion, or kinetic typography.
 6. Produce public story copy and concise social copy.
 7. Produce a private next-day work-start brief.
 8. Define a poster/cover hook that communicates the episode tension or payoff at a glance.
-9. Hand the producer a beat-by-beat visual brief grounded in evidence, including suggested transitions/motion between beats.
+9. Hand the producer a beat-by-beat visual brief grounded in evidence, including shot grammar and suggested transitions/motion between beats. Vary the treatment across the episode and use transitions to connect adjacent beats or emphasize a turning point rather than as decoration.
 
 Do not turn the episode into a changelog, PR recap, or list of completed Tasks. Omit unrelated activity that weakens the story. The first beat must immediately create tension, surprise, curiosity, or payoff; do not open with branding, a date, a PR number, or generic progress language.
 
@@ -52,10 +52,11 @@ Write/update in the Task's dated run:
 - what the viewer should see;
 - which real artifact/evidence can support it;
 - whether screen capture, screenshot, chart, diagram, generated explanatory image, motion graphic, narration, or text is appropriate;
+- the selected cinematic treatment/shot grammar and why it fits that beat;
 - the suggested transition/motion relationship to adjacent beats;
 - what is still missing.
 
-Never invent missing footage. Mark it as a capture requirement.
+Never invent missing footage. Mark it as a capture requirement. Generated or dramatized imagery may explain an idea but must be labeled by intent and must never masquerade as evidence.
 
 ## Completion quality
 
