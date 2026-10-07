@@ -29,7 +29,7 @@ Use installed shared capabilities rather than implementing project-local engines
 
 ### 1. Production draft
 
-Create canonical `video.md`, poster/cover concept or artifact, narration script with approved-voice plan, BGM/mix plan, visual asset plan, charts/diagrams/images/screens/recordings as appropriate, and explicit motion/transition/effect intent. The first beat and poster must expose the episode hook.
+Create canonical `video.md`, poster/cover concept or artifact, narration script with approved-voice plan, BGM/mix plan, visual asset plan, charts/diagrams/images/screens/recordings as appropriate, and explicit cinematic shot/motion/transition/effect intent. The first beat and poster must expose the episode hook.
 
 ### 2. Required quality
 
@@ -37,8 +37,11 @@ Create canonical `video.md`, poster/cover concept or artifact, narration script 
 - Include BGM and duck it beneath narration.
 - Do not rely mainly on static text cards.
 - Use charts, diagrams, images, screenshots, recordings, kinetic typography, and polished components where they improve the story.
-- Use intentional transitions, motion, effects, pacing, and composition.
+- Translate the editor's beat-level cinematic treatment into the actual scene construction. The supported grammar includes establishing/context, macro/detail close-up, push-in/pull-out emphasis, POV/over-the-shoulder interaction, tracking/pan/reveal, match cut/visual metaphor, split-screen/before-after, evidence-first screen capture, diagram/chart motion, and kinetic typography.
+- Vary the grammar across the episode; do not solve most beats with the same framing, static card, or generic zoom.
+- Use intentional transitions, motion, effects, pacing, and composition. Transitions should connect adjacent beats or sharpen a story turn rather than be decorative.
 - Prefer real screen recordings/screenshots/artifacts for claims about actual work.
+- Generated cinematic imagery may explain or dramatize a concept, but it must be unmistakably non-evidence and must never replace proof of actual work.
 
 If the approved user voice cannot be accessed, block final production unless an explicit fallback is authorized. Never replace proof with generated imitation.
 

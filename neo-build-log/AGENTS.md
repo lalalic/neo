@@ -130,10 +130,15 @@ For every important beat it must specify:
 - audience intent: what the viewer should understand or feel;
 - evidence source;
 - visual form: screen recording, screenshot, chart, diagram, explanatory image, generated visual, kinetic typography, or text when truly appropriate;
+- cinematic treatment: choose a deliberate shot/visual grammar, such as establishing/context, macro/detail close-up, push-in/pull-out emphasis, POV/over-the-shoulder interaction, tracking/pan/reveal, match cut/visual metaphor, split-screen/before-after, evidence-first screen capture, diagram/chart motion, or kinetic typography;
 - motion/transition relationship to adjacent beats;
 - narration intent;
 - BGM/SFX intent when relevant;
 - missing asset or capture requirement.
+
+`visual-brief.md` must vary the grammar across the episode and explain why the treatment fits the beat. Do not let most beats collapse to the same static card or generic zoom. Transitions should preserve visual continuity or sharpen a story turn rather than act as decoration.
+
+Generated cinematic imagery may explain, symbolize, or dramatize a concept, but it must never be presented as proof of actual product behavior. Claims about real work require real evidence.
 
 `video.md` is derived from the visual brief; it is not a replacement for visual thinking.
 
@@ -231,6 +236,7 @@ Publication target and authorization belong to the autonomous Job or specific Ta
 - 2026-09-27: One episode has exactly one top-level durable Task; exceptional durable work may exist only beneath it.
 - 2026-09-27: Final render requires Video Director + Market Agent review. Hook, poster, approved voice, BGM, rich visuals, motion/transitions/effects, and story-first framing are required.
 - 2026-10-04: Validate canonical run artifacts with the validator from the current durable source head against the run's absolute path; a stale canonical checkout can hide newer project tooling.
+- 2026-10-07: “Rich visuals” is too vague to reliably produce cinematic episodes; require beat-level shot grammar, deliberate variation, transition continuity, and an explicit boundary between dramatization and evidence.
 
 
 ## Mechanical episode-completion gate
