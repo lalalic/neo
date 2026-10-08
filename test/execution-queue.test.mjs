@@ -126,3 +126,36 @@ test('cancel stops an active command and releases capacity',async()=>{
   assert.equal(jobs.find(j=>j.id===id)?.status,'cancelled');
  }finally{worker.kill('SIGTERM');await new Promise(r=>worker.once('close',r));rmSync(dir,{recursive:true,force:true});}
 });
+
+test('SIGTERM worker terminates its active command',async()=>{
+ const dir=mkdtempSync(join(tmpdir(),'neoq-shutdown-')),env={NEO_QUEUE_HOME:dir};
+ const worker=spawn(process.execPath,[cli,'worker'],{env:{...process.env,...env},stdio:'ignore'});
+ try{
+  await new Promise(r=>setTimeout(r,250));
+  const id=(await run(['submit','--','/bin/sleep','60'],env)).out.trim();
+  let job;
+  for(let i=0;i<40;i++){
+   job=JSON.parse((await run(['list'],env)).out).find(j=>j.id===id);
+   if(job?.status==='running') break;
+   await new Promise(r=>setTimeout(r,100));
+  }
+  assert.equal(job.status,'running');
+  worker.kill('SIGTERM');
+  await new Promise(r=>worker.once('close',r));
+  job=JSON.parse((await run(['list'],env)).out).find(j=>j.id===id);
+  assert.equal(job.status,'failed');
+ }finally{if(worker.exitCode===null)worker.kill('SIGKILL');rmSync(dir,{recursive:true,force:true});}
+});
+test('argv is passed literally and caller cwd is preserved',async()=>{
+ const dir=mkdtempSync(join(tmpdir(),'neoq-argv-')),env={NEO_QUEUE_HOME:dir};
+ const worker=spawn(process.execPath,[cli,'worker'],{env:{...process.env,...env},stdio:'ignore'});
+ try{
+  await new Promise(r=>setTimeout(r,250));
+  const script='console.log(JSON.stringify({cwd:process.cwd(),args:process.argv.slice(1)}))';
+  const val='a b; quoted phrase';
+  const result=await run(['run','--',process.execPath,'-e',script,val],env);
+  assert.equal(result.code,0);
+  const parsed=JSON.parse(result.out.trim());
+  assert.equal(parsed.cwd,process.cwd());assert.deepEqual(parsed.args,[val]);
+ }finally{worker.kill('SIGTERM');await new Promise(r=>worker.once('close',r));rmSync(dir,{recursive:true,force:true});}
+});
