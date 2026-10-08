@@ -1,11 +1,11 @@
 # Neo execution queue
 
-A local opt-in SQLite-backed CLI queue, independent of Agents Relay. Requires Node 22.13+ (tested with Node 25).
+A local opt-in SQLite-backed CLI queue, independent of Agents Relay. Requires a Node release with built-in `node:sqlite` support (tested with Node 25.6.0).
 
 ## Start (single worker)
 
 ```sh
-npx pm2 start /Users/chengli/Workspace/neo/skills/execution-queue/queue.mjs --name neo-queue-worker -- worker
+npx pm2 start ./skills/execution-queue/queue.mjs --name neo-queue-worker -- worker
 npx pm2 save
 ```
 
@@ -14,14 +14,14 @@ Only the **worker** owns execution; callers can submit concurrently. A single PM
 ## Use
 
 ```sh
-node /Users/chengli/Workspace/neo/skills/execution-queue/queue.mjs run --queue media-ai -- /usr/bin/python3 script.py
-node /Users/chengli/Workspace/neo/skills/execution-queue/queue.mjs status
-node /Users/chengli/Workspace/neo/skills/execution-queue/queue.mjs list
-node /Users/chengli/Workspace/neo/skills/execution-queue/queue.mjs cancel JOB_ID
+node ./skills/execution-queue/queue.mjs run --queue media-ai -- /usr/bin/python3 script.py
+node ./skills/execution-queue/queue.mjs status
+node ./skills/execution-queue/queue.mjs list
+node ./skills/execution-queue/queue.mjs cancel JOB_ID
 ```
 
 `run` waits and forwards stdout/stderr/exit status. `submit` returns a job ID instead. `--dedupe KEY` reuses a queued or running job. `--timeout MS` limits active runtime, not queue delay. `--retries N` enables up to N retries for nonzero exits (default zero); timeouts and cancellations are not retried. Use retries only for idempotent commands. Callers must pass explicit command+argv; no shell is spawned. Cache behavior stays in Markcut.
 
-State lives under `~/.neo/execution-queue/` (override with `NEO_QUEUE_HOME` for tests). Logs are mode 0600 but may include application-sensitive output; manage retention outside this MVP. The queue stores command argv and inherits worker environment, so do not supply secrets on command lines and configure worker env for model CLIs. The worker reaps previously owned process groups before accepting new work. Interrupted RUNNING commands are marked failed rather than automatically replayed; QUEUED commands remain durable. Graceful PM2 termination kills running process groups.
+State lives under `~/.neo/execution-queue/` (override with `NEO_QUEUE_HOME` for tests). Logs are mode 0600 but may include application-sensitive output; terminal job logs are removed after seven days by the worker (override with `NEO_QUEUE_LOG_RETENTION_DAYS`, 1–365). Active logs are not byte-capped to preserve exact command output. The queue stores command argv and inherits worker environment, so do not supply secrets on command lines and configure worker env for model CLIs. The worker reaps previously owned process groups before accepting new work. Interrupted RUNNING commands are marked failed rather than automatically replayed; QUEUED commands remain durable. Graceful PM2 termination kills running process groups.
 
-**Limitations:** Command output is persisted in per-job files so that multiple callers can read it; automatic log retention/rotation is not yet implemented. `--dedupe` shares in-flight jobs, with waiter-aware cancellation for graceful signal handling; forced loss of a caller is cleaned from the waiter table on later cancellation, not proactively detected. Cross-repository Markcut templates and cached-result bypass validation require a separate Agents Relay-backed Markcut PR. Do not interpret this Neo PR alone as proof of Markcut integration.
+**Limitations:** Command output is persisted in per-job files so that multiple callers can read it; age-based terminal-log retention is supported but per-job byte caps and live log rotation are not implemented. `--dedupe` shares in-flight jobs, with waiter-aware cancellation for graceful signal handling; forced loss of a caller is cleaned from the waiter table on later cancellation, not proactively detected. Cross-repository Markcut templates and cached-result bypass validation require a separate Agents Relay-backed Markcut PR. Do not interpret this Neo PR alone as proof of Markcut integration.
