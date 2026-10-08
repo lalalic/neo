@@ -44,3 +44,19 @@ test('durable history is not evicted by unrelated live-buffer traffic', () => {
   assert.equal(history.events[0].event.message,'keep me');
   assert.equal(history.next_cursor,1);
 });
+
+
+test('events bus overrides producer timestamps at publish and persists recorder receipt time', () => {
+  const bogus = '2026-10-08T04:00:00.000Z';
+  const input = {job_id:'timestamp-check',task_id:'review',type:'task.started',status:'running',visibility:'user',message:'started',timestamp:bogus};
+  const published = normalizePublishEvent(input).event;
+  assert.notEqual(published.timestamp,bogus);
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'events-bus-receipt-'));
+  const config={...resolveRuntimeConfig({EVENTS_BUS_DATA_DIR:dir}),dataDir:dir,historyFile:path.join(dir,'events.jsonl')};
+  const core=new EventsBusCore({config});
+  core.appendEvent('test.timestamp-check.task.started', input);
+  const stored=core.history('timestamp-check').events[0].event;
+  assert.notEqual(stored.timestamp,bogus);
+  assert.equal(JSON.parse(fs.readFileSync(config.historyFile,'utf8').trim()).event.timestamp,stored.timestamp);
+  assert.equal(stored.receivedAt,undefined);
+});

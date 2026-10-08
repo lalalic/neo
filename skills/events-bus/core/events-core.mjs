@@ -30,7 +30,7 @@ export function normalizePublishEvent(input, source = { agent: 'events-bus', hos
   if (input.event_id !== undefined && !nonEmptyString(input.event_id)) return { error: 'invalid event.event_id' };
   if (input.timestamp !== undefined && (!nonEmptyString(input.timestamp) || Number.isNaN(Date.parse(input.timestamp)))) return { error: 'invalid event.timestamp' };
   return { event: {
-    ...input, version: 1, event_id: input.event_id ?? crypto.randomUUID(), timestamp: input.timestamp ?? new Date().toISOString(), level: input.level ?? 'info',
+    ...input, version: 1, event_id: input.event_id ?? crypto.randomUUID(), timestamp: new Date().toISOString(), level: input.level ?? 'info',
     source: input.source && typeof input.source === 'object' && !Array.isArray(input.source) ? input.source : source,
     data: input.data && typeof input.data === 'object' && !Array.isArray(input.data) ? input.data : {},
   } };
@@ -71,7 +71,9 @@ export class EventsBusCore {
     this.events = rows; this.nextCursor = nextCursor; this.historyStat = stat;
   }
   appendEvent(subject, event) {
-    const row = { cursor: this.nextCursor++, subject, event };
+    // Recorder is the authoritative history ingestion boundary, including direct NATS publishers.
+    const received = { ...event, timestamp: new Date().toISOString() };
+    const row = { cursor: this.nextCursor++, subject, event: received };
     this.events.push(row);
     if (this.events.length > MAX_MEMORY_EVENTS) this.events.splice(0, this.events.length - MAX_MEMORY_EVENTS);
     fs.appendFileSync(this.config.historyFile, `${JSON.stringify(row)}\n`, { encoding: 'utf8', mode: 0o600 });
