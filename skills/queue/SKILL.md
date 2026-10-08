@@ -1,5 +1,5 @@
 ---
-name: execution-queue
+name: queue
 description: Durable SQLite-backed CLI execution queue with a PM2-managed worker, per-queue concurrency and shared in-flight dedupe. Use for expensive local CLI tasks such as media inference/generation.
 ---
 
@@ -10,11 +10,11 @@ Run all expensive queued commands through `queue.mjs run --queue media-ai -- COM
 ## Commands
 
 ```sh
-node ~/.agents/skills/execution-queue/queue.mjs status
-node ~/.agents/skills/execution-queue/queue.mjs run --queue media-ai -- /bin/echo smoke
-node ~/.agents/skills/execution-queue/queue.mjs submit --queue media-ai -- /bin/echo async
-node ~/.agents/skills/execution-queue/queue.mjs list
-node ~/.agents/skills/execution-queue/queue.mjs cancel JOB_ID
+node ~/.agents/skills/queue/queue.mjs status
+node ~/.agents/skills/queue/queue.mjs run --queue media-ai -- /bin/echo smoke
+node ~/.agents/skills/queue/queue.mjs submit --queue media-ai -- /bin/echo async
+node ~/.agents/skills/queue/queue.mjs list
+node ~/.agents/skills/queue/queue.mjs cancel JOB_ID
 ```
 
 Default `media-ai` concurrency is always 1. `NEO_QUEUE_CAPACITIES` configures non-media queues. `--timeout MS`, `--dedupe KEY` and `--retries N` are opt-in. See README.md. Do not claim this alone integrates Markcut's CLI; Markcut must invoke the queue explicitly.
