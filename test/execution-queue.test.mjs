@@ -4,7 +4,7 @@ import { spawn } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-const cli=resolve('skills/execution-queue/queue.mjs');
+const cli=resolve('skills/queue/queue.mjs');
 function run(argv,env) { return new Promise(resolve=>{const p=spawn(process.execPath,[cli,...argv],{env:{...process.env,...env}});let out='',err='';p.stdout.on('data',d=>out+=d);p.stderr.on('data',d=>err+=d);p.on('close',code=>resolve({code,out,err}));});}
 test('two independent callers serialize, preserve streams and exit status',async()=>{
  const dir=mkdtempSync(join(tmpdir(),'neoq-e2e-')),env={NEO_QUEUE_HOME:dir};
