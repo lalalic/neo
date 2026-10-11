@@ -1,3 +1,9 @@
+---
+name: planner
+extends: relay/planner
+mode: extend
+---
+
 # Vlog planner supplement
 
 This supplements the shared Agents Relay Planner contract; do not override Graph/lifecycle rules or select worker/model routes.

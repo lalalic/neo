@@ -1,3 +1,9 @@
+---
+name: reviewer
+extends: relay/reviewer
+mode: extend
+---
+
 # Vlog reviewer supplement
 
 This supplements the shared Relay Reviewer contract and does not replace the common immutable-target/merge and lifecycle requirements.

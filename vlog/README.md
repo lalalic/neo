@@ -235,4 +235,4 @@ Before rendering, call `validateEpisodeSources(runDir, manifest)` on authentic a
 
 Episode planning uses [multi-Task Thread `pilot` versus single-Task `auto` graphs](templates/cinematic-vlog/TASK-GRAPHS.md). The currently deployed watcher remains Task-on-existing-Job and needs a separate intake bridge before per-submission Jobs are operational.
 
-Project-specific Relay roles use additive Markdown contracts in [`vlog/.agents-relay/contracts/`](.agents-relay/contracts/): `planner.md`, `reviewer.md`, and `review-chair.md`. These supplement the builtin Relay agent contracts and are scoped to this Vlog project.
+Vlog uses project-local `agents/planner.agent.md`, `agents/reviewer.agent.md` and `agents/review-chair.agent.md` with `extends: relay/<name>`; Relay composes these with its builtin agent definitions.
