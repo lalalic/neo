@@ -4,7 +4,7 @@ This is a reusable, tracked **template**, not a run. All actual episode material
 
 **Markcut-compatible stage artifacts:** Each user-facing creative stage may have its own Markcut-supported `.md` (for example `previews/story.md`, `previews/direction.md`, `previews/rough-cut.md`) with playable/renderable preview as appropriate. Intermediate artifacts do not have to be `video.md` and can show different aspects of the production. The final executable movie specification remains `video.md`, the only canonical render timeline. Feedback updates the reviewed stage `.md` and dependent deliverables, followed by a fresh preview and invalidation of stale approvals.
 
-The selectable user interaction modes and timeout decision semantics are defined in [INTERACTION.md](INTERACTION.md).
+Pilot is **Thread-only**; any non-interactive runner uses `auto` and never waits on stage approval. The selectable user interaction modes and timeout decision semantics are defined in [INTERACTION.md](INTERACTION.md).
 
 ## Executable design graph
 
@@ -19,9 +19,9 @@ flowchart TD
  E -- Yes --> F[vlog-editor: cinematic visual brief]
  F --> F0[Markcut: stage-compatible MD preview]
  F0 --> G[Video Director: canonical video.md]
- G --> F1{pilot stage gate or autopilot skip?}
+ G --> F1{Thread pilot interactive?}
  F1 -- Changes requested --> F
- F1 -- Explicit approve / policy timeout / autopilot --> H
+ F1 -- Approve / timeout / auto skip --> H
  H[Execution Director: required assets] --> I[Runtime media agents + audio sourcing]
  I --> J[Markcut: playable draft preview]
  J --> K[Video Director independent review]
@@ -79,7 +79,7 @@ The central user-facing artifact is the **current stage’s Markcut-supported Ma
 ## Required review and approval rules
 
 - A changed `video.md` or draft hash invalidates both automated review PASS decisions. Revisions rerun both reviews and actual playback QA.
-- In `pilot`, present the relevant Markcut-supported stage `.md` preview for creative-direction approval or policy timeout before committing to final asset production. In `autopilot`, skip the intermediate human gate. The assistant must revise the reviewed stage `.md`, propagate affected changes to downstream `video.md`, and re-present the updated preview; approval of a draft is not approval of the eventual final MP4.
+- In `pilot`, present the relevant Markcut-supported stage `.md` preview for creative-direction approval or policy timeout before committing to final asset production. In `auto` (including any non-Thread execution), skip intermediate human gates. The assistant must revise the reviewed stage `.md`, propagate affected changes to downstream `video.md`, and re-present the updated preview; approval of a draft is not approval of the eventual final MP4.
 - AI reviewers cannot grant human approval. Human approval covers one immutable final MP4 hash; changed output requires renewed QA and approval.
 - Show the actual playable video (fullscreen if supported), `visual-brief.md`, director and Market review findings, and QA evidence before requesting approval.
 - Approval is **not authorization to publish**. Post-agent may run only with an explicit separate publication decision; a missing response is neither approval nor publishing authorization.
