@@ -1,10 +1,10 @@
 # Cinematic Vlog production template
 
-This is a reusable, tracked **template**, not a run. All actual episode material and evidence stays in ignored `vlog/runs/YYYY-MM-DD[-slug]/`. Keep **one top-level durable episode Task**; stages are steps in its agentGraph and do not automatically require separate Tasks. Existing `../cinematic-episode.md` defines source schemas and quantitative QA.
+This is a reusable, tracked **template**, not a run. All actual episode material and evidence stays in ignored `vlog/runs/YYYY-MM-DD[-slug]/`. Task decomposition depends on mode: `pilot` is a **per-submission Job with multiple dependent interactive Tasks**, whereas `auto` can use **one Task with an internal agentGraph**. See [TASK-GRAPHS.md](TASK-GRAPHS.md). Existing `../cinematic-episode.md` defines source schemas and quantitative QA.
 
 **Markcut-compatible stage artifacts:** Each user-facing creative stage may have its own Markcut-supported `.md` (for example `previews/story.md`, `previews/direction.md`, `previews/rough-cut.md`) with playable/renderable preview as appropriate. Intermediate artifacts do not have to be `video.md` and can show different aspects of the production. The final executable movie specification remains `video.md`, the only canonical render timeline. Feedback updates the reviewed stage `.md` and dependent deliverables, followed by a fresh preview and invalidation of stale approvals.
 
-Pilot is **Thread-only**; any non-interactive runner uses `auto` and never waits on stage approval. The selectable user interaction modes and timeout decision semantics are defined in [INTERACTION.md](INTERACTION.md).
+Pilot is **Thread-only**; any non-interactive runner uses `auto` and never waits on stage approval. The selectable modes and decision semantics are in [INTERACTION.md](INTERACTION.md), and the actual Job/Task planning graphs in [TASK-GRAPHS.md](TASK-GRAPHS.md). The diagram below describes shared production stages, not a literal one-Task execution plan.
 
 ## Executable design graph
 
