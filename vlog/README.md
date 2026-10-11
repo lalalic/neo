@@ -1,5 +1,7 @@
 # Vlog
 
+The canonical reusable cinematic production graph (agents, input/output contracts, independent reviews and human approval) is [`templates/cinematic-vlog/GRAPH.md`](templates/cinematic-vlog/GRAPH.md). Template definitions are tracked; episode executions are in ignored `runs/`.
+
 Vlog turns real daily media and evidence into one coherent short-form story and verified publication outcome. It is a thin Neo content project: Vlog owns the editorial/production contract; Agents Relay owns orchestration; shared Neo capabilities own reusable media, vision, rendering, and publishing implementation.
 
 ## Human mental model
