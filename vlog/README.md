@@ -220,3 +220,11 @@ For ordinary personal/travel Vlogs, default to a joyful, light, lively, energeti
 The result should not feel like a static slideshow. Real media stays the foundation, enhanced with purposeful animated route drawing, walking/cycling/driving graphics, parallax/photo motion, kinetic typography, playful graphic accents, beat-aware cuts and transitions, speed ramps/freeze frames when appropriate, and explanatory CG when useful.
 
 Generated/CG material remains editorial/explanatory and must never be presented as real source footage.
+
+## Cinematic workflow admission and QA
+
+See `templates/cinematic-episode.md` for the reusable shot/story/color/sound artifact contract and `lib/cinematic-contract.mjs` for deterministic source-admission, two-review draft-hash and playback-score gates. These are **explicitly invoked** by episode workers; they do not automatically run inside the legacy iCloud inbox watcher. The watcher remains backwards-compatible and moves inbox inputs before the independent admission decision. Source approval is not inferred from successful ingestion.
+
+Before rendering, call `validateEpisodeSources(runDir, manifest)` on authentic approved assets, then `validateReviewGate(videoMarkdown, reports)` with both independent PASS reports. After rendering and personally observing full video/audio playback, call `validatePlaybackQA(observation)` on actual evidence. Template/example data cannot stand in for real playback. A failed gate leaves the episode input-needed or revision-required, not published.
+
+**Runtime evidence boundary (2026-10-10):** local Markcut checkout package declares 3.2.0, and `node src/render/cli.mjs --help` exposes `verify`, `preview` (`--storyboard`, `--port`, `--no-browser`), `render`, `vision`, `spots`. This confirms CLI command availability only, not rendered effect fidelity or fullscreen/player UX. The Markdown skill documents transition/effects/rhythm/map/foreground, but no effect-specific render or viewed playback was performed in this workflow-contract task. Grading, stabilization, speed ramps, sidechain ducking and multi-video fullscreen behavior remain unverified dependencies, not promised native features. The first authentic pilot must record version-pinned effects, real audio licensing, direct playback, metrics and revision evidence. No pilot, review PASS or publication is claimed here.
