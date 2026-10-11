@@ -17,6 +17,8 @@ flowchart LR
 The manifest is the contract boundary. Extraction may evolve independently from
 book and video presentation as long as the manifest remains valid.
 
+Baseline capture is intentionally weaker than original-media enrichment: phone-harness captures the iPhone Mirroring window, so those assets are display-derived evidence. See baseline-media-extraction.md for still/video strategies, measurable capture properties, and the A/B/C/D capability matrix.
+
 ## Data model
 
 At minimum a run manifest contains:
@@ -34,6 +36,12 @@ GPS semantics are strict:
 - `gps.status=observed`: coordinates came from original media metadata;
 - `gps.status=missing`: metadata was checked and no coordinates were present;
 - `gps.status=unknown`: original metadata was not available or not checked.
+
+Provenance claims carry evidence: a matched original requires an asset
+reference, confidence, and matching evidence; observed GPS requires the
+coordinate source and matched original media. Years are ordered newest first,
+and known Moments within each year are ordered newest first with timezone-aware
+timestamps.
 
 Human-readable location text from WeChat or prose inference is stored
 separately and never promoted to observed coordinates.
@@ -91,6 +99,13 @@ Memoir
 
 Presentation may add chapter intros, maps, or captions, but it must not reorder
 or silently rewrite source Moments without recording the editorial transform.
+
+The reusable renderer emits an editable Markdown book and one Markcut source
+from the same validated manifest. It prefers a matched original asset, falls
+back to the display-derived phone-harness capture, preserves unknown/missing
+provenance, and rejects an absolute or escaping asset path. Its QA report
+records matching year and Moment IDs for both outputs. Real runs must still run
+`markcut verify` and visually review the rendered video.
 
 ## Privacy boundary
 
