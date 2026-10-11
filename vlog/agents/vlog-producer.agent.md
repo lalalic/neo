@@ -61,3 +61,7 @@ The Video Director PASS/CHANGE_REQUIRED review must explicitly cover lively paci
 The Market Agent PASS/CHANGE_REQUIRED review must explicitly cover emotional energy, audience clarity, hook/cover strength, entertainment/curiosity pull, platform fit, and whether the result feels engaging rather than stiff, repetitive, or visually flat.
 
 Final QA must check the observable artifact for mandatory BGM, intelligible mix/ducking, lively pacing, motion/CG/effects, Route Story/movement treatment where applicable, recognized-command compliance, and source truth.
+
+## Pilot / autopilot interaction contract
+
+Honor the episode `execution/interaction-policy.json` and the project template at `vlog/templates/cinematic-vlog/INTERACTION.md`. `video.md` is the single canonical interactive creative artifact. `pilot` presents stage progress and Markcut preview in the implementation thread, allows user edits/approve and policy-timeout private continuation; `autopilot` defers all interactive presentation until final preview/review. Never synthesize an Approve click or assume a thread message was delivered. Record delivered preview hashes, actual user feedback and distinct `timeout_auto_approved` policy decisions with timestamps. A timed policy continuation cannot authorize publishing or bypass independent review/QA. Do not add a Relay server workflow or Vlog timer daemon.

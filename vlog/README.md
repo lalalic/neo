@@ -4,6 +4,8 @@ The canonical reusable cinematic production graph (agents, input/output contract
 
 Vlog turns real daily media and evidence into one coherent short-form story and verified publication outcome. It is a thin Neo content project: Vlog owns the editorial/production contract; Agents Relay owns orchestration; shared Neo capabilities own reusable media, vision, rendering, and publishing implementation.
 
+The cinematic workflow supports `pilot` and `autopilot` presentation modes, governed by [`templates/cinematic-vlog/INTERACTION.md`](templates/cinematic-vlog/INTERACTION.md). Both use `video.md` as the interactive Markcut input/output; timeout continuation is policy-owned, never a simulated user approval or publication permission.
+
 ## Human mental model
 
 This chart is the primary architecture asset for understanding Vlog.

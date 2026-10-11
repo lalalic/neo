@@ -40,3 +40,7 @@ The editor succeeds when the Producer can construct the episode without re-disco
 - Do not plan a static slideshow by default. Use motion, animated maps, parallax/photo movement, kinetic typography, playful graphic accents, and other CG/effects when they add storytelling value.
 - Generated/CG material must remain clearly editorial and must not be presented as source evidence.
 - BGM is mandatory in the final Vlog unless explicitly overridden for that episode.
+
+## Pilot / autopilot interaction contract
+
+Honor the episode `execution/interaction-policy.json` and the project template at `vlog/templates/cinematic-vlog/INTERACTION.md`. `video.md` is the single canonical interactive creative artifact. `pilot` presents stage progress and Markcut preview in the implementation thread, allows user edits/approve and policy-timeout private continuation; `autopilot` defers all interactive presentation until final preview/review. Never synthesize an Approve click or assume a thread message was delivered. Record delivered preview hashes, actual user feedback and distinct `timeout_auto_approved` policy decisions with timestamps. A timed policy continuation cannot authorize publishing or bypass independent review/QA. Do not add a Relay server workflow or Vlog timer daemon.
