@@ -1,5 +1,8 @@
 # Vlog Project Rules
 
+Canonical tracked recipe: [templates/cinematic-vlog/GRAPH.md](templates/cinematic-vlog/GRAPH.md), with validated OSS study in [templates/cinematic-vlog/RESEARCH.md](templates/cinematic-vlog/RESEARCH.md). Episode artifacts remain in ignored `runs/`; creative approval and final approval are independent human gates.
+
+
 Vlog is a thin Neo content project. Root `AGENTS.md` and `MISSION.md` apply first.
 
 ## Planner topology — primary contract
