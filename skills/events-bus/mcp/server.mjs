@@ -1,14 +1,10 @@
 #!/usr/bin/env node
 import readline from "node:readline";
-import fs from "node:fs";
 import { JOB_ID_PATTERN } from "./validation.mjs";
 import { createEventsBusCore, MAX_WAIT_MS } from "../core/events-core.mjs";
 
 const SERVER_NAME = "events-bus-mcp";
 const SERVER_VERSION = "0.2.0";
-const PROGRESS_RESOURCE_URI = "ui://events-bus/job-progress-v1.html";
-const PROGRESS_MIME_TYPE = "text/html;profile=mcp-app";
-const PROGRESS_HTML = fs.readFileSync(new URL("./job-progress.html", import.meta.url), "utf8");
 const core = createEventsBusCore({ name: SERVER_NAME });
 
 function structuredResult(value) { return { content: [{ type: "text", text: JSON.stringify(value) }], structuredContent: value }; }
@@ -81,40 +77,6 @@ const TOOLS = [
     annotations: { readOnlyHint: true },
   },
   {
-    name: "progress",
-    title: "Show job progress",
-    description: "Render a compact visual snapshot of one events-bus job.",
-    inputSchema: {
-      type: "object",
-      properties: { job_id: { type: "string" } },
-      required: ["job_id"],
-      additionalProperties: false,
-    },
-    outputSchema: {
-      type: "object",
-      properties: {
-        job_id: { type: "string" },
-        status: { type: "string" },
-        terminal: { type: "boolean" },
-        latest_message: { type: "string" },
-        updated_at: { type: ["string", "null"] },
-        event_count: { type: "integer" },
-        worker_liveness: { type: "object" },
-        progress: { type: ["object", "null"] },
-        milestones: { type: "array", items: { type: "object" } },
-      },
-      required: ["job_id", "status", "terminal", "latest_message", "updated_at", "event_count", "worker_liveness", "progress", "milestones"],
-      additionalProperties: false,
-    },
-    _meta: {
-      ui: { resourceUri: PROGRESS_RESOURCE_URI },
-      "openai/outputTemplate": PROGRESS_RESOURCE_URI,
-      "openai/toolInvocation/invoking": "Building job progress…",
-      "openai/toolInvocation/invoked": "Job progress ready",
-    },
-    annotations: { readOnlyHint: true },
-  },
-  {
     name: "publish",
     description: "Publish one validated events-bus event. Intended for orchestrators/services that expose MCP but do not have a direct NATS client.",
     inputSchema: {
@@ -157,7 +119,6 @@ async function callTool(name, args = {}) {
     if (name === "history") return textResult(core.history(args.job_id, args.after_cursor ?? 0, args.limit ?? 100));
     if (name === "wait") return textResult(await core.wait(args.job_id, args.after_cursor ?? 0, args.timeout_ms ?? 25_000, args.limit ?? 100));
     if (name === "status") return textResult(core.status(args.job_id));
-    if (name === "progress") return structuredResult(core.progress(args.job_id));
     if (name === "publish") return textResult(await core.publish(args.event, { agent: "mcp" }));
     return textResult({ error: `unknown tool: ${name}` }, true);
   } catch (error) { return textResult({ error: String(error?.message || error) }, true); }
@@ -173,11 +134,8 @@ rl.on("line", async (line) => {
   if (method === "initialize") return send({ jsonrpc: "2.0", id, result: { protocolVersion: "2025-06-18", capabilities: { tools: {}, resources: { listChanged: false } }, serverInfo: { name: SERVER_NAME, version: SERVER_VERSION } } });
   if (method === "notifications/initialized" || method === "notifications/cancelled") return;
   if (method === "ping") return send({ jsonrpc: "2.0", id, result: {} });
-  if (method === "resources/list") return send({ jsonrpc: "2.0", id, result: { resources: [{ uri: PROGRESS_RESOURCE_URI, name: "Neo Job Progress", mimeType: PROGRESS_MIME_TYPE }] } });
-  if (method === "resources/read") {
-    if (params?.uri !== PROGRESS_RESOURCE_URI) return send({ jsonrpc: "2.0", id, error: { code: -32602, message: `Unknown resource: ${params?.uri}` } });
-    return send({ jsonrpc: "2.0", id, result: { contents: [{ uri: PROGRESS_RESOURCE_URI, mimeType: PROGRESS_MIME_TYPE, text: PROGRESS_HTML, _meta: { ui: { prefersBorder: true } } }] } });
-  }
+  if (method === "resources/list") return send({ jsonrpc: "2.0", id, result: { resources: [] } });
+  if (method === "resources/read") return send({ jsonrpc: "2.0", id, error: { code: -32602, message: `Unknown resource: ${params?.uri}` } });
   if (method === "tools/list") return send({ jsonrpc: "2.0", id, result: { tools: TOOLS } });
   if (method === "tools/call") return send({ jsonrpc: "2.0", id, result: await callTool(params?.name, params?.arguments ?? {}) });
   if (id !== undefined) send({ jsonrpc: "2.0", id, error: { code: -32601, message: `Method not found: ${method}` } });
