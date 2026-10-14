@@ -11,3 +11,6 @@ subtitle:"https://neoy.qili2.com/files/markcut-review/video-a-v4.srt"
 
 ## Narrative-Payoff
 - component duration:2 jsx:"<div style={{background:'#733BBC',color:'#FFFFFF',width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:34}}>STORY - MOTION - PAYOFF</div>"
+
+## Route interlude — demo coordinates only
+- map view:route duration:3 mapType:roadmap waypoints:[43.6,-79.3,"Demo A";43.7,-79.4,"Demo B"]

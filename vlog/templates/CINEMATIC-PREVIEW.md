@@ -32,3 +32,7 @@ The demo's remote MP4 is a test clip, its WAV is a test soundbed and its SRT is 
 A template review can establish editorial choices but **cannot** satisfy the production requirements in `cinematic-episode.md`: source-manifest authorization, Video Director and Market PASS on the same draft hash, full rendered playback QA, sound/music rights and separate publication authorization. If real source media or audio rights are missing, mark `INPUT_NEEDED` and do not publish.
 
 Do not hardcode the demo's external resource URLs into real episodes. Resolve episode assets under the project's NeoY `vlog` mount, keeping a single canonical `video.md` in `vlog/runs/`.
+
+## GPS-led journey variation
+
+For geotagged photo/video episodes, use [GPS-ROUTE.md](GPS-ROUTE.md) and `lib/gps-route.mjs` to extract chronological location evidence, then place a native Markcut `map view:route` or `view:cinematic` beat between actual camera footage. Do not disclose precise private location in a public NeoY preview without permission.
