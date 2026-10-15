@@ -1,7 +1,7 @@
 # video
 seed:1758416490
 width:640 height:480 fps:30 layout:series
-subtitle:"https://neoy.qili2.com/files/markcut-review/video-a-v4.srt"
+subtitle:"https://neoy.qili2.com/files/markcut-review/video-a-v4.vtt"
 stt:""
 
 ## Cinematic-Hook
