@@ -25,4 +25,5 @@ test('native route and cinematic map scenes use labelled synthetic waypoints', (
   assert.match(script, /Route-inferred-navigation/, 'calculated route must be distinguishable from observed movement');
   assert.match(script, /<video src=/, 'map interlude must preserve original moving footage');
   assert.match(script, /subtitle:/, 'retain story subtitle track');
+  assert.match(script, /- audio src:/, 'retain a native synthetic audio node');
 });
