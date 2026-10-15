@@ -39,7 +39,11 @@ test('moves a valid submission and creates one task pointing at moved input', as
   assert.equal(result.status, 'task-created');
   assert.equal(r.created.length, 1);
   assert.equal(r.created[0].agentGraph, VLOG_EPISODE_AGENT_GRAPH);
-  assert.match(r.created[0].agentGraph, /editor\[agent:vlog-editor\] --> producer\[agent:vlog-producer\]/);
+  assert.match(r.created[0].agentGraph, /agent:vlog-route-researcher/);
+  assert.match(r.created[0].agentGraph, /agent:vlog-location-researcher/);
+  assert.match(r.created[0].agentGraph, /agent:vlog-editor/);
+  assert.match(r.created[0].agentGraph, /agent:vlog-music-supervisor/);
+  assert.match(r.created[0].agentGraph, /agent:vlog-producer/);
   const hour = String(new Date('2026-09-27T15:00:00Z').getHours()).padStart(2, '0');
   assert.ok(r.created[0].input.includes(path.join(f.runs, '2026-09-27', hour, 'submission-1', 'input', 'manifest.json')));
   await stat(path.join(f.runs, '2026-09-27', hour, 'submission-1', 'input', 'media', 'clip.mov'));

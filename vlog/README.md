@@ -220,3 +220,17 @@ For ordinary personal/travel Vlogs, default to a joyful, light, lively, energeti
 The result should not feel like a static slideshow. Real media stays the foundation, enhanced with purposeful animated route drawing, walking/cycling/driving graphics, parallax/photo motion, kinetic typography, playful graphic accents, beat-aware cuts and transitions, speed ramps/freeze frames when appropriate, and explanatory CG when useful.
 
 Generated/CG material remains editorial/explanatory and must never be presented as real source footage.
+
+## Location intelligence, historical weather and mandatory BGM
+
+One episode Task now uses the discoverable agentGraph implemented in `lib/episode-graph.mjs`:
+
+`vlog-route-researcher → vlog-location-researcher → vlog-editor → vlog-music-supervisor → vlog-producer`
+
+The specialists write `route-evidence.json`, `location-enrichment.json`, `story.md`, `visual-brief.md`, and `music-plan.json` into the same run. The producer still owns canonical `video.md`, immutable Markcut preview revision review, required Video Director + Market PASS, final render/QA, and separately authorized publication. The inbox watcher passes the graph to Relay; no independent job scheduler or redundant media engine is introduced.
+
+Location research covers **time-matched nearby events/activities**, **historical weather observed at the capture date**, landmarks, local history, culture, scenic POIs and interesting facts. Cite every reusable fact. `nearby_at_time` never implies attendance, and inferred GPS connections never become observed tracks. Keep private location metadata off public NeoY mounts unless sharing is explicitly authorized. Missing/unsafe route evidence falls back to a regular source-led Vlog story.
+
+**Audible licensed BGM is mandatory.** The music specialist identifies rights, cues, mood/beat transitions, narration/ambient ducking, fades and mixing; missing source or rights yields `INPUT_NEEDED` rather than a silent final video. `lib/episode-evidence.mjs` validates enrichment provenance and music-plan metadata, but passing those validators is not a playback or rights clearance. The producer must verify actual sound, map tiles, WebVTT subtitles, timeline seeking and rendering in Markcut MCP and the final file.
+
+Proposed reusable graphical presentation pieces (implemented in **shared Markcut** only after acceptance tests, not copied into Vlog): route interlude, cinematic Google Maps camera, sourced landmark/history cards, activity/event context labels, time-matched weather overlay, beat-aware scene cuts, and BGM ducking. All such elements distinguish contextual/generated graphics from recorded source footage.

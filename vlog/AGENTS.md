@@ -4,57 +4,26 @@ Vlog is a thin Neo content project. Root `AGENTS.md` and `MISSION.md` apply firs
 
 ## Planner topology — primary contract
 
-This chart is the primary asset for Planner.
+One top-level Episode Task contains this sequential specialist graph. No extra job or worker scheduler is created by any of these stages.
 
-```text
-                           VLOG JOB
-                              │
-                              v
-               ┌──────────────────────────┐
-               │ ONE TOP-LEVEL EPISODE    │
-               │ TASK                     │
-               │ vlog-YYYY-MM-DD[-slug]   │
-               └────────────┬─────────────┘
-                            │
-                            v
-                       agentGraph
-                            │
-                            v
-                  ┌─────────────────┐
-                  │ vlog-editor     │
-                  │ source + story  │
-                  │ visual brief    │
-                  └────────┬────────┘
-                           │
-                           v
-                  ┌─────────────────┐
-                  │ vlog-producer   │
-                  │ production draft│
-                  └────────┬────────┘
-                           │
-                  ┌────────┴─────────┐
-                  │                  │
-                  v                  v
-         ┌────────────────┐  ┌────────────────┐
-         │ Video Director │  │ Market Agent   │
-         │ REQUIRED REVIEW│  │ REQUIRED REVIEW│
-         └───────┬────────┘  └───────┬────────┘
-                 │                   │
-                 └─────────┬─────────┘
-                           │
-                     BOTH PASS
-                           │
-                           v
-                  ┌─────────────────┐
-                  │ final render+QA │
-                  └────────┬────────┘
-                           │
-                           v
-                  ┌─────────────────┐
-                  │ post-agent      │
-                  │ when authorized │
-                  └─────────────────┘
+```mermaid
+flowchart TD
+  input[Validated Source Manifest and Media] --> route[agent:vlog-route-researcher]
+  route --> context[agent:vlog-location-researcher]
+  context --> editor[agent:vlog-editor]
+  editor --> music[agent:vlog-music-supervisor]
+  music --> producer[agent:vlog-producer]
+  producer --> director[Video Director Review]
+  producer --> market[Market Agent Review]
+  director --> both{BOTH PASS}
+  market --> both
+  both --> qa[Final Render + Observable QA]
+  qa --> auth{Publication authorization}
+  auth -->|yes| post[Shared post-agent]
+  auth -->|no| archive[Save completed video]
 ```
+
+Run-level graph code: `lib/episode-graph.mjs`; inbox watcher passes it to Relay as `agentGraph`. Specialist outputs are episode artifacts, not separate top-level Tasks. The production/human preview change loop and publication gates are further detailed below.
 
 One episode = **exactly one top-level durable Task**.
 
@@ -63,6 +32,43 @@ Never create sibling top-level Tasks for source collection, media analysis, stor
 If a phase truly needs an independent durable lifecycle, create a child/descendant Task under the episode Task. Valid reasons include external wait, explicit approval, isolated retry/reconciliation boundary, durable blocker, or independently resumed work.
 
 Use only discoverable agents. Do not invent agent names or hard-code worker/provider/model selection.
+
+## GPS-first enrichment and music — binding episode design
+
+This is **one episode Task with an agentGraph**, not a second scheduler, research Job, or parallel unreviewed publication path. The discoverable specialists are `vlog-route-researcher`, `vlog-location-researcher`, and `vlog-music-supervisor`, followed by the existing `vlog-editor` and `vlog-producer`. The runnable graph is defined in `lib/episode-graph.mjs` and used by the inbox watcher. Each specialist writes evidence into the same run directory; a missing external service is an explicit evidence gap, never fabricated output.
+
+```mermaid
+flowchart TD
+  intake[Validated source media + source-manifest] --> route[agent:vlog-route-researcher]
+  route --> context[agent:vlog-location-researcher]
+  context --> editor[agent:vlog-editor]
+  editor --> music[agent:vlog-music-supervisor]
+  music --> producer[agent:vlog-producer]
+  producer --> preview[Markcut video.md + MCP preview]
+  preview --> human{Human review of immutable revision}
+  human -->|changes| editor
+  human -->|approved| gate{Video Director AND Market PASS on same draft}
+  gate -->|changes| editor
+  gate -->|both PASS| qa[Render + video/map/VTT/audio/BGM QA]
+  qa -->|fail| producer
+  qa -->|pass| permit{Publication explicitly authorized?}
+  permit -->|no| save[Archive deliverable]
+  permit -->|yes| publish[Shared post-agent + platform receipt]
+```
+
+**Route researcher** extracts photo EXIF/video QuickTime capture times, timezone provenance, GPS, stops, segment boundaries, outliers, privacy redaction and inferred movement confidence. It writes `route-evidence.json`; only observed camera/source evidence can support a claim that an activity or travel mode actually occurred. Missing GPS falls back to time-based narrative, not synthetic movement. Do not expose private GPS to public NeoY mounts without explicit permission.
+
+**Location researcher** consumes privacy-safe stops and time windows and looks up geographically/time-matched nearby events, activities, points of interest, landmarks, history, cultural context and *historical weather for the capture date* (not today's forecast). Store `location-enrichment.json`: source URL, fetched/published timestamp, place, time relevance, attribution, confidence and usage permission. Label every suggestion as `observed`, `nearby_at_time`, `historical_context`, or `future_suggestion`; proximity never proves attendance. If only general weather or current information is available, do not assert past conditions. Research may enrich narration/graphics, never overwrite the media's story truth.
+
+**Editor** integrates the route evidence and optional verified enrichment into `story.md` and `visual-brief.md` (hook → discovery/journey → payoff), retaining the original footage, speech, ambient sound and meaningful route/cinematic map transitions. Use source-matched Chinese introductions by default. Keep derived map animations distinguishable from the actual recorded track; no claimed visits or historical facts without provenance.
+
+**Music supervisor** makes BGM **required for every finished episode**. Write `music-plan.json` recording candidate track, owner/license/allowed use, provenance, timing against story beats, beat-aware cuts, gain/fades, dialogue/narration/original-sound ducking and audio verification. Use shared audio sourcing/TTS skills and do not buy tracks, invent rights, or publish copyrighted music without authorization. If no authorized track exists, mark `INPUT_NEEDED` and block final production approval; do not silently omit BGM. Verify non-silent mixed BGM in both actual Markcut MCP player and final rendered video.
+
+**Producer** assembles canonical `video.md` with original imagery/video, native Markcut `map view:route`/`view:cinematic` where supported, licensed BGM, original sound and **WebVTT (`.vtt`) subtitles**, not raw SRT URLs (which Markcut treats as literal text). MCP preview request-changes/approve must apply to a content hash; automated Video Director and Market PASS, final playback QA and distinct publication permission are separate gates. If map tiles/audio cannot actually render in the embedded player, do not certify playback from compilation alone.
+
+Optional Remotion components may be implemented in shared Markcut only, with deterministic playback tests: route transition, cinematic camera/map view, location/event card, historical fact attribution card, weather overlay, lower-thirds, and music ducking. Vlog owns story contracts/templates, **not** a fork of Remotion, a duplicate media renderer, or a second source-of-truth workflow.
+
+Episode evidence flow: `source-manifest.json` → `route-evidence.json` → `location-enrichment.json` → `story.md` / `visual-brief.md` → `music-plan.json` → canonical `video.md` → `reviews/` → `qa.md` → optional `publish/receipt`. Each claim must link to its source and every artifact remains inside the same episode run.
 
 ## Ownership
 
@@ -119,7 +125,7 @@ Video Director turns the creative intent into canonical `video.md`. Execution Di
 
 - Prefer real footage and useful original sound.
 - Narration is optional. If used, it must use the user's approved voice identity unless an explicit fallback is authorized.
-- BGM is mandatory by default; source it through the shared audio-sourcing capability and mix/duck it around dialogue, narration, and meaningful original sound. SFX remain deliberate editorial choices.
+- BGM is mandatory for finished episodes; source it through the shared audio-sourcing capability and mix/duck it around dialogue, narration, and meaningful original sound. SFX remain deliberate editorial choices.
 - Use strong composition, meaningful cuts, motion, transitions, effects, and pacing.
 - Use charts, diagrams, generated explanatory images, screenshots, or kinetic typography only when they improve comprehension without pretending to be real source evidence.
 - Render vertical short-form video unless the Task specifies another format.
@@ -154,9 +160,12 @@ Persist review evidence under `reviews/`. Required changes must be incorporated 
 ```text
 runs/<YYYY-MM-DD[-slug]>/
 ├── source-manifest.json
+├── route-evidence.json
+├── location-enrichment.json
 ├── story.md
 ├── post.md
 ├── visual-brief.md
+├── music-plan.json
 ├── video.md
 ├── execution/
 ├── assets/
