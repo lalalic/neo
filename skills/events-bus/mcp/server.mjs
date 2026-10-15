@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import readline from "node:readline";
-import { JOB_ID_PATTERN } from "./validation.mjs";
+import { safeJobId } from "./validation.mjs";
 import { createEventsBusCore, MAX_WAIT_MS } from "../core/events-core.mjs";
 
 const SERVER_NAME = "events-bus-mcp";
@@ -9,6 +9,23 @@ const core = createEventsBusCore({ name: SERVER_NAME });
 
 function structuredResult(value) { return { content: [{ type: "text", text: JSON.stringify(value) }], structuredContent: value }; }
 function textResult(value, isError = false) { return { content: [{ type: "text", text: JSON.stringify(value) }], ...(isError ? { isError: true } : {}) }; }
+// Relay stores job IDs as integers; the core and NATS subjects use canonical strings.
+function normalizeJobId(value) {
+  if (Number.isSafeInteger(value) && value >= 0) return String(value);
+  return value;
+}
+function resultOrError(name, args, result) {
+  if (result?.error) diagnoseFailure(name, args, result.error, "validation");
+  return textResult(result, Boolean(result?.error));
+}
+function diagnoseFailure(name, args, reason, stage) {
+  // No event payloads or message bodies in diagnostic logs.
+  const id = name === "publish" ? args?.event?.job_id : args?.job_id;
+  const diagnostic = { component: "events-bus-mcp", operation: name, stage,
+    job_id_type: id === null ? "null" : typeof id,
+    error: String(reason).slice(0, 300) };
+  process.stderr.write(`[events-bus] ${JSON.stringify(diagnostic)}\n`);
+}
 
 const TOOLS = [
   {
@@ -28,7 +45,7 @@ const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        job_id: { type: "string" },
+        job_id: { type: ["string", "integer"] },
         after_cursor: { type: "integer", minimum: 0, default: 0 },
         timeout_ms: { type: "integer", minimum: 0, maximum: MAX_WAIT_MS, default: 25000 },
         limit: { type: "integer", minimum: 1, maximum: 500, default: 100 },
@@ -44,7 +61,7 @@ const TOOLS = [
     description: "Establish a non-blocking cursor for one job before delegation. Does not consume or delete events.",
     inputSchema: {
       type: "object",
-      properties: { job_id: { type: "string", pattern: "^[A-Za-z0-9_-]+$" } },
+      properties: { job_id: { type: ["string", "integer"] } },
       required: ["job_id"],
       additionalProperties: false,
     },
@@ -56,7 +73,7 @@ const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        job_id: { type: "string" },
+        job_id: { type: ["string", "integer"] },
         after_cursor: { type: "integer", minimum: 0, default: 0 },
         limit: { type: "integer", minimum: 1, maximum: 500, default: 100 },
       },
@@ -70,7 +87,7 @@ const TOOLS = [
     description: "Return the latest known event and terminal state for one job.",
     inputSchema: {
       type: "object",
-      properties: { job_id: { type: "string" } },
+      properties: { job_id: { type: ["string", "integer"] } },
       required: ["job_id"],
       additionalProperties: false,
     },
@@ -87,7 +104,7 @@ const TOOLS = [
           properties: {
             version: { type: "integer", const: 1 },
             event_id: { type: "string", minLength: 1 },
-            job_id: { type: "string", pattern: JOB_ID_PATTERN, description: "Use the caller-provided literal job_id; never use placeholders such as inherited/current." },
+            job_id: { type: ["string", "integer"], description: "Use the caller-provided literal job_id; never use placeholders such as inherited/current." },
             task_id: { type: "string", minLength: 1, description: "Use the caller-provided literal task_id; task IDs are payload correlation values and are not restricted to NATS-safe job ID characters." },
             parent_task_id: { type: ["string", "null"] },
             orchestrator_id: { type: ["string", "null"] },
@@ -114,14 +131,27 @@ const TOOLS = [
 
 async function callTool(name, args = {}) {
   try {
+    const jobId = normalizeJobId(args.job_id);
     if (name === "health") return textResult(await core.health());
-    if (name === "watch") return textResult(await core.watch(args.job_id));
-    if (name === "history") return textResult(core.history(args.job_id, args.after_cursor ?? 0, args.limit ?? 100));
-    if (name === "wait") return textResult(await core.wait(args.job_id, args.after_cursor ?? 0, args.timeout_ms ?? 25_000, args.limit ?? 100));
-    if (name === "status") return textResult(core.status(args.job_id));
-    if (name === "publish") return textResult(await core.publish(args.event, { agent: "mcp" }));
+    if (name === "watch") return textResult(await core.watch(jobId));
+    if (name === "history") return resultOrError(name, args, core.history(jobId, args.after_cursor ?? 0, args.limit ?? 100));
+    if (name === "wait") return textResult(await core.wait(jobId, args.after_cursor ?? 0, args.timeout_ms ?? 25_000, args.limit ?? 100));
+    if (name === "status") {
+      if (!safeJobId(jobId)) throw new Error("job_id must contain only letters, digits, _ or -");
+      return resultOrError(name, args, core.status(jobId));
+    }
+    if (name === "publish") {
+      const event = args.event && { ...args.event, job_id: normalizeJobId(args.event.job_id) };
+      const result = await core.publish(event, { agent: "mcp" });
+      if (result?.error) diagnoseFailure(name, args, result.error, "validation");
+      return textResult(result, Boolean(result?.error));
+    }
+    diagnoseFailure(name, args, "unknown tool", "dispatch");
     return textResult({ error: `unknown tool: ${name}` }, true);
-  } catch (error) { return textResult({ error: String(error?.message || error) }, true); }
+  } catch (error) {
+    diagnoseFailure(name, args, error?.message || error, "execution");
+    return textResult({ error: String(error?.message || error) }, true);
+  }
 }
 
 function send(message) { process.stdout.write(`${JSON.stringify(message)}\n`); }
