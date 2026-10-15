@@ -42,3 +42,5 @@ For geotagged photo/video episodes, use [GPS-ROUTE.md](GPS-ROUTE.md) and `lib/gp
 ## Map rendering acceptance gate
 
 The preview fixture contains two Markcut-native map leaves (`view:route` and `view:cinematic`) with fictional waypoints. **Successful parsing and `markcut.preview` scene compilation do not prove that Google Maps tiles rendered.** The Markcut compiler stamps `GOOGLE_MAPS_API_KEY` into each map leaf when configured; if the key is absent, interactive map rendering remains unverified and must not be recorded as a passing visual QA check. Do not enable a billable external API without authorization. Independently verify the ChatGPT-hosted MCP iframe, playback/seek and audio, not only localhost or `/api/video-data`. Review/approval is separate from map render QA and publishing authorization.
+
+The fixture includes a native synthetic WAV node and a separately provided test SRT; its `stt:""` deliberately disables automatic speech-to-text. This prevents unnecessary external processing and avoids generating an unmounted private `subtitles.vtt` file. Real episodes must separately document transcript provenance and rights.

@@ -26,4 +26,5 @@ test('native route and cinematic map scenes use labelled synthetic waypoints', (
   assert.match(script, /<video src=/, 'map interlude must preserve original moving footage');
   assert.match(script, /subtitle:/, 'retain story subtitle track');
   assert.match(script, /- audio src:/, 'retain a native synthetic audio node');
+  assert.match(script, /^stt:""$/m, 'fixture supplies subtitles directly and must not generate unmounted transcripts');
 });
