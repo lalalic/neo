@@ -97,6 +97,19 @@ The durable unit is the **episode**, not each production phase. One episode is o
 
 Vlog does not own a scheduler, database, worker launcher, routing policy, model policy, browser publisher, media engine, or lifecycle state machine.
 
+## Optional location enrichment
+
+```text
+Authorized photos/video/audio -> story (hook / development / payoff) -> visual brief
+              |
+              +-> optional EXIF/QuickTime GPS check
+                         | no trusted GPS -> no map scene (normal complete Vlog)
+                         | partial GPS -> only verified stops, no guessed movements
+                         + two+ approved points -> optional short map/scenic insert
+```
+
+GPS must never gate an episode. Raw coordinates stay private; a redacted route is included only with explicit disclosure approval. Maps show location context or inferred navigation, not a recorded travel track. Mandatory authorized BGM, original sound, Chinese defaults, revision-specific preview, both reviews and the no-publication-unless-authorized rule remain unchanged.
+
 ## Episode artifact flow
 
 `visual-brief.md` is the primary creative handoff for downstream production. `video.md` is the canonical executable Markcut source.
