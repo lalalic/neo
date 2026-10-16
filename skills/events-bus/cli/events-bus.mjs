@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createEventsBusCore } from '../core/events-core.mjs';
+import { expandPublishEvent } from '../core/publish-envelope.mjs';
 import { resolveRuntimeConfig, writeRuntimeConfig } from '../core/config.mjs';
 
 const [,,command,...rest]=process.argv;
@@ -23,7 +24,7 @@ try {
   else if (command==='status') print(core.status(arg('--job','')));
   else if (command==='publish') {
     const file=arg('--file'); const raw=file ? fs.readFileSync(file,'utf8') : rest.filter(x=>!x.startsWith('--') && x!==file)[0];
-    if (!raw) throw new Error('publish requires --file PATH or JSON argument'); print(await core.publish(JSON.parse(raw),{agent:'cli'}));
+    if (!raw) throw new Error('publish requires --file PATH or JSON argument with type/source/data'); print(await core.publish(expandPublishEvent(JSON.parse(raw)),{agent:'cli'}));
   } else if (command==='setup') {
     writeRuntimeConfig(config);
     const here=path.dirname(fileURLToPath(import.meta.url)); const api=path.resolve(here,'../api/server.mjs');
