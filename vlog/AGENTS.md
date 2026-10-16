@@ -79,6 +79,10 @@ Reusable capability
 
 Do not build Vlog-local copies of phone-media access, vision, Video Director, Execution Director, image/video generation, audio/TTS, Markcut, Market Agent, post adapters, model router, worker router, or troubleshooting.
 
+## Optional location branch
+
+The episode and its hook/development/payoff exist independently of GPS. Do not create or require a map scene without useful trustworthy metadata, creative relevance and explicit disclosure approval. No GPS means a complete ordinary episode; partial GPS means only verified sample locations, never invented stops or movement. Reject implausible points, ambiguous timestamps and sensitive coordinates. Label calculated road routes as inferred navigation, not recorded tracks. Preserve the canonical one-Task agentGraph, Chinese narration/captions by default, authorized BGM, both required review gates and publication approval.
+
 ## Source and story contract
 
 Use only authoritative real media/evidence from the requested source window. Phone media should come through the installed shared phone-media/NeoX capability when needed.
@@ -222,7 +226,7 @@ Video Director review must explicitly verify:
 - lively pacing and avoidance of stiff/static slideshow treatment;
 - purposeful cuts, transitions, motion graphics, CG/effects, and music-synchronized rhythm;
 - mandatory BGM plus intelligible mix/ducking around dialogue, narration, and meaningful original sound;
-- Route Story/map/movement-mode treatment when location evidence exists;
+- Optional map/movement-mode treatment only when reliable location evidence and disclosure approval exist; no-GPS episodes need no maps;
 - compliance with recognized Hey Neo edit commands and correct treatment of command audio;
 - source truth and clear separation of generated visuals from real footage.
 

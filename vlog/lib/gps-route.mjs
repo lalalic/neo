@@ -79,3 +79,14 @@ export function routeScene(points,{duration=7,view='route',travelMode,disclosure
   // Locations are observed samples, NOT a recorded continuous route. Travel mode is opt-in only.
   return `- map view:${view} duration:${duration} mapType:roadmap${travelMode?` travelMode:${travelMode}`:''} waypoints:[${stops}]`;
 }
+
+// Optional enrichment: never make missing GPS a fatal episode condition.
+export function optionalRouteScene(records,{disclosureApproved=false,precision=2,excludeSources=[],view='route'}={}){
+  const evidence=segmentRoute(extractRoutePoints(records));
+  const eligible=evidence.segments.filter(s=>s.length>=2);
+  if(!eligible.length)return {included:false,reason:'insufficient-trusted-gps',scene:null,evidence};
+  if(!disclosureApproved)return {included:false,reason:'disclosure-not-approved',scene:null,evidence};
+  const safe=publicRoutePoints(eligible[0],{approved:true,precision,excludeSources});
+  if(safe.length<2)return {included:false,reason:'insufficient-approved-stops',scene:null,evidence};
+  return {included:true,reason:'approved-location-context',scene:routeScene(safe,{disclosureApproved:true,view}),evidence};
+}
