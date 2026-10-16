@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import readline from "node:readline";
-import { JOB_ID_PATTERN } from "./validation.mjs";
-import { createEventsBusCore, MAX_WAIT_MS } from "../core/events-core.mjs";
+import { createEventsBusCore } from "../core/events-core.mjs";
+import { expandPublishEvent } from "../core/publish-envelope.mjs";
 
 const SERVER_NAME = "events-bus-mcp";
 const SERVER_VERSION = "0.2.0";
@@ -9,119 +9,49 @@ const core = createEventsBusCore({ name: SERVER_NAME });
 
 function structuredResult(value) { return { content: [{ type: "text", text: JSON.stringify(value) }], structuredContent: value }; }
 function textResult(value, isError = false) { return { content: [{ type: "text", text: JSON.stringify(value) }], ...(isError ? { isError: true } : {}) }; }
+// Relay stores job IDs as integers; the core and NATS subjects use canonical strings.
+function normalizeJobId(value) {
+  if (Number.isSafeInteger(value) && value >= 0) return String(value);
+  return value;
+}
+function resultOrError(name, args, result) {
+  if (result?.error) diagnoseFailure(name, args, result.error, "validation");
+  return textResult(result, Boolean(result?.error));
+}
+function diagnoseFailure(name, args, reason, stage) {
+  // No event payloads or message bodies in diagnostic logs.
+  const id = name === "publish" ? args?.event?.job_id : args?.job_id;
+  const diagnostic = { component: "events-bus-mcp", operation: name, stage,
+    job_id_type: id === null ? "null" : typeof id,
+    error: String(reason).slice(0, 300) };
+  process.stderr.write(`[events-bus] ${JSON.stringify(diagnostic)}\n`);
+}
 
-const TOOLS = [
-  {
-    name: "health",
-    description: "Check the events-bus MCP relay and NATS connection.",
-    inputSchema: { type: "object", properties: {}, additionalProperties: false },
-    annotations: { readOnlyHint: true },
-  },
-  {
-    name: "wait",
-    title: "Watch job progress",
-    description: "Long-poll for new events belonging to one job after a cursor. Returns immediately on matching events, timeout, or when the registered worker process exits.",
-    _meta: {
-      "openai/toolInvocation/invoking": "Watching job progress…",
-      "openai/toolInvocation/invoked": "Job progress checked",
+const TOOLS = [{
+  name: "publish",
+  description: "Publish a lifecycle event. source identifies job/task/execution; data contains the business result.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      type: { type: "string", pattern: "^[A-Za-z0-9_.-]+$" },
+      source: { type: "string", description: "job/<job-id>/task/<task-id>/execution/<execution-id>" },
+      data: { type: "object" },
     },
-    inputSchema: {
-      type: "object",
-      properties: {
-        job_id: { type: "string" },
-        after_cursor: { type: "integer", minimum: 0, default: 0 },
-        timeout_ms: { type: "integer", minimum: 0, maximum: MAX_WAIT_MS, default: 25000 },
-        limit: { type: "integer", minimum: 1, maximum: 500, default: 100 },
-      },
-      required: ["job_id"],
-      additionalProperties: false,
-    },
-    annotations: { readOnlyHint: true },
+    required: ["type", "source"],
+    additionalProperties: false,
   },
-  {
-    name: "watch",
-    title: "Establish job watch",
-    description: "Establish a non-blocking cursor for one job before delegation. Does not consume or delete events.",
-    inputSchema: {
-      type: "object",
-      properties: { job_id: { type: "string", pattern: "^[A-Za-z0-9_-]+$" } },
-      required: ["job_id"],
-      additionalProperties: false,
-    },
-    annotations: { readOnlyHint: true },
-  },
-  {
-    name: "history",
-    description: "Read stored events for one job after a cursor without waiting.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        job_id: { type: "string" },
-        after_cursor: { type: "integer", minimum: 0, default: 0 },
-        limit: { type: "integer", minimum: 1, maximum: 500, default: 100 },
-      },
-      required: ["job_id"],
-      additionalProperties: false,
-    },
-    annotations: { readOnlyHint: true },
-  },
-  {
-    name: "status",
-    description: "Return the latest known event and terminal state for one job.",
-    inputSchema: {
-      type: "object",
-      properties: { job_id: { type: "string" } },
-      required: ["job_id"],
-      additionalProperties: false,
-    },
-    annotations: { readOnlyHint: true },
-  },
-  {
-    name: "publish",
-    description: "Publish one validated events-bus event. Intended for orchestrators/services that expose MCP but do not have a direct NATS client.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        event: {
-          type: "object",
-          properties: {
-            version: { type: "integer", const: 1 },
-            event_id: { type: "string", minLength: 1 },
-            job_id: { type: "string", pattern: JOB_ID_PATTERN, description: "Use the caller-provided literal job_id; never use placeholders such as inherited/current." },
-            task_id: { type: "string", minLength: 1, description: "Use the caller-provided literal task_id; task IDs are payload correlation values and are not restricted to NATS-safe job ID characters." },
-            parent_task_id: { type: ["string", "null"] },
-            orchestrator_id: { type: ["string", "null"] },
-            type: { type: "string", pattern: "^[A-Za-z0-9_.-]+$" },
-            status: { type: "string", enum: ["queued", "running", "waiting", "blocked", "succeeded", "failed", "cancelled"] },
-            timestamp: { type: "string" },
-            visibility: { type: "string", enum: ["user", "orchestrator", "debug"] },
-            level: { type: "string", enum: ["debug", "info", "warning", "error"] },
-            message: { type: "string", minLength: 1 },
-            source: { type: "object" },
-            progress: { type: "object" },
-            data: { type: "object" },
-          },
-          required: ["job_id", "task_id", "type", "status", "visibility", "message"],
-          additionalProperties: false,
-        },
-      },
-      required: ["event"],
-      additionalProperties: false,
-    },
-    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
-  },
-];
+  annotations: { readOnlyHint: false, idempotentHint: false },
+}];
 
 async function callTool(name, args = {}) {
+  if (name !== 'publish') return textResult({ error: `unknown tool: ${name}` }, true);
   try {
-    if (name === "health") return textResult(await core.health());
-    if (name === "watch") return textResult(await core.watch(args.job_id));
-    if (name === "history") return textResult(core.history(args.job_id, args.after_cursor ?? 0, args.limit ?? 100));
-    if (name === "wait") return textResult(await core.wait(args.job_id, args.after_cursor ?? 0, args.timeout_ms ?? 25_000, args.limit ?? 100));
-    if (name === "status") return textResult(core.status(args.job_id));
-    if (name === "publish") return textResult(await core.publish(args.event, { agent: "mcp" }));
-    return textResult({ error: `unknown tool: ${name}` }, true);
-  } catch (error) { return textResult({ error: String(error?.message || error) }, true); }
+    const result = await core.publish(expandPublishEvent(args), { agent: 'mcp' });
+    return textResult(result);
+  } catch (error) {
+    diagnoseFailure(name, args, error?.message || error, 'execution');
+    return textResult({ error: String(error?.message || error) }, true);
+  }
 }
 
 function send(message) { process.stdout.write(`${JSON.stringify(message)}\n`); }

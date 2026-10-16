@@ -1,278 +1,50 @@
-# Events Bus Protocol
+# Events-bus protocol
 
-This document describes the current Neo orchestration profile carried over the shared event bus. The bus itself is intentionally dumb transport: it forwards an opaque producer identity plus producer-defined data and does not interpret Job, Task, Execution, agent, component, or lifecycle semantics. Those meanings belong to the Producer/Consumer contract. The current Neo profile still projects fields such as `job_id`, `task_id`, and `type` into the compatibility envelope and NATS subject for routing; consumers must not mistake those transport conveniences for bus-owned business semantics.
+## Public publishing API
 
-## Goal
-
-A user must not have to ask "what is happening?" while an orchestrated job is running. Every long-running sub-agent must publish structured lifecycle/progress events, and the orchestrator that owns the job must actively surface user-visible milestones.
-
-
-## Source identity boundary
-
-The launcher assigns the producer an opaque source identity defined by the Producer/Consumer contract and passes it into the worker. The worker copies that identity verbatim on every event for that execution. The bus does not parse or authorize the identity.
-
-The current object-shaped compatibility envelope represents this as `source.id`. Fields such as `source.agent`, `source.component`, and `source.host` may exist as diagnostics, but consumers MUST NOT use them as a substitute for the contract-defined source identity. Likewise, payload flags such as `worker_owned` are application data, not transport-level identity.
-
-For Agents Relay, the application contract currently encodes an execution source as `job/<job-id>/task/<task-id>/execution/<execution-id>`. That encoding is owned by Agents Relay, not by events-bus. Other systems may use a different encoding as long as their Producer and Consumer agree.
-
-## Correlation model
-
-The orchestrator creates a globally unique, transport-safe `job_id` before starting work and passes it to every direct child. Use only letters, digits, `_`, and `-` in the ID; do not put `.` in it. Nested children inherit the same `job_id` and set `parent_task_id` to the task that spawned them.
-
-Recommended environment variables:
-
-- `NEO_JOB_ID` — required for every event belonging to an orchestrated job.
-- `NEO_ORCHESTRATOR_ID` — stable identifier for the orchestrator instance/session when available.
-- `NEO_TASK_ID` — identifier for the current task/sub-agent.
-  Task IDs are payload correlation identities and must be preserved literally; unlike `job_id`, they do not need to be NATS-subject-safe and may contain spaces or punctuation.
-- `NEO_PARENT_TASK_ID` — parent task when work is nested.
-- `NEO_EVENTS_BUS_CONFIG` — optional path to the machine-readable events-bus runtime configuration. By default it is `runtime.json` under `EVENTS_BUS_DATA_DIR`.
-- `EVENTS_BUS_DATA_DIR` — events-bus private runtime/history directory.
-- `NEO_NATS_URL` — transport endpoint override; default `nats://127.0.0.1:4222`.
-- `NEO_EVENTS_API_URL` — history/API endpoint override; default `http://127.0.0.1:4223`.
-- `NEO_EVENTS_API_HOST` / `NEO_EVENTS_API_PORT` — local history/API bind override.
-- `NEO_EVENTS_SUBJECT_PREFIX` — subject prefix override; default `neo.events.job`.
-- `NEO_EVENTS_BUS_DIR` — absolute path to the loaded events-bus skill directory for local workers.
-- `NEO_EVENTS_EMIT` — absolute path to `scripts/emit.mjs`; use it only for direct non-sandbox local workers that can reach NATS. Sandboxed Codex workers should use MCP `events__publish`.
-
-The `job_id` is the primary routing key. Do not use a process ID, Codex thread ID, chat ID, or host name as a substitute.
-
-
-## Runtime service and adapters
-
-The event runtime has one reusable core. The CLI, MCP server, and HTTP API are adapters over that core and therefore share validation, event normalization, NATS publication, persistence, cursors, history, watch/wait, status, and health semantics.
-
-The standalone HTTP/history service (`api/server.mjs`) is the continuous recorder. It subscribes to `<subjectPrefix>.>` and persists received rows independently of any MCP client lifetime. Consumers must use supported core adapters instead of reading `events.jsonl` directly.
-
-Runtime discovery is machine-readable through `core/config.mjs` and `events-bus config`. The resolved contract contains `natsUrl`, `apiUrl`, `dataDir`, and `subjectPrefix`. Agents Relay consumes this contract: direct NATS is used for realtime lifecycle flow, while replay/history is read from the events-bus HTTP API.
-
-HTTP endpoints are local by default:
-
-```text
-GET  /config
-GET  /health
-GET  /events?job=<job_id>&task=<task_id?>&after=<cursor?>&limit=<n?>&order=asc|desc
-GET  /watch?job=<job_id>
-GET  /wait?job=<job_id>&after=<cursor>&timeout=<ms>&limit=<n?>
-GET  /status?job=<job_id>
-POST /events
-```
-
-## Current transport subject convention
-
-Canonical subject:
-
-```text
-neo.events.job.<job_id>.<type>
-```
-
-Examples:
-
-```text
-neo.events.job.01abc.task.started
-neo.events.job.01abc.publish.upload.progress
-neo.events.job.01abc.phone.released
-neo.events.job.01abc.task.blocked
-neo.events.job.01abc.task.completed
-```
-
-An orchestrator subscribes to:
-
-```text
-neo.events.job.<job_id>.>
-```
-
-A diagnostics/dashboard process may subscribe to:
-
-```text
-neo.events.job.>
-```
-
-## Semantic event ownership
-
-The events bus owns the common envelope and delivery semantics, not the complete catalog of semantic event types. Each skill/component SHOULD define the domain-specific events it emits in its own `Events` section (or a referenced event contract). Event names and domain-specific `data` fields are therefore extensible without changing this protocol, but every emitted event MUST conform to the envelope, status, visibility, level, correlation, security, and display rules in this document.
-
-One global transparency requirement applies to agent/worker execution: when a component selects or starts an agent/worker, it MUST publish a user-visible event that reports the selected model and configured reasoning/thinking level when those values are known. The owning skill chooses the event type and payload shape. Unknown values must remain unknown rather than being inferred.
-
-## Event envelope
-
-Every event is UTF-8 JSON with these fields:
+MCP exposes **publish only**. The CLI `events-bus publish` uses the same input:
 
 ```json
 {
-  "version": 1,
-  "event_id": "0199...",
-  "job_id": "0199...",
-  "orchestrator_id": "chatgpt:...",
-  "task_id": "publish-xhs",
-  "parent_task_id": null,
-  "type": "publish.upload.progress",
-  "status": "running",
-  "timestamp": "2026-09-13T19:12:00Z",
-  "source": {
-    "id": "producer-defined-opaque-identity",
-    "agent": "codex",
-    "host": "chengli.local"
-  },
-  "visibility": "user",
-  "level": "info",
-  "message": "小红书视频上传中 66%",
-  "progress": {
-    "current": 66,
-    "total": 100,
-    "unit": "percent"
-  },
-  "data": {}
+  "type": "task.completed",
+  "source": "job/478/task/final-review/execution/abc",
+  "data": {
+    "verdict": "approved",
+    "head_sha": "abc",
+    "findings": []
+  }
 }
 ```
 
-### Required fields
+`type` and `source` are required. `data` defaults to `{}`. Source is the precise execution identity assigned by the launcher: `job/<job-id>/task/<task-id>/execution/<execution-id>`. Never invent this identity. Terminal Reviewer evidence belongs in `data`, not `progress`.
 
-- `version`
-- `event_id`
-- `job_id`
-- `task_id`
-- `type`
-- `status`
-- `timestamp`
-- `visibility`
-- `level`
-- `message`
+The CLI accepts `events-bus publish --file event.json` or `events-bus publish '<json>'`. Direct local workers can use `scripts/emit.mjs <type> [data-json]` with `NEO_EVENT_SOURCE` set. Sandboxed workers use MCP `publish`.
 
-### Status values
+## Internal transport compatibility
 
-- `queued`
-- `running`
-- `waiting`
-- `blocked`
-- `succeeded`
-- `failed`
-- `cancelled`
+The adapter `core/publish-envelope.mjs` expands those fields to the legacy internal NATS envelope:
+- `job_id`, `task_id`: parsed from `source`;
+- `source.id`: exact original `source`;
+- `status`: derived from event type, for compatibility;
+- `visibility`: defaults to `orchestrator`;
+- `message`: `data.message` when present or the event type;
+- `data`: passed through unchanged;
+- `version`, `event_id`, `timestamp`, `level`: populated by events-bus core.
 
-### Visibility values
+The caller does not supply `status`, `visibility`, `message`, `progress` or transport identifiers. Old direct NATS/HTTP producers still use the internal envelope until migrated. Existing consumers, including Agents Relay, still process the internal envelope. Do not use the presence of `status` as an independent authority for task state.
 
-- `user` — the owning orchestrator must proactively surface this event to the user, subject to progress throttling below.
-- `orchestrator` — useful to orchestration logic but normally not shown verbatim.
-- `debug` — diagnostics only.
+## Transport, observation, history
 
-### Level values
+NATS subject: `neo.events.job.<job_id>.<type>`. Observe `neo.events.job.<job_id>.>`; the history service `api/server.mjs` continuously records events even if there is no MCP client.
 
-- `debug`
-- `info`
-- `warning`
-- `error`
+MCP has no observation tools. Authorized observers use native NATS or:
+- CLI: `events-bus watch|wait|history|status|health|config`;
+- HTTP: `GET /watch`, `/wait`, `/events`, `/status`, `/health`, `/config`.
 
-## Mandatory lifecycle events
+Establish observation before launching workers where continuous progress tracking matters. The owning orchestrator translates relevant events into user-facing progress. Ordinary worker completion and review approval are distinct from successful delivery of the event: the consumer must validate execution identity, current task generation and domain payload.
 
-The owning orchestrator emits `job.started` once before delegation and exactly one top-level terminal event: `job.completed`, `job.failed`, `job.blocked`, or `job.cancelled`.
+## Lifecycle semantics
 
-Every task lasting more than a few seconds must emit:
+`task.started` indicates execution began. `task.completed` and `task.failed` are task terminal outcomes; Relay owns durable transitions. Ordinary Relay Worker/Reviewer agents do not emit `task.blocked`; only the authorized Troubleshooter escalation flow may request a real user action. Carrier events such as `task.process.async_exited` are not terminal worker outcomes. The owning application defines the meaning of `data` for each event kind.
 
-1. `task.started` when real execution starts.
-2. Meaningful milestone/progress events during work.
-3. Exactly one terminal event: `task.completed`, `task.failed`, `task.blocked`, or `task.cancelled`.
-
-Task lifecycle is separate from the lifecycle of the carrier that launches or
-hosts it. Components that own a carrier may additionally emit:
-
-- `task.process.launched` only after the carrier was actually launched or a
-  remote submission was accepted;
-- `task.process.exited` when a synchronous carrier exits;
-- `task.process.async_exited` when an asynchronous submit runtime exits while
-  the remote worker may continue executing.
-
-These process events are non-terminal and MUST NOT synthesize or replace
-worker-owned `task.started` or any terminal task event. A consumer waiting for
-task completion must continue until the exact correlated
-`task.completed|task.failed|task.blocked|task.cancelled` event arrives (or the
-owning orchestration explicitly reconciles an abnormal transport failure).
-
-### Task visibility policy
-
-- `task.started` and meaningful milestones may be `visibility: user` when useful.
-- `task.failed`, `task.blocked`, and `task.cancelled` MUST be `visibility: user` and surfaced immediately.
-- Routine successful child `task.completed` SHOULD default to `visibility: orchestrator` while the parent still reconciles or consumes results and will shortly emit a user-visible top-level `job.completed`.
-- Child `task.completed` may be `visibility: user` only when its completion is a meaningful standalone user milestone; if so, the render-before-next-tool-call barrier remains mandatory.
-- Top-level `job.completed`, `job.failed`, `job.blocked`, and `job.cancelled` remain user-visible terminal results.
-
-A sub-agent must also emit a user-visible event immediately when control of a scarce user resource is released. For NeoX this is `phone.released`: after this event the remaining job must not require NeoX to remain foreground unless a new phone transaction explicitly starts.
-
-Long silent periods are not allowed. If no meaningful milestone occurs for 30 seconds during active work, emit `task.heartbeat` with `visibility: orchestrator` and a concise description of the current operation. Heartbeats are not normally shown to the user.
-
-## Progress semantics
-
-Use `progress` only when the underlying operation exposes meaningful measurable progress. Never invent a percentage.
-
-For noisy progress such as upload/render percentages, the orchestrator should display the first update, then updates at meaningful deltas (recommended: at least 10 percentage points or 10 seconds), plus 100%. Milestones, warnings, blocked states, failures, `phone.released`, and terminal events are never throttled away.
-
-## Orchestrator event loop
-
-The owning orchestrator MUST keep consuming the job event stream until either it observes a top-level terminal job event or the registered worker process is no longer alive. Event consumption is a loop, not a one-shot query.
-
-Required behavior:
-
-- establish a pre-launch watch capability before `job.started` or delegated work on request/response MCP hosts: prefer `events__watch(job_id)` for a non-blocking cursor; if unavailable, only for a newly-created unique job with no prior events, use `events__history(job_id, after_cursor=0, limit=1)` and use cursor `0` when empty; never use that fallback for an existing/resumed job with an unknown cursor; native transports may use their equivalent non-blocking subscription cursor;
-- maintain a cursor (or equivalent transport position) and advance it only from observed events;
-- render every relevant `visibility=user` milestone as a normal assistant-visible progress message as soon as practical;
-- enforce a **render-before-next-tool-call barrier**: once a `wait` result contains a `visibility:user` event, the owning orchestrator must emit the human-readable assistant progress message before issuing any later tool call, including another `wait`;
-- never treat the tool-call trace itself as user-visible progress;
-- do not expose raw JSON unless the user asks for diagnostics;
-- a `wait`/long-poll timeout means only “no new event in this window” and MUST NOT terminate an otherwise-active job;
-- each MCP `wait` MUST check the registered local worker process before and during the long-poll. A local process-backed job SHOULD publish `data.worker = { kind: "process", pid, host }`; if that process exits, `wait` MUST return immediately and the orchestrator MUST stop the loop. If no top-level terminal job event exists, the result is abnormal/uncertain and MUST be surfaced as such;
-- continue after `task.completed` when the top-level job is still active;
-- stop after observing one of `job.completed`, `job.failed`, `job.blocked`, or `job.cancelled`, OR when the registered worker process exits; reconcile the two signals when both are available;
-- if the worker exits, disappears, or becomes unreachable without a terminal job event, surface the mismatch and terminate as failed/blocked rather than silently ending observation.
-
-For request/response MCP clients, use this ordered sequence: establish watch capability (`events__watch(job_id)` preferred; otherwise fresh unique job only: `events__history(job_id, after_cursor=0, limit=1)`) → remember `after_cursor` → publish/render required pre-launch routing → launch worker → `wait(job_id, after_cursor, timeout_ms)` → render returned user-visible events → repeat until a top-level terminal job event is observed. The history fallback is invalid for existing/resumed jobs with unknown cursors. Both watch forms are non-blocking and do not consume or delete events. A blocking `wait` before launch is not a valid substitute.
-
-## Orchestrator display contract
-
-The orchestrator owns user-facing presentation.
-
-It MUST:
-
-- subscribe before starting the first sub-agent so early events are not lost;
-- keep the subscription alive until a terminal job event is observed or the job is explicitly abandoned;
-- actively surface `visibility: user` milestones instead of waiting for the user to ask for status;
-- when the current orchestrator itself publishes a `visibility: user` event, immediately render that event's human-readable `message` before making any subsequent tool call; do not wait for the event to return through the bus;
-- turn structured events into concise natural language rather than dumping raw JSON;
-- always surface `blocked`, `failed`, and terminal events immediately;
-- explicitly surface `phone.released` so the user knows the phone can be used again;
-- deduplicate by `event_id`;
-- preserve ordering by `timestamp` within a task when practical;
-- continue to show status even when the sub-agent is a background process.
-
-It MUST NOT:
-
-- claim progress that was not observed;
-- infer success from process exit alone when the task has a domain-level success signal;
-- wait for a follow-up user message before reporting an already-observed important milestone.
-
-### Supplemental rich UI
-
-An orchestrator may render an events-bus job snapshot through `events__progress` when the host supports MCP Apps UI resources. This is an enhancement, not the delivery contract. `visibility:user` events still require ordinary assistant-visible progress messages, and the render-before-next-tool-call barrier still applies.
-
-## Sub-agent contract
-
-A sub-agent MUST:
-
-- receive `job_id` from its caller; never create a replacement job ID for the same orchestrated job;
-- for a sandboxed Codex worker, use MCP `events__publish` rather than opening a direct NATS connection; direct localhost TCP may be denied by the sandbox;
-- use the caller-provided exact literal `job_id` and `task_id` in every publish call; never substitute placeholders such as `inherited`, `current`, or `<job-id>`;
-- for a direct non-sandbox local worker, `NEO_EVENTS_EMIT` may be used; never guess a repository-relative events-bus path;
-- publish truthful events for its own work;
-- include a short `message` understandable without reading logs;
-- emit a terminal event exactly once for its task;
-- never put credentials, cookies, tokens, private prompts, or large payloads into events.
-
-A nested sub-agent uses the same `job_id`, a new `task_id`, and the caller's task ID as `parent_task_id`.
-
-## Failure behavior
-
-If the event transport is unavailable, the task may continue only if progress reporting is not safety-critical. The sub-agent must write the same event JSON to stderr/stdout as a fallback and clearly report the transport failure. The orchestrator should attempt transport recovery and may fall back to process log streaming.
-
-Terminal business state and event delivery state are separate: a publish can succeed even if one progress event was lost. Do not convert one into the other.
-
-## Security and scope
-
-The default local NATS server binds to loopback only. Do not expose it publicly without authentication and network policy. Event payloads are metadata, not a place for secrets or full media/content blobs.
+The event publisher must not change a supplied execution identity, synthesize success, or leak secrets. Errors in transport publishing are not proof of failure of the underlying business operation; the caller should preserve evidence and reconcile safely.
