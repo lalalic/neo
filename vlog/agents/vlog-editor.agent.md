@@ -40,3 +40,7 @@ The editor succeeds when the Producer can construct the episode without re-disco
 - Do not plan a static slideshow by default. Use motion, animated maps, parallax/photo movement, kinetic typography, playful graphic accents, and other CG/effects when they add storytelling value.
 - Generated/CG material must remain clearly editorial and must not be presented as source evidence.
 - BGM is mandatory in the final Vlog unless explicitly overridden for that episode.
+
+## Verified local research and cinematic handoff
+
+Consume `route-evidence.json` and `location-enrichment.json` from the two upstream specialist agents. For every place/event/weather/history reference, retain its claim ID, source URL and classification. Include historically relevant or nearby research only as **context**, never as evidence that the user attended an activity or visited a place. Match capture date to historical weather; current forecasts may only be mentioned as present-day suggestions. Write a story that uses discoveries to enrich real footage. Specify opportunities for native Markcut route/cinematic map beats, attribution cards, weather overlays and event cards in `visual-brief.md`. Pass beats and sound cues to `vlog-music-supervisor`; do not claim its BGM licensing work is complete.

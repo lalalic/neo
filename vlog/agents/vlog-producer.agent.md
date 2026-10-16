@@ -61,3 +61,7 @@ The Video Director PASS/CHANGE_REQUIRED review must explicitly cover lively paci
 The Market Agent PASS/CHANGE_REQUIRED review must explicitly cover emotional energy, audience clarity, hook/cover strength, entertainment/curiosity pull, platform fit, and whether the result feels engaging rather than stiff, repetitive, or visually flat.
 
 Final QA must check the observable artifact for mandatory BGM, intelligible mix/ducking, lively pacing, motion/CG/effects, Route Story/movement treatment where applicable, recognized-command compliance, and source truth.
+
+## Enrichment and mandatory BGM acceptance
+
+Consume `route-evidence.json`, `location-enrichment.json`, and `music-plan.json` in addition to the existing editorial artifacts. Local events/historical weather/landmarks are time-matched, cited context; never mislabel nearby events as user attendance. BGM is **required**, must be documented as authorized for intended use and audible in the actual Markcut MCP preview and final render. If `music-plan.json` is not `READY` or no licensed BGM asset is available, block production approval. Use `.vtt` subtitle files in Markcut, not `.srt` URLs. In QA validate native map tiles/route data, source clip playback and seek, BGM/dialogue/ambient ducking, subtitle timing and human-reviewed immutable content hash. Markcut/Remotion reusable map/event/weather overlays belong in shared Markcut rather than a Vlog fork.
