@@ -1,68 +1,22 @@
 # Vlog Project Rules
 
+Canonical tracked recipe: [templates/cinematic-vlog/GRAPH.md](templates/cinematic-vlog/GRAPH.md), with validated OSS study in [templates/cinematic-vlog/RESEARCH.md](templates/cinematic-vlog/RESEARCH.md). Episode artifacts remain in ignored `runs/`; creative approval and final approval are independent human gates.
+
+
 Vlog is a thin Neo content project. Root `AGENTS.md` and `MISSION.md` apply first.
 
 ## Planner topology — primary contract
 
-This chart is the primary asset for Planner.
+This is a Neo monorepo **content project**, not a separate repository. Each real-media submission is intended to become a distinct Episode Job with `repository=lalalic/neo` and `projectPath=vlog`. Job mode controls durable Task granularity:
 
-```text
-                           VLOG JOB
-                              │
-                              v
-               ┌──────────────────────────┐
-               │ ONE TOP-LEVEL EPISODE    │
-               │ TASK                     │
-               │ vlog-YYYY-MM-DD[-slug]   │
-               └────────────┬─────────────┘
-                            │
-                            v
-                       agentGraph
-                            │
-                            v
-                  ┌─────────────────┐
-                  │ vlog-editor     │
-                  │ source + story  │
-                  │ visual brief    │
-                  └────────┬────────┘
-                           │
-                           v
-                  ┌─────────────────┐
-                  │ vlog-producer   │
-                  │ production draft│
-                  └────────┬────────┘
-                           │
-                  ┌────────┴─────────┐
-                  │                  │
-                  v                  v
-         ┌────────────────┐  ┌────────────────┐
-         │ Video Director │  │ Market Agent   │
-         │ REQUIRED REVIEW│  │ REQUIRED REVIEW│
-         └───────┬────────┘  └───────┬────────┘
-                 │                   │
-                 └─────────┬─────────┘
-                           │
-                     BOTH PASS
-                           │
-                           v
-                  ┌─────────────────┐
-                  │ final render+QA │
-                  └────────┬────────┘
-                           │
-                           v
-                  ┌─────────────────┐
-                  │ post-agent      │
-                  │ when authorized │
-                  └─────────────────┘
-```
+- `pilot` is ChatGPT Thread-only. Planner generates dependent Story (Markcut Vision + Markcut Markdown Preview + user feedback/Approve), Direction, Video Design, Production and Final Review Tasks. The current stage remains the same Task while user requests changes, and succeeds only after a real Approve or verified timeout policy decision.
+- `auto` is the default for non-interactive workers and can be a single durable Episode Task containing an internal editor → producer → independent Director + Market review and playback QA agentGraph. No intermediate human waits.
 
-One episode = **exactly one top-level durable Task**.
+Use [`templates/cinematic-vlog/TASK-GRAPHS.md`](templates/cinematic-vlog/TASK-GRAPHS.md) and [`templates/cinematic-vlog/INTERACTION.md`](templates/cinematic-vlog/INTERACTION.md) as the canonical design. The existing watcher has not yet been migrated to per-submission Jobs; do not claim it has.
 
-Never create sibling top-level Tasks for source collection, media analysis, story, edit planning, production, review, render, QA, or publication of the same episode.
+Agent discovery is two-layer: Relay built-ins plus this project’s `agents/` directory. Shared Neo tools and skills remain capabilities, not a third implicit Agent overlay. Relay owns Task/Job lifecycle, review and event delivery. Project agents may extend Relay contracts using `extends: relay/<agent>`; they must not override Relay-owned lifecycle/event rules.
 
-If a phase truly needs an independent durable lifecycle, create a child/descendant Task under the episode Task. Valid reasons include external wait, explicit approval, isolated retry/reconciliation boundary, durable blocker, or independently resumed work.
-
-Use only discoverable agents. Do not invent agent names or hard-code worker/provider/model selection.
+Do not hard-code worker/provider/model selection. Do not publish or post personal media without separate explicit authorization.
 
 ## Ownership
 

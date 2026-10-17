@@ -1,0 +1,9 @@
+---
+name: review-chair
+extends: relay/review-chair
+mode: extend
+---
+
+# Vlog review-chair supplement
+
+Extend, not replace, the shared Review Chair contract. Use separate visible Video Director (cinematic continuity, treatment, audio mix and source fidelity) and Market (hook, narrative and audience interest) dimensions when eligible agents exist. Both reviewers must evaluate the same immutable Markcut draft or final MP4 hash. Add playback-based media QA as an explicit gate. Preserve independent findings and return one revision plan routing each issue to Story, Direction, Design, Assets/Mix or Rendering. Never conflate user Approve with review panel PASS or policy timeout. Do not invent review agents not present in the resolved catalog.

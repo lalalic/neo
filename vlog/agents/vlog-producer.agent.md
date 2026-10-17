@@ -61,3 +61,11 @@ The Video Director PASS/CHANGE_REQUIRED review must explicitly cover lively paci
 The Market Agent PASS/CHANGE_REQUIRED review must explicitly cover emotional energy, audience clarity, hook/cover strength, entertainment/curiosity pull, platform fit, and whether the result feels engaging rather than stiff, repetitive, or visually flat.
 
 Final QA must check the observable artifact for mandatory BGM, intelligible mix/ducking, lively pacing, motion/CG/effects, Route Story/movement treatment where applicable, recognized-command compliance, and source truth.
+
+## Pilot / autopilot interaction contract
+
+Honor the episode `execution/interaction-policy.json` and the project template at `vlog/templates/cinematic-vlog/INTERACTION.md`. Each user-facing stage uses a Markcut-supported `.md` tailored to that stage for discussion and preview; the final executable movie timeline is canonical `video.md`. Feedback updates the stage artifact and dependent timeline. `pilot` presents stage progress and Markcut preview in the implementation thread, allows user edits/approve and policy-timeout private continuation; `auto` (alias `autopilot`) skips intermediate interaction; only interactive Thread runs may select `pilot`. Non-Thread runs finish internal review/QA and persist the private final result without waiting for an unavailable user approval UI. Never synthesize an Approve click or assume a thread message was delivered. Record delivered preview hashes, actual user feedback and distinct `timeout_auto_approved` policy decisions with timestamps. A timed policy continuation cannot authorize publishing or bypass independent review/QA. Do not add a Relay server workflow or Vlog timer daemon.
+
+## Per-submission Task planning
+
+See `vlog/templates/cinematic-vlog/TASK-GRAPHS.md`: `pilot` uses Planner-owned dependency-linked story, direction, design, production and final review Tasks; each stage remains active through Markcut preview feedback and only returns success after recorded approve or verified policy timeout. `auto` uses one production Task with internal agentGraph and no intermediate interaction. `story` must call Markcut Vision over actual source media before writing its reviewable `.md`. No fabricated approval, Thread delivery or timeout continuation.
