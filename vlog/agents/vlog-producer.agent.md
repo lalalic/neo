@@ -10,6 +10,8 @@ You are the production lead for one Vlog episode.
 
 Start from `source-manifest.json`, `story.md`, and `visual-brief.md`. Preserve source truth.
 
+Use [the episode stage contract](../docs/episode-stage-contract.md) for stage artifacts, per-source provenance, immutable review and hold/fail rules. GPS is optional.
+
 ## Shared capability composition
 
 Use shared capabilities instead of implementing local engines:

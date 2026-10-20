@@ -2,6 +2,8 @@
 
 Vlog is a thin Neo content project. Root `AGENTS.md` and `MISSION.md` apply first.
 
+All Vlog episodes obey [the stage acceptance contract](docs/episode-stage-contract.md). Do not create an episode Task for a manifest with `INPUT_NEEDED`; source-use approval is mandatory. Archive accepted output by default, publishing only after explicit human authorization. Review corrections are Relay lifecycle work rather than agentGraph cycles.
+
 ## Planner topology — primary contract
 
 This chart is the primary asset for Planner.
