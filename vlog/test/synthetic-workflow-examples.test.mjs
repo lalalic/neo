@@ -1,0 +1,10 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {build,reviewCurrent,publishGate,isDAG} from '../scripts/synthetic-workflow-examples.mjs';
+test('no GPS is complete story structure and never forces route',()=>{const x=build('no-gps');assert.equal(x.beats.length,3);assert.equal(x.routeIncluded,false);assert.equal(x.publication,'HOLD_ARCHIVE_ONLY')});
+test('partial GPS never invents another point or movement',()=>{const x=build('partial-gps');assert.equal(x.manifest.sources[1].gpsStatus,'absent');assert.equal(x.routeIncluded,false);assert.equal(x.trackedMovement,false)});
+test('GPS contexts are only source-supported, optional, and privacy scoped',()=>{const x=build('gps-enhanced');assert.equal(x.routeIncluded,true);assert.equal(x.manifest.permission,'SIMULATED_ONLY_NOT_REAL');assert.equal(x.trackedMovement,false);assert.match(x.routeScene,/map view:route/)});
+test('privacy gate cannot be skipped and narrative-value may still omit map',()=>{const x=build('gps-enhanced');assert.equal(x.routeIncluded,true);assert.equal(build('no-gps').routeIncluded,false);assert.equal(x.qa.hostedPlayback,'NOT_RUN');assert.equal(build('gps-enhanced',{narrativeValue:false}).routeIncluded,false);assert.equal(build('gps-enhanced',{disclosureScopeApproved:false}).routeIncluded,false)});
+test('old review invalidates after changed caption dependency/content hash',()=>{const x=build('gps-enhanced');assert.equal(reviewCurrent(x.revisions.rev1,x.revisions.rev2),false);assert.equal(reviewCurrent(x.revisions.rev2,x.revisions.rev2),true);assert.equal(reviewCurrent({...x.revisions.rev2,dependencies:{...x.revisions.rev2.dependencies,musicPlanHash:'NEW'}},x.revisions.rev2),false)});
+test('unauthorized publication holds',()=>{assert.equal(publishGate(null),'HOLD_ARCHIVE_ONLY');assert.equal(publishGate({explicit:true,realHuman:false}),'HOLD_ARCHIVE_ONLY')});
+test('future editor producer graph is DAG; review back-edge is forbidden',()=>{assert.equal(isDAG([['vlog-editor','vlog-producer']]),true);assert.equal(isDAG([['vlog-editor','vlog-producer'],['vlog-producer','vlog-editor']]),false)});
