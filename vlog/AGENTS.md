@@ -187,6 +187,7 @@ Publication target/authorization comes from the active Job/Task. Use shared `pos
 - 2026-09-26: Vlog previously duplicated Agents Relay with local jobs, routing, autopilot, personas, style, and templates. Keep the project thin.
 - 2026-09-27: Follow the shared `neo-project` contract: chart-first human/planner docs, one top-level Task per episode, discoverable project agents, shared capabilities, explicit run handoffs, and observable acceptance gates.
 - 2026-10-04: Route/movement evidence, mandatory BGM, spoken Hey Neo edit commands, lively motion/CG treatment, and Simplified Chinese defaults are enforceable production/review contracts rather than optional style suggestions.
+- 2026-10-21: Route/location research is optional work owned by `vlog-editor` with shared capabilities, not missing specialist graph nodes. Synthetic review fixtures must materialize every dependency and immutable r1/r2 revision; hash real bytes, reject changed/stale dependencies, and never treat simulation, parser validation, or authorization booleans as QA or publication eligibility.
 
 
 ## Route Story, language, movement, and command contract

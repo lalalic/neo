@@ -1,25 +1,46 @@
-# SYNTHETIC design acceptance — no real Episode Task or approvals
+# Synthetic design acceptance — no real episode, approvals, or publication
 
-All entries here are fabricated teaching fixtures. Coordinates, timestamps, permissions, audio ranges and approval events are **SIMULATED**, not assertions about a person, trip, rights or actual media. `video.md` snippets are parseable design inputs, not playable real footage or rendered output.
+Everything in this page is a fabricated teaching fixture. Media, GPS, timestamps, owner consent, music rights, reviews, QA and authorization events are **SYNTHETIC**. The materialized artifacts stay under ignored `runs/2026-10-21-workflow-design/`; tracked excerpts below are copied from the same deterministic generator output. Parser validation is structural only and is never playback, render, audio, or hosted-player E2E.
 
-| Stage and gate | No GPS — SYNTHETIC | Partial GPS — SYNTHETIC | GPS enhanced — SYNTHETIC |
+The owner is `vlog-editor`, composing shared phone-media/EXIF and location research capabilities. The emitted graph remains `vlog-editor -> vlog-producer`; route/location work is research ownership inside that stage, not additional scheduler nodes.
+
+| Boundary | No GPS — 阳台上的突然小雨 | Partial GPS — 市场里找回笔记本 | GPS enhanced — 天台风筝被风抢走 |
 | --- | --- | --- | --- |
-| Source (vlog-editor) | `SYN-N1` mock shot 0–3s, `SYN-N2` mock audio/shot 3–8s; manifest permission `SIMULATED_USE_OK`; GPS absent | `SYN-P1` mock 0–3s at `43.60,-79.30`, `SYN-P2` mock 3–8s no GPS; permission `SIMULATED_USE_OK`; missing point remains unknown | `SYN-G1` mock 0–3s `43.60,-79.30`, `SYN-G2` mock 3–8s `43.70,-79.40`; synthetic GPS UTC metadata, permission `SIMULATED_USE_OK` |
-| Research (conditional researcher) | `NOT_APPLICABLE`, no map and no invented locality | Single source-linked fix only; no route, no inferred second stop, mode `unknown` | Two source-linked GPS samples; context map proposed; recorded route `false`, mode `unknown`; synthetic disclosure scope `SIMULATED_REDACTED_ONLY` |
-| Story (vlog-editor) | Hook: a quiet beginning (N1); development: rhythm builds (N2); payoff: an edited closing moment (N2) | Hook: first glimpse (P1); development: detail beats (P2); payoff: reflection (P2). Never infer P2's position | Hook: first view (G1); development: a second image (G2); payoff: visual juxtaposition (G2). No claim of actual travel |
-| Visual brief (vlog-editor) | Shot 0–3s N1, muted graphical placeholder; 3–6s N2 paced cut; 6–8s N2 title end card | Shot 0–3s P1; 3–6s P2 close crop; 6–8s P2 payoff. Single GPS location excluded from map | Shot 0–3s G1; 3–6s G2; 6–9s optional illustrative map `view:route` from synthetic points; 9–11s G2 closing |
-| Production (vlog-producer) | `video.md` is a labeled component-placeholder draft; original sound reference `SYN-N2@3–6s`, `BGM_LICENSE_SIMULATED_ONLY`, Chinese captions + WebVTT intent | Same mocked original audio (`SYN-P2@3–6s`), `BGM_LICENSE_SIMULATED_ONLY`, Chinese captions; no map | Sound `SYN-G2@3–6s`, `BGM_LICENSE_SIMULATED_ONLY`, Chinese WebVTT captions, optional map with **simulated** disclosure |
-| Preview Review (human via Relay) | `SIMULATED changes_requested` revision r1 → r2; see below; never an actual human PASS | `SIMULATED changes_requested`: remove unsupported location implication; r2 omits it | `SIMULATED changes_requested`: label connection *inferred context*; r2 updates caption |
-| Video Director + Market | SIMULATED REVIEW ONLY, no PASS usable for real render | SIMULATED REVIEW ONLY | SIMULATED REVIEW ONLY |
-| Technical QA (producer/shared QA) | Structural assertions PASS; hosted pixel/audio/seek/WebVTT `NOT_RUN` | Structural assertions PASS; hosted `NOT_RUN` | Structural assertions PASS; Maps tiles/animation/audio/seek/subtitles `NOT_RUN` |
-| Publish Authorization (owner) | ABSENT ⇒ HOLD / archive-design only | ABSENT ⇒ HOLD / archive-design only | ABSENT ⇒ HOLD / archive-design only |
+| Sources | `SYN-N1` text fixture 0–4s; `SYN-N2` 4–8s; coordinates absent | `SYN-P1` 0–3s at synthetic `43.60,-79.30`; `SYN-P2` 3–8s absent | `SYN-G1` 0–4s at synthetic `43.60,-79.30`; `SYN-G2` 4–7s at `43.70,-79.40` |
+| Event / tension / payoff | Rain suddenly hits; phone almost slips; books are rescued; standing water reflects returning light | Notebook slides from a bag; stalls obscure the trail; the walker retraces remembered stalls; a blue cover appears under a bench | Wind tightens the kite line and steals it over a railing; the chase crosses to a park; the kite stops in a bush |
+| Research | `NOT_APPLICABLE`; no map; no invented locality | One authorized position sample only; untagged `SYN-P2` remains unlocated; movement `not_established` | Two privacy-scoped position samples; movement remains `unknown`; samples are not a recorded track |
+| Production | 0–3 hook, 3–4 tension, 4–6 recovery, 6–8 payoff; rain/original-sound intent | 0–3 hook, 3–5 tension, 5–6 recovery, 6–8 payoff; no location implication on untagged footage | 0–3 hook, 3–4 tension, 4–5 recovery, 5–7 payoff, 7–9 optional map, 9–11 recap |
+| Music / captions | BGM `NOT_PROVEN`; duck to `-24 dB`; WebVTT r1→r2 copy changes | Same BGM/rights hold; caption explicitly says position unknown | Same BGM/rights hold; map is capped at 2s after payoff and says samples only |
+| Review revision | r1 `CHANGE_REQUIRED`: make the caption an event sentence, not the title. r2 changes video and VTT bytes | r1 `CHANGE_REQUIRED`: remove continuity from the unlocated shot. r2 changes video and VTT bytes | r1 `CHANGE_REQUIRED`: label samples instead of a route. r2 changes video and VTT bytes |
+| QA / publication | Structural `PASS`; playback/audio/captions `NOT_RUN`; authorization absent ⇒ `HOLD` | Same; authorization absent ⇒ `HOLD` | Structural `PASS`; maps/audio/captions/playback `NOT_RUN`; authorization absent ⇒ `HOLD` |
 
-Synthetic manifest shape shared by these examples: `{ "fixture": "SYN-N1", "sha256": "SIMULATED-HASH-N1", "source": "generated placeholder", "captureTimeUtc": "SIMULATED", "gpsStatus": "absent", "rights": "SIMULATED_USE_OK_NOT_REAL_PERMISSION" }`. The P and G examples replace fixture IDs, recorded sample coordinates and GPS provenance (`SIMULATED_EXIF`); they never supply fabricated coordinates for absent fixes. The production files use CSS title cards instead of asserting that a real file, sound track or music license exists.
+Each fixture directory contains hashed `assets/*.synthetic.txt`, `source-manifest.json`, `research-evidence.json`, `story.md`, `visual-brief.md`, `music-plan.json`, `captions-r1.vtt`, `captions-r2.vtt`, immutable `video-r1.md`/`video-r2.md`, structured review records, `qa.json`, and `publication-hold.json`. Every review binds the exact video `revisionId`/`contentHash` and hashes of source media, source manifest, story, visual brief, music plan, captions, and production video.
 
-## Revision-and-review simulation (all values SIMULATED)
+## Actual Markcut excerpts
 
-1. `revisionId=synthetic-r1`, `contentHash=sha256(video.md r1)`, dependencies `{sourceManifestHash: SYN-M1, storyHash: SYN-S1, musicPlanHash: SYN-B1, captionHash: SYN-C1}`. `SIMULATED changes_requested`: “Caption incorrectly implies these source samples prove a continuous journey.”
-2. Edit only caption/script to “示意地点连接（并非实际轨迹）”; generate `synthetic-r2`, new `contentHash` and `captionHash=SYN-C2`. Old r1 review becomes **STALE**, never approved for r2. New simulated review is recorded against r2 and exactly its dependency identities; it is a fixture, not human approval.
-3. Changes to source/story/music/caption identities independently invalidate previous review even if the video path is unchanged. No production preview, audio QA, ownership approval or publication is inferred.
+```markdown
+## hook instruction:"雨点突然砸下" sourceId:"SYN-N1" shotRange:"0-3s" start:0 duration:3
+- component duration:3 jsx:"<div style={{background:'#174EA6',color:'white',width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center'}}>SYNTHETIC 雨点突然砸下</div>"
+```
 
-The runnable deterministic examples are generated under ignored `runs/2026-10-21-workflow-design/` using `node vlog/scripts/synthetic-workflow-examples.mjs`. The separate existing two-path synthetic pilot is retained.
+```markdown
+## hook instruction:"笔记本从袋口滑出" sourceId:"SYN-P1" shotRange:"0-3s" start:0 duration:3
+- component duration:3 jsx:"<div style={{background:'#174EA6',color:'white',width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center'}}>SYNTHETIC 笔记本从袋口滑出</div>"
+```
+
+```markdown
+## hook instruction:"风筝线突然绷直" sourceId:"SYN-G1" shotRange:"0-3s" start:0 duration:3
+- component duration:3 jsx:"<div style={{background:'#174EA6',color:'white',width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center'}}>SYNTHETIC 风筝线突然绷直</div>"
+
+## map instruction:"两个示例地点，非真实路线" start:7 duration:2
+- map view:route duration:2 mapType:roadmap waypoints:[43.6,-79.3,"Stop 1"; 43.7,-79.4,"Stop 2"]
+```
+
+The GPS map is deliberately placed after payoff. It renders two approved samples and carries no `travelMode`; therefore it never claims a recorded path or movement mode.
+
+## Negative revision and publication gates
+
+1. The persisted r1 review is `CHANGE_REQUIRED`; it can never authorize r2. A positive r2 review is `PASS` and `simulated: true` with `authorizationEffect: NONE`.
+2. Changing any referenced asset, manifest, story, visual brief, music plan, caption, or production-video bytes changes the exact dependency hash and makes the prior review stale.
+3. Authorization alone never publishes. Missing authorization, boolean-only authorization, simulated authorization, scope/account/platform mismatch, stale review, `NOT_RUN` QA, or unproven rights each produce a distinct `HOLD` reason.
+4. Even when every production prerequisite is simulated as complete, a synthetic fixture returns `SYNTHETIC_FIXTURE_NOT_PUBLISHABLE`. Real publication additionally requires an owner outside this fixture and observable hosted QA.
