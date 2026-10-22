@@ -7,8 +7,7 @@
   "type": "commonjs",
   "main": "index.js",
   "bin": {
-    "neo": ".bin/neo.mjs",
-    "neo-queue": ".bin/neo-queue.mjs"
+    "neo": ".bin/neo.mjs"
   },
   "scripts": {
     "test": "node --test test/*.test.mjs",

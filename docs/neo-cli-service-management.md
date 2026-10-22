@@ -11,14 +11,15 @@ neo project list
 neo project resolve NAME
 neo skill list [--project PATH]
 neo skill package SKILL_DIR OUTPUT.zip
-neo queue <legacy queue arguments>
+neo queue <queue arguments>
 neo escalation --handoff-file PATH [existing options]
 neo service list
 neo service status NAME
 neo service start|stop|restart NAME --apply
 ```
 
-`project`, `skill`, `queue`, and `escalation` delegate to their existing source owners. Legacy `list-xchat-projects`, `list-xchat-skills`, `neo-queue` and absolute checkout scripts remain compatible during migration; the XChat bootstrap prefers the installed CLI. The `list-xchat-skills` resolver finds its bundled Neo catalog relative to its installed script rather than requiring `~/Workspace/neo`; `NEO_SKILLS_ROOT` is an explicit alternate catalog root for isolated tests/deployment.
+`neo` is the sole agent-facing entry point for project binding, skill discovery/packaging, queue and escalation. Internal helper scripts are packaged as implementation details, not published as separate CLI commands. The skill resolver uses its bundled catalog instead of depending on `~/Workspace/neo`; `NEO_SKILLS_ROOT` is reserved for isolated tests.
+
 
 ## Service manager contract
 

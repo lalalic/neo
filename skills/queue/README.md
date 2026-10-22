@@ -5,7 +5,7 @@ A local opt-in SQLite-backed CLI queue, independent of Agents Relay. Requires a 
 ## Start (single worker)
 
 ```sh
-npx pm2 start ./skills/queue/queue.mjs --name neo-queue-worker -- worker
+npx pm2 start "$(npm root -g)/neo/skills/queue/queue.mjs" --name neo-queue-worker -- worker
 npx pm2 save
 ```
 
@@ -14,10 +14,10 @@ Only the **worker** owns execution; callers can submit concurrently. A single PM
 ## Use
 
 ```sh
-node ./skills/queue/queue.mjs run --queue media-ai -- /usr/bin/python3 script.py
-node ./skills/queue/queue.mjs status
-node ./skills/queue/queue.mjs list
-node ./skills/queue/queue.mjs cancel JOB_ID
+neo queue run --queue media-ai -- /usr/bin/python3 script.py
+neo queue status
+neo queue list
+neo queue cancel JOB_ID
 ```
 
 `run` waits and forwards stdout/stderr/exit status. `submit` returns a job ID instead. `--dedupe KEY` reuses a queued or running job. `--timeout MS` limits active runtime, not queue delay. `--retries N` enables up to N retries for nonzero exits (default zero); timeouts and cancellations are not retried. Use retries only for idempotent commands. Callers must pass explicit command+argv; no shell is spawned. Cache behavior stays in Markcut.
