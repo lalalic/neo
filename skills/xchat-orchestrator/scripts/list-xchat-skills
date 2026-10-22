@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 
 import yaml
@@ -10,7 +11,7 @@ from pathlib import Path
 
 HOME = Path.home()
 GLOBAL_SKILLS = HOME / ".agents" / "skills"
-NEO_SKILLS = HOME / "Workspace" / "neo" / "skills"
+NEO_SKILLS = Path(os.environ["NEO_SKILLS_ROOT"]).expanduser().resolve() if os.environ.get("NEO_SKILLS_ROOT") else Path(__file__).resolve().parents[2]
 ROOTS = [GLOBAL_SKILLS, NEO_SKILLS]
 
 def candidate_files(project_root: Path | None = None) -> list[Path]:
@@ -91,7 +92,7 @@ def main() -> int:
     # then Neo-global skills, then ~/.agents.
     def priority(skill: dict[str, str]) -> tuple[int, str]:
         path = skill["path"]
-        neo = str(HOME / "Workspace" / "neo" / "skills") + "/"
+        neo = str(NEO_SKILLS) + "/"
         agents = str(HOME / ".agents" / "skills") + "/"
         project_skills = (str(project_root / "skills") + "/") if project_root else None
         if project_skills and path.startswith(project_skills):
