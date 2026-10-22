@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {serviceId,parse,pm2Arguments,main} from '../bin/daemon-service-manage.mjs';
+import {serviceId,parse,pm2Arguments,main} from '../bin/serviceman.mjs';
 test('namespaced service ID enforced', () => {
   assert.equal(serviceId('events-bus','history'),'events-bus/history');
   for (const [skill,service] of [['events-bus','../bad'],['Bad','history'],['webhelm','x/y'],['','service']]) assert.throws(()=>serviceId(skill,service));

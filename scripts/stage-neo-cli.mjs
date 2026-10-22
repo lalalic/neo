@@ -10,7 +10,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const out = process.argv[2] ? resolve(process.argv[2]) : mkdtempSync(join(tmpdir(), 'neo-cli-dist-'));
 if (out === root || root.startsWith(out + '/') || out.startsWith(root + '/')) throw Error('Output must be outside the Neo source checkout');
 const allow = [
-  '.bin/neo.mjs', '.bin/neo-control.mjs',
+  '.bin/neo.mjs', '.bin/neo-control.mjs', 'skills/daemon-service-manage/bin/serviceman.mjs',
   '.bin/package-web-chatgpt-skill',
   'agents/escalation.agent.md', 'agents/escalation-needs-user.md', 'agents/escalation-result.schema.json',
   'skills/xchat-orchestrator/scripts/list-xchat-projects',
@@ -43,7 +43,7 @@ for (const entry of manifest.stdout.toString('utf8').split('\0').filter(Boolean)
 writeFileSync(join(out,'package.json'),JSON.stringify({
   name:'neo', version:'1.0.2-p0.1', type:'module', private:true,
   description:'Neo CLI compatibility and service control distribution candidate',
-  engines:{node:'>=22'},bin:{neo:'.bin/neo.mjs'},
+  engines:{node:'>=22'},bin:{neo:'.bin/neo.mjs',serviceman:'skills/daemon-service-manage/bin/serviceman.mjs'},
   scripts:{},
 },null,2)+'\n');
 writeFileSync(join(out,'README.md'),'# Neo CLI distribution candidate\n\nLocally staged CLI from lalalic/neo. No application runtime or user data is bundled.\n');
