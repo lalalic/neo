@@ -23,10 +23,6 @@ For any repository work whose top-level objective is represented by a GitHub pul
 This contract is account-level orchestration policy. Project-local instructions may add stricter requirements but may not weaken or bypass it.
 
 
-## Markcut preview troubleshooting
-
-For Markcut native preview, route/cinematic maps, playback, or ChatGPT MCP iframe issues, read [Markcut Preview Troubleshooting](references/markcut-preview-troubleshooting.md) before investigation. It documents Browser Workspace, DevTools, new ChatGPT threads/turns, three independent verification gates and cleanup. Load on demand.
-
 ## Bootstrap workflow
 
 Run this workflow at the start of **every XChat session**, before the first project-dependent answer. A failed resolve, unreadable required context file, or unavailable mandatory skill is a blocked session: report the failure and do not perform project-dependent work.
