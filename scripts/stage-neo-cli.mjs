@@ -44,7 +44,7 @@ writeFileSync(join(out,'package.json'),JSON.stringify({
   name:'@lalalic/neo', version:'1.0.2', type:'module',
   description:'Neo CLI and deterministic service management commands',
   engines:{node:'>=22'},bin:{neo:'.bin/neo.mjs',serviceman:'skills/daemon-service-manage/bin/serviceman.mjs'},
-  publishConfig:{access:'public'}, scripts:{},
+  repository:{type:'git',url:'git+https://github.com/lalalic/neo.git'}, publishConfig:{access:'public'}, scripts:{},
 },null,2)+'\n');
 writeFileSync(join(out,'README.md'),'# Neo CLI distribution candidate\n\nLocally staged CLI from lalalic/neo. No application runtime or user data is bundled.\n');
 process.stdout.write(out+'\n');
