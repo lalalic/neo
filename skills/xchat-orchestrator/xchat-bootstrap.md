@@ -23,6 +23,10 @@ For any repository work whose top-level objective is represented by a GitHub pul
 This contract is account-level orchestration policy. Project-local instructions may add stricter requirements but may not weaken or bypass it.
 
 
+## Markcut preview troubleshooting
+
+For Markcut native preview, route/cinematic maps, playback, or ChatGPT MCP iframe issues, read [Markcut Preview Troubleshooting](references/markcut-preview-troubleshooting.md) before investigation. It documents Browser Workspace, DevTools, new ChatGPT threads/turns, three independent verification gates and cleanup. Load on demand.
+
 ## Bootstrap workflow
 
 Run this workflow at the start of **every XChat session**, before the first project-dependent answer. A failed resolve, unreadable required context file, or unavailable mandatory skill is a blocked session: report the failure and do not perform project-dependent work.
@@ -91,9 +95,9 @@ account Custom Instructions
 
 ## Platform-specific note
 
-If a particular web platform requires a packaged skill upload rather than reading the local skill through NeoY, use that platform's packaging/import mechanism. The `neo skill package SKILL_DIR OUTPUT.zip` command remains specifically for ChatGPT-compatible ZIP packaging and is not part of the platform-neutral bootstrap contract.
+If a particular web platform requires a packaged skill upload rather than reading the local skill through NeoY, use that platform's packaging/import mechanism. Use `neo skill package SKILL_DIR OUTPUT.zip` for ChatGPT-compatible ZIP packaging and is not part of the platform-neutral bootstrap contract.
 
 
 ## CLI migration compatibility
 
-The installed `neo` command is the only public project and skill discovery interface. Agents must not invoke internal script files. Do not require `/Users/chengli/Workspace/neo` for a distributed CLI installation.
+The installed `neo` CLI is the sole public project and skill discovery interface. Agents must not invoke internal script files. Do not require `/Users/chengli/Workspace/neo` for a distributed CLI installation.
