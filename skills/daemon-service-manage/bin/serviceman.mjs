@@ -38,6 +38,16 @@ export function main(argv, spawn = spawnSync, write = console.log) {
   if (request.action !== 'status' && request.action !== 'logs' && !request.apply) {
     write(JSON.stringify({dryRun:true,serviceId:request.id,pm2:pm2Arguments(request)}));return 0;
   }
+  if (request.action === 'define' && request.apply) {
+    const current = spawn('npx', ['--yes','pm2','jlist'], {encoding:'utf8'});
+    if (current.error) throw current.error;
+    if (current.status !== 0) throw new Error('cannot inspect PM2 before define');
+    const existing = JSON.parse(current.stdout).find(p => p.name === request.id);
+    if (existing) {
+      write(JSON.stringify({serviceId:request.id,existing:true,state:existing.pm2_env?.status ?? 'unknown',changed:false}));
+      return 0;
+    }
+  }
   const result = spawn('npx', ['--yes','pm2',...pm2Arguments(request)], {stdio:'inherit'});
   if (result.error) throw result.error;
   return result.status ?? 1;

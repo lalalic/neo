@@ -17,3 +17,9 @@ test('rejects malformed and foreign command args',()=>{
  assert.throws(()=>parse(['define','--skill','events-bus','--service','history']));
  assert.throws(()=>parse(['status','--skill','events-bus','--service','history','--','rm']));
 });
+
+test('define is idempotent when registered and does not restart running process',()=>{
+  const calls=[];const spawn=(cmd,args)=>{calls.push(args);return {status:0,stdout:JSON.stringify([{name:'events-bus/history',pm2_env:{status:'online'}}])}};
+  let message=''; assert.equal(main(['define','--skill','events-bus','--service','history','--apply','--','node','server.mjs'],spawn,x=>message=x),0);
+  assert.equal(calls.length,1); assert.match(message,/"changed":false/);
+});

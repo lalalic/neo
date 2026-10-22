@@ -8,6 +8,10 @@ requires:
 
 # Events bus
 
+## Bootstrap
+
+Run `events-bus setup` after installing the required `daemon-service-manage` Skill and its `serviceman` CLI. Setup declares exactly `events-bus/nats` and `events-bus/history` via `serviceman define`; repeated setup does not restart existing processes. Verify with `events-bus health` and `serviceman status --skill events-bus --service history`. Existing unqualified names must be migrated rather than recreated in parallel.
+
 ## Service ownership
 
 Persistent services owned by this Skill require the global `daemon-service-manage` Skill. Register and manage each service through its CLI, using the enforced `<skillname>/<service-name>` identity; do not create new unqualified PM2 process names. Existing service names are migration inputs, not a reason to bypass namespacing.
