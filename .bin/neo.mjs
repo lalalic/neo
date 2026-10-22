@@ -20,7 +20,7 @@ function usage() {
   neo status|doctor
   neo project list|resolve NAME
   neo skill list [--project PATH]|package SKILL_DIR OUTPUT.zip
-  neo queue [legacy options]
+  neo queue [queue options]
   neo service list|status NAME|start|stop|restart NAME --apply
 
 Options:
