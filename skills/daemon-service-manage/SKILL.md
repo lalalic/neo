@@ -7,6 +7,18 @@ description: Inspect and manage persistent daemons, services, and background pro
 
 Use SSH to reach a machine and PM2 to manage persistent services. A daemon must not depend on the lifetime of Codex, pi, a shell, or a terminal session.
 
+## Service Skill registration contract
+
+Every Skill that owns a persistent PM2 service MUST declare `requires.skills: [daemon-service-manage]` in its SKILL.md frontmatter. It MUST define and manage its own services with the CLI below. Names are always `<skillname>/<service-name>` (lowercase kebab-case); bare PM2 names are not allowed for new Service Skills.
+
+```bash
+node ~/.agents/skills/daemon-service-manage/bin/daemon-service-manage.mjs define --skill events-bus --service history --apply -- npx -y events-bus history serve
+node ~/.agents/skills/daemon-service-manage/bin/daemon-service-manage.mjs status --skill events-bus --service history
+node ~/.agents/skills/daemon-service-manage/bin/daemon-service-manage.mjs restart --skill events-bus --service history --apply
+```
+
+`define` and mutation commands default to dry-run unless `--apply` is explicitly supplied. The defining Skill owns its executable, dependencies, readiness check and version. This manager enforces identifiers and PM2 lifecycle; it does not invent service commands or modify already-running legacy service names. NeoY discovers the declaring Skills rather than hardcoding PM2 service names.
+
 ## Inspection first
 
 For status and troubleshooting, inspect before mutating:
