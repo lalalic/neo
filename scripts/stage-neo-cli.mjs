@@ -13,7 +13,6 @@ const allow = [
   '.bin/neo.mjs', '.bin/neo-control.mjs',
   '.bin/package-web-chatgpt-skill',
   'agents/escalation.agent.md', 'agents/escalation-needs-user.md', 'agents/escalation-result.schema.json',
-  'skills/queue/queue.mjs',
   'skills/xchat-orchestrator/scripts/list-xchat-projects',
   'skills/xchat-orchestrator/scripts/list-xchat-skills',
 ];

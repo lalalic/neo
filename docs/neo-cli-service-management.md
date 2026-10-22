@@ -11,14 +11,13 @@ neo project list
 neo project resolve NAME
 neo skill list [--project PATH]
 neo skill package SKILL_DIR OUTPUT.zip
-neo queue <queue arguments>
 neo escalation --handoff-file PATH [existing options]
 neo service list
 neo service status NAME
 neo service start|stop|restart NAME --apply
 ```
 
-`neo` is the sole agent-facing entry point for project binding, skill discovery/packaging, queue and escalation. Internal helper scripts are packaged as implementation details, not published as separate CLI commands. The skill resolver uses its bundled catalog instead of depending on `~/Workspace/neo`; `NEO_SKILLS_ROOT` is reserved for isolated tests.
+`neo` is the sole agent-facing entry point for project binding, skill discovery/packaging and escalation. Internal helper scripts are packaged as implementation details, not published as separate CLI commands. The skill resolver uses its bundled catalog instead of depending on `~/Workspace/neo`; `NEO_SKILLS_ROOT` is reserved for isolated tests.
 
 
 ## Service manager contract

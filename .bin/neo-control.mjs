@@ -56,7 +56,6 @@ export function executeControl(argv, options = {}) {
     if (args.length && !(args.length === 2 && args[0] === '--project' && args[1] && !args[1].startsWith('-'))) return fail('usage: neo skill list [--project PATH] | package SKILL_DIR OUTPUT.zip');
     return execute(resolve(scripts, 'list-xchat-skills'), args);
   }
-  if (category === 'queue') return execute(resolve(root, 'skills/queue/queue.mjs'), [command, ...args].filter(x=>x !== undefined));
   if (category !== 'service') return fail('unsupported control command');
   if (!['list','status','start','stop','restart'].includes(command)) return fail('usage: neo service list | status NAME | start|stop|restart NAME --apply');
   const list = invoke('pm2', ['jlist']);
