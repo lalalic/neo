@@ -3,6 +3,7 @@ import { dirname, join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { extractRoutePoints, routeScene } from '../lib/gps-route.mjs';
+import { editorialPlanFor, storyFor, briefFor, captionsFor } from './synthetic-editorial-plan.mjs';
 
 const CLASSIFICATION = 'SYNTHETIC_NOT_REAL';
 const RUN_RELATIVE_DIR = '2026-10-21-workflow-design';
@@ -97,8 +98,7 @@ const CASES = {
         { name: 'payoff', title: '积水映出天光', source: 'SYN-N2', start: 6, duration: 2, text: '积水映出天光' },
       ],
     },
-    r1Feedback: 'CHANGE_REQUIRED：字幕重复标题。改为具体事件句，不暗示地点来源。',
-    r2Caption: '积水映出天光（合成教学字幕）',
+    r1Feedback: 'CHANGE_REQUIRED：反光镜头不能证明雨已停止。将回收字幕和画面说明改为可见的积水反光。',
   },
   'partial-gps': {
     label: '市场里找回笔记本',
@@ -111,17 +111,16 @@ const CASES = {
         { name: 'hook', title: '笔记本从袋口滑出', source: 'SYN-P1', start: 0, duration: 3, text: '笔记本从袋口滑出' },
         { name: 'tension', title: '摊位太多，线索断了', source: 'SYN-P2', start: 3, duration: 2, text: '摊位太多，线索断了' },
         { name: 'recovery', title: '沿着记忆里的摊位回头', source: 'SYN-P2', start: 5, duration: 1, text: '沿着记忆里的摊位回头' },
-        { name: 'payoff', title: '长椅下露出蓝色封面', source: 'SYN-P2', start: 6, duration: 2, text: '长椅下露出蓝色封面' },
+        { name: 'payoff', title: '原来还在刚才的位置', source: 'SYN-P2', start: 6, duration: 2, text: '原来还在刚才的位置' },
       ],
       r2: [
         { name: 'hook', title: '笔记本从袋口滑出', source: 'SYN-P1', start: 0, duration: 3, text: '笔记本从袋口滑出' },
         { name: 'tension', title: '摊位太多，线索断了', source: 'SYN-P2', start: 3, duration: 2, text: '摊位太多，线索断了' },
         { name: 'recovery', title: '沿着记忆里的摊位回头', source: 'SYN-P2', start: 5, duration: 1, text: '沿着记忆里的摊位回头' },
-        { name: 'payoff', title: '长椅下露出蓝色封面', source: 'SYN-P2', start: 6, duration: 2, text: '长椅下露出蓝色封面' },
+        { name: 'payoff', title: '长椅下露出蓝色封面（位置未知）', source: 'SYN-P2', start: 6, duration: 2, text: '长椅下露出蓝色封面（位置未知）' },
       ],
     },
     r1Feedback: 'CHANGE_REQUIRED：未定位镜头不能接在已授权地点后暗示路线。删除地点连续性表述，保留事件因果。',
-    r2Caption: '蓝色封面出现在长椅下（位置未知；合成教学字幕）',
   },
   'gps-enhanced': {
     label: '天台风筝被风抢走',
@@ -148,7 +147,6 @@ const CASES = {
       ],
     },
     r1Feedback: 'CHANGE_REQUIRED：结尾地图读作连续轨迹。将文案改为两个位置样本，明确没有记录移动方式。',
-    r2Caption: '天台与公园只是位置样本；移动方式未知（合成教学字幕）',
   },
 };
 
@@ -214,29 +212,6 @@ const researchFor = (mode, definition) => {
   };
 };
 
-const storyFor = (definition) => [
-  `# ${definition.label}（${CLASSIFICATION}）`,
-  '',
-  ...definition.scenes.r1.slice(0, 4).map((scene) => (
-    `- ${scene.name === 'hook' ? '钩子' : scene.name === 'tension' ? '张力' : scene.name === 'recovery' ? '发展' : '回收'}：`
-    + `${scene.title}（${scene.source}@${scene.start}-${scene.start + scene.duration}s）。`
-  )),
-  '',
-  '所有地点、媒体、授权与评价都是教学合成值；不得用于真实发布。',
-  '',
-].join('\n');
-
-const briefFor = (definition) => [
-  `# ${definition.label} visual brief（${CLASSIFICATION}）`,
-  '',
-  ...definition.scenes.r1.map((scene) => (scene.map
-    ? `- ${scene.start}-${scene.start + scene.duration}s：示意地图，只画授权样本点，不声称连续路线。`
-    : `- ${scene.start}-${scene.start + scene.duration}s：${scene.source} 的合成占位镜头，画面中心放「${scene.title}」。`)),
-  '',
-  '构图采用居中主体、短促运动提示和轻快节奏；图形只作编辑解释，不冒充真实素材。',
-  '',
-].join('\n');
-
 const musicPlanFor = (mode) => ({
   classification: CLASSIFICATION,
   required: true,
@@ -249,21 +224,6 @@ const musicPlanFor = (mode) => ({
   ],
   verification: { mixedAudioObserved: false, renderedAudioObserved: false },
 });
-
-const captionsFor = (definition, revised) => {
-  const cueText = revised ? definition.r2Caption : definition.scenes.r1[0].text;
-  const oldText = definition.r1Feedback.replace('CHANGE_REQUIRED：', '');
-  return [
-    'WEBVTT',
-    '',
-    '00:00:00.000 --> 00:00:03.000',
-    cueText,
-    '',
-    '00:00:03.000 --> 00:00:08.000',
-    revised ? definition.r2Caption : `${oldText}（r1 合成字幕）`,
-    '',
-  ].join('\n');
-};
 
 const sceneMarkdown = (scene, mapLine) => (scene.map
   ? [`## ${scene.name} instruction:"${scene.title}" start:${scene.start} duration:${scene.duration}`, mapLine, '']
@@ -285,8 +245,8 @@ const videoFor = (mode, definition, revised, mapLine) => [
 const dependenciesFor = (hashes, mediaHashes, revisionId) => ({
   sourceMediaHashes: { ...mediaHashes },
   sourceManifestHash: hashes.sourceManifest,
-  storyHash: hashes.story,
-  visualBriefHash: hashes.visualBrief,
+  storyHash: revisionId.endsWith('r2') ? hashes.storyR2 : hashes.storyR1,
+  visualBriefHash: revisionId.endsWith('r2') ? hashes.visualBriefR2 : hashes.visualBriefR1,
   musicPlanHash: hashes.musicPlan,
   captionHash: revisionId.endsWith('r2') ? hashes.captionR2 : hashes.captionR1,
   productionVideoHash: revisionId.endsWith('r2') ? hashes.videoR2 : hashes.videoR1,
@@ -299,11 +259,15 @@ export function build(mode) {
   const manifest = manifestFor(mode, definition, mediaHashes);
   const manifestBytes = `${JSON.stringify(manifest, null, 2)}\n`;
   const research = researchFor(mode, definition);
-  const story = storyFor(definition);
-  const visualBrief = briefFor(definition);
+  const planR1 = editorialPlanFor(mode, definition, false);
+  const planR2 = editorialPlanFor(mode, definition, true);
+  const storyR1 = storyFor(definition, planR1);
+  const storyR2 = storyFor(definition, planR2);
+  const visualBriefR1 = briefFor(definition, planR1);
+  const visualBriefR2 = briefFor(definition, planR2);
   const musicPlan = musicPlanFor(mode);
-  const captionR1 = captionsFor(definition, false);
-  const captionR2 = captionsFor(definition, true);
+  const captionR1 = captionsFor(planR1);
+  const captionR2 = captionsFor(planR2);
   const mapLine = mode === 'gps-enhanced' ? routeScene(
     extractRoutePoints(definition.sources.filter((source) => source.location.gpsStatus === 'synthetic-point').map((source) => ({
       SourceFile: source.id,
@@ -317,8 +281,10 @@ export function build(mode) {
   const videoR2 = videoFor(mode, definition, true, mapLine);
   const hashes = {
     sourceManifest: sha256(manifestBytes),
-    story: sha256(story),
-    visualBrief: sha256(visualBrief),
+    storyR1: sha256(storyR1),
+    storyR2: sha256(storyR2),
+    visualBriefR1: sha256(visualBriefR1),
+    visualBriefR2: sha256(visualBriefR2),
     musicPlan: sha256(`${JSON.stringify(musicPlan, null, 2)}\n`),
     captionR1: sha256(captionR1),
     captionR2: sha256(captionR2),
@@ -362,6 +328,7 @@ export function build(mode) {
     classification: CLASSIFICATION,
     mode,
     title: definition.label,
+    plans: { r1: planR1, r2: planR2 },
     manifest,
     research,
     routeIncluded: mode === 'gps-enhanced',
@@ -379,8 +346,9 @@ export function build(mode) {
     publication: publishGate({ authorization: null, revision: revisionR2, review: reviewR2, qa, rights: musicPlan.rights }),
     files: {
       sourceManifest: manifestBytes,
-      story,
-      visualBrief,
+      story: storyR2,
+      visualBrief: visualBriefR2,
+      storyR1, storyR2, visualBriefR1, visualBriefR2,
       musicPlan: `${JSON.stringify(musicPlan, null, 2)}\n`,
       captionR1,
       captionR2,
@@ -406,6 +374,12 @@ export function materializeCase(outputRoot, mode) {
     ['research-evidence.json', `${JSON.stringify(fixture.research, null, 2)}\n`],
     ['story.md', fixture.files.story],
     ['visual-brief.md', fixture.files.visualBrief],
+    ['story-r1.md', fixture.files.storyR1],
+    ['story-r2.md', fixture.files.storyR2],
+    ['visual-brief-r1.md', fixture.files.visualBriefR1],
+    ['visual-brief-r2.md', fixture.files.visualBriefR2],
+    ['editorial-plan-r1.json', `${JSON.stringify(fixture.plans.r1, null, 2)}\n`],
+    ['editorial-plan-r2.json', `${JSON.stringify(fixture.plans.r2, null, 2)}\n`],
     ['music-plan.json', fixture.files.musicPlan],
     ['captions-r1.vtt', fixture.files.captionR1],
     ['captions-r2.vtt', fixture.files.captionR2],

@@ -47,6 +47,9 @@ async function persistedCase(mode) {
     research: JSON.parse(await read('research-evidence.json')),
     story: await read('story.md'),
     visualBrief: await read('visual-brief.md'),
+    stories: { r1: await read('story-r1.md'), r2: await read('story-r2.md') },
+    briefs: { r1: await read('visual-brief-r1.md'), r2: await read('visual-brief-r2.md') },
+    plans: { r1: JSON.parse(await read('editorial-plan-r1.json')), r2: JSON.parse(await read('editorial-plan-r2.json')) },
     musicPlan: JSON.parse(await read('music-plan.json')),
     captionsR1: await read('captions-r1.vtt'),
     captionsR2: await read('captions-r2.vtt'),
@@ -60,6 +63,52 @@ async function persistedCase(mode) {
 }
 
 const persisted = Object.fromEntries(await Promise.all(MODES.map(async (mode) => [mode, await persistedCase(mode)])));
+
+const seconds = (stamp) => stamp.split(':').reduce((total, part) => total * 60 + Number(part), 0);
+const captionCues = (vtt) => [...vtt.matchAll(/(\d{2}:\d{2}:\d{2}\.\d{3}) --> (\d{2}:\d{2}:\d{2}\.\d{3})\n([^\n]+)(?=\n|$)/g)]
+  .map((match) => ({ start: seconds(match[1]), end: seconds(match[2]), text: match[3] }));
+
+for (const mode of MODES) {
+  test(`${mode}: each revision has complete aligned captions, source sound and visual treatment`, () => {
+    const disk = persisted[mode];
+    for (const revision of ['r1', 'r2']) {
+      const plan = disk.plans[revision];
+      const scenes = timeline(disk.videos[revision]);
+      const cues = captionCues(revision === 'r1' ? disk.captionsR1 : disk.captionsR2);
+      assert.equal(cues.length, scenes.length);
+      assert.equal(plan.length, scenes.length);
+      assert.equal(cues[0].start, 0);
+      assert.equal(cues.at(-1).end, mode === 'gps-enhanced' ? 11 : 8);
+      assert.ok(new Set(cues.map((cue) => cue.text)).size > 1);
+      assert.doesNotMatch(revision === 'r1' ? disk.captionsR1 : disk.captionsR2, /CHANGE_REQUIRED|审核|删除|字幕重复/);
+      for (const [index, beat] of plan.entries()) {
+        assert.equal(beat.name, scenes[index].name);
+        assert.equal(beat.start, scenes[index].start);
+        assert.equal(beat.duration, scenes[index].duration);
+        assert.deepEqual(cues[index], { start: beat.start, end: beat.start + beat.duration, text: beat.caption });
+        if (index) assert.equal(cues[index - 1].end, cues[index].start);
+        for (const field of ['sourceRange', 'composition', 'motion', 'transitionIn', 'transitionOut', 'originalSound', 'bgm', 'caption']) {
+          assert.ok(typeof beat[field] === 'string' && beat[field].length > 3, `${mode}/${revision}/${beat.name}/${field}`);
+          assert.ok(disk.briefs[revision].includes(beat[field]), field);
+        }
+        assert.ok(disk.stories[revision].includes(beat.title));
+        assert.ok(disk.briefs[revision].includes(beat.title));
+        assert.match(beat.originalSound, /SYNTHETIC/);
+      }
+      const dependencies = fixtures[mode].revisions[revision].dependencies;
+      assert.equal(sha256(disk.stories[revision]), dependencies.storyHash);
+      assert.equal(sha256(disk.briefs[revision]), dependencies.visualBriefHash);
+    }
+    assert.equal(disk.story, disk.stories.r2);
+    assert.equal(disk.visualBrief, disk.briefs.r2);
+    assert.notEqual(disk.stories.r1, disk.stories.r2);
+    assert.notEqual(disk.briefs.r1, disk.briefs.r2);
+    assert.notEqual(fixtures[mode].revisions.r1.dependencies.storyHash, fixtures[mode].revisions.r2.dependencies.storyHash);
+    assert.notEqual(fixtures[mode].revisions.r1.dependencies.visualBriefHash, fixtures[mode].revisions.r2.dependencies.visualBriefHash);
+    const closing = disk.plans.r2.at(-1).title;
+    assert.ok(disk.stories.r2.includes(closing) && disk.briefs.r2.includes(closing));
+  });
+}
 
 for (const mode of MODES) {
   test(`${mode}: concrete beats, immutable revisions, and aligned persisted bytes`, async () => {
@@ -78,9 +127,9 @@ for (const mode of MODES) {
     assert.equal(disk.captionsR1 !== disk.captionsR2, true);
     assert.equal(sha256(disk.videos.r1), fixture.revisions.r1.contentHash);
     assert.equal(sha256(disk.videos.r2), fixture.revisions.r2.contentHash);
-    assert.equal(sha256(disk.story), fixture.revisions.r1.dependencies.storyHash);
+    assert.equal(sha256(disk.stories.r1), fixture.revisions.r1.dependencies.storyHash);
     assert.equal(sha256(disk.story), fixture.revisions.r2.dependencies.storyHash);
-    assert.equal(sha256(disk.visualBrief), fixture.revisions.r1.dependencies.visualBriefHash);
+    assert.equal(sha256(disk.briefs.r1), fixture.revisions.r1.dependencies.visualBriefHash);
     assert.equal(sha256(`${JSON.stringify(disk.musicPlan, null, 2)}\n`), fixture.revisions.r1.dependencies.musicPlanHash);
     assert.equal(sha256(disk.captionsR1), fixture.revisions.r1.dependencies.captionHash);
     assert.equal(sha256(disk.captionsR2), fixture.revisions.r2.dependencies.captionHash);
@@ -95,7 +144,7 @@ for (const mode of MODES) {
         .every((scene) => scene.start >= rangeStart && scene.start + scene.duration <= rangeEnd));
     }
     for (const scene of timeline(disk.videos.r1).filter((item) => item.sourceId && item.sourceId !== 'BOTH')) {
-      assert.match(disk.story, new RegExp(`${scene.sourceId}@${scene.start}-${scene.start + scene.duration}s`));
+      assert.match(disk.stories.r1, new RegExp(`${scene.sourceId}@${scene.start}-${scene.start + scene.duration}s`));
     }
   });
 
