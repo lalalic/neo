@@ -41,10 +41,10 @@ for (const entry of manifest.stdout.toString('utf8').split('\0').filter(Boolean)
   chmodSync(dst,mode==='100755'?0o755:0o644);
 }
 writeFileSync(join(out,'package.json'),JSON.stringify({
-  name:'neo', version:'1.0.2-p0.1', type:'module', private:true,
-  description:'Neo CLI compatibility and service control distribution candidate',
+  name:'@lalalic/neo', version:'1.0.2', type:'module',
+  description:'Neo CLI and deterministic service management commands',
   engines:{node:'>=22'},bin:{neo:'.bin/neo.mjs',serviceman:'skills/daemon-service-manage/bin/serviceman.mjs'},
-  scripts:{},
+  publishConfig:{access:'public'}, scripts:{},
 },null,2)+'\n');
 writeFileSync(join(out,'README.md'),'# Neo CLI distribution candidate\n\nLocally staged CLI from lalalic/neo. No application runtime or user data is bundled.\n');
 process.stdout.write(out+'\n');
