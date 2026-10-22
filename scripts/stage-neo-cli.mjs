@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Create an allowlisted, local distribution of the Neo command surface.
 // No credentials, personal data, Git worktrees, build output or runtime state.
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync, readdirSync, chmodSync } from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync, chmodSync, existsSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -24,15 +25,23 @@ for(const file of allow) {
 }
 writeFileSync(join(out,'.bin/list-web-chatgpt-skills'),readFileSync(join(root,'.bin/list-web-chatgpt-skills')));
 chmodSync(join(out,'.bin/list-web-chatgpt-skills'),0o755);
-// Expose portable SKILL.md catalog; keep implementation-specific references in their repositories.
-for(const folder of readdirSync(join(root,'skills'),{withFileTypes:true})) {
-  if (!folder.isDirectory()) continue;
-  const input=join(root,'skills',folder.name,'SKILL.md');
-  try {
-    const raw=readFileSync(input);
-    const dest=join(out,'skills',folder.name,'SKILL.md');
-    mkdirSync(dirname(dest),{recursive:true});writeFileSync(dest,raw);
-  } catch(error) { if(error.code!=='ENOENT') throw error; }
+// Preserve the complete tracked skill source contract, not just SKILL.md.
+// Use committed Git blobs: never bundle unrelated dirty worktrees, untracked
+// credentials, personal media or developer-generated runtime files.
+const manifest = spawnSync('git',['-C',root,'ls-files','-s','-z','--','skills'],{encoding:'buffer'});
+if (manifest.status !== 0) throw Error('Unable to resolve committed skill manifest');
+for (const entry of manifest.stdout.toString('utf8').split('\0').filter(Boolean)) {
+  const tab=entry.indexOf('\t');
+  if (tab < 0) throw Error('Invalid tracked Git entry');
+  const mode=entry.slice(0,tab).split(' ')[0], rel=entry.slice(tab+1);
+  if (!['100644','100755'].includes(mode)) throw Error(`Non-file skill entry: ${rel}`);
+  if (!/^skills\/[a-zA-Z0-9._/-]+$/.test(rel) || rel.includes('..')) throw Error(`Unsafe tracked skill path: ${rel}`);
+  const dst=join(out,rel);
+  if (existsSync(dst)) continue; // Explicit installed compatibility entrypoints win.
+  const blob=spawnSync('git',['-C',root,'show',`HEAD:${rel}`],{encoding:'buffer',maxBuffer:10*1024*1024});
+  if (blob.status !== 0) throw Error(`Unable to load committed skill asset: ${rel}`);
+  mkdirSync(dirname(dst),{recursive:true});writeFileSync(dst,blob.stdout);
+  chmodSync(dst,mode==='100755'?0o755:0o644);
 }
 writeFileSync(join(out,'package.json'),JSON.stringify({
   name:'neo', version:'1.0.2-p0.1', type:'module', private:true,
