@@ -71,9 +71,9 @@ export function executeControl(argv, options = {}) {
   if (launchResult.code === 0) {
     const pid = /^\s*pid = (\d+)/m.exec(launchResult.stdout)?.[1];
     const state = /^\s*state = (.+)$/m.exec(launchResult.stdout)?.[1]?.trim() ?? 'unknown';
-    const pm2Duplicate = rows.some(x => x.name === 'neoy');
-    rows = rows.filter(x => x.name !== 'neoy');
-    rows.push({name: 'neoy', state, pid: pid ? Number(pid) : null, manager: 'launchd', managed: true, health: 'not_checked',
+    const pm2Duplicate = rows.some(x => x.name === 'neoy' || x.name === 'neoy/app');
+    rows = rows.filter(x => x.name !== 'neoy' && x.name !== 'neoy/app');
+    rows.push({name: 'neoy/app', nativeLabel: 'com.neox.neoy.keepalive', state, pid: pid ? Number(pid) : null, manager: 'launchd', managed: true, health: 'not_checked',
       ...(pm2Duplicate ? {warning:'legacy PM2 neoy duplicate detected; native launchd is authoritative'} : {})});
     rows.sort((a,b)=>a.name.localeCompare(b.name));
   }
@@ -86,7 +86,7 @@ export function executeControl(argv, options = {}) {
   }
   if (['start','stop','restart'].includes(command) && args.length === 2 && args[1] === '--apply') {
     const name = args[0];
-    if (!/^[A-Za-z0-9][A-Za-z0-9_.-]*$/.test(name)) return fail('invalid service name');
+    if (!/^[A-Za-z0-9][A-Za-z0-9_./-]*$/.test(name)) return fail('invalid service name');
     if (!rows.some(x => x.name === name)) return fail(`unknown managed service: ${name}`);
     const selected = rows.find(x => x.name === name);
     if (selected.manager === 'launchd') {

@@ -15,8 +15,8 @@ test('live non-mutating CLI project route',()=>{const data=JSON.parse(execFileSy
 
 test('launchd NeoY is an explicitly managed service, not an arbitrary process',()=>{
 const c=captured();const original=c.opts.run;c.opts.run=(cmd,args)=>{if(cmd==='launchctl'){c.calls.push([cmd,args]);return {code:0,stdout:'state = running\n pid = 42\n'};}return original(cmd,args);};
-executeControl(['service','status','neoy'],c.opts);assert.equal(JSON.parse(c.out.join('')).manager,'launchd');
-executeControl(['service','restart','neoy','--apply'],c.opts);assert.equal(c.calls.at(-1)[0],'launchctl');assert.deepEqual(c.calls.at(-1)[1][0],'kickstart');
+executeControl(['service','status','neoy/app'],c.opts);assert.equal(JSON.parse(c.out.join('')).manager,'launchd');
+executeControl(['service','restart','neoy/app','--apply'],c.opts);assert.equal(c.calls.at(-1)[0],'launchctl');assert.deepEqual(c.calls.at(-1)[1][0],'kickstart');
 });
 test('health probe remains read-only and does not claim MCP tool readiness', () => {
   const c=captured(); const probes=[];
@@ -35,12 +35,12 @@ test('PM2 unavailable still returns native launchd if available',()=>{
   const c=captured();c.opts.run=(cmd,args)=>cmd==='pm2'?{code:1,stdout:'',stderr:'offline'}:{code:0,stdout:'state = running\n pid = 40\n'};
   executeControl(['service','list'],c.opts);
   assert.equal(JSON.parse(c.out.join('')).length,1);
-  assert.equal(JSON.parse(c.out.join(''))[0].name,'neoy');
+  assert.equal(JSON.parse(c.out.join(''))[0].name,'neoy/app');
 });
 test('service lifecycle cannot target unlisted or injected commands',()=>{
   const c=captured();
   assert.throws(()=>executeControl(['service','restart','-evil','--apply'],c.opts),/invalid service/);
-  assert.throws(()=>executeControl(['service','stop','neoy','--apply'],{...c.opts,run:(bin,args)=>bin==='launchctl'?{code:0,stdout:'state = running\n pid = 40\n'}:c.opts.run(bin,args)}),/keepalive/);
+  assert.throws(()=>executeControl(['service','stop','neoy/app','--apply'],{...c.opts,run:(bin,args)=>bin==='launchctl'?{code:0,stdout:'state = running\n pid = 40\n'}:c.opts.run(bin,args)}),/keepalive/);
   executeControl(['service','start','stopped','--apply'],c.opts);
   assert.deepEqual(c.calls.at(-1),['pm2',['start','stopped']]);
 });
