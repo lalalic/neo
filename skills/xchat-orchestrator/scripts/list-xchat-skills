@@ -6,7 +6,10 @@ import json
 import os
 import re
 
-import yaml
+try:
+    import yaml
+except ImportError:  # Portable npm CLI must not require user-site PyYAML.
+    yaml = None
 from pathlib import Path
 
 HOME = Path.home()
@@ -41,6 +44,67 @@ def candidate_files(project_root: Path | None = None) -> list[Path]:
     return sorted(found.values(), key=lambda p: str(p).lower())
 
 
+def parse_frontmatter_subset(source: str) -> dict[str, object] | None:
+    """Portable, deliberately narrow YAML subset for skill name/description/requires.skills.
+
+    Unsupported dependency syntax is rejected, not silently declared resolved.
+    """
+    values: dict[str, object] = {}
+    lines = source.splitlines()
+    index = 0
+    while index < len(lines):
+        line = lines[index]
+        if not line.strip() or line.lstrip().startswith("#"):
+            index += 1
+            continue
+        match = re.match(r"^([A-Za-z_][A-Za-z0-9_-]*):\s*(.*)$", line)
+        if not match:
+            return None
+        key, value = match.groups()
+        if key in ("name", "description"):
+            if value in ("|", "|-", ">", ">-"):
+                parts = []
+                index += 1
+                while index < len(lines) and (lines[index].startswith(" ") or not lines[index].strip()):
+                    if lines[index].strip():
+                        parts.append(lines[index].strip())
+                    index += 1
+                values[key] = " ".join(parts) if value.startswith(">") else "\n".join(parts)
+                continue
+            if value.startswith("'") and value.endswith("'"):
+                values[key] = value[1:-1].replace("''", "'")
+            elif value.startswith('"') and value.endswith('"'):
+                values[key] = value[1:-1]
+            else:
+                values[key] = value
+        elif key == "requires":
+            if value:
+                return None
+            skills = []
+            index += 1
+            if index >= len(lines) or not re.match(r"^  skills:\s*$", lines[index]):
+                return None
+            index += 1
+            while index < len(lines) and lines[index].startswith("    - "):
+                item = lines[index][6:].strip().strip('\"\'')
+                if not item:
+                    return None
+                skills.append(item)
+                index += 1
+            if index < len(lines) and lines[index].startswith(" ") and lines[index].strip():
+                return None
+            values["requires"] = {"skills": skills}
+            continue
+        else:
+            # Ignore unrelated well-indented metadata/licensing sections.
+            index += 1
+            while index < len(lines) and (lines[index].startswith(" ") or not lines[index].strip()):
+                index += 1
+            continue
+        index += 1
+    return values
+
+
 def parse_frontmatter(path: Path) -> dict[str, object] | None:
     try:
         text = path.read_text(encoding="utf-8", errors="replace")
@@ -51,10 +115,13 @@ def parse_frontmatter(path: Path) -> dict[str, object] | None:
     end = text.find("\n---", 4)
     if end < 0:
         return None
-    try:
-        front = yaml.safe_load(text[4:end]) or {}
-    except yaml.YAMLError:
-        return None
+    if yaml is None:
+        front = parse_frontmatter_subset(text[4:end])
+    else:
+        try:
+            front = yaml.safe_load(text[4:end]) or {}
+        except yaml.YAMLError:
+            return None
     if not isinstance(front, dict):
         return None
     name = str(front.get("name") or path.parent.name).strip()
