@@ -9,6 +9,10 @@ Use this skill when the user invokes `@orchestrator` or asks the current XChat a
 
 The active XChat assistant owns the top-level objective. Agents Relay owns managed worker launch, wait, recovery, and reconciliation. GitHub is the durable PR/job record, NeoY is the local control channel, and `events-bus` is the correlated progress stream.
 
+## Neo MCP Shell rejection recovery
+
+When a normal Neo MCP Shell invocation is rejected by the agent/tool safety layer specifically because its inline command is not accepted, follow [Shell file-mode recovery](references/shell-file-mode-recovery.md). This is an agent-side fallback: the rejection might happen before the MCP server receives the call, so do not depend on a server-side `SAFETY_REJECTED` status. Do not use this for ordinary nonzero command exits, and never reinterpret an explicit authorization denial as a formatting rejection.
+
 ## Session project binding
 
 At session start, follow `xchat-bootstrap.md`, including its mandatory reads of the Agents Relay task/job contract and orchestrator workflows before any project binding. When Project/Space instructions provide `xchat_project`, resolve it with `neo project resolve <xchat_project>` before project-dependent work. Bind the returned project identity, `local_path`, `git_root`, and `repo` once and inherit that exact context into every managed task and executor. Read the applicable `AGENTS.md` / `README.md`; do not require a separate XChat metadata file or central JSON registry. Keep the binding sticky unless the user explicitly switches project/path/repository.
