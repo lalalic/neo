@@ -2,6 +2,8 @@
 
 Vlog is a thin Neo content project. Root `AGENTS.md` and `MISSION.md` apply first.
 
+All Vlog episodes obey [the stage acceptance contract](docs/episode-stage-contract.md). Do not create an episode Task for a manifest with `INPUT_NEEDED`; source-use approval is mandatory. Archive accepted output by default, publishing only after explicit human authorization. Review corrections are Relay lifecycle work rather than agentGraph cycles.
+
 ## Planner topology — primary contract
 
 This chart is the primary asset for Planner.
@@ -78,6 +80,10 @@ Reusable capability
 ```
 
 Do not build Vlog-local copies of phone-media access, vision, Video Director, Execution Director, image/video generation, audio/TTS, Markcut, Market Agent, post adapters, model router, worker router, or troubleshooting.
+
+## Optional location branch
+
+The episode and its hook/development/payoff exist independently of GPS. Do not create or require a map scene without useful trustworthy metadata, creative relevance and explicit disclosure approval. No GPS means a complete ordinary episode; partial GPS means only verified sample locations, never invented stops or movement. Reject implausible points, ambiguous timestamps and sensitive coordinates. Label calculated road routes as inferred navigation, not recorded tracks. Preserve the canonical one-Task agentGraph, Chinese narration/captions by default, authorized BGM, both required review gates and publication approval.
 
 ## Source and story contract
 
@@ -181,6 +187,7 @@ Publication target/authorization comes from the active Job/Task. Use shared `pos
 - 2026-09-26: Vlog previously duplicated Agents Relay with local jobs, routing, autopilot, personas, style, and templates. Keep the project thin.
 - 2026-09-27: Follow the shared `neo-project` contract: chart-first human/planner docs, one top-level Task per episode, discoverable project agents, shared capabilities, explicit run handoffs, and observable acceptance gates.
 - 2026-10-04: Route/movement evidence, mandatory BGM, spoken Hey Neo edit commands, lively motion/CG treatment, and Simplified Chinese defaults are enforceable production/review contracts rather than optional style suggestions.
+- 2026-10-21: Route/location research is optional work owned by `vlog-editor` with shared capabilities, not missing specialist graph nodes. Synthetic review fixtures must materialize every dependency and immutable r1/r2 revision, including per-beat sound/motion/transition evidence; hash real bytes, reject changed/stale dependencies, and never treat simulation, parser validation, or authorization booleans as QA or publication eligibility.
 
 
 ## Route Story, language, movement, and command contract
@@ -222,7 +229,7 @@ Video Director review must explicitly verify:
 - lively pacing and avoidance of stiff/static slideshow treatment;
 - purposeful cuts, transitions, motion graphics, CG/effects, and music-synchronized rhythm;
 - mandatory BGM plus intelligible mix/ducking around dialogue, narration, and meaningful original sound;
-- Route Story/map/movement-mode treatment when location evidence exists;
+- Optional map/movement-mode treatment only when reliable location evidence and disclosure approval exist; no-GPS episodes need no maps;
 - compliance with recognized Hey Neo edit commands and correct treatment of command audio;
 - source truth and clear separation of generated visuals from real footage.
 

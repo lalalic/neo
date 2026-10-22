@@ -2,6 +2,8 @@
 
 Vlog turns real daily media and evidence into one coherent short-form story and verified publication outcome. It is a thin Neo content project: Vlog owns the editorial/production contract; Agents Relay owns orchestration; shared Neo capabilities own reusable media, vision, rendering, and publishing implementation.
 
+See [the reusable stage input/output and review contract](docs/episode-stage-contract.md) for Source → optional Research → Story → Production → immutable Preview Review → technical QA → archive/explicit Publish Authorization. GPS is optional; owner-approved real media is required before creating an actual Episode Task.
+
 ## Human mental model
 
 This chart is the primary architecture asset for understanding Vlog.
@@ -96,6 +98,19 @@ The durable unit is the **episode**, not each production phase. One episode is o
 ```
 
 Vlog does not own a scheduler, database, worker launcher, routing policy, model policy, browser publisher, media engine, or lifecycle state machine.
+
+## Optional location enrichment
+
+```text
+Authorized photos/video/audio -> story (hook / development / payoff) -> visual brief
+              |
+              +-> optional EXIF/QuickTime GPS check
+                         | no trusted GPS -> no map scene (normal complete Vlog)
+                         | partial GPS -> only verified stops, no guessed movements
+                         + two+ approved points -> optional short map/scenic insert
+```
+
+GPS must never gate an episode. Raw coordinates stay private; a redacted route is included only with explicit disclosure approval. Maps show location context or inferred navigation, not a recorded travel track. Mandatory authorized BGM, original sound, Chinese defaults, revision-specific preview, both reviews and the no-publication-unless-authorized rule remain unchanged.
 
 ## Episode artifact flow
 

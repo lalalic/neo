@@ -1,0 +1,11 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {optionalRouteScene} from '../lib/gps-route.mjs';
+const point=(id,time,lat,lng)=>({SourceFile:id,GPSDateTime:time,GPSLatitude:lat,GPSLongitude:lng});
+const good=[point('a','2026:10:14 12:00:00',43.6,-79.3),point('b','2026:10:14 13:00:00',43.7,-79.4)];
+test('no GPS produces a normal no-map episode',()=>{assert.equal(optionalRouteScene([{SourceFile:'clip'}]).included,false)});
+test('partial GPS cannot invent a second mapped stop',()=>{assert.equal(optionalRouteScene([good[0],{SourceFile:'unlocated'}],{disclosureApproved:true}).included,false)});
+test('GPS requires separate privacy authorization',()=>{assert.equal(optionalRouteScene(good).reason,'disclosure-not-approved')});
+test('approved GPS yields context, never tracked travel',()=>{const x=optionalRouteScene(good,{disclosureApproved:true});assert.equal(x.included,true);assert.match(x.scene,/map view:route/);assert.equal(x.evidence.trackedMovement,false);assert.doesNotMatch(x.scene,/travelMode/)});
+test('outlier and untrusted time cannot create false route',()=>{const x=optionalRouteScene([good[0],point('teleport','2026:10:14 12:00:10',10,10),{SourceFile:'ambiguous',GPSLatitude:43.8,GPSLongitude:-79.5,DateTimeOriginal:'2026:10:14 14:00:00'}],{disclosureApproved:true});assert.equal(x.included,false);assert.ok(x.evidence.rejected.length>=2)});
+test('sensitive excluded stops cannot force map scene',()=>{assert.equal(optionalRouteScene(good,{disclosureApproved:true,excludeSources:['a']}).included,false)});
