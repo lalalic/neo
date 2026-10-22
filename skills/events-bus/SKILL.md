@@ -1,9 +1,16 @@
 ---
 name: events-bus
 description: Shared event transport and simple publishing interface for Neo orchestrators and workers.
+requires:
+  skills:
+    - daemon-service-manage
 ---
 
 # Events bus
+
+## Service ownership
+
+Persistent services owned by this Skill require the global `daemon-service-manage` Skill. Register and manage each service through its CLI, using the enforced `<skillname>/<service-name>` identity; do not create new unqualified PM2 process names. Existing service names are migration inputs, not a reason to bypass namespacing.
 
 ## Publish contract
 
