@@ -4,6 +4,7 @@ import { readFileSync, realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { executeControl } from './neo-control.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '..');
@@ -16,6 +17,11 @@ const DEFAULT_NEOY_MCP_URL = process.env.NEOY_MCP_URL ?? 'http://127.0.0.1:6767/
 function usage() {
   return `Usage:
   neo escalation --handoff-file PATH [options]
+  neo status|doctor
+  neo project list|resolve NAME
+  neo skill list [--project PATH]|package SKILL_DIR OUTPUT.zip
+  neo queue [legacy options]
+  neo service list|status NAME|start|stop|restart NAME --apply
 
 Options:
   --handoff-file PATH            Required handoff file containing the full escalation request
@@ -131,6 +137,7 @@ function main(argv) {
     process.stdout.write(usage());
     return 0;
   }
+  if (['status', 'doctor', 'project', 'skill', 'queue', 'service'].includes(command)) return executeControl([command, ...args]);
   if (command !== 'escalation') throw new Error(`unknown neo command: ${command}`);
   if (args.includes('--help') || args.includes('-h')) {
     process.stdout.write(usage());
