@@ -23,8 +23,6 @@ for(const file of allow) {
   mkdirSync(dirname(dest),{recursive:true});
   cpSync(source,dest,{dereference:true});
 }
-writeFileSync(join(out,'.bin/list-web-chatgpt-skills'),readFileSync(join(root,'.bin/list-web-chatgpt-skills')));
-chmodSync(join(out,'.bin/list-web-chatgpt-skills'),0o755);
 // Preserve the complete tracked skill source contract, not just SKILL.md.
 // Use committed Git blobs: never bundle unrelated dirty worktrees, untracked
 // credentials, personal media or developer-generated runtime files.
@@ -46,7 +44,7 @@ for (const entry of manifest.stdout.toString('utf8').split('\0').filter(Boolean)
 writeFileSync(join(out,'package.json'),JSON.stringify({
   name:'neo', version:'1.0.2-p0.1', type:'module', private:true,
   description:'Neo CLI compatibility and service control distribution candidate',
-  engines:{node:'>=22'},bin:{neo:'.bin/neo.mjs','neo-queue':'.bin/neo-queue.mjs'},
+  engines:{node:'>=22'},bin:{neo:'.bin/neo.mjs'},
   scripts:{},
 },null,2)+'\n');
 writeFileSync(join(out,'README.md'),'# Neo CLI distribution candidate\n\nLocally staged CLI from lalalic/neo. No application runtime or user data is bundled.\n');

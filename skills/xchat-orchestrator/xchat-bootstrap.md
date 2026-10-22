@@ -52,7 +52,7 @@ There is **no central project registry file**. Project discovery is dynamic and 
 
 Name each ChatGPT/Grok/Claude Project or Space after its folder under `~/Workspace`, for example `neox`. For nested projects, use the workspace-relative path such as `neo/neo-build-log`. An explicit `xchat_project` in Project/Space instructions remains an override when the web-visible project name cannot match the folder.
 
-`list-xchat-projects` resolves the Project/Space's workspace-relative folder under `~/Workspace`, finds the nearest enclosing Git checkout, and reads that checkout's `origin`. A project folder does not need its own `AGENTS.md` or `README.md`; missing instruction levels are skipped while existing parent instructions are inherited. Discovery output also lists folders that already expose project context files. No duplicate JSON registry is maintained.
+`neo project resolve` resolves the Project/Space's workspace-relative folder under `~/Workspace`, finds the nearest enclosing Git checkout, and reads that checkout's `origin`. A project folder does not need its own `AGENTS.md` or `README.md`; missing instruction levels are skipped while existing parent instructions are inherited. Discovery output also lists folders that already expose project context files. No duplicate JSON registry is maintained.
 
 A unique folder basename such as `neo-build-log` is accepted as a convenience, but the workspace-relative path is canonical and avoids ambiguity.
 
@@ -64,7 +64,7 @@ account Custom Instructions
   -> read Agents Relay task/job contract
   -> read Agents Relay orchestrator workflows
   -> current Project/Space name (or explicit xchat_project override)
-  -> list-xchat-projects --resolve
+  -> neo project resolve
   -> local_path + git_root + repo
   -> applicable AGENTS.md chain + project README.md
   -> task context and skills
@@ -76,7 +76,7 @@ account Custom Instructions
 - Projects are under `/Users/chengli/Workspace`.
 - The only allowed workspace root for temporary Git worktrees is `/Users/chengli/Workspace/.worktrees/`. Never create or use `/Users/chengli/Workspace/.xchat-worktrees` (or any `.xchat-worktree*` variant). Agents Relay uses `.worktrees/agents-relay/`; orchestrator-owned temporary worktrees use `.worktrees/orchestrator/`.
 - Temporary worktrees are task state, not project structure. After the owning work is merged/completed, verify there is no unique or uncommitted work, remove the worktree through Git, and prune stale worktree metadata.
-- Treat `scripts/list-xchat-projects` as the canonical dynamic XChat project resolver.
+- Treat `neo project resolve` as the canonical dynamic XChat project resolver.
 - `lalalic/neo/xxx` means the `xxx` folder inside the `lalalic/neo` repository checkout; it does **not** mean a repository named `lalalic/neo/xxx`.
 - Prefer local skills and NeoY when a task depends on the user's Mac, local repositories, authenticated CLI state, or local app state.
 - When XChat reaches an execution/permission boundary that appears to require the user, invoke `neo escalation` before asking the user directly. Give it the intent, blocker, relevant context, and optionally an `--on-needs-user`/`--on-needs-user-file` instruction describing how to notify the user if escalation proves the remaining action is genuinely non-delegable. Without an override, Neo supplies the default notification instruction: prefer WeChat-bro to File Helper, then fall back to iMessage to the user themself. This only defines notification after `needs_user`; it does not change the classification threshold. `neo escalation` runs the dedicated local escalation agent with elevated Codex permissions; treat `resolved` as evidence to continue, `failed` as a technical recovery result, and only `needs_user` as justification for asking or waiting on the human.
@@ -91,9 +91,9 @@ account Custom Instructions
 
 ## Platform-specific note
 
-If a particular web platform requires a packaged skill upload rather than reading the local skill through NeoY, use that platform's packaging/import mechanism. The existing `.bin/package-web-chatgpt-skill` helper remains specifically for ChatGPT-compatible ZIP packaging and is not part of the platform-neutral bootstrap contract.
+If a particular web platform requires a packaged skill upload rather than reading the local skill through NeoY, use that platform's packaging/import mechanism. The `neo skill package SKILL_DIR OUTPUT.zip` command remains specifically for ChatGPT-compatible ZIP packaging and is not part of the platform-neutral bootstrap contract.
 
 
 ## CLI migration compatibility
 
-The installed `neo` command is the preferred project and skill discovery interface. Existing `scripts/list-xchat-projects` and `scripts/list-xchat-skills` remain available as legacy entrypoints for existing checked-out repositories and produce the same project JSON and skill-selection semantics. Do not require `/Users/chengli/Workspace/neo` for a distributed CLI installation.
+The installed `neo` command is the only public project and skill discovery interface. Agents must not invoke internal script files. Do not require `/Users/chengli/Workspace/neo` for a distributed CLI installation.

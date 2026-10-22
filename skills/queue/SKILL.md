@@ -5,18 +5,18 @@ description: Durable SQLite-backed CLI execution queue with a PM2-managed worker
 
 # Execution Queue
 
-Run all expensive queued commands through `queue.mjs run --queue media-ai -- COMMAND ARGS...`; this waits for completion and streams output. Use `submit` to return a job ID asynchronously. A single PM2 `neo-queue-worker` process owns dispatch and persists jobs in `~/.neo/execution-queue/queue.sqlite`.
+Run all expensive queued commands through `neo queue run --queue media-ai -- COMMAND ARGS...`; this waits for completion and streams output. Use `submit` to return a job ID asynchronously. A single PM2 `neo-queue-worker` process owns dispatch and persists jobs in `~/.neo/execution-queue/queue.sqlite`.
 
 ## Commands
 
 ```sh
-node ~/.agents/skills/queue/queue.mjs status
-node ~/.agents/skills/queue/queue.mjs run --queue media-ai -- /bin/echo smoke
-node ~/.agents/skills/queue/queue.mjs submit --queue media-ai -- /bin/echo async
-node ~/.agents/skills/queue/queue.mjs list
-node ~/.agents/skills/queue/queue.mjs cancel JOB_ID
+neo queue status
+neo queue run --queue media-ai -- /bin/echo smoke
+neo queue submit --queue media-ai -- /bin/echo async
+neo queue list
+neo queue cancel JOB_ID
 ```
 
 Default `media-ai` concurrency is always 1. `NEO_QUEUE_CAPACITIES` configures non-media queues. `--timeout MS`, `--dedupe KEY` and `--retries N` are opt-in. See README.md. Do not claim this alone integrates Markcut's CLI; Markcut must invoke the queue explicitly.
 
-Manage the worker using `npx pm2 start|restart|stop|describe neo-queue-worker`; use `npx pm2 save` after confirmed healthy startup. Reuse the existing instance, never start duplicates.
+Manage the worker using `neo service start neo-queue-worker --apply`, `neo service restart neo-queue-worker --apply`, or `neo service stop neo-queue-worker --apply` (use `neo service status neo-queue-worker` to inspect); use `npx pm2 save` after confirmed healthy startup. Reuse the existing instance, never start duplicates.
