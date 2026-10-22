@@ -9,7 +9,7 @@ export function serviceId(skill, service) {
 }
 export function parse(argv) {
   const [action, ...input] = argv;
-  if (!['define', 'status', 'start', 'stop', 'restart', 'logs'].includes(action)) throw new Error('usage: daemon-service-manage define|status|start|stop|restart|logs --skill NAME --service NAME [--apply] [-- COMMAND ARGS...]');
+  if (!['define', 'status', 'start', 'stop', 'restart', 'logs'].includes(action)) throw new Error('usage: serviceman define|status|start|stop|restart|logs --skill NAME --service NAME [--apply] [-- COMMAND ARGS...]');
   const options = {};
   const boundary = input.indexOf('--');
   const flags = boundary < 0 ? input : input.slice(0, boundary);
