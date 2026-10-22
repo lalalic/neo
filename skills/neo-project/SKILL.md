@@ -1,6 +1,6 @@
 ---
 name: neo-project
-description: Create or refactor a Neo project so it follows Agents Relay-native architecture: thin project contract, chart-first README/AGENTS, one top-level durable Task per outcome, discoverable project agents, shared capabilities, run artifacts, and explicit quality/review gates.
+description: 'Create or refactor a Neo project so it follows Agents Relay-native architecture: thin project contract, chart-first README/AGENTS, one top-level durable Task per outcome, discoverable project agents, shared capabilities, run artifacts, and explicit quality/review gates.'
 ---
 
 # Neo Project
