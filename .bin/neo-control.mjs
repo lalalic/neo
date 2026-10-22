@@ -39,7 +39,7 @@ export function executeControl(argv, options = {}) {
       probe.remediation = [];
       if (probe.gateway_http !== 'reachable') probe.remediation.push('Start or diagnose NeoY native gateway');
       if (probe.node === 'missing') probe.remediation.push('Install Node.js 18+');
-      if (probe.python === 'missing') probe.remediation.push('Install Python 3 for legacy XChat scripts');
+      if (probe.python === 'missing') probe.remediation.push('Install Python 3 for Neo project/skill discovery');
     }
     emit(JSON.stringify(probe, null, 2)+'\n');
     return probe.gateway_http === 'reachable' && probe.node !== 'missing' && probe.python !== 'missing' ? 0 : 2;
@@ -56,7 +56,7 @@ export function executeControl(argv, options = {}) {
     if (args.length && !(args.length === 2 && args[0] === '--project' && args[1] && !args[1].startsWith('-'))) return fail('usage: neo skill list [--project PATH] | package SKILL_DIR OUTPUT.zip');
     return execute(resolve(scripts, 'list-xchat-skills'), args);
   }
-  if (category === 'queue') return execute(resolve(root, '.bin/neo-queue.mjs'), [command, ...args].filter(x=>x !== undefined));
+  if (category === 'queue') return execute(resolve(root, 'skills/queue/queue.mjs'), [command, ...args].filter(x=>x !== undefined));
   if (category !== 'service') return fail('unsupported control command');
   if (!['list','status','start','stop','restart'].includes(command)) return fail('usage: neo service list | status NAME | start|stop|restart NAME --apply');
   const list = invoke('pm2', ['jlist']);
