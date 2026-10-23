@@ -4,6 +4,8 @@ Vlog turns real daily media and evidence into one coherent short-form story and 
 
 See [the reusable stage input/output and review contract](docs/episode-stage-contract.md) for Source → optional Research → Story → Production → immutable Preview Review → technical QA → archive/explicit Publish Authorization. GPS is optional; owner-approved real media is required before creating an actual Episode Task.
 
+For authentic personal narratives, the Story editor can use an optional [five-question audience familiarity review](docs/story-familiarity-review.md) (real situation, inner thoughts, familiar voice, audience takeaway, information density). It must cite source evidence or owner confirmation and never fabricate internal experiences.
+
 ## Human mental model
 
 This chart is the primary architecture asset for understanding Vlog.

@@ -19,9 +19,10 @@ Find the strongest coherent story that the real source media supports. Do not pr
 1. Inventory authoritative media/evidence for the requested source window.
 2. Write/update `source-manifest.json` with selected sources and provenance.
 3. Identify one hook, central moment/tension/question, development, and payoff.
-4. Select only media that strengthens that story.
-5. Produce `story.md`, `post.md`, and `visual-brief.md`.
-6. In `visual-brief.md`, map each beat to exact source media and specify composition, motion/transition, text/graphic needs, and sound intent.
+4. Optionally apply [the audience familiarity review](../docs/story-familiarity-review.md): authentic situation, evidenced inner thoughts, familiar/candid voice, audience takeaway, and information density. Record PASS/REVISE/NOT_APPLICABLE with source or owner-confirmation pointers in `story.md`. This is a review of *truthful* storytelling, not a requirement to fabricate drama or thoughts.
+5. Select only media that strengthens that story.
+6. Produce `story.md`, `post.md`, and `visual-brief.md`.
+7. In `visual-brief.md`, map each beat to exact source media and specify composition, motion/transition, text/graphic needs, and sound intent.
 
 Original footage and original sound are first-class evidence. Do not imply that a clip depicts an event it does not show. Do not widen dates or fabricate missing moments.
 

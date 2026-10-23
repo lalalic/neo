@@ -60,6 +60,8 @@ Publication happens only when the active Job/Task authorizes it. Use shared `pos
 
 The Video Director PASS/CHANGE_REQUIRED review must explicitly cover lively pacing, cuts/transitions/motion/CG/effects, mandatory BGM and sound mix, Route Story/movement treatment when applicable, spoken-command compliance, and source truth.
 
+When the editor uses audience familiarity, Video Director and Market must check its five source-grounded editorial questions in [the story familiarity review](../docs/story-familiarity-review.md) on the exact preview revision. A REVISE must not be quietly promoted to PASS; no invented personal reflections or forced vulnerability.
+
 The Market Agent PASS/CHANGE_REQUIRED review must explicitly cover emotional energy, audience clarity, hook/cover strength, entertainment/curiosity pull, platform fit, and whether the result feels engaging rather than stiff, repetitive, or visually flat.
 
 Final QA must check the observable artifact for mandatory BGM, intelligible mix/ducking, lively pacing, motion/CG/effects, Route Story/movement treatment where applicable, recognized-command compliance, and source truth.
