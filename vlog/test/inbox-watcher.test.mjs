@@ -80,3 +80,27 @@ test('restart and move-before-create recovery remain idempotent', async () => {
   const movedManifest = path.join(f.runs, '2026-09-27', hour, 'submission-1', 'input', 'manifest.json');
   assert.equal(await readFile(movedManifest, 'utf8') !== '', true);
 });
+
+
+test('manual submission creates a single durable Episode Job across rescans', async () => {
+  const f = await fixture(manifest);
+  let nextJob = 99001;
+  const jobs = [];
+  const tasks = [];
+  const mock = {
+    createJob: async ({ submissionId, objectiveFile }) => { jobs.push({ submissionId, objectiveFile }); return { id: String(nextJob++) }; },
+    listTasks: async () => tasks,
+    createEpisodeTask: async ({ jobId, taskId, input, graphFile }) => {
+      assert.match(await readFile(input, 'utf8'), /submission-1/);
+      assert.match(await readFile(graphFile, 'utf8'), /vlog-editor/);
+      tasks.push({ id: taskId, input: await readFile(input, 'utf8'), jobId });
+    },
+  };
+  const first = await processSubmission(f.source, { runsDir: f.runs, relay: mock, now: new Date('2026-09-27T15:00:00Z') });
+  assert.equal(first.jobId, '99001');
+  const second = await scanOnce({ inboxDir: path.join(f.root, 'empty'), runsDir: f.runs, relay: mock });
+  assert.equal(second[0].status, 'already-tasked');
+  assert.equal(jobs.length, 1);
+  assert.equal(tasks.length, 1);
+  assert.equal(JSON.parse(await readFile(path.join(first.runDir, 'episode-job.json'), 'utf8')).jobId, '99001');
+});

@@ -93,8 +93,14 @@ async function findMovedSubmissions(runsDir) {
       for (const submission of await directoryEntries(path.join(runsDir, day.name, hour.name))) {
         if (!submission.isDirectory()) continue;
         const input = path.join(runsDir, day.name, hour.name, submission.name, 'input');
-        try { if ((await fs.stat(path.join(input, 'manifest.json'))).isFile()) result.push(input); }
-        catch { /* incomplete/unowned directories are ignored */ }
+        try {
+          const manifest = await fs.stat(path.join(input, 'manifest.json'));
+          const owner = await Promise.any([
+            fs.stat(path.join(path.dirname(input), 'manual-intake.json')),
+            fs.stat(path.join(path.dirname(input), 'episode-job.json')),
+          ]).catch(() => null);
+          if (manifest.isFile() && owner?.isFile()) result.push(input);
+        } catch { /* incomplete/unowned directories are ignored */ }
       }
     }
   }
@@ -123,37 +129,32 @@ function taskInput({ manifest, submissionId, runDir, manifestPath }) {
 
 export function createCliRelayClient(config = {}) {
   const env = config.env ?? process.env;
-  const required = (name) => {
-    if (!env[name]) throw new Error(`missing required watcher configuration: ${name}`);
-    return env[name];
-  };
-  const repo = required('VLOG_RELAY_REPO');
-  const pr = required('VLOG_RELAY_PR');
-  const jobId = required('VLOG_RELAY_JOB_ID');
+  const repo = env.VLOG_RELAY_REPO ?? 'lalalic/neo';
+  const projectPath = env.VLOG_RELAY_PROJECT_PATH ?? 'vlog';
   const base = ['--yes', '--package', 'agents-relay@latest', 'agents-relay'];
-  const storage = ['--repo', repo, '--pr', pr, '--id', jobId];
+  const storage = ['--repo', repo];
   const run = async (args, input) => {
     const { stdout } = await execFileAsync('npx', [...base, ...args], { input, maxBuffer: 10 * 1024 * 1024 });
     return JSON.parse(stdout);
   };
   return {
-    listTasks: () => run(['task', 'list', ...storage]),
-    createTask: ({ taskId, input, agentGraph }) => {
-      const args = [
-        'task', 'create', ...storage,
-        '--task-id', taskId,
-        '--output', 'task-pr',
-        '--input', input,
-        '--agent-graph', agentGraph,
-      ];
-      if (env.VLOG_RELAY_AGENT) args.push('--agent', env.VLOG_RELAY_AGENT);
-      return run(args);
-    },
+    createJob: async ({ submissionId, objectiveFile }) => run([
+      'job', 'create', ...storage, '--project-path', projectPath,
+      '--mode', 'fixed', '--title', `Vlog Episode ${submissionId}`,
+      '--objective-file', objectiveFile,
+    ]),
+    listTasks: (jobId) => run(['task', 'list', ...storage, '--id', String(jobId)]),
+    createEpisodeTask: async ({ jobId, taskId, input, graphFile }) => run([
+      'task', 'create', ...storage, '--id', String(jobId),
+      '--task-id', taskId, '--output', 'file',
+      '--output-path', path.join(path.dirname(input), 'episode-result.md'),
+      '--input-file', input, '--agent-graph-file', graphFile,
+    ]),
   };
 }
 
-async function taskExists(relay, taskId, manifestPath) {
-  const tasks = await relay.listTasks();
+async function taskExists(relay, taskId, manifestPath, jobId) {
+  const tasks = await relay.listTasks(jobId);
   return tasks.some((task) => task.id === taskId || (typeof task.input === 'string' && task.input.includes(manifestPath)));
 }
 
@@ -161,13 +162,34 @@ export async function processMovedInput(inputDir, { runsDir, relay, now = new Da
   const checked = await readAndValidateManifest(inputDir, { isLocallyAvailable });
   const runDir = path.dirname(inputDir);
   const taskId = `vlog-episode-${checked.submissionId}`;
-  if (await taskExists(relay, taskId, checked.manifestPath)) return { status: 'already-tasked', taskId, runDir };
-  await relay.createTask({
-    taskId,
-    input: taskInput({ ...checked, runDir }),
-    agentGraph: VLOG_EPISODE_AGENT_GRAPH,
-  });
-  return { status: 'task-created', taskId, runDir };
+  let jobId;
+  if (relay.createJob) {
+    const identityFile = path.join(runDir, 'episode-job.json');
+    const existing = await fs.readFile(identityFile, 'utf8').catch((error) => {
+      if (error.code === 'ENOENT') return null;
+      throw error;
+    });
+    if (existing) jobId = JSON.parse(existing).jobId;
+    else {
+      const objectiveFile = path.join(runDir, 'episode-objective.md');
+      await fs.writeFile(objectiveFile, taskInput({ ...checked, runDir }));
+      const job = await relay.createJob({ submissionId: checked.submissionId, objectiveFile });
+      jobId = job.id ?? job.job?.id ?? job.jobId;
+      if (!jobId) throw new Error('Relay did not return an Episode Job ID');
+      await fs.writeFile(identityFile, JSON.stringify({ jobId, submissionId: checked.submissionId }) + '\n', { flag: 'wx' });
+    }
+  }
+  if (await taskExists(relay, taskId, checked.manifestPath, jobId)) return { status: 'already-tasked', jobId, taskId, runDir };
+  if (relay.createEpisodeTask) {
+    const inputFile = path.join(runDir, 'episode-task.md');
+    const graphFile = path.join(runDir, 'episode-graph.mmd');
+    await fs.writeFile(inputFile, taskInput({ ...checked, runDir }));
+    await fs.writeFile(graphFile, VLOG_EPISODE_AGENT_GRAPH + '\n');
+    await relay.createEpisodeTask({ jobId, taskId, input: inputFile, graphFile });
+  } else {
+    await relay.createTask({ taskId, input: taskInput({ ...checked, runDir }), agentGraph: VLOG_EPISODE_AGENT_GRAPH });
+  }
+  return { status: 'task-created', jobId, taskId, runDir };
 }
 
 export async function processSubmission(sourceDir, { runsDir, relay, now = new Date(), isLocallyAvailable } = {}) {
@@ -176,6 +198,7 @@ export async function processSubmission(sourceDir, { runsDir, relay, now = new D
   const runDir = path.join(runsDir, day, hour, checked.submissionId);
   const inputDir = path.join(runDir, 'input');
   await fs.mkdir(runDir, { recursive: true });
+  await fs.writeFile(path.join(runDir, 'manual-intake.json'), JSON.stringify({ submissionId: checked.submissionId }) + '\n', { flag: 'wx' }).catch((error) => { if (error.code !== 'EEXIST') throw error; });
   let destinationExists = false;
   try {
     await fs.stat(inputDir);
