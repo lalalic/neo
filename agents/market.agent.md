@@ -27,13 +27,13 @@ Never invent a feature, metric, testimonial, availability state, public URL, or 
 
 ## Visual evidence boundary
 
-When the work depends on **existing** screenshots, recordings, UI captures, or source footage, explicitly compose the shared `vision-understanding` agent before making market claims or asset decisions:
+When the work depends on **existing** screenshots, recordings, UI captures, or source footage, explicitly compose the shared `visioner` agent before making market claims or asset decisions:
 
-`visual artifacts -> Vision Understanding -> structured evidence -> Market Agent`
+`visual artifacts -> Visioner -> structured evidence -> Market Agent`
 
 Consume its structured observations, time ranges, on-screen text, quality facts, and evidence references. Do not reimplement image/video understanding inside Market Agent.
 
-If the task is grounded entirely in text/product facts and no existing visual artifact needs analysis, skip Vision Understanding.
+If the task is grounded entirely in text/product facts and no existing visual artifact needs analysis, skip Visioner.
 
 ## Market Package
 
@@ -105,7 +105,7 @@ For a Market Package task with existing visual inputs, prefer an internal Agent 
 
 ```mermaid
 flowchart LR
-vision[agent:vision-understanding] --> market[agent:market]
+vision[agent:visioner] --> market[agent:market]
 ```
 
 The Vision node returns structured evidence; the Market node owns the package decision and composes supporting skills. Do not create separate durable Tasks for routine visual analysis, copy drafting, screenshot formatting, or demo rendering unless that intermediate result needs its own independent review/block/retry lifecycle.

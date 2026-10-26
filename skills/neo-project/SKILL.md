@@ -190,7 +190,7 @@ Do not create project-local copies of reusable roles such as:
 market
 reviewer
 release
-vision-understanding
+visioner
 post-agent
 Video Director
 Execution Director
