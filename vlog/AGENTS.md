@@ -49,6 +49,10 @@ Reusable capability
 
 Do not build Vlog-local copies of phone-media access, vision, Video Director, Execution Director, image/video generation, audio/TTS, Markcut, Market Agent, post adapters, model router, worker router, or troubleshooting.
 
+## Editor-owned story enrichment
+
+Editor chooses whether GPS route, timely local events, and popular nearby locations help the *recorded* episode. Research is optional and does not add Graph nodes. Record the decision and source provenance in the run; externally researched attractions/events may be labeled context but are not proof of a visit. Reject unverified dates, invented stops, and unapproved sensitive locations. Choose a source-grounded first-three-second hook, deliver its promised payoff, and retain real creator speech, imperfections and personality without inventing inner thoughts. Market review validates audience retention, authenticity, contextual accuracy, privacy and justified omission.
+
 ## Optional location branch
 
 The episode and its hook/development/payoff exist independently of GPS. Do not create or require a map scene without useful trustworthy metadata, creative relevance and explicit disclosure approval. No GPS means a complete ordinary episode; partial GPS means only verified sample locations, never invented stops or movement. Reject implausible points, ambiguous timestamps and sensitive coordinates. Label calculated road routes as inferred navigation, not recorded tracks. Preserve the canonical Agent outcome tree, Chinese narration/captions by default, authorized BGM, Producer-owned reviews and publication approval.

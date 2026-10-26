@@ -37,7 +37,7 @@ Prefer real footage and useful original sound. Narration is optional; if narrati
 Before declaring a valid Producer outcome, run Markcut CLI technical verification
 on the current `video.md` and actual preview. Write an explicit review request at
 `reviews/review-request.md` identifying the current preview, story, source evidence,
-quality criteria and current revision. Then call:
+quality criteria and current revision. Ask reviewers specifically to verify the first 0–3 second hook, promised payoff, authentic human/familiar voice, natural original sound, and the editor's reasoned GPS/local-event/hotspot decision (including valid omission and privacy safeguards). Then call:
 
 ```bash
 agents-relay review run \
@@ -73,6 +73,6 @@ The Video Director PASS/CHANGE_REQUIRED review must explicitly cover lively paci
 
 When the editor uses audience familiarity, Video Director and Market must check its five source-grounded editorial questions in [the story familiarity review](../docs/story-familiarity-review.md) on the exact preview revision. A REVISE must not be quietly promoted to PASS; no invented personal reflections or forced vulnerability.
 
-The Market Agent PASS/CHANGE_REQUIRED review must explicitly cover emotional energy, audience clarity, hook/cover strength, entertainment/curiosity pull, platform fit, and whether the result feels engaging rather than stiff, repetitive, or visually flat.
+The Market Agent PASS/CHANGE_REQUIRED review must explicitly cover the first 0–3 second hook and payoff, platform-specific audience retention, authentic creator voice and lived-in moments, title/cover promise, and whether researched routes/events/hotspots are useful, true, safely disclosed or correctly omitted. A fabricated visit, private location disclosure, generic AI persona or misleading clickbait is CHANGE_REQUIRED.
 
 Final QA must check the observable artifact for mandatory BGM, intelligible mix/ducking, lively pacing, motion/CG/effects, Route Story/movement treatment where applicable, recognized-command compliance, and source truth.
