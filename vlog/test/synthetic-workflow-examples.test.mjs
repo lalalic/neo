@@ -12,7 +12,7 @@ import {
   reviewCurrent,
   sha256,
 } from '../scripts/synthetic-workflow-examples.mjs';
-import { VLOG_EPISODE_AGENT_GRAPH } from '../lib/inbox-watcher.mjs';
+import { EPISODE_STAGES, episodeTaskId } from '../scripts/validate-episode-plan.mjs';
 import { optionalRouteScene } from '../lib/gps-route.mjs';
 
 const MODES = ['no-gps', 'partial-gps', 'gps-enhanced'];
@@ -294,12 +294,13 @@ test('publication requires exact scope, rights, current review, observable QA, a
   }
 });
 
-test('the actual watcher graph is editor to producer and remains acyclic', () => {
-  assert.match(VLOG_EPISODE_AGENT_GRAPH, /editor\[agent:vlog-editor\] --> producer\[agent:vlog-producer\]/);
-  const edges = [...VLOG_EPISODE_AGENT_GRAPH.matchAll(/(\w+)\[agent:[^\]]+\]\s*-->\s*(\w+)\[agent:[^\]]+\]/g)].map((match) => [match[1], match[2]]);
-  assert.deepEqual(edges, [['editor', 'producer']]);
+test('canonical Vlog stages map to distinct ordered Task IDs', () => {
+  assert.deepEqual(EPISODE_STAGES, ['visioner', 'editor', 'producer', 'final-qa']);
+  assert.equal(episodeTaskId('visioner', 's1'), 'vlog-episode-s1');
+  assert.equal(episodeTaskId('final-qa', 's1'), 'vlog-final-qa-s1');
+  const edges = [['visioner', 'editor'], ['editor', 'producer'], ['producer', 'final-qa']];
   assert.equal(isDAG(edges), true);
-  assert.equal(isDAG([...edges, ['producer', 'editor']]), false);
+  assert.equal(isDAG([...edges, ['final-qa', 'visioner']]), false);
 });
 
 test('tracked design documentation carries actual per-case Markcut excerpts', async () => {

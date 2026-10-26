@@ -17,7 +17,7 @@ Use [the episode stage contract](../docs/episode-stage-contract.md) for stage ar
 Use shared capabilities instead of implementing local engines:
 
 - phone-media/NeoX for source retrieval;
-- `vision-understanding` for existing visual media analysis;
+- `visioner` for existing visual media analysis;
 - `video-director` for canonical `video.md` and creative scene intent;
 - `execution-director` for unresolved typed media lanes;
 - shared image/video generation only for clearly explanatory/generated visuals;
@@ -32,16 +32,27 @@ Materialize a production-ready draft with selected media, canonical `video.md`, 
 
 Prefer real footage and useful original sound. Narration is optional; if narration is used, use the user's approved voice identity unless an explicit fallback is authorized. Every final Vlog must include BGM unless the user explicitly overrides that requirement for the episode. Source music through the shared audio-sourcing capability and mix/duck it around dialogue, narration, and meaningful original sound. Use SFX when they strengthen the episode.
 
-## Mandatory review gate
+## Mandatory self-review Action (within this Worker)
 
-Before final render, persist:
+Before declaring a valid Producer outcome, run Markcut CLI technical verification
+on the current `video.md` and actual preview. Write an explicit review request at
+`reviews/review-request.md` identifying the current preview, story, source evidence,
+quality criteria and current revision. Then call:
 
-```text
-reviews/video-director.md
-reviews/market.md
+```bash
+agents-relay review run \
+  --project-path <vlog-root> \
+  --prompt-file <run-directory>/reviews/review-request.md \
+  --agents video-director,market \
+  --output <run-directory>/reviews/review.json
 ```
 
-Both reviews must explicitly be `PASS` or `CHANGE_REQUIRED`. Video Director checks creative execution; Market Agent checks audience-facing clarity/hook/platform fit. Do not final-render until both pass; revise and re-review when required.
+The generic outcome reviewer runs automatically. Video Director and Market
+reviewers apply specialist contracts to the same current preview. No separate
+Review/Fix Tasks: `CHANGE_REQUIRED` means repair the artifact in this Worker,
+rerun Markcut checks, and review the new version. `BLOCKED` or review
+execution errors are not success. Never reuse a PASS for a changed artifact.
+Persist evidence and return success only after all required checks PASS.
 
 ## Final render and QA
 

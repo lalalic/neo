@@ -4,67 +4,35 @@ Vlog is a thin Neo content project. Root `AGENTS.md` and `MISSION.md` apply firs
 
 All Vlog episodes obey [the stage acceptance contract](docs/episode-stage-contract.md). Do not create an episode Task for a manifest with `INPUT_NEEDED`; source-use approval is mandatory. Archive accepted output by default, publishing only after explicit human authorization. Review corrections are Relay lifecycle work rather than agentGraph cycles.
 
-## Planner topology — primary contract
+## Canonical Episode Graph — primary project asset
 
-This chart is the primary asset for Planner.
+The Episode Graph describes only durable Agent outcomes, not review,
+validation or self-repair work:
 
 ```text
-                           VLOG JOB
-                              │
-                              v
-               ┌──────────────────────────┐
-               │ ONE TOP-LEVEL EPISODE    │
-               │ TASK                     │
-               │ vlog-YYYY-MM-DD[-slug]   │
-               └────────────┬─────────────┘
-                            │
-                            v
-                       agentGraph
-                            │
-                            v
-                  ┌─────────────────┐
-                  │ vlog-editor     │
-                  │ source + story  │
-                  │ visual brief    │
-                  └────────┬────────┘
-                           │
-                           v
-                  ┌─────────────────┐
-                  │ vlog-producer   │
-                  │ production draft│
-                  └────────┬────────┘
-                           │
-                  ┌────────┴─────────┐
-                  │                  │
-                  v                  v
-         ┌────────────────┐  ┌────────────────┐
-         │ Video Director │  │ Market Agent   │
-         │ REQUIRED REVIEW│  │ REQUIRED REVIEW│
-         └───────┬────────┘  └───────┬────────┘
-                 │                   │
-                 └─────────┬─────────┘
-                           │
-                     BOTH PASS
-                           │
-                           v
-                  ┌─────────────────┐
-                  │ final render+QA │
-                  └────────┬────────┘
-                           │
-                           v
-                  ┌─────────────────┐
-                  │ post-agent      │
-                  │ when authorized │
-                  └─────────────────┘
+iCloud Watcher (outside episode graph)
+  -> Visioner (validated source understanding)
+  -> Vlog Editor (validated story and visual brief)
+  -> Vlog Producer (validated video and specialist self-review)
+  -> Final render and technical QA (private archive)
 ```
 
-One episode = **exactly one top-level durable Task**.
+Each Agent owns its `execute -> validate/review -> repair -> valid outcome`
+loop inside the same Worker. The Producer calls `agents-relay review run`
+with a review Prompt and professional `video-director,market` agents; the
+generic Outcome Reviewer is implicit. All must PASS on the current preview
+before Producer can report success. Markcut technical checks remain part of
+the producing Agent's work. Neither Review nor Fix is a separate Episode Task.
 
-Never create sibling top-level Tasks for source collection, media analysis, story, edit planning, production, review, render, QA, or publication of the same episode.
+The first Visioner Task is the one root Episode Task. Editor, Producer and
+Final QA are dependent descendants. Planner enforces this tree with
+`scripts/validate-episode-plan.mjs`. Watcher owns media ingestion and
+integrity; Visioner reuses existing Markcut `input/media/metadata.json`
+perception before requesting only missing observations.
 
-If a phase truly needs an independent durable lifecycle, create a child/descendant Task under the episode Task. Valid reasons include external wait, explicit approval, isolated retry/reconciliation boundary, durable blocker, or independently resumed work.
-
-Use only discoverable agents. Do not invent agent names or hard-code worker/provider/model selection.
+Optional source Human Review stays within Visioner; no HIL Action is added in
+this prototype. Source-use approval and public publishing authorization remain
+separate from technical/content PASS. Do not publish without owner permission.
 
 ## Ownership
 
@@ -83,7 +51,7 @@ Do not build Vlog-local copies of phone-media access, vision, Video Director, Ex
 
 ## Optional location branch
 
-The episode and its hook/development/payoff exist independently of GPS. Do not create or require a map scene without useful trustworthy metadata, creative relevance and explicit disclosure approval. No GPS means a complete ordinary episode; partial GPS means only verified sample locations, never invented stops or movement. Reject implausible points, ambiguous timestamps and sensitive coordinates. Label calculated road routes as inferred navigation, not recorded tracks. Preserve the canonical one-Task agentGraph, Chinese narration/captions by default, authorized BGM, both required review gates and publication approval.
+The episode and its hook/development/payoff exist independently of GPS. Do not create or require a map scene without useful trustworthy metadata, creative relevance and explicit disclosure approval. No GPS means a complete ordinary episode; partial GPS means only verified sample locations, never invented stops or movement. Reject implausible points, ambiguous timestamps and sensitive coordinates. Label calculated road routes as inferred navigation, not recorded tracks. Preserve the canonical Agent outcome tree, Chinese narration/captions by default, authorized BGM, Producer-owned reviews and publication approval.
 
 ## Source and story contract
 
@@ -133,27 +101,13 @@ Video Director turns the creative intent into canonical `video.md`. Execution Di
 
 ## Mandatory pre-render gate
 
-Final render is forbidden until both required reviews pass:
-
-```text
-Production Draft
-      │
-      ├────────────► Video Director Review
-      │                  │
-      │            PASS / CHANGE_REQUIRED
-      │
-      └────────────► Market Agent Review
-                         │
-                   PASS / CHANGE_REQUIRED
-
-PASS + PASS -> Final Render
-```
-
-Video Director reviews hook, story-to-scene translation, shot selection, pacing, visual grammar, cuts/transitions/effects, and sound design.
-
-Market Agent reviews audience clarity, hook/cover strength, emotional or curiosity pull, platform fit, and whether the episode works for someone without internal context.
-
-Persist review evidence under `reviews/`. Required changes must be incorporated and re-reviewed.
+Producer validates the Markcut preview, then invokes the Relay review Action
+using a `--prompt-file` that cites the current revision and source evidence.
+The implicit generic Reviewer checks outcome validity; Video Director checks
+visual storytelling, sound and pacing; Market checks audience clarity and
+authentic engagement. Producer incorporates all required changes and reruns
+verification before completing. Persist results in `reviews/`.
+Final QA observes the actual render, not only CLI success.
 
 ## Run contract
 
@@ -183,6 +137,8 @@ All per-run artifacts belong in the run root. `runs/` is ignored by Git.
 Publication target/authorization comes from the active Job/Task. Use shared `post-agent`, verify platform-side state, and persist the receipt/status. A successful click or adapter exit code is not publication proof.
 
 ## Project learnings
+- 2026-10-26: Watcher owns media integrity; Planner and Visioner work from the manifest and existing Markcut Vision metadata. Reuse cached perception before invoking missing media analysis.
+- 2026-10-26: Before applying an episode Plan, reconcile the supplied Job ID against Relay's durable local Job list; inherited planner context can reference a Job that is not present, and another episode Job must never be substituted.
 - 2026-10-26: Persistent watcher lifecycle is exposed by `./neo-project`; PM2 runs the packaged watcher, and `health` checks real iCloud Inbox access.
 
 - 2026-09-26: Vlog previously duplicated Agents Relay with local jobs, routing, autopilot, personas, style, and templates. Keep the project thin.

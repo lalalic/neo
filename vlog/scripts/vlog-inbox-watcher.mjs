@@ -15,7 +15,7 @@ async function tick() {
   running = true;
   try {
     for (const result of await scanOnce({ inboxDir, runsDir, relay })) {
-      if (result.status === 'task-created') console.log(JSON.stringify(result));
+      if (result.status === 'job-planned') console.log(JSON.stringify(result));
       else if (result.status === 'rejected') console.error(JSON.stringify(result));
     }
   } catch (error) {

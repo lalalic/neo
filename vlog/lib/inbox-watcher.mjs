@@ -1,4 +1,6 @@
 import { promises as fs } from 'node:fs';
+import { createReadStream } from 'node:fs';
+import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -6,10 +8,6 @@ import { promisify } from 'node:util';
 const execFileAsync = promisify(execFile);
 export const SUPPORTED_SCHEMA_VERSION = 1;
 export const NEOX_ICLOUD_INBOX_RELATIVE = 'Library/Mobile Documents/iCloud~com~neox~app/Documents/Vlog Inbox';
-export const VLOG_EPISODE_AGENT_GRAPH = [
-  'flowchart LR',
-  '  editor[agent:vlog-editor] --> producer[agent:vlog-producer]',
-].join('\n');
 
 const isSafeSubmissionId = (value) =>
   typeof value === 'string' && /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(value);
@@ -29,6 +27,12 @@ async function locallyAvailable(filePath, stat = fs.stat) {
   } finally {
     await handle.close();
   }
+}
+
+async function fileSha256(filePath) {
+  const digest = createHash('sha256');
+  for await (const chunk of createReadStream(filePath)) digest.update(chunk);
+  return digest.digest('hex');
 }
 
 function mediaPaths(manifest) {
@@ -69,6 +73,12 @@ export async function readAndValidateManifest(submissionDir, options = {}) {
     const linkInfo = await fs.lstat(candidate).catch(() => null);
     if (!linkInfo || linkInfo.isSymbolicLink()) throw new Error(`media is missing or not a regular local file: ${relative}`);
     if (!(await available(candidate))) throw new Error(`media is not fully available locally: ${relative}`);
+    const entry = manifest.media[resolvedMedia.length];
+    const expected = typeof entry === 'object' && entry !== null ? entry.sha256 : undefined;
+    if (expected !== undefined) {
+      if (typeof expected !== 'string' || !/^[0-9a-f]{64}$/i.test(expected)) throw new Error(`invalid media SHA-256 in manifest: ${relative}`);
+      if ((await fileSha256(candidate)) !== expected.toLowerCase()) throw new Error(`media SHA-256 mismatch: ${relative}`);
+    }
     resolvedMedia.push({ path: relative, absolutePath: candidate });
   }
   return { manifest, manifestPath, submissionId: manifest.submission_id, media: resolvedMedia };
@@ -121,10 +131,18 @@ function taskInput({ manifest, submissionId, runDir, manifestPath }) {
     `- submission_id: ${submissionId}`,
     `- run_directory: ${runDir}`,
     `- manifest_path: ${manifestPath}`,
-    `- manifest_metadata: ${JSON.stringify(manifest)}`,
+    'Read the manifest and existing Markcut Vision metadata from the run directory; reuse stored perception before requesting any missing analysis.',
     '',
-    'Follow the existing Vlog episode contract in vlog/AGENTS.md. This is one top-level episode Task; keep editorial, production, review, render, QA, and authorized publication within that episode flow.',
+    'Follow the Vlog Canonical Graph in vlog/AGENTS.md. The project-local Relay Planner must generate one root Episode/Visioner Task and dependent Agent Tasks. Do not use a single multi-role agentGraph. Archive by default; publication needs explicit authorization.',
   ].join('\n');
+}
+
+export function episodeJobCreateArgs({ repo, projectPath, submissionId, objectiveFile }) {
+  return [
+    'job', 'create', '--repo', repo, '--project-path', projectPath,
+    '--title', `Vlog Episode ${submissionId}`,
+    '--objective-file', objectiveFile,
+  ];
 }
 
 export function createCliRelayClient(config = {}) {
@@ -132,38 +150,29 @@ export function createCliRelayClient(config = {}) {
   const repo = env.VLOG_RELAY_REPO ?? 'lalalic/neo';
   const projectPath = env.VLOG_RELAY_PROJECT_PATH ?? 'vlog';
   const base = ['--yes', '--package', 'agents-relay@latest', 'agents-relay'];
-  const storage = ['--repo', repo];
   const run = async (args, input) => {
     const { stdout } = await execFileAsync('npx', [...base, ...args], { input, maxBuffer: 10 * 1024 * 1024 });
     return JSON.parse(stdout);
   };
   return {
-    createJob: async ({ submissionId, objectiveFile }) => run([
-      'job', 'create', ...storage, '--project-path', projectPath,
-      '--mode', 'fixed', '--title', `Vlog Episode ${submissionId}`,
-      '--objective-file', objectiveFile,
-    ]),
-    listTasks: (jobId) => run(['task', 'list', ...storage, '--id', String(jobId)]),
-    createEpisodeTask: async ({ jobId, taskId, input, graphFile }) => run([
-      'task', 'create', ...storage, '--id', String(jobId),
-      '--task-id', taskId, '--output', 'file',
-      '--output-path', path.join(path.dirname(input), 'episode-result.md'),
-      '--input-file', input, '--agent-graph-file', graphFile,
-    ]),
+    createJob: async ({ submissionId, objectiveFile }) => run(
+      episodeJobCreateArgs({ repo, projectPath, submissionId, objectiveFile })
+    ),
+    getJob: async (jobId) => {
+      const jobs = await run(['job', 'list', '--repo', repo]);
+      return jobs.find((job) => String(job.id) === String(jobId)) ?? null;
+    },
+    planJob: (jobId) => run(['plan', '--repo', repo, '--id', String(jobId)]),
   };
-}
-
-async function taskExists(relay, taskId, manifestPath, jobId) {
-  const tasks = await relay.listTasks(jobId);
-  return tasks.some((task) => task.id === taskId || (typeof task.input === 'string' && task.input.includes(manifestPath)));
 }
 
 export async function processMovedInput(inputDir, { runsDir, relay, now = new Date(), isLocallyAvailable } = {}) {
   const checked = await readAndValidateManifest(inputDir, { isLocallyAvailable });
   const runDir = path.dirname(inputDir);
-  const taskId = `vlog-episode-${checked.submissionId}`;
+  if (!relay.createJob) throw new Error('Vlog Episode requires a planner-backed Relay Job client');
   let jobId;
-  if (relay.createJob) {
+  let created = false;
+  {
     const identityFile = path.join(runDir, 'episode-job.json');
     const existing = await fs.readFile(identityFile, 'utf8').catch((error) => {
       if (error.code === 'ENOENT') return null;
@@ -174,22 +183,34 @@ export async function processMovedInput(inputDir, { runsDir, relay, now = new Da
       const objectiveFile = path.join(runDir, 'episode-objective.md');
       await fs.writeFile(objectiveFile, taskInput({ ...checked, runDir }));
       const job = await relay.createJob({ submissionId: checked.submissionId, objectiveFile });
-      jobId = job.id ?? job.job?.id ?? job.jobId;
+      jobId = job.id ?? (typeof job.job === 'string' ? job.job : job.job?.id) ?? job.jobId;
       if (!jobId) throw new Error('Relay did not return an Episode Job ID');
+      created = true;
       await fs.writeFile(identityFile, JSON.stringify({ jobId, submissionId: checked.submissionId }) + '\n', { flag: 'wx' });
     }
   }
-  if (await taskExists(relay, taskId, checked.manifestPath, jobId)) return { status: 'already-tasked', jobId, taskId, runDir };
-  if (relay.createEpisodeTask) {
-    const inputFile = path.join(runDir, 'episode-task.md');
-    const graphFile = path.join(runDir, 'episode-graph.mmd');
-    await fs.writeFile(inputFile, taskInput({ ...checked, runDir }));
-    await fs.writeFile(graphFile, VLOG_EPISODE_AGENT_GRAPH + '\n');
-    await relay.createEpisodeTask({ jobId, taskId, input: inputFile, graphFile });
-  } else {
-    await relay.createTask({ taskId, input: taskInput({ ...checked, runDir }), agentGraph: VLOG_EPISODE_AGENT_GRAPH });
+  const receiptFile = path.join(runDir, 'episode-plan.json');
+  const previousReceipt = await fs.readFile(receiptFile, 'utf8').catch((error) => {
+    if (error.code === 'ENOENT') return null;
+    throw error;
+  });
+  if (previousReceipt) return { status: 'already-jobbed', jobId, runDir };
+  if (!relay.planJob) throw new Error('Vlog Episode requires a Relay Planner action');
+  const currentJob = relay.getJob ? await relay.getJob(jobId) : null;
+  const plans = currentJob?.plans ?? [];
+  if (plans.some((plan) => plan.status === 'SUCCEEDED')) {
+    await fs.writeFile(receiptFile, JSON.stringify({ jobId, recovered: true }) + '\n', { flag: 'wx' });
+    return { status: 'already-jobbed', jobId, runDir };
   }
-  return { status: 'task-created', jobId, taskId, runDir };
+  if (plans.some((plan) => plan.status === 'PLANNING')) {
+    return { status: 'job-planning', jobId, runDir };
+  }
+  if (plans.some((plan) => plan.status === 'FAILED')) {
+    throw new Error(`Episode Job ${jobId} contains a failed Planner round; inspect and recover it before retry`);
+  }
+  await relay.planJob(jobId);
+  await fs.writeFile(receiptFile, JSON.stringify({ jobId, planned: true }) + '\n', { flag: 'wx' });
+  return { status: created ? 'job-planned' : 'plan-recovered', jobId, runDir };
 }
 
 export async function processSubmission(sourceDir, { runsDir, relay, now = new Date(), isLocallyAvailable } = {}) {

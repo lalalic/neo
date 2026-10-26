@@ -4,69 +4,26 @@ Vlog turns real daily media and evidence into one coherent short-form story and 
 
 See [the reusable stage input/output and review contract](docs/episode-stage-contract.md) for Source → optional Research → Story → Production → immutable Preview Review → technical QA → archive/explicit Publish Authorization. GPS is optional; owner-approved real media is required before creating an actual Episode Task.
 
+The **authoritative Episode Graph** is in [AGENTS.md](AGENTS.md#canonical-episode-graph--primary-project-asset). Every episode starts internally with Visioner (shared media understanding and metadata extraction), followed by an optional human evidence review, then Editor, Producer-owned professional reviews, render/QA and private archive. Publication remains separately authorized. Watcher/ingress is outside the Episode Graph. The simplified flow below is explanatory only; Planner must use the canonical Graph and acceptance gates.
+
 For authentic personal narratives, the Story editor can use an optional [five-question audience familiarity review](docs/story-familiarity-review.md) (real situation, inner thoughts, familiar voice, audience takeaway, information density). It must cite source evidence or owner confirmation and never fabricate internal experiences.
 
 ## Human mental model
 
-This chart is the primary architecture asset for understanding Vlog.
-
 ```text
-                         NEO VLOG
-
-              ┌──────────────────────┐
-              │ Autonomous Vlog Job  │
-              └──────────┬───────────┘
-                         │
-                         v
-              ┌──────────────────────┐
-              │ ONE Episode Task     │
-              │ YYYY-MM-DD[-slug]    │
-              └──────────┬───────────┘
-                         │
-                         v
-              ┌──────────────────────┐
-              │ Real Source Media    │
-              │ photos / video/audio │
-              └──────────┬───────────┘
-                         │
-                         v
-              ┌──────────────────────┐
-              │ Story + Visual Brief │
-              │ hook / arc / payoff  │
-              └──────────┬───────────┘
-                         │
-                         v
-              ┌──────────────────────┐
-              │ Production Draft     │
-              │ video.md + assets    │
-              │ sound / motion       │
-              └──────────┬───────────┘
-                         │
-                 ┌───────┴────────┐
-                 │                │
-                 v                v
-        ┌────────────────┐  ┌────────────────┐
-        │ Video Director │  │ Market Agent   │
-        │ Review         │  │ Review         │
-        └───────┬────────┘  └───────┬────────┘
-                │                   │
-                └─────────┬─────────┘
-                          │
-                    BOTH PASS
-                          │
-                          v
-              ┌──────────────────────┐
-              │ Final Render + QA    │
-              └──────────┬───────────┘
-                         │
-                         v
-              ┌──────────────────────┐
-              │ Authorized Publish   │
-              │ + platform receipt   │
-              └──────────────────────┘
+Watcher -> Visioner -> Editor -> Producer -> Final QA -> Private archive
+             |          |          |
+         self-review self-review  Markcut CLI + Relay review run
+                                   | generic Outcome Reviewer
+                                   + Video Director
+                                   + Market
+                                   + Producer repairs and re-reviews
 ```
 
-The durable unit is the **episode**, not each production phase. One episode is one top-level Task; normal source selection, story, edit planning, rendering, QA, and publishing live inside its agentGraph.
+One episode has one root Task, with normal stage outcomes as dependent
+descendants. Validation, professional review and self-repair stay inside
+the owning Agent's Worker. The final published state still requires an
+independent owner authorization.
 
 ## Ownership map
 
@@ -156,6 +113,8 @@ Normal run layout:
 
 ```text
 runs/<YYYY-MM-DD[-slug]>/
+├── vision-evidence.json
+├── vision-human-review.json    # optional; records skip/request/response and provenance
 ├── source-manifest.json
 ├── story.md
 ├── post.md
@@ -197,7 +156,7 @@ Original footage and useful original sound are first-class assets. Narration is 
 
 Use strong visual composition, purposeful cuts, charts/diagrams/images when they genuinely explain something, kinetic typography when useful, and deliberate motion/transitions/effects. Do not turn real-life footage into a static slideshow unless the story calls for it.
 
-Final render requires both Video Director and Market Agent review to pass. Observable QA must check the actual video, not only render exit status.
+Producer calls `agents-relay review run` with an outcome Prompt; generic, Video Director and Market reviews must all PASS before Producer can complete. Observable QA must check the actual video, not only render exit status.
 
 ## Publication
 
@@ -225,9 +184,9 @@ uses the packaged runtime and PM2 boot persistence.
 
 The optional watcher treats `manifest.json` as the producer's final-ready signal. A supported manifest is JSON with `schema_version: 1`, a safe `submission_id`, and a non-empty `media` array whose entries are either relative path strings or `{ "path": "..." }` objects. Media must be downloaded local regular files; missing, zero-byte, symlinked, absolute, or traversal paths are rejected.
 
-The watcher moves a valid submission directory atomically into `runs/YYYY-MM-DD/HH/<submission-id>/input/` before creating exactly one episode Task through Agents Relay. On restart it scans moved inputs first, so a crash after the move and before Task creation is recoverable without a local database. Relay task identity is `vlog-episode-<submission_id>`.
+The watcher moves a valid submission directory atomically into `runs/YYYY-MM-DD/HH/<submission-id>/input/` before creating one planner-backed Episode Job through Agents Relay. The Vlog-local Planner creates the ordered Task DAG; the watcher does not define an agentGraph. On restart it scans moved inputs first, so a crash after the move and before Task creation is recoverable without a local database. The planned root Visioner Task identity is `vlog-episode-<submission_id>`.
 
-For a persistent process, package `vlog/` with `npm pack` and run the resulting `vlog-inbox-watcher` bin through the existing process supervisor via `npx --package <tarball> vlog-inbox-watcher` (do not point PM2 at a developer checkout). By default the watcher consumes Neox’s fixed app-owned iCloud inbox at `~/Library/Mobile Documents/iCloud~com~neox~app/Documents/Vlog Inbox`; `VLOG_ICLOUD_INBOX` remains an explicit override. Configure these deployment values: `VLOG_ICLOUD_INBOX`, `VLOG_RUNS_DIR`, `VLOG_RELAY_REPO`, `VLOG_RELAY_PR`, `VLOG_RELAY_JOB_ID`, and optionally `VLOG_RELAY_AGENT` and `VLOG_WATCH_INTERVAL_MS`. The watcher creates a normal model-backed Task without adapter/provider/model constraints, so Agents Relay performs the required worker-router then model-router selection. The Task carries the canonical Vlog episode agent graph `vlog-editor -> vlog-producer`; the producer contract owns the required Video Director and Market review gate plus render/QA and authorized publication.
+For a persistent process, package `vlog/` with `npm pack` and run the resulting `vlog-inbox-watcher` bin through the existing process supervisor via `npx --package <tarball> vlog-inbox-watcher` (do not point PM2 at a developer checkout). By default the watcher consumes Neox’s fixed app-owned iCloud inbox at `~/Library/Mobile Documents/iCloud~com~neox~app/Documents/Vlog Inbox`; `VLOG_ICLOUD_INBOX` remains an explicit override. Configure these deployment values: `VLOG_ICLOUD_INBOX`, `VLOG_RUNS_DIR`, `VLOG_RELAY_REPO`, `VLOG_RELAY_PR`, `VLOG_RELAY_JOB_ID`, and optionally `VLOG_RELAY_AGENT` and `VLOG_WATCH_INTERVAL_MS`. The watcher creates a normal model-backed Task without adapter/provider/model constraints, so Agents Relay performs the required worker-router then model-router selection. The project-local Planner derives Visioner, Editor, Producer and Final QA Tasks from the Canonical Graph; reviewers run inside Producer through the Relay Action, not separate Tasks.
 
 
 ## Route Story template
