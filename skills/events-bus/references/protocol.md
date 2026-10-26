@@ -18,6 +18,21 @@ MCP exposes **publish only**. The CLI `events-bus publish` uses the same input:
 
 `type` and `source` are required. `data` defaults to `{}`. Source is the precise execution identity assigned by the launcher: `job/<job-id>/task/<task-id>/execution/<execution-id>`. Never invent this identity. Terminal Reviewer evidence belongs in `data`, not `progress`.
 
+When the Neo MCP gateway exposes the command facade `events`, invoke its `publish` subcommand with the same three fields nested under `args`:
+
+```json
+{
+  "command": "publish",
+  "args": {
+    "type": "task.started",
+    "source": "job/478/task/final-review/execution/abc",
+    "data": {}
+  }
+}
+```
+
+The public `source` is always a **string**, not `{ "id": "..." }`. Do not omit `args` or place the event fields beside `command`. The object-shaped `source.id` exists only in the internal transport envelope below.
+
 The CLI accepts `events-bus publish --file event.json` or `events-bus publish '<json>'`. Direct local workers can use `scripts/emit.mjs <type> [data-json]` with `NEO_EVENT_SOURCE` set. Sandboxed workers use MCP `publish`.
 
 ## Internal transport compatibility
