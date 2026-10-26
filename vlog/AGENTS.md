@@ -183,6 +183,7 @@ All per-run artifacts belong in the run root. `runs/` is ignored by Git.
 Publication target/authorization comes from the active Job/Task. Use shared `post-agent`, verify platform-side state, and persist the receipt/status. A successful click or adapter exit code is not publication proof.
 
 ## Project learnings
+- 2026-10-26: Persistent watcher lifecycle is exposed by `./neo-project`; PM2 runs the packaged watcher, and `health` checks real iCloud Inbox access.
 
 - 2026-09-26: Vlog previously duplicated Agents Relay with local jobs, routing, autopilot, personas, style, and templates. Keep the project thin.
 - 2026-09-27: Follow the shared `neo-project` contract: chart-first human/planner docs, one top-level Task per episode, discoverable project agents, shared capabilities, explicit run handoffs, and observable acceptance gates.

@@ -9,6 +9,27 @@ Use this skill when creating a new Neo project or refactoring an existing one to
 
 The goal is not to copy another project's files. The goal is to make each project **thin, understandable to humans, deterministic for Planner, and reusable across Agents Relay**.
 
+## Project lifecycle contract
+
+Projects with installable or persistent services expose exactly one executable
+`<project>/neo-project` entrypoint. Neo.app discovers this entrypoint from
+the project directory and invokes only these fixed commands:
+
+```text
+./neo-project setup|start|stop|restart|status|health|uninstall|help
+```
+
+- Commands are idempotent. `setup` prepares dependencies and config without
+  starting work; `start` starts only declared services; `stop` drains or
+  stops them without deleting data; `restart` verifies the replacement.
+- `status` emits machine-readable JSON with project and running state.
+  `health` checks real dependencies and fails nonzero when unhealthy.
+- `uninstall` removes owned services, not user media, credentials, or runs.
+- A project with no persistent service may omit runtime commands. Neo.app
+  must not execute commands absent from the project's declared help.
+- Reuse the existing service manager/PM2; do not add a second scheduler,
+  process supervisor, or project-specific Neo.app backend.
+
 ## Capability tree
 
 ```text

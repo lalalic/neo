@@ -207,6 +207,22 @@ See `AGENTS.md` for the enforceable Planner/execution contract.
 
 ## iCloud inbox watcher
 
+The project exposes one lifecycle entrypoint:
+
+```bash
+./neo-project setup
+./neo-project start
+./neo-project status
+./neo-project health
+./neo-project restart
+./neo-project stop
+```
+
+`uninstall` removes only the PM2 service and preserves private media and
+`runs/`. Neo.app calls this entrypoint instead of owning watcher commands.
+`setup` packages the watcher under ignored `runs/.service/`; `start`
+uses the packaged runtime and PM2 boot persistence.
+
 The optional watcher treats `manifest.json` as the producer's final-ready signal. A supported manifest is JSON with `schema_version: 1`, a safe `submission_id`, and a non-empty `media` array whose entries are either relative path strings or `{ "path": "..." }` objects. Media must be downloaded local regular files; missing, zero-byte, symlinked, absolute, or traversal paths are rejected.
 
 The watcher moves a valid submission directory atomically into `runs/YYYY-MM-DD/HH/<submission-id>/input/` before creating exactly one episode Task through Agents Relay. On restart it scans moved inputs first, so a crash after the move and before Task creation is recoverable without a local database. Relay task identity is `vlog-episode-<submission_id>`.

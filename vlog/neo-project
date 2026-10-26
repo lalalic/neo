@@ -1,0 +1,111 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Neo Project Lifecycle Contract v1. This file is the project's only control entrypoint.
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SERVICE="vlog/watcher"
+RUNTIME="$ROOT/runs/.service"
+PACKAGE="$RUNTIME/lalalic-neo-vlog-runtime-0.1.0.tgz"
+INBOX="${VLOG_ICLOUD_INBOX:-$HOME/Library/Mobile Documents/iCloud~com~neox~app/Documents/Vlog Inbox}"
+export VLOG_ICLOUD_INBOX="$INBOX"
+export VLOG_RUNS_DIR="${VLOG_RUNS_DIR:-$ROOT/runs}"
+
+usage() {
+  printf '%s\n' "usage: ./neo-project {setup|start|stop|restart|status|health|uninstall|help}"
+}
+
+pm2_id() {
+  npx pm2 pid "$SERVICE" 2>/dev/null | tail -1 | tr -d '[:space:]'
+}
+
+exists() {
+  npx pm2 jlist 2>/dev/null | node -e '
+    let input = "";
+    process.stdin.on("data", part => input += part);
+    process.stdin.on("end", () => {
+      const item = JSON.parse(input).find(p => p.name === "vlog/watcher");
+      process.exit(item ? 0 : 1);
+    });'
+}
+
+status() {
+  npx pm2 jlist 2>/dev/null | node -e '
+    let input = "";
+    process.stdin.on("data", part => input += part);
+    process.stdin.on("end", () => {
+      const item = JSON.parse(input).find(p => p.name === "vlog/watcher");
+      const state = item?.pm2_env?.status ?? "not-installed";
+      console.log(JSON.stringify({
+        project: "vlog", service: "watcher", status: state,
+        running: state === "online", pid: state === "online" ? item.pid : null
+      }));
+    });'
+}
+
+setup() {
+  command -v npm >/dev/null
+  command -v npx >/dev/null
+  mkdir -p "$RUNTIME" "$VLOG_RUNS_DIR"
+  (cd "$ROOT" && npm pack --silent --pack-destination "$RUNTIME" >/dev/null)
+  test -s "$PACKAGE"
+  printf '%s\n' "Vlog runtime packaged; existing media and runs preserved."
+}
+
+start() {
+  if [ ! -s "$PACKAGE" ]; then setup; fi
+  if exists; then
+    if [ "$(pm2_id)" != "0" ]; then
+      status
+      return
+    fi
+    npx pm2 restart "$SERVICE" --update-env >/dev/null
+  else
+    (cd "$RUNTIME" && npx pm2 start npx --name "$SERVICE" -- \
+      --yes --package "$PACKAGE" vlog-inbox-watcher >/dev/null)
+  fi
+  npx pm2 save >/dev/null
+  status
+}
+
+stop() {
+  if exists; then
+    npx pm2 stop "$SERVICE" >/dev/null
+    npx pm2 save >/dev/null
+  fi
+  status
+}
+
+health() {
+  node -e '
+    const fs = require("node:fs");
+    try {
+      fs.readdirSync(process.env.VLOG_ICLOUD_INBOX);
+      fs.accessSync(process.env.VLOG_RUNS_DIR, fs.constants.R_OK | fs.constants.W_OK);
+      console.log(JSON.stringify({project:"vlog", inboxReadable:true, runsWritable:true}));
+    } catch (error) {
+      console.error(JSON.stringify({project:"vlog", healthy:false, error:error.code ?? error.message}));
+      process.exitCode = 1;
+    }'
+  local pid
+  pid="$(pm2_id)"
+  if [ -z "$pid" ] || [ "$pid" = "0" ]; then
+    printf '%s\n' '{"project":"vlog","healthy":false,"reason":"watcher not running"}'
+    return 1
+  fi
+  printf '%s\n' '{"project":"vlog","healthy":true}'
+}
+
+case "${1:-help}" in
+  setup) setup ;;
+  start) start ;;
+  stop) stop ;;
+  restart) stop; start ;;
+  status) status ;;
+  health) health ;;
+  uninstall)
+    if exists; then npx pm2 delete "$SERVICE" >/dev/null; npx pm2 save >/dev/null; fi
+    printf '%s\n' "Vlog service removed; media and runs preserved."
+    ;;
+  help|--help|-h) usage ;;
+  *) usage >&2; exit 2 ;;
+esac
