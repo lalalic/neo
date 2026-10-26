@@ -19,6 +19,7 @@ function usage() {
   neo escalation --handoff-file PATH [options]
   neo status|doctor
   neo project list|resolve NAME
+  neo workspace show
   neo skill list [--project PATH]|package SKILL_DIR OUTPUT.zip
   neo service list|status NAME|start|stop|restart NAME --apply
 
@@ -136,7 +137,7 @@ function main(argv) {
     process.stdout.write(usage());
     return 0;
   }
-  if (['status', 'doctor', 'project', 'skill', 'service'].includes(command)) return executeControl([command, ...args]);
+  if (['status', 'doctor', 'project', 'workspace', 'skill', 'service'].includes(command)) return executeControl([command, ...args]);
   if (command !== 'escalation') throw new Error(`unknown neo command: ${command}`);
   if (args.includes('--help') || args.includes('-h')) {
     process.stdout.write(usage());

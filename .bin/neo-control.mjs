@@ -1,6 +1,7 @@
 import { spawnSync } from 'node:child_process';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { loadWorkspaceConfig } from './workspace-config.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const scripts = resolve(root, 'skills/xchat-orchestrator/scripts');
@@ -55,6 +56,12 @@ export function executeControl(argv, options = {}) {
     if (command !== 'list') return fail('usage: neo skill list [--project PATH] | package SKILL_DIR OUTPUT.zip');
     if (args.length && !(args.length === 2 && args[0] === '--project' && args[1] && !args[1].startsWith('-'))) return fail('usage: neo skill list [--project PATH] | package SKILL_DIR OUTPUT.zip');
     return execute(resolve(scripts, 'list-xchat-skills'), args);
+  }
+  if (category === 'workspace') {
+    if (command !== 'show' || args.length) return fail('usage: neo workspace show');
+    const workspace = options.workspace ?? loadWorkspaceConfig();
+    emit(JSON.stringify({ workspaceRoot: workspace.workspaceRoot, neoRoot: workspace.neoRoot }, null, 2) + '\n');
+    return 0;
   }
   if (category !== 'service') return fail('unsupported control command');
   if (!['list','status','start','stop','restart'].includes(command)) return fail('usage: neo service list | status NAME | start|stop|restart NAME --apply');

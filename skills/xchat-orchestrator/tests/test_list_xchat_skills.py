@@ -2,6 +2,7 @@ import importlib.machinery
 import importlib.util
 import io
 import json
+import os
 import sys
 import tempfile
 import unittest
@@ -10,6 +11,7 @@ from pathlib import Path
 
 
 SCRIPT = Path(__file__).parents[1] / "scripts" / "list-xchat-skills"
+sys.path.insert(0, str(SCRIPT.parent))
 loader = importlib.machinery.SourceFileLoader("list_xchat_skills", str(SCRIPT))
 spec = importlib.util.spec_from_loader("list_xchat_skills", loader)
 module = importlib.util.module_from_spec(spec)
@@ -83,6 +85,43 @@ class ListXchatSkillsTests(unittest.TestCase):
                 module.ROOTS, sys.argv = old_roots, old_argv
             self.assertIn("Requires", output.getvalue())
             self.assertIn("missing: webhelm", output.getvalue())
+
+    def test_workspace_config_derives_shared_neo_root(self) -> None:
+        from workspace_config import load_workspace_config
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "chosen"
+            root.mkdir()
+            config = Path(tmp) / "workspace.json"
+            config.write_text(json.dumps({"schemaVersion": 1, "workspaceRoot": str(root)}), encoding="utf-8")
+            old = os.environ.get("NEO_WORKSPACE_CONFIG")
+            os.environ["NEO_WORKSPACE_CONFIG"] = str(config)
+            try:
+                result = load_workspace_config()
+            finally:
+                if old is None:
+                    os.environ.pop("NEO_WORKSPACE_CONFIG", None)
+                else:
+                    os.environ["NEO_WORKSPACE_CONFIG"] = old
+            self.assertEqual(result["workspaceRoot"], root.resolve())
+            self.assertEqual(result["neoRoot"], root.resolve() / "neo")
+
+    def test_bad_workspace_configuration_fails_closed(self) -> None:
+        from workspace_config import load_workspace_config
+
+        with tempfile.TemporaryDirectory() as tmp:
+            config = Path(tmp) / "workspace.json"
+            config.write_text('{"schemaVersion":1,"workspaceRoot":"relative"}', encoding="utf-8")
+            old = os.environ.get("NEO_WORKSPACE_CONFIG")
+            os.environ["NEO_WORKSPACE_CONFIG"] = str(config)
+            try:
+                with self.assertRaises(ValueError):
+                    load_workspace_config()
+            finally:
+                if old is None:
+                    os.environ.pop("NEO_WORKSPACE_CONFIG", None)
+                else:
+                    os.environ["NEO_WORKSPACE_CONFIG"] = old
 
 
 if __name__ == "__main__":

@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import re
 
 try:
@@ -11,10 +10,11 @@ try:
 except ImportError:  # Portable npm CLI must not require user-site PyYAML.
     yaml = None
 from pathlib import Path
+from workspace_config import load_workspace_config
 
 HOME = Path.home()
 GLOBAL_SKILLS = HOME / ".agents" / "skills"
-NEO_SKILLS = Path(os.environ["NEO_SKILLS_ROOT"]).expanduser().resolve() if os.environ.get("NEO_SKILLS_ROOT") else Path(__file__).resolve().parents[2]
+NEO_SKILLS = Path(load_workspace_config()["neoRoot"]) / "skills"
 ROOTS = [GLOBAL_SKILLS, NEO_SKILLS]
 
 def candidate_files(project_root: Path | None = None) -> list[Path]:

@@ -7,8 +7,9 @@ import os
 import re
 import subprocess
 from pathlib import Path
+from workspace_config import load_workspace_config
 
-WORKSPACE = Path.home() / "Workspace"
+WORKSPACE = Path(load_workspace_config()["workspaceRoot"])
 CONTEXT_FILES = ("AGENTS.md", "README.md")
 SKIP_DIRS = {
     ".git", ".backup", ".venv", "venv", "node_modules", "dist", "build",

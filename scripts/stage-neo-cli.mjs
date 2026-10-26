@@ -10,11 +10,12 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const out = process.argv[2] ? resolve(process.argv[2]) : mkdtempSync(join(tmpdir(), 'neo-cli-dist-'));
 if (out === root || root.startsWith(out + '/') || out.startsWith(root + '/')) throw Error('Output must be outside the Neo source checkout');
 const allow = [
-  '.bin/neo.mjs', '.bin/neo-control.mjs', 'skills/daemon-service-manage/bin/serviceman.mjs',
+  '.bin/neo.mjs', '.bin/neo-control.mjs', '.bin/workspace-config.mjs', 'skills/daemon-service-manage/bin/serviceman.mjs',
   '.bin/package-web-chatgpt-skill',
   'agents/escalation.agent.md', 'agents/escalation-needs-user.md', 'agents/escalation-result.schema.json',
   'skills/xchat-orchestrator/scripts/list-xchat-projects',
   'skills/xchat-orchestrator/scripts/list-xchat-skills',
+  'skills/xchat-orchestrator/scripts/workspace_config.py',
 ];
 mkdirSync(out, {recursive:true});
 for(const file of allow) {

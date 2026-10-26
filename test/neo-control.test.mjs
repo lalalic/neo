@@ -1,8 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 import { executeControl, serviceRows } from '../.bin/neo-control.mjs';
+import { loadWorkspaceConfig } from '../.bin/workspace-config.mjs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, realpathSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 const root = resolve(import.meta.dirname, '..');
 const cli = resolve(root, '.bin/neo.mjs');
 const rows = [{name:'alpha', pid:12, pm2_env:{status:'online'}}, {name:'stopped',pid:0,pm2_env:{status:'stopped'}}];
@@ -11,6 +14,35 @@ test('service read-only list strips environment and sorts',()=>{const c=captured
 test('service status checks exact existing name',()=>{const c=captured();executeControl(['service','status','alpha'],c.opts);assert.equal(JSON.parse(c.out.join('')).pid,12);assert.throws(()=>executeControl(['service','status','unknown'],c.opts),/unknown managed service/);});
 test('restart requires explicit apply, exact existing name, no shell',()=>{const c=captured();assert.throws(()=>executeControl(['service','restart','alpha'],c.opts),/usage/);assert.throws(()=>executeControl(['service','restart','not-in-inventory','--apply'],c.opts),/unknown managed/);executeControl(['service','restart','alpha','--apply'],c.opts);assert.deepEqual(c.calls.at(-1),['pm2',['restart','alpha']]);});
 test('project, skill routes preserve resolver flags',()=>{const c=captured();executeControl(['project','resolve','neox'],c.opts);assert.deepEqual(c.calls.at(-1)[1],['--resolve','neox']);executeControl(['skill','list','--project','/tmp/project'],c.opts);assert.deepEqual(c.calls.at(-1)[1],['--project','/tmp/project']);});
+test('workspace show returns the configured root and derived Neo root',()=>{
+  const c=captured();
+  executeControl(['workspace','show'],{...c.opts,workspace:{workspaceRoot:'/tmp/workspace',neoRoot:'/tmp/workspace/neo'}});
+  assert.deepEqual(JSON.parse(c.out.join('')),{workspaceRoot:'/tmp/workspace',neoRoot:'/tmp/workspace/neo'});
+  assert.throws(()=>executeControl(['workspace','set','/tmp'],c.opts),/usage/);
+});
+test('workspace config validates schema and falls back only when absent',()=>{
+  const base=mkdtempSync(join(tmpdir(),'neo-workspace-'));
+  try {
+    const root=join(base,'chosen');mkdirSync(root);
+    const file=join(base,'workspace.json');
+    assert.deepEqual(loadWorkspaceConfig({configPath:join(base,'absent.json')}).workspaceRoot,resolve(process.env.HOME,'Workspace'));
+    writeFileSync(file,JSON.stringify({schemaVersion:1,workspaceRoot:root}));
+    assert.deepEqual(loadWorkspaceConfig({configPath:file}),{schemaVersion:1,workspaceRoot:root,neoRoot:join(root,'neo')});
+    writeFileSync(file,JSON.stringify({schemaVersion:2,workspaceRoot:root}));
+    assert.throws(()=>loadWorkspaceConfig({configPath:file}),/Invalid workspace configuration/);
+  } finally { rmSync(base,{recursive:true,force:true}); }
+});
+test('skill discovery reads shared skills from the configured workspace Neo root',()=>{
+  const base=mkdtempSync(join(tmpdir(),'neo-skill-root-'));
+  try {
+    const root=join(base,'workspace');mkdirSync(join(root,'neo','skills','selected-skill'),{recursive:true});
+    writeFileSync(join(root,'neo','skills','selected-skill','SKILL.md'),'---\nname: selected-skill\ndescription: configured root test\n---\n');
+    const config=join(base,'workspace.json');writeFileSync(config,JSON.stringify({schemaVersion:1,workspaceRoot:root}));
+    const output=execFileSync(process.execPath,[cli,'skill','list'],{encoding:'utf8',timeout:15000,env:{...process.env,NEO_WORKSPACE_CONFIG:config}});
+    const skills=JSON.parse(output);
+    assert.ok(skills.some(skill=>skill.name==='selected-skill'&&skill.path===realpathSync(join(root,'neo','skills','selected-skill','SKILL.md'))),output);
+  } finally { rmSync(base,{recursive:true,force:true}); }
+});
 test('live non-mutating CLI project route',()=>{const data=JSON.parse(execFileSync(process.execPath,[cli,'project','resolve','neo'],{encoding:'utf8',timeout:15000}));assert.equal(data.name,'neo');});
 
 test('launchd NeoY is an explicitly managed service, not an arbitrary process',()=>{
