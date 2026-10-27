@@ -14,7 +14,12 @@ function messageContext(type,{ senderName, message, correlationId }) {
     message: String(message || ''),
   };
   if(correlationId) data.correlationId=String(correlationId);
-  return runtimeContext(type,data);
+  const envelope=runtimeContext(type,data);
+  if(!correlationId) return envelope;
+  return `${envelope}
+
+DELIVERY CONTRACT: This is a Discord-originated turn. You MUST use the configured @neo MCP tool discord with command="reply" and args={"correlationId":"${correlationId}","text":"<your Discord-ready response>"} to send your response. Text shown in ChatGPT is not delivered to Discord. Do not finish without a successful tool receipt. When Webhelm merges several pending Discord messages, reply separately to every correlationId in the merged turn. Do not infer or select another channel. No final flag is used.`;
+
 }
 
 export function buildKidContext({ childName, text, correlationId }) {

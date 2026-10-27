@@ -110,14 +110,27 @@ def projects() -> list[dict[str, object]]:
     return rows
 
 
+
+def with_project_capabilities(row: dict[str, object]) -> dict[str, object]:
+    path = Path(str(row["local_path"]))
+    result = dict(row)
+    bootstrap = path / "setup" / "bootstrap.md"
+    if bootstrap.is_file() and bootstrap.stat().st_size > 0:
+        result["setup"] = {"bootstrap": str(bootstrap)}
+    lifecycle = path / "neo-project"
+    if lifecycle.is_file() and os.access(lifecycle, os.X_OK):
+        result["lifecycle"] = {"entrypoint": str(lifecycle)}
+    return result
+
+
 def resolve(rows: list[dict[str, object]], query: str) -> dict[str, object]:
     q = query.strip().strip("/").casefold()
     exact = [r for r in rows if str(r["xchat_project"]).casefold() == q]
     if len(exact) == 1:
-        return exact[0]
+        return with_project_capabilities(exact[0])
     basename = [r for r in rows if str(r["name"]).casefold() == q]
     if len(basename) == 1:
-        return basename[0]
+        return with_project_capabilities(basename[0])
     if len(basename) > 1:
         keys = ", ".join(str(r["xchat_project"]) for r in basename)
         raise SystemExit(f"ambiguous xchat project '{query}'; use workspace-relative path: {keys}")
@@ -149,7 +162,7 @@ def resolve(rows: list[dict[str, object]], query: str) -> dict[str, object]:
                 readme = candidate / "README.md"
                 if readme.is_file():
                     context_paths.append(str(readme))
-                return {
+                return with_project_capabilities({
                     "xchat_project": candidate.relative_to(WORKSPACE).as_posix(),
                     "name": candidate.name,
                     "local_path": str(candidate),
@@ -157,7 +170,7 @@ def resolve(rows: list[dict[str, object]], query: str) -> dict[str, object]:
                     "repo": repo,
                     "origin": origin,
                     "context_files": context_paths,
-                }
+                })
     raise SystemExit(f"xchat project not found: {query}")
 
 

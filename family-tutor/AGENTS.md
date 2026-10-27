@@ -2,7 +2,9 @@
 
 Canonical normal stages live in [graph.mmd](graph.mmd). Do not duplicate their
 edges in docs or task plans. The local service owns Discord ingress,
-channel authentication, per-child routing, tutoring prompts and replies.
+channel authentication, correlation-bound delivery and routing. Webhelm owns
+asynchronous new-turn queuing/merging. The Tutor Agent must call Neo MCP
+`discord.reply` to deliver; ChatGPT DOM answer text is never a delivery source.
 Browser Workspace owns persistent ChatGPT threads. Shared Neo skills own
 reusable capabilities. Agents Relay owns optional durable tasks, reviews and
 revision lifecycles; the project does not implement a second Task engine.

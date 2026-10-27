@@ -124,6 +124,33 @@ export class BrowserWorkspaceTutorClient {
     return {stopped:ids.length,workspace:this.workspace};
   }
 
+  async startQueue() {
+    if (!fs.existsSync(this.cli) && path.isAbsolute(this.cli)) throw new Error(`Browser Workspace CLI unavailable: ${this.cli}`);
+    const status=parseJSONLine((await this.run(this.cli,['status'],{timeoutMs:60000})).stdout,'browser-workspace status');
+    if (!status || typeof status !== 'object') throw new Error('Browser Workspace is unavailable');
+    this.started=true;
+    return this.status();
+  }
+
+  // Webhelm owns asynchronous New Turn FIFO/merge. No assistant DOM reading.
+  async enqueue({learner,prompt,attachments=[]}) {
+    const state=await this.#loadState();
+    const binding=state.bindings[learner];
+    if (!binding?.project_id||!binding?.thread_id) throw new Error(`No Tutor thread bound to ${learner}`);
+    if (!this.started) throw new Error('Browser Workspace Tutor queue is not started');
+    if (attachments.length) {
+      // Existing submit-thread supports files; it returns a submission receipt, not an answer.
+      return this.submit({learner,prompt,attachments});
+    }
+    const result=await this.#runPlatformAction('new-turn',{
+      project_id:binding.project_id,thread_id:binding.thread_id,message:prompt,mode:'async',mergeable:true,
+    });
+    if (result.status!=='submitted'||result.thread_id!==binding.thread_id) {
+      throw new Error('Webhelm new-turn returned no matching submission receipt');
+    }
+    return result;
+  }
+
   async submit({learner,prompt,attachments=[]}){
     const state=await this.#loadState();
     const binding=state.bindings[learner];
@@ -138,32 +165,6 @@ export class BrowserWorkspaceTutorClient {
         prompt,
         file:staged.map(item=>item.path),
       },{sessionId:runtime.sessionId});
-    }finally{
-      await Promise.allSettled(staged.map(item=>fsp.rm(item.path,{force:true})));
-      if(staged.length) await fsp.rm(staged[0].dir,{recursive:true,force:true}).catch(()=>{});
-    }
-  }
-
-  // A complete tutor turn must return a verified assistant result, not only a submit receipt.
-  async turn({learner,prompt,attachments=[]}){
-    const state=await this.#loadState();
-    const binding=state.bindings[learner];
-    if(!binding?.project_id||!binding?.thread_id) throw new Error(`No Tutor thread bound to ${learner}`);
-    if(!this.started) throw new Error('Browser Workspace Tutor is not started');
-    const runtime=await this.#ensureLearnerSession(learner);
-    const staged=await this.#stageAttachments(attachments);
-    try{
-      const result=await this.#runPlatformAction('thread-turn',{
-        thread_url:`https://chatgpt.com/g/${encodeURIComponent(binding.project_id)}/c/${encodeURIComponent(binding.thread_id)}`,
-        target_id:runtime.targetId,
-        prompt,
-        file:staged.map(item=>item.path),
-      },{sessionId:runtime.sessionId});
-      if(result.status!=='completed'||!result.assistant_message_id||!String(result.text||'').trim()){
-        throw new Error('Tutor thread did not produce a verified assistant response');
-      }
-      runtime.targetId=result.target_id||runtime.targetId;
-      return result;
     }finally{
       await Promise.allSettled(staged.map(item=>fsp.rm(item.path,{force:true})));
       if(staged.length) await fsp.rm(staged[0].dir,{recursive:true,force:true}).catch(()=>{});

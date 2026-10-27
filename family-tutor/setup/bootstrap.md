@@ -35,6 +35,7 @@ You are the interactive setup agent for the local Neo Family Tutor project. This
 ### 4. Run and verify
 
 - Validate local config, start/restart via `./neo-project start` or `./neo-project restart` as needed, then confirm `./neo-project health` checks the real Discord Gateway.
+- Confirm the ChatGPT Project has access to @neo and the `discord` tool's `reply` command. The Agent must call it with correlationId and text; ChatGPT DOM text is not a reply. Confirm the Neo Core tool can reach the Gateway's loopback delivery endpoint.
 - Perform an authorized first Hello from the user's work-node Webhelm Discord UI in each child channel. Verify a bot reply actually arrives **in the same channel**, and that the reply reflects the correct learner Project/thread.
 - Test a second follow-up for continuity, concurrency/isolation across both children, a learning question, parent-only `/status` and parent response, and the rejection of unauthorized child-channel access. Test attachments/voice only when supported and consented. Verify deduplication or restart continuity if the relevant implementation supports it.
 - Use a privacy-sensitive probe: no transcript mirrored to parent, only minimum-necessary learning signals. Do not use real personal/confidential material for probes.

@@ -81,3 +81,24 @@ test('skill package delegates to legacy packager with original file arguments',(
   assert.match(c.calls.at(-1)[0],/package-web-chatgpt-skill$/);
   assert.deepEqual(c.calls.at(-1)[1],['/tmp/source-skill','/tmp/output.zip']);
 });
+
+test('project setup-agent delegates discovery and opens an encoded prompt in Chrome',()=>{
+  const calls=[],output=[];
+  const run=(bin,args)=>{
+    calls.push([bin,args]);
+    if(bin.endsWith('list-xchat-projects')) return {code:0,stdout:JSON.stringify({
+      xchat_project:'neo/family-tutor',setup:{bootstrap:'/tmp/family tutor/setup/bootstrap.md'}
+    }),stderr:''};
+    if(bin==='/usr/bin/open') return {code:0,stdout:'',stderr:''};
+    throw Error('unexpected executable');
+  };
+  assert.equal(executeControl(['project','setup-agent','family-tutor'],{run,emit:x=>output.push(x)}),0);
+  assert.equal(calls[1][0],'/usr/bin/open');
+  const url=new URL(calls[1][1][2]);
+  assert.equal(url.hostname,'chatgpt.com');
+  assert.match(url.searchParams.get('prompt'),/\/tmp\/family tutor\/setup\/bootstrap.md/);
+  assert.equal(JSON.parse(output.join('')).promptSubmitted,false);
+  assert.throws(()=>executeControl(['project','setup-agent','not-configured'],{
+    run:(bin,args)=>({code:0,stdout:JSON.stringify({xchat_project:'neo/not-configured'}),stderr:''}),
+  }),/no setup/);
+});

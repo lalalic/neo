@@ -48,7 +48,22 @@ export function executeControl(argv, options = {}) {
   if (category === 'project') {
     if (command === 'list' && args.length === 0) return execute(resolve(scripts, 'list-xchat-projects'), []);
     if (command === 'resolve' && args.length === 1 && !args[0].startsWith('-')) return execute(resolve(scripts, 'list-xchat-projects'), ['--resolve', args[0]]);
-    return fail('usage: neo project list | resolve NAME');
+    if (command === 'setup-agent' && args.length === 1 && !args[0].startsWith('-')) {
+      const selected = invoke(resolve(scripts, 'list-xchat-projects'), ['--resolve', args[0]]);
+      if (selected.code !== 0) return fail(selected.stderr.trim() || 'project resolution failed');
+      let project;
+      try { project = JSON.parse(selected.stdout); } catch { return fail('invalid project resolution JSON'); }
+      const bootstrap = project.setup?.bootstrap;
+      if (typeof bootstrap !== 'string' || !bootstrap.startsWith('/')) return fail('project has no setup/bootstrap.md');
+      const prompt = `Set up ${project.xchat_project} using @neo on my Mac. Read and follow this bootstrap file at its absolute path: ${bootstrap}. Check existing state first, ask for necessary permissions, and verify the real outcome.`;
+      const target = new URL('https://chatgpt.com/');
+      target.searchParams.set('prompt', prompt);
+      const opened = invoke('/usr/bin/open', ['-a', 'Google Chrome', target.href]);
+      if (opened.code !== 0) return fail(opened.stderr.trim() || 'could not open Google Chrome');
+      emit(JSON.stringify({ project: project.xchat_project, bootstrap, opened: true, browser: 'Google Chrome', promptSubmitted: false }) + '\n');
+      return 0;
+    }
+    return fail('usage: neo project list | resolve NAME | setup-agent NAME');
   }
   if (category === 'skill') {
     if (command === 'package' && args.length === 2 && args.every(value => value && !value.startsWith('-')))

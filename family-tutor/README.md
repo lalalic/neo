@@ -43,8 +43,7 @@ through the Neo Master service environment. Never commit credentials or
 learner state. Uninstall only removes its PM2 entry.
 
 The local Discord Gateway uses an outbound Discord connection. Discord replies
-are sent by the Runtime, not by an Agent-owned Discord MCP Tool. ChatGPT turns
-use existing Project/thread bindings without any app mention. There is no
+are sent by the Runtime, not by an Agent-owned Discord MCP Tool. ChatGPT turns use Webhelm asynchronous `new-turn` queue with existing Project/thread bindings. The Agent must call the @neo `discord` tool (`reply`) using the correlation ID; the Gateway does not scrape assistant text from the ChatGPT DOM. There is no
 website, Cloudflare Worker, separate MCP Server or Chrome extension requirement.
 
 Run `node scripts/verify-chatgpt-bindings.mjs` to check both configured learner
