@@ -48,12 +48,13 @@ setup() {
   fi
   (cd "$ROOT" && npm pack --silent --pack-destination "$RUNTIME" >/dev/null)
   test -s "$PACKAGE"
+  npm install --prefix "$RUNTIME" --no-audit --no-fund --no-save "$PACKAGE" >/dev/null
   printf '%s\n' "Family Tutor packaged; private family data preserved."
 }
 
 start() {
   if is_running; then pm2_info; return; fi
-  [ -s "$PACKAGE" ] || setup
+  [ -s "$RUNTIME/node_modules/@lalalic/neo-family-tutor/bin/service.mjs" ] || setup
   node "$ROOT/scripts/validate-local-config.mjs" "$CONFIG"
   if [ ! -x "$BROWSER_WORKSPACE_COMMAND" ]; then
     printf '%s\\n' "Browser Workspace CLI is unavailable" >&2
@@ -66,8 +67,8 @@ start() {
   if is_registered; then
     npx pm2 restart "$SERVICE" --update-env >/dev/null
   else
-    (cd "$RUNTIME" && npx pm2 start npx --name "$SERVICE" -- \
-      --yes --package "$PACKAGE" neo-family-tutor >/dev/null)
+    npx pm2 start "$RUNTIME/node_modules/@lalalic/neo-family-tutor/bin/service.mjs" \
+      --name "$SERVICE" --cwd "$RUNTIME" >/dev/null
   fi
   npx pm2 save >/dev/null
   for attempt in {1..45}; do
