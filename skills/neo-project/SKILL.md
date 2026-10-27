@@ -70,6 +70,24 @@ reviewers:
 
 The owning Stage Agent can invoke the existing Relay `review run` Action for specialist reviews, fix the output and request review again before exiting. Specialist reviewers do not automatically become Graph nodes or durable Tasks.
 
+### Human interaction within a Stage
+
+Set human review requirements in the **project Stage contract**, not as
+special nodes in `graph.mmd` or an implicit Relay Task. Use `optional` when
+the Agent may need facts or creative guidance; use `required` when the
+current artifact revision must be approved before Stage completion.
+
+The Stage Agent chooses an available interactive tool based on the artifact:
+questions for missing facts, choices for alternatives, and an existing
+specialized preview for renderable media. A required video preview currently
+needs an interactive ChatGPT Worker and Markcut `video.md`; Planner must
+declare the capability requirement for routing. If unavailable, fail/hold
+without fabricating approval. Feedback -> fix -> new preview happens inside
+the **same Worker** until the current revision is approved. Save feedback and
+version-bound approval evidence under `runs/`; downstream QA checks it.
+An interactive UI approval is not automatically a Relay Task transition or
+permission to publish. This contract does not add a new Relay HITL Action.
+
 ## 4. Artifact contract and handoff
 
 Each Agent owns its declared output types. Store reusable schemas in `contracts/<type>.schema.json` (or reference an existing shared schema); define per-run artifact paths under `runs/`. Do not duplicate schema bodies in agent prose.

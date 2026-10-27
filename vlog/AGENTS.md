@@ -2,7 +2,17 @@
 
 Vlog is a thin Neo content project. Root `AGENTS.md` and `MISSION.md` apply first.
 
-All Vlog episodes obey [the stage acceptance contract](docs/episode-stage-contract.md). Do not create an episode Task for a manifest with `INPUT_NEEDED`; source-use approval is mandatory. Archive accepted output by default, publishing only after explicit human authorization. Review corrections are Relay lifecycle work rather than agentGraph cycles.
+All Vlog episodes obey [the stage acceptance contract](docs/episode-stage-contract.md). Do not create an episode Task for a manifest with `INPUT_NEEDED`; source-use approval is mandatory. Archive accepted output by default, publishing only after explicit human authorization. Interactive Stage feedback is fixed in the same Worker; independent Final Review corrections use Relay lifecycle work, never agentGraph cycles.
+
+## Human interaction rule
+
+Stage-specific human interaction requirements live in
+[`docs/episode-stage-contract.md`](docs/episode-stage-contract.md).
+Visioner/Director/Editor may ask for missing facts or guidance when useful.
+Producer must obtain approval of the latest Markcut `video.md` preview in a
+capable interactive ChatGPT Worker, fixing feedback and re-previewing in the
+same Worker. Final QA verifies the approval evidence. Do not confuse this
+in-Worker loop with independent Relay Final Review or publication consent.
 
 ## Canonical Episode Graph
 
@@ -151,6 +161,8 @@ All per-run artifacts belong in the run root. `runs/` is ignored by Git.
 Publication target/authorization comes from the active Job/Task. Use shared `post-agent`, verify platform-side state, and persist the receipt/status. A successful click or adapter exit code is not publication proof.
 
 ## Project learnings
+- 2026-10-27: When a required Relay subcommand appears unavailable, inspect which executable PATH selected before treating it as a shared CLI defect; the Homebrew `agents-relay` binary may lag the npm package. Verify and invoke the package launcher with `npx --no-install agents-relay ...` when it exposes the needed action.
+- 2026-10-27: Specialist preview review may BLOCK when calibrated audio, waveform, spectrogram, and playback-ready evidence do not establish an actual human perceptual audit. Producer must preserve the blocked review and request Relay recovery rather than treating objective loudness analysis as a human listening PASS.
 - 2026-10-27: Visioner discovers evidence; Director selects shots and owns story and creative intent; Editor owns exact cuts and edit-decision-list; Producer implements Markcut and owns reviews. Keep these boundaries explicit in graph.mmd and Agent output contracts.
 - 2026-10-26: Watcher owns media integrity; Planner and Visioner work from the manifest and existing Markcut Vision metadata. Reuse cached perception before invoking missing media analysis.
 - 2026-10-26: Before applying an episode Plan, reconcile the supplied Job ID against Relay's durable local Job list; inherited planner context can reference a Job that is not present, and another episode Job must never be substituted.

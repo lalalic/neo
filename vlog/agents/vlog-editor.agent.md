@@ -23,6 +23,12 @@ source media. Source IDs and candidate time ranges must resolve to real clips.
 
 ## Workflow
 
+When a cut or edit command is materially ambiguous and changes the story,
+ask the owner for optional guidance using the current Worker's interactive
+UI when available. Keep the response with the private run evidence; absent
+a response, preserve uncertainty and refer story changes to Director.
+Do not call Markcut video Preview for an EDL alone.
+
 1. Validate Director's chosen shots against source timecodes and Vision evidence.
 2. Refine exact in/out points, sequence, pace, crop, framing, transitions,
    titles, captions and audio; keep the opening hook and promised payoff.

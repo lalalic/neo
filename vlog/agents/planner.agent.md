@@ -67,6 +67,13 @@ Reject missing source-use permission or an `INPUT_NEEDED` manifest.
   `agents-relay review run --prompt-file <run>/reviews/review-request.md --agents video-director,market --project-path <vlog-root> --output <run>/reviews/review.json`.
   The generic Outcome Reviewer is implicit. Repair and re-review until
   current preview PASS; specialist review is not a separate Stage Task.
+- Producer also requires human approval of the latest Markcut `video.md`
+  preview inside the same Stage Worker. Select a Worker with interactive
+  preview capability (currently ChatGPT); do not knowingly dispatch this
+  required gate to a noninteractive Worker or invent approval evidence.
+  Express interactive preview as a Task worker requirement using capabilities
+  actually advertised by Worker Router; if no eligible Worker exists, fail
+  closed. Feedback/fix/re-preview stays in the Worker rather than extra Tasks.
 - Final QA independently observes playback, sound, captions, source-truth,
   privacy and private archive receipt. Publication requires separate
   owner authorization.

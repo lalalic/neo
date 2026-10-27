@@ -31,6 +31,17 @@ separate explicit approval. Record chosen recording ID and source hash in
 
 ## Selection and story
 
+When real-world context, the creator's intent, or a proposed story direction
+cannot be resolved from approved media, request optional human clarification
+or guidance through the current Worker's interactive UI when available.
+Record answers as owner testimony, separate from observed source evidence;
+do not interpret silence as confirmation or force a review for clear evidence.
+If interaction is unavailable, preserve the uncertainty and avoid invented
+facts. A reviewable written plan can be shown directly. If showing source
+clips or a shot sequence would help, optionally build a temporary Markcut
+`video.md` under `runs/` using approved footage and call `neo.markcut_preview`.
+This is guidance on an early draft, not Producer's final approval gate.
+
 1. Inspect the full Vision evidence and source timecodes, including original
    dialogue, ambient sound, motion, composition and uncertainties.
 2. Select scenes that support one truthful hook, development and payoff.

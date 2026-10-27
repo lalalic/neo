@@ -48,6 +48,26 @@ test('stage Agent frontmatter declares inputs, outputs and optional reviewers', 
   assert.match(read('../agents/vlog-producer.agent.md'), /reviewers:/);
 });
 
+test('human preview gate is in-Worker, revision-bound and independent of publishing', () => {
+  const stage = read('../docs/episode-stage-contract.md');
+  const planner = read('../agents/planner.agent.md');
+  const producer = read('../agents/vlog-producer.agent.md');
+  const finalQa = read('../agents/vlog-final-qa.agent.md');
+  assert.match(stage, /Producer: \*\*required\*\*/);
+  assert.match(stage, /Visioner: optional/);
+  assert.match(stage, /temporary\*\* Markcut `video\.md`/);
+  assert.match(stage, /not the Producer's/);
+  assert.match(read('../agents/vlog-director.agent.md'), /temporary Markcut/);
+  assert.match(planner, /interactive.*Worker|preview capability/);
+  assert.match(producer, /neo\.markcut_preview/);
+  assert.match(producer, /changes_requested/);
+  assert.match(producer, /same Worker/);
+  assert.match(producer, /revisionId.*contentHash/);
+  assert.match(finalQa, /human Markcut Preview approval/);
+  assert.match(producer, /Review does not authorize publication/);
+  assert.doesNotMatch(stage, /Corrections create a new Relay task/);
+});
+
 test('artifact schemas are explicit and require source traceability', () => {
   for (const name of ['shot-selection', 'edit-decision-list']) {
     const schema = JSON.parse(read('../contracts/' + name + '.schema.json'));

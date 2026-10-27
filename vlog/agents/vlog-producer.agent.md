@@ -65,6 +65,25 @@ rerun Markcut checks, and review the new version. `BLOCKED` or review
 execution errors are not success. Never reuse a PASS for a changed artifact.
 Persist evidence and return success only after all required checks PASS.
 
+## Required human preview review (within this Worker)
+
+Before reporting the Producer outcome, request human review of the current
+canonical `video.md` using the existing `neo.markcut_preview` tool in a
+ChatGPT Worker. Give the owner the playable draft and ask for an explicit
+Approve or actionable feedback. This is a required human-interaction
+capability of this Stage; do not substitute an AI reviewer, a render check,
+or a CLI worker without an interactive host. If the tool or the interactive
+host is unavailable, report the missing capability and do not claim approval.
+
+For `changes_requested`, make the correction in **this same Worker**, rebuild
+the preview and call the tool again. Repeat until the current revision is
+explicitly `approved`. Record the approved `revisionId`, `contentHash`,
+review decision and provenance under the private run's `reviews/`; reject
+approval of an earlier revision. Review does not authorize publication.
+This interaction does not create a separate HITL Task, reviewer Worker or
+Relay revision Task. Do not assume the UI approval automatically updates
+Relay Task state; report the evidence in the normal Producer result.
+
 ## Final render and QA
 
 After both gates pass, render the final episode and inspect the observable artifact. QA must cover source truth, visual quality, pacing, transitions/effects, audio/original sound/narration, and final duration/format. A renderer exit code is not acceptance.
