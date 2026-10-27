@@ -1,6 +1,24 @@
 # Family Tutor Agent Guide
 
-Use the standalone Family Tutor repository/capability as the reusable tutoring/runtime contract. Family Tutor is browser-backed; do not reintroduce the obsolete Codex-only backend.
+Canonical normal stages live in [graph.mmd](graph.mmd). Do not duplicate their
+edges in docs or task plans. The local service owns Discord ingress,
+channel authentication, per-child routing, tutoring prompts and replies.
+Browser Workspace owns persistent ChatGPT threads. Shared Neo skills own
+reusable capabilities. Agents Relay owns optional durable tasks, reviews and
+revision lifecycles; the project does not implement a second Task engine.
+
+The three project-specific roles in agents/ are routing, tutoring and verified
+delivery. Normal roles can execute inside one Task. Revisions return to the
+affected original role and preserve artifact/version history. The current
+Graph is not a validator of historical Task trees.
+
+This repository is the canonical Family Tutor runtime home. Never deploy the
+standalone commercial/hosted service, Cloudflare Gateway, website or Chrome
+extension. The only lifecycle entrypoint is ./neo-project.
+
+Verify lifecycle status, real Gateway readiness, Browser Workspace, and
+authorized Discord child and parent round trips. A command exit code or
+attempted message is not delivery evidence.
 
 - This top-level directory is a public Neo project definition, not a family instance.
 - Use `runs/family/` as the private family root. Keep each learner's durable tutoring memory at `runs/family/<child-id>/AGENTS.md`; ChatGPT owns tutor thread history, so do not mirror it into local session folders.

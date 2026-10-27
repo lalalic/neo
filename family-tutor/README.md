@@ -1,19 +1,47 @@
 # Family Tutor
 
-Family Tutor is the Neo monorepo project surface for a parent-visible Discord tutoring workflow. Reusable tutoring/runtime behavior lives in the standalone Family Tutor repository/capability; this Neo project surface contains public project documentation and architecture only.
+Family Tutor is a local Neo Project in the `lalalic/neo` monorepo. It runs on
+the Neo Master; it is not a hosted multi-tenant product.
 
-## Create a private/local instance
-
-All real family configuration, learner details, Discord identifiers, and durable learner memory belong under an ignored run directory:
-
-```bash
-# edit runs/family/config/family.config.json
+```text
+Discord private child / parent channels
+               |
+               v
+Local Discord Gateway (PM2: family-tutor/local)
+               |
+               v
+Isolated Browser Workspace / ChatGPT learner thread
+               |
+               v
+Reply to verified origin / minimal parent telemetry
 ```
 
-Never place real family configuration in tracked project paths. `runs/` is the execution boundary for this public monorepo project.
+The canonical normal workflow is [graph.mmd](graph.mmd). [AGENTS.md](AGENTS.md)
+defines privacy, Task ownership and acceptance rules. Project-specific roles
+are under `agents/`. The project uses Browser Workspace for ChatGPT sessions.
 
-Each learner keeps one durable `runs/family/<channel-name>/AGENTS.md`. The Discord child channel name is canonical: `#sammy` maps directly to child id `sammy` and ChatGPT Project `neo/family-tutor/sammy`; no alias or channel-ID mapping is maintained. The browser-backed ChatGPT Project owns the persistent child thread; Family Tutor never persists transcripts.
+## Lifecycle
 
-The orchestrator registers a parent-only Discord `/status` command at startup. `/status child-channel:<configured channel>` derives the child id from that channel's exact name and queries `neo/family-tutor/<channel-name>` plus that learner's existing thread and `AGENTS.md`. A missing or mismatched Project is a configuration error. `/status` queries each configured learner and combines a compact overview. Parent messages use the exact configured child Discord channel mention as their routing key, e.g. `#sammy how is the recent status?`; names, browser tabs, tab titles, and tab order are not used for resolution. Requests outside `discord.parentChannelId` are denied, and the command creates no new durable learner-state files.
+```bash
+./neo-project setup
+./neo-project start
+./neo-project status
+./neo-project health
+./neo-project restart
+./neo-project stop
+./neo-project uninstall
+```
 
-Parent goals, guidance, and status questions may mention one or more Discord child channels anywhere in the sentence. Multiple mentions fan out independently; a later no-mention message reuses the last successfully resolved target set in runtime memory, and an explicit set replaces it. Audio attachments go directly to ChatGPT through the browser bridge for transcription and understanding. The tutor returns only privacy-filtered learning summaries and sends minimum-necessary proactive escalations. No second parent memory or transcript store is created.
+Setup creates private `runs/family/config/family.config.json` only if absent,
+and packages the local service. It does not start the service. Configure a
+parent channel and child identifiers before start; supply `DISCORD_BOT_TOKEN`
+through the Neo Master service environment. Never commit credentials or
+learner state. Uninstall only removes its PM2 entry.
+
+The local Discord Gateway uses an outbound Discord connection. The bundled
+loopback bridge is part of the same process and is not a separately deployed
+MCP service. There is no public inbound listener, independent website,
+Cloudflare Worker, Durable Object or Chrome extension requirement.
+
+Real Discord delivery must be verified before switching off the old service.
+Learner Project/thread bindings and private runs must be preserved.

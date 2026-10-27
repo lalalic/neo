@@ -1,0 +1,15 @@
+{
+  "name": "@lalalic/neo-family-tutor",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": { "neo-family-tutor": "./bin/service.mjs" },
+  "files": ["bin/", "skills/family-tutor/runtime/tutor-orchestrator/src/", "skills/family-tutor/setup/", "skills/family-tutor/bootstrap/"],
+  "dependencies": {
+    "discord.js": "^14.27.0"
+  },
+  "scripts": {
+    "test": "node --test skills/family-tutor/runtime/tutor-orchestrator/test/*.test.mjs test/*.test.mjs",
+    "check": "node --check bin/service.mjs && node --check skills/family-tutor/runtime/tutor-orchestrator/src/index.mjs && npm test"
+  }
+}

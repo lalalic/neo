@@ -1,0 +1,119 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SERVICE="family-tutor/local"
+INSTANCE="${FAMILY_TUTOR_INSTANCE:-$ROOT/runs/family}"
+RUNTIME="$INSTANCE/.service"
+PACKAGE="$RUNTIME/lalalic-neo-family-tutor-0.1.0.tgz"
+CONFIG="$INSTANCE/config/family.config.json"
+export FAMILY_TUTOR_CONFIG="$CONFIG"
+export BROWSER_WORKSPACE_COMMAND="${BROWSER_WORKSPACE_COMMAND:-$HOME/.agents/skills/browser-workspace/bin/browser-workspace}"
+
+usage() {
+  printf '%s\n' "usage: ./neo-project {setup|start|stop|restart|status|health|uninstall|help}"
+}
+
+pm2_info() {
+  npx pm2 jlist 2>/dev/null | node -e '
+    let data="";
+    process.stdin.on("data", chunk=>data+=chunk);
+    process.stdin.on("end",()=>{
+      const p=JSON.parse(data).find(p=>p.name==="family-tutor/local");
+      const state=p?.pm2_env?.status||"not-installed";
+      console.log(JSON.stringify({project:"family-tutor",service:"family-tutor/local",
+        status:state,running:state==="online",pid:state==="online"?p.pid:null}));
+    });'
+}
+
+is_registered() {
+  npx pm2 jlist 2>/dev/null | node -e '
+    let data="";
+    process.stdin.on("data",x=>data+=x);
+    process.stdin.on("end",()=>process.exit(JSON.parse(data).some(p=>p.name==="family-tutor/local")?0:1));'
+}
+
+is_running() {
+  [ "$(pm2_info | node -pe 'JSON.parse(require("node:fs").readFileSync(0,"utf8")).running')" = "true" ]
+}
+
+setup() {
+  command -v npm >/dev/null
+  command -v npx >/dev/null
+  command -v node >/dev/null
+  mkdir -p "$RUNTIME" "$INSTANCE/config"
+  if [ ! -f "$CONFIG" ]; then
+    cp "$ROOT/skills/family-tutor/templates/family.config.json" "$CONFIG"
+    chmod 600 "$CONFIG"
+  fi
+  (cd "$ROOT" && npm pack --silent --pack-destination "$RUNTIME" >/dev/null)
+  test -s "$PACKAGE"
+  printf '%s\n' "Family Tutor packaged; private family data preserved."
+}
+
+start() {
+  if is_running; then pm2_info; return; fi
+  [ -s "$PACKAGE" ] || setup
+  node "$ROOT/scripts/validate-local-config.mjs" "$CONFIG"
+  if [ ! -x "$BROWSER_WORKSPACE_COMMAND" ]; then
+    printf '%s\\n' "Browser Workspace CLI is unavailable" >&2
+    return 1
+  fi
+  if [ -z "${DISCORD_BOT_TOKEN:-}" ]; then
+    printf '%s\n' "DISCORD_BOT_TOKEN must be in the Neo Master environment" >&2
+    return 1
+  fi
+  if is_registered; then
+    npx pm2 restart "$SERVICE" --update-env >/dev/null
+  else
+    (cd "$RUNTIME" && npx pm2 start npx --name "$SERVICE" -- \
+      --yes --package "$PACKAGE" neo-family-tutor >/dev/null)
+  fi
+  npx pm2 save >/dev/null
+  for attempt in {1..45}; do
+    if health >/dev/null 2>&1; then health; return 0; fi
+    sleep 2
+  done
+  health
+}
+
+stop() {
+  if is_registered; then
+    npx pm2 stop "$SERVICE" >/dev/null
+    npx pm2 save >/dev/null
+  fi
+  pm2_info
+}
+
+health() {
+  node "$ROOT/scripts/validate-local-config.mjs" "$CONFIG" >/dev/null
+  if [ ! -x "$BROWSER_WORKSPACE_COMMAND" ]; then
+    printf '%s\\n' '{"project":"family-tutor","healthy":false,"reason":"Browser Workspace CLI missing"}' >&2
+    return 1
+  fi
+  if ! is_running; then
+    printf '%s\n' '{"project":"family-tutor","healthy":false,"reason":"service not running"}' >&2
+    return 1
+  fi
+  node -e '
+    const port=Number(process.env.FAMILY_TUTOR_BOOTSTRAP_PORT||43118);
+    fetch(`http://127.0.0.1:${port}/health`,{signal:AbortSignal.timeout(3000)})
+      .then(async r=>{const v=await r.json();if(!r.ok||!v.discordReady)throw Error("Discord Gateway not ready");
+        console.log(JSON.stringify({project:"family-tutor",healthy:true,discordReady:true}));})
+      .catch(e=>{console.error(JSON.stringify({project:"family-tutor",healthy:false,reason:e.message}));process.exitCode=1;});'
+}
+
+case "${1:-help}" in
+  setup) setup ;;
+  start) start ;;
+  stop) stop ;;
+  restart) stop; start ;;
+  status) pm2_info ;;
+  health) health ;;
+  uninstall)
+    if is_registered; then npx pm2 delete "$SERVICE" >/dev/null; npx pm2 save >/dev/null; fi
+    printf '%s\n' "Family Tutor service removed; runs and credentials preserved."
+    ;;
+  help|--help|-h) usage ;;
+  *) usage >&2; exit 2 ;;
+esac
