@@ -38,10 +38,11 @@ parent channel and child identifiers before start; supply `DISCORD_BOT_TOKEN`
 through the Neo Master service environment. Never commit credentials or
 learner state. Uninstall only removes its PM2 entry.
 
-The local Discord Gateway uses an outbound Discord connection. The bundled
-loopback bridge is part of the same process and is not a separately deployed
-MCP service. There is no public inbound listener, independent website,
-Cloudflare Worker, Durable Object or Chrome extension requirement.
+The local Discord Gateway uses an outbound Discord connection. Discord replies
+are sent by the Runtime, not by an Agent-owned Discord MCP Tool. ChatGPT turns
+use existing Project/thread bindings without any app mention. There is no
+website, Cloudflare Worker, separate MCP Server or Chrome extension requirement.
 
-Real Discord delivery must be verified before switching off the old service.
-Learner Project/thread bindings and private runs must be preserved.
+Run `node scripts/verify-chatgpt-bindings.mjs` to check both configured learner
+threads without sending a message. Then follow [e2e.md](e2e.md) for authorized
+interactive acceptance. Never automatically replace missing Project bindings.

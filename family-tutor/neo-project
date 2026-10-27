@@ -67,8 +67,8 @@ start() {
   if is_registered; then
     npx pm2 restart "$SERVICE" --update-env >/dev/null
   else
-    npx pm2 start "$RUNTIME/node_modules/@lalalic/neo-family-tutor/bin/service.mjs" \
-      --name "$SERVICE" --cwd "$RUNTIME" >/dev/null
+    npx pm2 start npx --name "$SERVICE" --cwd "$RUNTIME" -- \
+      --no-install neo-family-tutor >/dev/null
   fi
   npx pm2 save >/dev/null
   for attempt in {1..45}; do
