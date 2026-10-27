@@ -20,7 +20,7 @@ The Episode **Job** is the durable outcome container. Stage Task
 `dependencies` follow Graph edges, while `parentTaskId` expresses
 semantic Task ownership independently. Never call Visioner the Episode Root,
 invent an empty wrapper Task, or force the entire Task Tree to match the Graph.
-The Planner can create partial/incremental Tasks and later cross-stage revisions.
+The first Episode Plan creates all normal Graph Stage Tasks with predecessor dependencies. Later Plans may append exceptional or cross-stage revision Tasks without imposing a fixed historical Task Tree.
 Final Review is a separate parentless Relay Task and reviews a Job's immutable
 current result. Relay owns completion and recovery.
 
@@ -157,7 +157,7 @@ Publication target/authorization comes from the active Job/Task. Use shared `pos
 - 2026-10-26: Persistent watcher lifecycle is exposed by `./neo-project`; PM2 runs the packaged watcher, and `health` checks real iCloud Inbox access.
 
 - 2026-09-26: Vlog previously duplicated Agents Relay with local jobs, routing, autopilot, personas, style, and templates. Keep the project thin.
-- 2026-09-27: Follow the shared `neo-project` contract: chart-first human/planner docs, one top-level Task per episode, discoverable project agents, shared capabilities, explicit run handoffs, and observable acceptance gates.
+- 2026-10-27: A normal Episode's initial Plan should create every `graph.mmd` Stage Task with dependency edges, so the whole pipeline is visible before execution. Keep later Plans open for revisions and exceptions; never require a fixed historical Task Tree or an empty Episode wrapper.
 - 2026-10-04: Route/movement evidence, mandatory BGM, spoken Hey Neo edit commands, lively motion/CG treatment, and Simplified Chinese defaults are enforceable production/review contracts rather than optional style suggestions.
 - 2026-10-21: Route/location research is optional work owned by `vlog-editor` with shared capabilities, not missing specialist graph nodes. Synthetic review fixtures must materialize every dependency and immutable r1/r2 revision, including per-beat sound/motion/transition evidence; hash real bytes, reject changed/stale dependencies, and never treat simulation, parser validation, or authorization booleans as QA or publication eligibility.
 

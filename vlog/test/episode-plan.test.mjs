@@ -28,8 +28,13 @@ test('planner derives dependencies from graph and permits incremental revisions'
   const planner = read('../agents/planner.agent.md');
   const project = read('../AGENTS.md');
   assert.match(planner, /graph\.mmd/);
+  assert.match(planner, /first successful Episode Plan/);
+  assert.match(planner, /every normal Stage node/);
+  assert.match(planner, /Do not wait for Visioner to complete/);
+  assert.match(planner, /dependencies.*keep downstream Tasks waiting/);
   assert.match(planner, /Later Plan rounds/);
   assert.match(planner, /parentless|no parent/i);
+  assert.match(project, /first Episode Plan creates all normal Graph Stage Tasks/);
   assert.match(project, /graph\.mmd/);
   assert.doesNotMatch(planner, /validate-episode-plan/);
   assert.doesNotMatch(project, /validate-episode-plan/);

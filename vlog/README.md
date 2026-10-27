@@ -20,9 +20,9 @@ Watcher -> Visioner -> Director -> Editor -> Producer -> Final QA -> Private arc
                                    + Producer repairs and re-reviews
 ```
 
-One episode has one root Task, with normal stage outcomes as dependent
-descendants. Validation, professional review and self-repair stay inside
-the owning Agent's Worker. The final published state still requires an
+One Episode Job owns the objective. The first Plan creates all normal Graph
+Stage Tasks; dependencies hold downstream work until prerequisites pass.
+Validation, professional review and self-repair stay inside the owning Agent's Worker. The final published state still requires an
 independent owner authorization.
 
 ## Ownership map

@@ -35,11 +35,22 @@ Reject missing source-use permission or an `INPUT_NEEDED` manifest.
 4. Read each Agent's `inputs`, `outputs` and optional `reviewers` contract
    from its frontmatter. Feed verified upstream artifact versions/paths to
    downstream Tasks. Preserve immutable source provenance and output hashes.
-5. Plan the overall objective but emit only currently justified Tasks.
-   Later Plan rounds may add stages, independent exceptional work, or
-   revisions without rewriting completed Task history or requiring a fixed
-   Task count. Relay `plan apply` remains authoritative for generic
-   Task/DAG/lifecycle constraints.
+5. In the **first successful Episode Plan**, create one durable Task for
+   **every normal Stage node** in the current `graph.mmd`. Submit the full
+   Task DAG together, even when upstream Stage artifacts do not exist yet.
+   `dependencies` keep downstream Tasks waiting until prerequisites succeed.
+   Do not wait for Visioner to complete before creating Director, Editor,
+   Producer or Final QA. Give downstream Task inputs the expected upstream
+   artifact paths and contracts; each Agent verifies the actual current
+   accepted versions when it runs. Never fabricate an upstream artifact,
+   accepted result or immutable hash at planning time.
+6. If an initial Plan partially created normal Stage Tasks, later Plan rounds
+   add only the missing Stage Tasks, preserving existing task IDs and evidence.
+   Later Plan rounds can also add independent exceptional work and revisions,
+   without rewriting completed Task history or limiting dynamic Task count.
+   This is **Planner policy**, not a separate Graph-to-Plan validator.
+   Relay `plan apply` remains authoritative for generic Task/DAG/lifecycle
+   constraints.
 
 ### Mandatory domain handoffs
 

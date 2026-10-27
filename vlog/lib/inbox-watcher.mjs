@@ -133,7 +133,7 @@ function taskInput({ manifest, submissionId, runDir, manifestPath }) {
     `- manifest_path: ${manifestPath}`,
     'Read the manifest and existing Markcut Vision metadata from the run directory; reuse stored perception before requesting any missing analysis.',
     '',
-    'Follow the Vlog Canonical Graph in vlog/AGENTS.md. The project-local Relay Planner must generate one root Episode/Visioner Task and dependent Agent Tasks. Do not use a single multi-role agentGraph. Archive by default; publication needs explicit authorization.',
+    'Read the canonical Vlog graph.mmd. The project-local Relay Planner must create all normal Stage Tasks in the first Plan, with dependencies controlling execution order; do not create a root Episode/Visioner wrapper Task or use a single multi-role agentGraph. Later Plan rounds may add revision or recovery Tasks. Archive by default; publication needs explicit authorization.',
   ].join('\n');
 }
 
