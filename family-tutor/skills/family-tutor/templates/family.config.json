@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "serviceName": "family-tutor/local",
+  "codex": {
+    "backend": "codex",
+    "maxRuntimeSeconds": 600
+  },
+  "discord": {
+    "mode": "local",
+    "parentChannelId": ""
+  },
+  "children": [],
+  "parents": [],
+  "browserWorkspace": {
+    "enabled": true,
+    "workspace": "Tutor"
+  }
+}
