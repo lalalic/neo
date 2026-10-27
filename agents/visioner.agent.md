@@ -100,6 +100,17 @@ from any canonical production `video.md`. Use absolute paths to the source
 media, preserve source identities and time ranges, and label the preview as
 provisional. Never use generated scenes as evidence of observed footage.
 
+For folder-wide source review, prefer **one media item per top-level Scene**
+in **one aggregate `video.md`**. Use stable single-token scene IDs mapped to
+source filenames/IDs; represent each authorized photo as an `image` stream
+with a useful review duration and each video as a `video` stream with its
+actual usable time range. Keep scene order deterministic and omit unreadable
+or unauthorized inputs, reporting those gaps separately. Markcut Preview's
+horizontal scene list lets the owner jump between assets and send one round
+of feedback for the collection, including scene/time context when available.
+The Worker generates the Markdown from the folder; do not assume the MCP
+Preview tool accepts a folder path directly.
+
 Call the available `neo.markcut_preview` / `markcut.preview` tool with that
 temporary Markdown path. Interpret human comments in the **same Worker**,
 revise the preview when useful, and offer it again. Record relevant feedback
