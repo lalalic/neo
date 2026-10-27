@@ -83,5 +83,8 @@ test('shared Visioner retains Markcut evidence ownership', () => {
   const visioner = read('../../agents/visioner.agent.md');
   const stage = read('../docs/episode-stage-contract.md');
   for (const word of ['name: visioner', 'markcut', 'npx @lalalic/markcut vision']) assert.ok(visioner.includes(word));
+  for (const word of ['Optional human source preview', 'provisional Markcut `video.md`', 'neo.markcut_preview', 'same Worker']) {
+    assert.ok(visioner.includes(word));
+  }
   for (const word of ['input/media/metadata.json', 'perception.desc', 'vision-evidence.json']) assert.ok(stage.includes(word));
 });

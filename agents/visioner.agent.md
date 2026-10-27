@@ -90,6 +90,23 @@ At minimum, use these concepts when applicable:
 
 Prefer structured evidence over prose interpretation. Do not turn observations into market positioning, editorial judgment, release decisions, or product conclusions unless the caller explicitly asks for a factual comparison that remains within visual-understanding scope.
 
+## Optional human source preview
+
+When a human needs to inspect source selection, timing, or uncertain visual
+evidence, and the current Worker has an interactive Markcut Preview tool,
+assemble a provisional Markcut `video.md` from permitted source media. Keep
+this review-only file under the owning project's private `runs/` area, separate
+from any canonical production `video.md`. Use absolute paths to the source
+media, preserve source identities and time ranges, and label the preview as
+provisional. Never use generated scenes as evidence of observed footage.
+
+Call the available `neo.markcut_preview` / `markcut.preview` tool with that
+temporary Markdown path. Interpret human comments in the **same Worker**,
+revise the preview when useful, and offer it again. Record relevant feedback
+as owner testimony, separate from machine observations. The preview is
+optional; no interactive capability means preserve uncertainty, not approval.
+Human approval of source interpretation does not approve a final edit or publish.
+
 ## Orchestration boundary
 
 Visioner is normally an **agent-graph node**, not a standalone durable Task. Keep it inside the parent Task when its result only feeds the next agent.
