@@ -1,430 +1,126 @@
 ---
 name: neo-project
-description: 'Create or refactor a Neo project so it follows Agents Relay-native architecture: thin project contract, chart-first README/AGENTS, one top-level durable Task per outcome, discoverable project agents, shared capabilities, run artifacts, and explicit quality/review gates.'
+description: 'Create or refactor a Neo project with one canonical graph.mmd, discoverable Agent manifests, artifact contracts, flexible revisions, private runs, and an optional lifecycle script. Use when establishing or changing Neo project architecture.'
 ---
 
 # Neo Project
 
-Use this skill when creating a new Neo project or refactoring an existing one to fit the Agents Relay operating model.
+Create thin Neo projects. The project owns domain intent, Graph, Agent and Artifact contracts. Agents Relay owns Job/Task/Review lifecycle, routing, leases and recovery. Shared Neo skills own reusable capabilities. Never duplicate these runtimes inside a project.
 
-The goal is not to copy another project's files. The goal is to make each project **thin, understandable to humans, deterministic for Planner, and reusable across Agents Relay**.
+## 1. Standard project structure
 
-## Project lifecycle contract
+```text
+<project>/
+├── README.md                # human overview, refers to graph.mmd
+├── AGENTS.md                # agent/project rules, refers to graph.mmd
+├── graph.mmd                # single canonical normal-stage topology
+├── agents/                  # project-only *.agent.md, optional
+├── contracts/               # reusable JSON Schemas, optional
+├── config/                  # reusable non-secret configuration, optional
+├── templates/               # reusable project templates, optional
+├── neo-project              # optional executable lifecycle entrypoint
+└── runs/                    # ignored, private durable execution artifacts
+```
 
-Projects with installable or persistent services expose exactly one executable
-`<project>/neo-project` entrypoint. Neo.app discovers this entrypoint from
-the project directory and invokes only these fixed commands:
+Do not create empty directories. Shared Agents, contracts and skills must be referenced, not copied. All actual execution inputs, intermediate files, versions, generated media, reviews, receipts and private state go under `runs/<YYYY-MM-DD[-slug]>/`, or `runs/<series-name>/<YYYY-MM-DD[-slug]>/` for series. Keep secrets and user content out of tracked files. Run-producing work uses the canonical project directory, never a temporary Git worktree. No project may depend on another project's `runs/`.
+
+## 2. Canonical Graph
+
+The sole normal-stage DAG is `<project>/graph.mmd`. README, AGENTS, Planner and examples **refer to that file**; they must not separately maintain stage arrays or copy its edges.
+
+Use the currently supported Relay `parseAgentGraph` subset: one `flowchart TD|TB|LR|RL` header, declarations `node[agent:agent-name]`, edges `node --> node`, and optional `%%` comments. Do not add YAML frontmatter or richer Mermaid labels unless the parser actually supports them.
+
+```mermaid
+flowchart TD
+    vision[agent:visioner] --> direction[agent:vlog-director]
+    direction --> edit[agent:vlog-editor]
+    edit --> produce[agent:vlog-producer]
+```
+
+Graph nodes define normal roles and predecessor relations, not an entire historical Task Tree. Relay's existing `agentGraph` parser executes roles **inside a Task**; it does not automatically create persistent Stage Tasks. A project Planner may map project Graph nodes to durable Stage Tasks where independent artifacts/lifecycle justify it. Do not claim an automatic Graph-to-Plan validator exists, and do not require one: Plans can be partial, incremental and revised.
+
+Keep `parentTaskId` (semantic ownership) separate from `dependencies` (execution order). An Episode can have its own Root Task with Stage children; Visioner is not automatically the Episode Root. A Final Review Task needs no parent and references the Job/immutable reviewed artifact. Troubleshoot/revisions are dynamic Tasks outside the normal Graph. Pin the Graph version/hash in execution context when mid-run edits would change semantics.
+
+## 3. Agent manifest
+
+Create `agents/<name>.agent.md` only for project-specific behavior. Shared Agents are discovered from Neo/global layers. Frontmatter contract:
+
+```yaml
+---
+name: vlog-producer
+description: Produce a video from an approved edit plan
+type: worker
+inputs:
+  - edit-decision-list
+outputs:
+  - video
+  - preview
+reviewers:
+  - video-director
+  - market
+---
+```
+
+- `name`, `description` identify the Agent; `type` describes `worker`, `planner` or `reviewer`.
+- `extends`, `mode`, `sections` may use the current supported inheritance contract.
+- Optional `inputs`, `outputs` list artifact contract names. Optional `reviewers` lists specialist Agent names.
+- All referenced Agents must be visible in the resolved project/shared catalog. Do not invent names.
+- Dependencies belong in Graph; worker/provider/model and retry belong to Relay, not frontmatter.
+- The I/O and reviewer fields are **declarative guidance**, not currently automatic Relay validation gates. Do not claim otherwise.
+
+The owning Stage Agent can invoke the existing Relay `review run` Action for specialist reviews, fix the output and request review again before exiting. Specialist reviewers do not automatically become Graph nodes or durable Tasks.
+
+## 4. Artifact contract and handoff
+
+Each Agent owns its declared output types. Store reusable schemas in `contracts/<type>.schema.json` (or reference an existing shared schema); define per-run artifact paths under `runs/`. Do not duplicate schema bodies in agent prose.
+
+For structured JSON artifacts:
+1. Read the required upstream artifact and its actual version/source evidence.
+2. Produce a versioned output with source references/provenance as needed.
+3. Explicitly run `npx agents-relay artifact validate --artifact PATH --schema PATH`.
+4. Repair invalid output before handoff. Downstream Agents verify required inputs and consume the current accepted version.
+5. Keep prior output versions when later revisions could change dependent work.
+
+The Relay Action checks JSON Schema and reports PASS/FAIL without mutating lifecycle state. **No automatic Plan or Task completion gate is added.** Quality, factual provenance and media/non-JSON checks remain project-specific. A schema-valid artifact is not automatically accepted by a Reviewer.
+
+## 7. Revision contract
+
+`graph.mmd` is the normal execution path; the actual Task Tree is expandable historical evidence.
+
+When Final Review returns `CHANGE_REQUIRED`:
+1. Reviewer records structured findings against the immutable complete Job result; Reviewer does not edit artifacts.
+2. Planner examines findings, Graph dependencies, actual Artifact I/O and versions to identify affected owners and consumers.
+3. Create only necessary revision Tasks. Reuse original responsible Agents; never default to an omnipotent revision worker or mechanically rerun every downstream stage.
+4. Associate each revision with the original owning Stage Task (normally `parentTaskId`). Record original Task, findings, input/output versions, changed scope and acceptance criteria in durable Task input/result. Do not require unsupported new Task schema fields.
+5. Order revisions by actual `dependencies`; revalidate changed outputs and truly invalidated downstream artifacts.
+6. Re-review the **complete current Job result**, not merely the modified fragment. Retain previous Tasks, artifacts and reviews unchanged.
+
+Internal Stage Review/Fix via `review run` does not normally create another durable Task. Independent Final Review stays parentless and linked to its Job/version. Relay continues to own all Task lifecycle, recovery and Job completion decisions.
+
+## 9. Project lifecycle contract
+
+Installable/persistent projects expose exactly one optional executable `<project>/neo-project` entrypoint. Neo.app discovers it and calls only commands advertised by its help:
 
 ```text
 ./neo-project setup|start|stop|restart|status|health|uninstall|help
 ```
 
-- Commands are idempotent. `setup` prepares dependencies and config without
-  starting work; `start` starts only declared services; `stop` drains or
-  stops them without deleting data; `restart` verifies the replacement.
-- `status` emits machine-readable JSON with project and running state.
-  `health` checks real dependencies and fails nonzero when unhealthy.
-- `uninstall` removes owned services, not user media, credentials, or runs.
-- A project with no persistent service may omit runtime commands. Neo.app
-  must not execute commands absent from the project's declared help.
-- Reuse the existing service manager/PM2; do not add a second scheduler,
-  process supervisor, or project-specific Neo.app backend.
-
-## Capability tree
-
-```text
-Create / refactor a Neo project
-│
-├─ 1. define project boundary
-│    ├─ what this project uniquely owns
-│    ├─ what Agents Relay owns
-│    └─ what shared Neo skills/agents own
-│
-├─ 2. create human + planner mental models
-│    ├─ README.md  -> human architecture chart
-│    └─ AGENTS.md  -> planner/task-topology chart
-│
-├─ 3. define durable work topology
-│    ├─ one outcome -> one top-level durable Task
-│    ├─ internal phases -> agentGraph
-│    └─ exceptional durable lifecycle -> child Task
-│
-├─ 4. expose discoverable project roles
-│    ├─ project-specific agents only when behavior is unique
-│    └─ shared roles/capabilities are reused, never copied
-│
-├─ 5. define run artifacts
-│    ├─ one run directory
-│    ├─ canonical handoff artifacts
-│    └─ evidence / QA / receipts stay with the run
-│
-└─ 6. define acceptance gates
-     ├─ truth/evidence
-     ├─ observable QA
-     ├─ review gates when quality requires them
-     └─ publication/external state verified, not inferred
-```
-
-## 1. Start with the project outcome
-
-Before editing files, answer:
-
-```text
-What durable outcome does this project repeatedly produce?
-```
-
-Examples:
-
-```text
-Build Log -> one published daily build story
-Vlog      -> one published vlog episode
-Release   -> one verified software release
-Research  -> one evidence-backed research result
-```
-
-Do not start from the existing folder tree. Existing files may represent obsolete architecture.
-
-Then classify responsibilities:
-
-```text
-PROJECT
-  owns domain-specific intent, contracts, quality bar, project agents
-
-AGENTS RELAY
-  owns Job / Task / task graph / agentGraph / retry / events / routing /
-  leases / reconciliation / scheduling / recovery
-
-SHARED NEO CAPABILITIES
-  own reusable browser / vision / media / audio / publishing / release /
-  model-routing / worker-routing / other cross-project implementation
-```
-
-If a capability is reusable outside this project, prefer a shared skill/agent instead of adding project-local implementation.
-
-## 2. README.md is the human asset
-
-`README.md` should let a human understand the project in one screen before reading details.
-
-The first major section should be a **plain ASCII architecture chart**. Do not depend on Mermaid as the primary explanation.
-
-Recommended shape:
-
-```text
-Long-lived Job / trigger
-        │
-        v
-ONE durable outcome Task
-        │
-        v
-Domain-specific work
-        │
-        v
-Review / QA / external action
-        │
-        v
-Verified outcome
-```
-
-README should explain:
-
-- what the project produces;
-- architecture/ownership at a glance;
-- major artifact flow;
-- what is intentionally not implemented locally;
-- where to look for enforceable execution rules (`AGENTS.md`).
-
-README is documentation, not the authoritative execution policy.
-
-## 3. AGENTS.md is the Planner/execution asset
-
-`AGENTS.md` is authoritative for agents working in the project.
-
-Its first major section should be the **Planner topology chart**.
-
-Default durable-work rule:
-
-```text
-One project outcome
-       │
-       v
-EXACTLY ONE top-level durable Task
-       │
-       +--> agentGraph for normal internal phases
-       │
-       +--> child durable Task only for an exceptional lifecycle boundary
-```
-
-Do not create sibling top-level Tasks for ordinary phases of one outcome.
-
-A child Task is justified only when work needs an independent durable lifecycle such as:
-
-- external wait;
-- explicit approval;
-- independent retry/reconciliation boundary;
-- durable blocker;
-- independently resumed/owned result.
-
-Otherwise keep the phase in the parent Task's `agentGraph`.
-
-Planner must use agents visible in resolved project/shared context. Never invent agent names.
-
-Do not hard-code provider/model/worker selection when Agents Relay routers own those decisions.
-
-## 4. Project agents vs shared agents/skills
-
-Create `project/agents/*.agent.md` only for behavior that is truly project-specific and important enough for Planner to discover by name.
-
-Good project agents:
-
-```text
-build-log-editor
-vlog-editor
-vlog-producer
-```
-
-when they encode unique editorial or production behavior.
-
-Do not create project-local copies of reusable roles such as:
-
-```text
-market
-reviewer
-release
-visioner
-post-agent
-Video Director
-Execution Director
-browser automation
-model router
-worker router
-```
-
-Use the shared implementation instead.
-
-Rule:
-
-```text
-unique project judgment -> project agent
-reusable cross-project capability -> shared agent/skill
-```
-
-If `AGENTS.md` references a project-specific agent, that agent must actually exist and be discoverable.
-
-## 5. Project files stay thin
-
-A healthy project normally looks like:
-
-```text
-<project>/
-├── README.md
-├── AGENTS.md
-├── agents/                 # only project-specific roles, when needed
-│   └── *.agent.md
-└── runs/                   # ignored/private execution artifacts
-```
-
-Add other tracked files only when they are reusable project contracts, not one-run execution residue.
-
-Avoid project-local copies of:
-
-```text
-scheduler
-SQLite/job database
-worker launcher
-retry engine
-routing config
-model/provider policy
-browser adapter
-publication state machine
-shared media engine
-shared schemas already owned elsewhere
-one-off scripts that duplicate a shared skill
-```
-
-When refactoring, identify and remove obsolete local implementation after verifying its responsibility is already owned by Agents Relay or a shared capability.
-
-## 6. Define the run artifact contract
-
-Each durable outcome should have one run root, normally:
-
-```text
-runs/<YYYY-MM-DD[-slug]>/
-```
-
-or another project-appropriate stable key when date is not the identity.
-
-Keep all per-run state together:
-
-```text
-source/evidence
-intermediate decisions
-canonical handoff artifacts
-assets
-reviews
-logs
-generated output
-QA
-external receipts/status
-```
-
-Do not scatter one run across project-root `logs/`, `output/`, temporary folders, or redundant wrapper paths.
-
-For content/video projects, prefer an explicit handoff chain such as:
-
-```text
-evidence/source
-   -> story/creative intent
-   -> visual-brief or equivalent direction asset
-   -> video.md / executable media spec
-   -> execution requirements
-   -> assets
-   -> review
-   -> final render
-   -> QA
-   -> publish receipt
-```
-
-The exact artifacts are project-specific; their ownership and handoffs should not be implicit.
-
-## 7. Chart-first contracts
-
-Treat diagrams as primary assets, not decoration.
-
-Required mental models:
-
-```text
-README.md
-  #1 human architecture chart
-
-AGENTS.md
-  #1 Planner durable-task topology chart
-
-Per-run direction artifact
-  #1 execution/creative map for downstream workers
-```
-
-Prefer ASCII charts because they render reliably across ChatGPT clients and terminals.
-
-Use prose to explain the chart, not replace it.
-
-## 8. Quality and review gates
-
-Acceptance must be observable.
-
-Never equate these with success by themselves:
-
-```text
-command exited 0
-file exists
-render completed
-button clicked
-submission attempted
-```
-
-Define the evidence required to accept the outcome.
-
-For content/media projects, a strong default is:
-
-```text
-creative/production draft
-        │
-        +--> specialist creative review
-        +--> audience/market review when public-facing
-        │
-        v
-required changes incorporated
-        │
-        v
-final render/output
-        │
-        v
-observable QA
-```
-
-Use review gates only when they materially protect output quality; do not mechanically copy Build Log's exact reviewers into unrelated projects.
-
-For publication/external actions, persist platform-side receipt/state and distinguish submitted/reviewing/published/rejected/unknown when the platform supports those states.
-
-## 9. Truth and evidence
-
-Projects must define what counts as authoritative evidence for their domain.
-
-Common rules:
-
-- never fabricate missing state, media, metrics, results, or external success;
-- distinguish observed facts from interpretation;
-- preserve private source evidence in the run while sanitizing public outputs;
-- if a required capability/input is unavailable, record a blocker rather than silently lowering the contract.
-
-## 10. Creation workflow
-
-For a new project:
-
-```text
-1. define repeated durable outcome
-2. draw human architecture chart
-3. draw Planner topology chart
-4. assign ownership: project vs Agents Relay vs shared Neo
-5. choose project-specific discoverable agents, if any
-6. define run artifact/handoff contract
-7. define acceptance/review/external verification gates
-8. write README.md
-9. write AGENTS.md
-10. add only necessary project agents/contracts
-11. verify no shared capability was duplicated locally
-12. run one real outcome end-to-end
-13. feed learnings back into project contract or shared capability
-```
-
-## 11. Refactor workflow
-
-For an existing project:
-
-```text
-Current project
-    │
-    +--> inventory tracked implementation
-    +--> inventory current Jobs/Tasks/agents/shared capabilities
-    │
-    v
-classify every responsibility
-    │
-    ├─ project-specific contract? -> keep/simplify
-    ├─ Agents Relay lifecycle?    -> remove local duplicate
-    ├─ shared capability?         -> replace local copy with reference
-    └─ run artifact/history?      -> keep under runs/, not implementation
-    │
-    v
-rewrite README + AGENTS chart-first
-    │
-    v
-make project agents discoverable
-    │
-    v
-remove obsolete implementation
-    │
-    v
-validate with one real Agents Relay outcome
-```
-
-Do not preserve a legacy abstraction merely because old runs used it.
-
-## 12. Review checklist
-
-Before calling a Neo project refactor complete, verify:
-
-```text
-[ ] README has a clear human architecture ASCII chart near the top
-[ ] AGENTS has a clear Planner topology ASCII chart near the top
-[ ] one durable outcome maps to one top-level Task by default
-[ ] ordinary phases live in agentGraph, not sibling Tasks
-[ ] exceptional durable work becomes child Tasks
-[ ] all referenced project agents exist and are discoverable
-[ ] reusable capability is shared instead of copied locally
-[ ] project does not own Agents Relay lifecycle/runtime machinery
-[ ] run artifacts have one stable root and explicit handoffs
-[ ] success criteria require observable evidence
-[ ] external publication/action has verification semantics
-[ ] obsolete project-local scripts/config/schemas have been removed or justified
-[ ] project-specific learnings are recorded without duplicating shared implementation docs
-```
+- Commands must be idempotent. `setup` prepares dependencies/config without starting work. `start` starts only owned services. `stop` drains/stops. `restart` verifies the replacement.
+- `status` emits machine-readable JSON. `health` checks actual dependencies and exits nonzero when unhealthy.
+- `uninstall` removes services, never user media, credentials or `runs/`.
+- Pure Agent projects may omit this entrypoint or unsupported commands.
+- Reuse PM2/shared Neo service management; never add another scheduler, Task database, MCP server or Neo.app project backend unless a concrete missing capability requires it.
+
+## Creation/refactor workflow and verification
+
+1. Define one repeatable durable outcome and project/shared/Relay ownership.
+2. Create the one `graph.mmd` and parse it using the current Relay parser.
+3. Update README/AGENTS to reference Graph and describe Task parenting without restating Graph edges.
+4. Add only discoverable unique Agent manifests; declare useful I/O and reviewer fields.
+5. Add structured Artifact Schemas and per-run handoffs, then test valid/invalid examples with the Relay Action.
+6. Simulate one cross-stage finding and confirm the Planner can select minimal revision owners/dependencies without a Graph-to-Plan Validator.
+7. Add/test the lifecycle script only for persistent services.
+8. Execute one real outcome with fresh evidence, QA and any authorized external receipt before claiming production readiness.
+9. Reflect reusable lessons in the project's AGENTS, not in a run diary.
+
+A zero exit code, existing file, rendered media, click or attempted publication is not sufficient evidence of success. Respect explicit approval boundaries for publishing, spending and external commitments.
