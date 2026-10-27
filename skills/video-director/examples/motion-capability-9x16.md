@@ -1,23 +1,20 @@
-# Video Director: reusable 9:16 motion treatment
+# Video Director: Shotcraft recipe decision for 9:16
 
-This is an authoring example for a project using Markcut. The canonical renderable demonstration is `markcut/examples/motion-capabilities-9x16.md`; use that file to preview and verify six treatments. Resolve capability names, props, supported aspect ratios, license and status against the project's `docs/motion-capabilities.json` before reuse.
+Use the global `video-shotcraft` skill as an optional **single-shot** reference, not as a fixed component catalog or stock-video collection. Each decision must be grounded in the actual source footage and the story.
 
-The Video Director starts with the story and writes the treatment name into the scene description. Markcut renders the timeline. For example:
+| Source and story | Decision | Reason |
+| --- | --- | --- |
+| High-resolution still photo, quiet reveal of an autumn scene | Consider a matching subtle camera-move recipe after reading its card and demo | Digital movement may create a useful reveal without changing source truth |
+| Handheld walking video with substantial camera motion | Ordinary cut, no extra camera recipe | Added movement may make the shot harder to follow |
+| Portrait clip of a person speaking | Ordinary shot unless a safe, story-driven treatment passes preview | Keep face, original speech, and authenticity intact |
+| Long web-page screenshot, product demo | `steep-tilt-glide` can be a candidate | Its fixed-camera/moving-panel design targets wide UI, not ordinary travel footage |
 
-```md
----
-width: 1080
-height: 1920
-fps: 30
----
-# video
-layout:series
+For a chosen recipe:
 
-## Product reveal
-description:"CinematicPush: start wide, settle on the promise, and keep the headline in the central safe area."
-- component duration:3 jsx:"<CinematicPush eyebrow='INTRO' title='A clear idea' tone='#64d9c6' />"
-```
+1. Resolve the card in `video-shotcraft/gallery/api/library.json`.
+2. Read the entire `references/shots/<category>/<card>.md` and its referenced demo TSX; use the tuned parameters as a starting point.
+3. In `visual-brief.md`, record source path/time range, story purpose, recipe name and revision, suitability, motion parameters, safe crop, and why this treatment beats an ordinary cut.
+4. Have Producer implement the **shot on the real media**, using Markcut's existing JSX/Remotion authoring or an independently rendered clip if needed. Do not write a fake `recipe:` DSL field or assume the recipe renders itself.
+5. Verify the actual Markcut preview (1080×1920, normally 30 fps): framing, face/text readability, motion, duration, audio, and original source truth. Reject and return to a normal cut if it fails.
 
-The JSX is illustrative. Define or import `CinematicPush` through the same Markcut `~~~js imports` mechanism used in the complete demonstration before rendering. Avoid copying third-party code/assets without the recorded license review.
-
-For a project with generated animation assets, replace the JSX node with a normal `video src:"assets/treatment.mp4"` stream and use the same Markdown timeline. Check visual frames, duration, audio, and phone-scale safe area in the final render.
+Do not run Shotcraft's full-promo, workbench, upload, or publication process for a Vlog. Markcut remains the single canonical timeline and final render.

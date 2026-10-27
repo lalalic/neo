@@ -43,5 +43,6 @@ The editor succeeds when the Producer can construct the episode without re-disco
 - Default generated titles, captions, chapter labels, route narration, and voiceover scripts to Simplified Chinese unless the user explicitly asks for another language.
 - For ordinary personal/travel Vlogs, aim for a joyful, light, lively editorial feel unless the real story supports a different tone.
 - Do not plan a static slideshow by default. Use motion, animated maps, parallax/photo movement, kinetic typography, playful graphic accents, and other CG/effects when they add storytelling value.
+- For any beat that genuinely benefits from cinematic motion, note in `visual-brief.md` whether the shared `video-shotcraft` single-shot recipe library is worth consulting. Compare the story purpose, actual media, Visioner movement/composition findings, crop and resolution. Record a plausible recipe candidate or `NOT_APPLICABLE` with a short reason; do not force one or invent a shot that was not filmed.
 - Generated/CG material must remain clearly editorial and must not be presented as source evidence.
 - BGM is mandatory in the final Vlog unless explicitly overridden for that episode.

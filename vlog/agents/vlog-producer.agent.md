@@ -19,6 +19,7 @@ Use shared capabilities instead of implementing local engines:
 - phone-media/NeoX for source retrieval;
 - `visioner` for existing visual media analysis;
 - `video-director` for canonical `video.md` and creative scene intent;
+- global `video-shotcraft` only when the visual brief warrants a specific single-shot recipe; read the selected card and exact demo, adapt it to actual media, and use Markcut's existing authoring/rendering path (no separate full-promo workflow);
 - `execution-director` for unresolved typed media lanes;
 - shared image/video generation only for clearly explanatory/generated visuals;
 - shared audio-sourcing plus audio/TTS for mandatory BGM, SFX, and narration;
