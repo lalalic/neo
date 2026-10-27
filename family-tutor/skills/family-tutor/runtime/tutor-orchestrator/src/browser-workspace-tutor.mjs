@@ -35,11 +35,10 @@ function runProcess(command,args,{input='',env=process.env,timeoutMs=360000}={})
 }
 
 export class BrowserWorkspaceTutorClient {
-  constructor({instanceDir,workspace='Tutor',plugin='Family Tutor',skillRoot,browserWorkspaceCommand,loadAdmin=async helperPath=>import(pathToFileURL(helperPath).href),fetchImpl=fetch,run=runProcess}={}){
+  constructor({instanceDir,workspace='Tutor',skillRoot,browserWorkspaceCommand,loadAdmin=async helperPath=>import(pathToFileURL(helperPath).href),fetchImpl=fetch,run=runProcess}={}){
     if(!instanceDir) throw new Error('BrowserWorkspaceTutorClient requires instanceDir');
     this.instanceDir=instanceDir;
     this.workspace=workspace;
-    this.plugin=plugin;
     this.skillRoot=skillRoot||null;
     this.cli=browserWorkspaceCommand||process.env.BROWSER_WORKSPACE_COMMAND||(skillRoot?path.join(skillRoot,'bin','browser-workspace'):'browser-workspace');
     this.loadAdmin=loadAdmin;
@@ -138,7 +137,6 @@ export class BrowserWorkspaceTutorClient {
         thread_id:binding.thread_id,
         prompt,
         file:staged.map(item=>item.path),
-        app:this.plugin,
       },{sessionId:runtime.sessionId});
     }finally{
       await Promise.allSettled(staged.map(item=>fsp.rm(item.path,{force:true})));
@@ -160,7 +158,6 @@ export class BrowserWorkspaceTutorClient {
         target_id:runtime.targetId,
         prompt,
         file:staged.map(item=>item.path),
-        app:this.plugin,
       },{sessionId:runtime.sessionId});
       if(result.status!=='completed'||!result.assistant_message_id||!String(result.text||'').trim()){
         throw new Error('Tutor thread did not produce a verified assistant response');

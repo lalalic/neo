@@ -16,9 +16,9 @@ async function writeConfig(value){
 function base(){
   return {
     version:1,
-    codex:{backend:'codex'},
     discord:{parentChannelId:'parent'},
     children:[{id:'sammy',name:'Sammy'}],
+    browserWorkspace:{enabled:true},
   };
 }
 
@@ -31,10 +31,10 @@ test('migrates obsolete neoyTutor config to Browser Workspace Tutor',async()=>{
   await fs.rm(dir,{recursive:true,force:true});
 });
 
-test('continues to accept explicit legacy browserBridge config',async()=>{
+test('removes inactive browserBridge configuration',async()=>{
   const {dir,file}=await writeConfig({...base(),browserBridge:{enabled:true,host:'127.0.0.1',port:43117}});
   const cfg=loadConfig(file);
-  assert.equal(cfg.browserBridge.enabled,true);
+  assert.equal(cfg.browserBridge,undefined);
   await fs.rm(dir,{recursive:true,force:true});
 });
 
@@ -70,4 +70,9 @@ test('rejects unknown Discord transport',async()=>{
   const {dir,file}=await writeConfig(value);
   assert.throws(()=>loadConfig(file),/discord\.mode must be local/);
   await fs.rm(dir,{recursive:true,force:true});
+});
+
+test('rejects disabled Browser Workspace instead of silently accepting Discord-only readiness',async()=>{
+  const {file}=await writeConfig({...base(),browserWorkspace:{enabled:false}});
+  assert.throws(()=>loadConfig(file),/browserWorkspace must be enabled/);
 });

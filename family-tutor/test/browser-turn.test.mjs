@@ -34,6 +34,7 @@ test('tutor turn verifies assistant completion and keeps each learner thread',as
     assert.equal(result.text,'Verified tutor reply');
     assert.equal(actions[0].thread_url,'https://chatgpt.com/g/project/c/thread');
     assert.equal(actions[0].target_id,'tab');
+    assert.equal('app' in actions[0],false,'ChatGPT turns must not depend on the retired Family Tutor MCP app');
   }finally{
     await client.stop();
     await fs.rm(dir,{recursive:true,force:true});

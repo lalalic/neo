@@ -5,25 +5,20 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ChannelType, Client, Events, GatewayIntentBits, REST, Routes, SlashCommandBuilder } from 'discord.js';
 import { loadConfig } from './config.mjs';
-import { CodexBackend } from './backends/codex.mjs';
 import { BrowserWorkspaceTutorClient } from './browser-workspace-tutor.mjs';
-import { collectImageAttachments, understandImages } from './vision.mjs';
+import { requireConfiguredLearners } from './learner-bindings.mjs';
 import { isAudioAttachment, transcribeAudioAttachments } from './asr.mjs';
 import { reactToReceivedChildMessage } from './discord-reactions.mjs';
-import { handleBrowserChildMessage } from './browser-ingress.mjs';
 import { buildParentContextPrompt, buildSlashStatusPrompt, canUseStatus, childProjectName, findChildByChannelName, formatSlashOverview, formatSlashStatus, isAuthorizedParent, parseParentMessage, renderParentNaturalText, statusCommand, statusDenialMessage, validateChildChannel } from './parent-context.mjs';
 import { buildKidContext } from './runtime-context.mjs';
 
 const configFile=process.env.FAMILY_TUTOR_CONFIG;
 if(!configFile) throw new Error('FAMILY_TUTOR_CONFIG is required');
 const config=loadConfig(configFile);
-const discordMode=config.discord.mode||'local';
-const localDiscord=discordMode==='local';
 const discordToken=process.env.DISCORD_BOT_TOKEN?.trim()||'';
-if(localDiscord&&!discordToken) throw new Error('DISCORD_BOT_TOKEN is required when discord.mode=local');
+if(!discordToken) throw new Error('DISCORD_BOT_TOKEN is required when discord.mode=local');
 
 const instanceDir=path.resolve(path.dirname(config.configPath),'..');
-const backend=new CodexBackend(config.codex,{instanceDir});
 
 const setupGreetingFile=path.join(instanceDir,'.setup-greetings.json');
 const bootstrapControlPort=Number(process.env.FAMILY_TUTOR_BOOTSTRAP_PORT||43118);
@@ -144,9 +139,7 @@ async function deleteKid({childId}){
 const queues=new Map();
 const client=new Client({intents:[GatewayIntentBits.Guilds,GatewayIntentBits.GuildMessages,GatewayIntentBits.MessageContent]});
 let familyGuildId=null;
-let browserBridge=null;
 let tutorClient=null;
-let tutorTransport=null;
 
 function turnPrompt(child,message,correlationId=null){ return buildKidContext({childName:child.name,text:message,correlationId}); }
 function parseTutorText(text){
@@ -160,24 +153,15 @@ function parseTutorText(text){
 }
 async function applyTutorSideEffects(child,parsed){
   if(parsed.rollover){
-    if(tutorClient){
-      await tutorClient.resetThread({
-        learner:child.id,
-        projectName:child.name||child.id,
-        instructions:await tutorProjectInstructions(child),
-        initialPrompt:`Start a fresh Family Tutor thread for ${child.name||child.id}. Use the Project Instructions. Reply only with READY.`,
-      });
-    }else{
-      await backend.newThread({childId:child.id});
-    }
+    await tutorClient.resetThread({
+      learner:child.id,
+      projectName:child.name||child.id,
+      instructions:await tutorProjectInstructions(child),
+      initialPrompt:`Start a fresh Family Tutor thread for ${child.name||child.id}. Use the Project Instructions. Reply only with READY.`,
+    });
   }
 }
 async function sendChunks(channel,text){ let remaining=text; while(remaining.length>1900){let split=remaining.lastIndexOf('\n',1900); if(split<800) split=1900; await channel.send(remaining.slice(0,split)); remaining=remaining.slice(split).trimStart();} if(remaining) await channel.send(remaining); }
-async function sendViaDiscordRelay({channelId,messageId=null,text}){
-  const response=await fetch('http://127.0.0.1:43119/reply',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({channelId,messageId,text}),signal:AbortSignal.timeout(15000)});
-  if(!response.ok) throw new Error(`Discord relay reply failed (${response.status}): ${await response.text()}`);
-  return response.json();
-}
 function collectAttachments(message){
   return [...message.attachments.values()].slice(0,4).map(a=>({
     url:a.url,
@@ -198,85 +182,6 @@ async function replyToMessage(message,text){
     remaining=remaining.slice(split).trimStart(); first=false;
   }
 }
-async function sendAssistantOutputs(channel,outputs=[]){
-  for(const output of outputs.slice(0,6)){
-    if(!output?.data?.length) continue;
-    try{
-      await channel.send({files:[{attachment:output.data,name:output.name||'attachment'}]});
-    }catch(error){
-      console.error('[family-tutor] Discord output attachment failed',error);
-      await channel.send(`I created **${output.name||'a file'}**, but Discord could not accept the attachment.`).catch(()=>{});
-    }
-  }
-}
-
-async function ingestServerlessDiscordMessage({channelId='',channelName,messageId,content='',attachments=[],mentionedChannels=[]}={}){
-  const safeAttachments=(Array.isArray(attachments)?attachments:[]).slice(0,4).map((a,index)=>({
-    url:String(a?.url||''),
-    name:String(a?.name||`attachment-${index+1}`),
-    mimeType:String(a?.mimeType||''),
-    size:Number(a?.size||0),
-  })).filter(a=>a.url);
-  const incoming=String(content||'').trim();
-  if(!incoming&&!safeAttachments.length) return {ignored:true,reason:'empty_message'};
-  if(!tutorClient||!browserBridge) throw new Error('Family Tutor browser transport is not ready');
-
-  const audioAttachments=safeAttachments.filter(isAudioAttachment);
-  const nonAudioAttachments=safeAttachments.filter(a=>!isAudioAttachment(a));
-  let voiceTranscript=null;
-  if(audioAttachments.length) voiceTranscript=await transcribeAudioAttachments(audioAttachments);
-
-  if(String(channelId||'')===String(config.discord?.parentChannelId||'')){
-    const mentioned=(Array.isArray(mentionedChannels)?mentionedChannels:[])
-      .map(item=>({id:String(item?.id||''),name:String(item?.name||'').trim()}))
-      .filter(item=>item.id&&item.name);
-    let child=null;
-    let mentionId='';
-    for(const item of mentioned){
-      const candidate=findChildByChannelName(config.children,item.name);
-      if(candidate){
-        if(child&&child.id!==candidate.id) return {ignored:false,role:'parent',messageId:String(messageId||''),text:'Mention one configured child channel.'};
-        child=candidate; mentionId=item.id;
-      }
-    }
-    if(!child){
-      const normalized=incoming.replace(/[\u200b-\u200f\u2060\ufeff]/g,' ').toLowerCase();
-      const matches=config.children.filter(candidate=>new RegExp(`(^|[^a-z0-9_-])#?${candidate.id.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}([^a-z0-9_-]|$)`,'i').test(normalized));
-      if(matches.length===1) child=matches[0];
-    }
-    if(!child) return {ignored:false,role:'parent',messageId:String(messageId||''),text:'Mention one child channel naturally, for example: `how is #sammy doing recently?`'};
-
-    let normalizedMessage=incoming;
-    if(mentionId) normalizedMessage=renderParentNaturalText(incoming,mentionId,child.id,mentionId);
-    else normalizedMessage=normalizedMessage.replace(new RegExp(`#?${child.id}`,'i'),`@${child.id}`);
-    const contextMessage=[normalizedMessage,voiceTranscript].filter(Boolean).join('\n\n');
-    if(!contextMessage&&!nonAudioAttachments.length) return {ignored:false,role:'parent',childId:child.id,messageId:String(messageId||''),text:'Please include the question or guidance.'};
-    const turn=browserBridge.beginExternalTurn({childId:child.id,origin:{channelId:String(channelId),messageId:String(messageId||''),threadId:null}});
-    const prompt=buildParentContextPrompt({text:contextMessage,correlationId:turn.correlationId});
-    try{
-      const submitted=await tutorClient.submit({learner:child.id,prompt,attachments:nonAudioAttachments});
-      return {ignored:false,role:'parent',childId:child.id,messageId:String(messageId||''),correlationId:turn.correlationId,submitted:true,submission:submitted.status||'submitted'};
-    }catch(error){
-      await browserBridge.fail(turn.correlationId,error).catch(()=>{});
-      throw error;
-    }
-  }
-
-  const child=config.children.find(candidate=>candidate.id===String(channelName||''));
-  if(!child) return {ignored:true,reason:'unconfigured_channel'};
-  const voiceBlock=voiceTranscript?`[VOICE MESSAGE TRANSCRIPT — preserve the student's spoken meaning; do not judge grammar or writing quality from this transcript]\n${voiceTranscript}\n[/VOICE MESSAGE TRANSCRIPT]`:'';
-  const studentMessage=[incoming,voiceBlock].filter(Boolean).join('\n\n')||'Please help me understand the attached file(s).';
-  const turn=browserBridge.beginExternalTurn({childId:child.id,origin:{channelId:String(channelId),messageId:String(messageId||''),threadId:null}});
-  const prompt=turnPrompt(child,studentMessage,turn.correlationId);
-  try{
-    const submitted=await tutorClient.submit({learner:child.id,prompt,attachments:nonAudioAttachments});
-    return {ignored:false,role:'kid',childId:child.id,messageId:String(messageId||''),correlationId:turn.correlationId,submitted:true,submission:submitted.status||'submitted'};
-  }catch(error){
-    await browserBridge.fail(turn.correlationId,error).catch(()=>{});
-    throw error;
-  }
-}
-
 async function handleTutorChildMessage(message,child){
   const incoming=message.content.trim();
   const attachments=collectAttachments(message);
@@ -311,53 +216,6 @@ ${voiceTranscript}
 ${parsed.parentText}`);
   }
 }
-
-async function handleChildMessage(message,child){
-  const incoming=message.content.trim();
-  const attachments=collectAttachments(message);
-  if(!incoming && !attachments.length) return;
-  await message.channel.sendTyping();
-  const audioAttachments=attachments.filter(isAudioAttachment);
-  const nonAudioAttachments=attachments.filter(a=>!isAudioAttachment(a));
-  let voiceTranscript=null;
-  if(audioAttachments.length){
-    try{
-      voiceTranscript=await transcribeAudioAttachments(audioAttachments);
-    }catch(error){
-      console.error(`[family-tutor] ${child.id} ASR failed`,error);
-      return message.reply('I received your voice message, but I could not transcribe it. Please try again or send it as text.');
-    }
-  }
-  const voiceBlock=voiceTranscript?`[VOICE MESSAGE TRANSCRIPT — preserve the student's spoken meaning; do not judge grammar or writing quality from this transcript]\n${voiceTranscript}\n[/VOICE MESSAGE TRANSCRIPT]`:'';
-  const studentMessage=[incoming,voiceBlock].filter(Boolean).join('\\n\\n') || 'Please help me understand the attached file(s).';
-  let result;
-  try{
-    result=await backend.turn({
-      prompt:turnPrompt(child,studentMessage),
-      childId:child.id,
-      attachments:nonAudioAttachments,
-    });
-  }catch(error){
-    const imageAttachments=collectImageAttachments(message);
-    const onlyImages=nonAudioAttachments.length>0 && imageAttachments.length===nonAudioAttachments.length;
-    if(!onlyImages) throw error;
-    console.warn(`[family-tutor] ${child.id} direct Codex attachment failed; using local image fallback`,error?.message||error);
-    let imageContext;
-    try{ imageContext=await understandImages(imageAttachments,incoming); }
-    catch(visionError){
-      console.error(`[family-tutor] ${child.id} image fallback failed`,visionError);
-      return message.reply('I received your file, but Codex and the local image fallback both failed. Please try again or send the question as text.');
-    }
-    const grounded=`${studentMessage}\n\n[GROUNDING FROM STUDENT IMAGE — fallback visual analysis]\n${imageContext}\n[/GROUNDING FROM STUDENT IMAGE]`;
-    result=await backend.turn({prompt:turnPrompt(child,grounded),childId:child.id});
-  }
-  const parsed=parseTutorText(result.text);
-  await applyTutorSideEffects(child,parsed);
-  await sendChunks(message.channel,parsed.childText||result.text);
-  await sendAssistantOutputs(message.channel,result.outputs);
-  if(parsed.parentText){ const parent=await client.channels.fetch(config.discord.parentChannelId); if(parent?.isTextBased()) await sendChunks(parent,`📘 **${child.name}**\n${parsed.parentText}`); }
-}
-
 
 async function resolveMentionedChild(command){
   if(!command?.channelMentionId) return null;
@@ -402,21 +260,8 @@ async function tutorProjectInstructions(child){
   return `${profile}\n\n---\n\n${bootstrap}`;
 }
 
-async function ensureTutorLearners(status){
-  const bindings=new Map((status?.bindings||[]).map(binding=>[binding.learner,binding]));
-  for(const child of config.children){
-    const existing=bindings.get(child.id);
-    if(existing?.project_id && existing?.thread_id) continue;
-    const result=await tutorClient.setup({
-      learner:child.id,
-      projectName:child.name||child.id,
-      instructions:await tutorProjectInstructions(child),
-      initialPrompt:`Initialize ${child.name||child.id}'s Family Tutor learning thread. Use the Project Instructions. Reply only with READY.`,
-    });
-    bindings.set(child.id,{learner:child.id,project_id:result.project_id,thread_id:result.thread_id});
-    console.log(`[family-tutor-orchestrator] Tutor initialized ${child.id} in ChatGPT Project ${result.project_id} (${result.project_reused?'reused':'created'})`);
-  }
-  return [...bindings.values()];
+function ensureTutorLearners(status){
+  return requireConfiguredLearners(config.children,status);
 }
 
 async function finalizeBootstrapForGuild({guildId,sessionId}){
@@ -454,7 +299,16 @@ function startBootstrapControl(){
   bootstrapControlServer=http.createServer(async(req,res)=>{
     const url=new URL(req.url||'/',`http://${req.headers.host||'127.0.0.1'}`);
     const send=(status,body)=>{const text=JSON.stringify(body);res.writeHead(status,{'content-type':'application/json; charset=utf-8','content-length':Buffer.byteLength(text),'cache-control':'no-store'});res.end(text);};
-    if(req.method==='GET'&&url.pathname==='/health') return send(client.isReady()&&Boolean(familyGuildId)?200:503,{ok:client.isReady()&&Boolean(familyGuildId),discordReady:client.isReady()&&Boolean(familyGuildId),service:'family-tutor'});
+    if(req.method==='GET'&&url.pathname==='/health'){
+      const discordReady=client.isReady()&&Boolean(familyGuildId);
+      let tutorReady=false;
+      try{
+        const status=await tutorClient?.status();
+        tutorReady=Boolean(tutorClient?.started) && config.children.every(child=>
+          status?.bindings?.some(binding=>binding.learner===child.id && binding.project_id && binding.thread_id && binding.sessionReady));
+      }catch(error){ console.error('[family-tutor] tutor health failed',error); }
+      return send(discordReady&&tutorReady?200:503,{ok:discordReady&&tutorReady,discordReady,tutorReady,service:'family-tutor'});
+    }
     if(req.method==='POST'&&url.pathname==='/bootstrap/discover'){
       let raw=''; for await(const chunk of req){raw+=chunk;if(raw.length>256*1024){res.destroy();return;}}
       try{
@@ -472,24 +326,11 @@ function startBootstrapControl(){
   return bootstrapControlServer;
 }
 
-function childChannelFor(message,child){
-  return message.guild?.channels?.cache?.find(channel=>channel.type===ChannelType.GuildText&&channel.name===child.id)||null;
-}
 async function runParentTurn(message,child,prompt,{attachments=[]}={}){
-  if(tutorClient){
-    const result=await tutorClient.turn({learner:child.id,prompt,attachments});
-    const parsed=parseTutorText(result.text);
-    await applyTutorSideEffects(child,parsed);
-    return replyToMessage(message,parsed.childText||result.text);
-  }
-  if(browserBridge){
-    await browserBridge.turn({childId:child.id,prompt,attachments,origin:{channelId:message.channelId,messageId:message.id,threadId:null}});
-    return;
-  }
-  const result=await backend.turn({prompt,childId:child.id,attachments});
+  const result=await tutorClient.turn({learner:child.id,prompt,attachments});
   const parsed=parseTutorText(result.text);
   await applyTutorSideEffects(child,parsed);
-  return sendChunks(message.channel,parsed.childText||result.text);
+  return replyToMessage(message,parsed.childText||result.text);
 }
 
 async function handleParentControl(message){
@@ -503,8 +344,7 @@ async function handleParentControl(message){
   const nonAudioAttachments=attachments.filter(a=>!isAudioAttachment(a));
   let voiceTranscript=null;
   if(audioAttachments.length) voiceTranscript=await transcribeAudioAttachments(audioAttachments);
-  const targetChannelId=browserBridge?.channelHandle(command.channelMentionId)||'';
-  const normalizedMessage=renderParentNaturalText(message.content,command.channelMentionId,child.id,targetChannelId);
+  const normalizedMessage=renderParentNaturalText(message.content,command.channelMentionId,child.id,command.channelMentionId);
   const contextMessage=[normalizedMessage,voiceTranscript].filter(Boolean).join('\n\n');
   if(!contextMessage && !nonAudioAttachments.length) return message.reply('Please include the question or guidance.');
   const prompt=buildParentContextPrompt({text:contextMessage});
@@ -513,16 +353,7 @@ async function handleParentControl(message){
 
 async function statusForChild(child){
   const prompt=buildSlashStatusPrompt({child,memory:''});
-  if(tutorClient){
-    const result=await tutorClient.turn({learner:child.id,prompt,attachments:[]});
-    return formatSlashStatus(child,result.text);
-  }
-  if(browserBridge){
-    let latest='';
-    await browserBridge.turn({childId:child.id,prompt,origin:{channelId:config.discord.parentChannelId,messageId:'status-'+Date.now(),threadId:null},reply:async(text)=>{latest=text;}});
-    return formatSlashStatus(child,latest);
-  }
-  const result=await backend.turn({prompt,childId:child.id});
+  const result=await tutorClient.turn({learner:child.id,prompt,attachments:[]});
   return formatSlashStatus(child,result.text);
 }
 async function handleStatusInteraction(interaction){
@@ -570,8 +401,7 @@ client.on(Events.MessageCreate,message=>{
   if(child){
     try{validateChildChannel(child,message.channel);}catch(error){console.error('[family-tutor] child channel configuration error',error); message.reply(error.message).catch(()=>{}); return;}
     reactToReceivedChildMessage(message,child.id);
-    const handler=tutorClient?handleTutorChildMessage:(browserBridge?handleBrowserChildMessage:handleChildMessage);
-    serialize(child.id,()=>browserBridge&&!tutorClient?handler(message,child,browserBridge):handler(message,child)).catch(error=>{console.error(`[family-tutor] ${child.id} turn failed`,error); message.reply('The tutor is temporarily unavailable. Please try again shortly.').catch(()=>{});});
+    serialize(child.id,()=>handleTutorChildMessage(message,child)).catch(error=>{console.error(`[family-tutor] ${child.id} turn failed`,error); message.reply('The tutor is temporarily unavailable. Please try again shortly.').catch(()=>{});});
     return;
   }
   if(config.discord.parentChannelId && message.channelId===config.discord.parentChannelId){
@@ -585,25 +415,19 @@ if(config.browserWorkspace?.enabled){
     instanceDir,
     workspace:config.browserWorkspace.workspace||'Tutor',
   });
-  tutorTransport='browser-workspace';
   const status=await tutorClient.status();
   const bindings=await ensureTutorLearners(status);
   await tutorClient.start();
   console.log(`[family-tutor-orchestrator] Browser Workspace Tutor ready in ${config.browserWorkspace.workspace||'Tutor'} with ${bindings.length} learner binding(s) and long-lived learner sessions`);
 }
-if(localDiscord){
-  startBootstrapControl();
-  console.log('[family-tutor-orchestrator] Discord transport: local gateway');
-}else{
-  console.log('[family-tutor-orchestrator] Discord transport: Cloudflare serverless');
-}
+startBootstrapControl();
+console.log('[family-tutor] Discord transport: local gateway');
 for(const signal of ['SIGINT','SIGTERM']){
   process.once(signal,async()=>{
-    try{ await browserBridge?.stop(); }catch(error){ console.error('[family-tutor] browser bridge shutdown failed',error); }
     try{ await tutorClient?.stop(); }catch(error){ console.error('[family-tutor] Browser Workspace Tutor shutdown failed',error); }
     try{ bootstrapControlServer?.close(); }catch{}
-    if(localDiscord) client.destroy();
+    client.destroy();
     process.exit(0);
   });
 }
-if(localDiscord) await client.login(discordToken);
+await client.login(discordToken);

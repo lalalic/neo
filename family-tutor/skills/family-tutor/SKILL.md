@@ -41,8 +41,8 @@ learning telemetry and controls. No routine transcript mirroring.
 - NotebookLM is an optional project-local study aid.
 - No website, hosted MCP, Cloudflare worker, Chrome extension or separate
   public listener is required.
-- The remaining legacy loopback BrowserBridge module is not started in the
-  Browser Workspace local path and must not become a second public service.
+- ChatGPT turns use configured learner Project/thread IDs without a separate
+  Family Tutor MCP app mention. The local Discord Bot owns replies.
 
 Refer to `references/tutoring-behavior.md` and
 `references/parent-observation.md` for teaching and privacy guidelines.
