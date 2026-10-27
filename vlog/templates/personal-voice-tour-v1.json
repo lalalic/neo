@@ -1,0 +1,355 @@
+{
+  "version": 1,
+  "tour_id": "vlog-personal-voice-v1",
+  "title": "Vlog · 我的声音与活人感（第一轮）",
+  "shots": [
+    {
+      "id": "pv01",
+      "title": "自然开场",
+      "kind": "talking_head",
+      "instruction": "把镜头当成一个熟悉的朋友。聊聊你今天本来打算做什么，不需要背台词。",
+      "script": "不必念稿。讲真实经历；自然停顿、笑声和口头禅都可以保留。",
+      "target_duration_s": 25,
+      "camera": "front",
+      "orientation": "portrait",
+      "lens": "default",
+      "framing": {
+        "subject": "face",
+        "guide": "眼睛看镜头，胸部以上入画，手机保持稳定",
+        "position": "center"
+      },
+      "quality": {
+        "face_required": true,
+        "warn_if_too_near": true,
+        "warn_if_too_far": true,
+        "warn_if_dark": true,
+        "warn_if_soft": true
+      },
+      "notes": {
+        "library": "personal_voice",
+        "use": "style_reference_only_until_reviewed",
+        "privacy": "private",
+        "language": "zh-CN"
+      }
+    },
+    {
+      "id": "pv02",
+      "title": "今天最有意思的一件事",
+      "kind": "talking_head",
+      "instruction": "讲一件最近真实发生的小事：发生了什么，为什么值得聊？",
+      "script": "不必念稿。讲真实经历；自然停顿、笑声和口头禅都可以保留。",
+      "target_duration_s": 40,
+      "camera": "front",
+      "orientation": "portrait",
+      "lens": "default",
+      "framing": {
+        "subject": "face",
+        "guide": "眼睛看镜头，胸部以上入画，手机保持稳定",
+        "position": "center"
+      },
+      "quality": {
+        "face_required": true,
+        "warn_if_too_near": true,
+        "warn_if_too_far": true,
+        "warn_if_dark": true,
+        "warn_if_soft": true
+      },
+      "notes": {
+        "library": "personal_voice",
+        "use": "style_reference_only_until_reviewed",
+        "privacy": "private",
+        "language": "zh-CN"
+      }
+    },
+    {
+      "id": "pv03",
+      "title": "意外和惊喜",
+      "kind": "talking_head",
+      "instruction": "回忆一次真实的小惊喜。先描述事情，再自然表达当时的反应。",
+      "script": "不必念稿。讲真实经历；自然停顿、笑声和口头禅都可以保留。",
+      "target_duration_s": 30,
+      "camera": "front",
+      "orientation": "portrait",
+      "lens": "default",
+      "framing": {
+        "subject": "face",
+        "guide": "眼睛看镜头，胸部以上入画，手机保持稳定",
+        "position": "center"
+      },
+      "quality": {
+        "face_required": true,
+        "warn_if_too_near": true,
+        "warn_if_too_far": true,
+        "warn_if_dark": true,
+        "warn_if_soft": true
+      },
+      "notes": {
+        "library": "personal_voice",
+        "use": "style_reference_only_until_reviewed",
+        "privacy": "private",
+        "language": "zh-CN"
+      }
+    },
+    {
+      "id": "pv04",
+      "title": "有点想吐槽",
+      "kind": "talking_head",
+      "instruction": "挑一个真实、无敏感信息的日常小麻烦，像跟朋友吐槽那样说。",
+      "script": "不必念稿。讲真实经历；自然停顿、笑声和口头禅都可以保留。",
+      "target_duration_s": 30,
+      "camera": "front",
+      "orientation": "portrait",
+      "lens": "default",
+      "framing": {
+        "subject": "face",
+        "guide": "眼睛看镜头，胸部以上入画，手机保持稳定",
+        "position": "center"
+      },
+      "quality": {
+        "face_required": true,
+        "warn_if_too_near": true,
+        "warn_if_too_far": true,
+        "warn_if_dark": true,
+        "warn_if_soft": true
+      },
+      "notes": {
+        "library": "personal_voice",
+        "use": "style_reference_only_until_reviewed",
+        "privacy": "private",
+        "language": "zh-CN"
+      }
+    },
+    {
+      "id": "pv05",
+      "title": "我的习惯",
+      "kind": "talking_head",
+      "instruction": "聊一个真正属于你的日常习惯，以及你为什么喜欢它。",
+      "script": "不必念稿。讲真实经历；自然停顿、笑声和口头禅都可以保留。",
+      "target_duration_s": 35,
+      "camera": "front",
+      "orientation": "portrait",
+      "lens": "default",
+      "framing": {
+        "subject": "face",
+        "guide": "眼睛看镜头，胸部以上入画，手机保持稳定",
+        "position": "center"
+      },
+      "quality": {
+        "face_required": true,
+        "warn_if_too_near": true,
+        "warn_if_too_far": true,
+        "warn_if_dark": true,
+        "warn_if_soft": true
+      },
+      "notes": {
+        "library": "personal_voice",
+        "use": "style_reference_only_until_reviewed",
+        "privacy": "private",
+        "language": "zh-CN"
+      }
+    },
+    {
+      "id": "pv06",
+      "title": "Ottawa 的一个细节",
+      "kind": "talking_head",
+      "instruction": "分享一个你确实观察到的本地生活细节；不要报家庭或工作精确地点。",
+      "script": "不必念稿。讲真实经历；自然停顿、笑声和口头禅都可以保留。",
+      "target_duration_s": 35,
+      "camera": "front",
+      "orientation": "portrait",
+      "lens": "default",
+      "framing": {
+        "subject": "face",
+        "guide": "眼睛看镜头，胸部以上入画，手机保持稳定",
+        "position": "center"
+      },
+      "quality": {
+        "face_required": true,
+        "warn_if_too_near": true,
+        "warn_if_too_far": true,
+        "warn_if_dark": true,
+        "warn_if_soft": true
+      },
+      "notes": {
+        "library": "personal_voice",
+        "use": "style_reference_only_until_reviewed",
+        "privacy": "private",
+        "language": "zh-CN"
+      }
+    },
+    {
+      "id": "pv07",
+      "title": "观点和犹豫",
+      "kind": "talking_head",
+      "instruction": "讲一件你改变看法的小事，允许停顿、想一想再继续。",
+      "script": "不必念稿。讲真实经历；自然停顿、笑声和口头禅都可以保留。",
+      "target_duration_s": 35,
+      "camera": "front",
+      "orientation": "portrait",
+      "lens": "default",
+      "framing": {
+        "subject": "face",
+        "guide": "眼睛看镜头，胸部以上入画，手机保持稳定",
+        "position": "center"
+      },
+      "quality": {
+        "face_required": true,
+        "warn_if_too_near": true,
+        "warn_if_too_far": true,
+        "warn_if_dark": true,
+        "warn_if_soft": true
+      },
+      "notes": {
+        "library": "personal_voice",
+        "use": "style_reference_only_until_reviewed",
+        "privacy": "private",
+        "language": "zh-CN"
+      }
+    },
+    {
+      "id": "pv08",
+      "title": "自然笑声和反应",
+      "kind": "talking_head",
+      "instruction": "说一个你自己觉得好笑的真实瞬间；不要硬挤笑声。",
+      "script": "不必念稿。讲真实经历；自然停顿、笑声和口头禅都可以保留。",
+      "target_duration_s": 25,
+      "camera": "front",
+      "orientation": "portrait",
+      "lens": "default",
+      "framing": {
+        "subject": "face",
+        "guide": "眼睛看镜头，胸部以上入画，手机保持稳定",
+        "position": "center"
+      },
+      "quality": {
+        "face_required": true,
+        "warn_if_too_near": true,
+        "warn_if_too_far": true,
+        "warn_if_dark": true,
+        "warn_if_soft": true
+      },
+      "notes": {
+        "library": "personal_voice",
+        "use": "style_reference_only_until_reviewed",
+        "privacy": "private",
+        "language": "zh-CN"
+      }
+    },
+    {
+      "id": "pv09",
+      "title": "留给朋友的问题",
+      "kind": "talking_head",
+      "instruction": "聊完一个真实故事后，自然问朋友一个你真心想问的问题。",
+      "script": "不必念稿。讲真实经历；自然停顿、笑声和口头禅都可以保留。",
+      "target_duration_s": 25,
+      "camera": "front",
+      "orientation": "portrait",
+      "lens": "default",
+      "framing": {
+        "subject": "face",
+        "guide": "眼睛看镜头，胸部以上入画，手机保持稳定",
+        "position": "center"
+      },
+      "quality": {
+        "face_required": true,
+        "warn_if_too_near": true,
+        "warn_if_too_far": true,
+        "warn_if_dark": true,
+        "warn_if_soft": true
+      },
+      "notes": {
+        "library": "personal_voice",
+        "use": "style_reference_only_until_reviewed",
+        "privacy": "private",
+        "language": "zh-CN"
+      }
+    },
+    {
+      "id": "pv10",
+      "title": "自然收尾",
+      "kind": "talking_head",
+      "instruction": "像结束和朋友的聊天一样，总结刚才聊的事。",
+      "script": "不必念稿。讲真实经历；自然停顿、笑声和口头禅都可以保留。",
+      "target_duration_s": 20,
+      "camera": "front",
+      "orientation": "portrait",
+      "lens": "default",
+      "framing": {
+        "subject": "face",
+        "guide": "眼睛看镜头，胸部以上入画，手机保持稳定",
+        "position": "center"
+      },
+      "quality": {
+        "face_required": true,
+        "warn_if_too_near": true,
+        "warn_if_too_far": true,
+        "warn_if_dark": true,
+        "warn_if_soft": true
+      },
+      "notes": {
+        "library": "personal_voice",
+        "use": "style_reference_only_until_reviewed",
+        "privacy": "private",
+        "language": "zh-CN"
+      }
+    },
+    {
+      "id": "pv11",
+      "title": "随口聊天",
+      "kind": "talking_head",
+      "instruction": "自由聊 40 秒，任何真实又不敏感的近况都可以；最重要的是原本的语气。",
+      "script": "不必念稿。讲真实经历；自然停顿、笑声和口头禅都可以保留。",
+      "target_duration_s": 40,
+      "camera": "front",
+      "orientation": "portrait",
+      "lens": "default",
+      "framing": {
+        "subject": "face",
+        "guide": "眼睛看镜头，胸部以上入画，手机保持稳定",
+        "position": "center"
+      },
+      "quality": {
+        "face_required": true,
+        "warn_if_too_near": true,
+        "warn_if_too_far": true,
+        "warn_if_dark": true,
+        "warn_if_soft": true
+      },
+      "notes": {
+        "library": "personal_voice",
+        "use": "style_reference_only_until_reviewed",
+        "privacy": "private",
+        "language": "zh-CN"
+      }
+    },
+    {
+      "id": "pv12",
+      "title": "简短补录",
+      "kind": "talking_head",
+      "instruction": "选择前面你最有感觉的一段，再用不同的自然措辞讲一次。",
+      "script": "不必念稿。讲真实经历；自然停顿、笑声和口头禅都可以保留。",
+      "target_duration_s": 30,
+      "camera": "front",
+      "orientation": "portrait",
+      "lens": "default",
+      "framing": {
+        "subject": "face",
+        "guide": "眼睛看镜头，胸部以上入画，手机保持稳定",
+        "position": "center"
+      },
+      "quality": {
+        "face_required": true,
+        "warn_if_too_near": true,
+        "warn_if_too_far": true,
+        "warn_if_dark": true,
+        "warn_if_soft": true
+      },
+      "notes": {
+        "library": "personal_voice",
+        "use": "style_reference_only_until_reviewed",
+        "privacy": "private",
+        "language": "zh-CN"
+      }
+    }
+  ]
+}

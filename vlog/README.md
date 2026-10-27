@@ -4,16 +4,16 @@ Vlog turns real daily media and evidence into one coherent short-form story and 
 
 See [the reusable stage input/output and review contract](docs/episode-stage-contract.md) for Source → optional Research → Story → Production → immutable Preview Review → technical QA → archive/explicit Publish Authorization. GPS is optional; owner-approved real media is required before creating an actual Episode Task.
 
-The **authoritative Episode Graph** is in [AGENTS.md](AGENTS.md#canonical-episode-graph--primary-project-asset). Every episode starts internally with Visioner (shared media understanding and metadata extraction), followed by an optional human evidence review, then Editor, Producer-owned professional reviews, render/QA and private archive. Publication remains separately authorized. Watcher/ingress is outside the Episode Graph. The simplified flow below is explanatory only; Planner must use the canonical Graph and acceptance gates.
+The **only authoritative Episode Graph** is [graph.mmd](graph.mmd). Every episode starts internally with Visioner (shared media understanding and metadata extraction), followed by an optional human evidence review, then Director shot/story selection, Editor cut decisions, Producer-owned professional reviews, render/QA and private archive. Publication remains separately authorized. Watcher/ingress is outside the Episode Graph. The simplified flow below is explanatory only; Planner must use the canonical Graph and acceptance gates.
 
 For authentic personal narratives, the Story editor can use an optional [five-question audience familiarity review](docs/story-familiarity-review.md) (real situation, inner thoughts, familiar voice, audience takeaway, information density). It must cite source evidence or owner confirmation and never fabricate internal experiences.
 
 ## Human mental model
 
 ```text
-Watcher -> Visioner -> Editor -> Producer -> Final QA -> Private archive
+Watcher -> Visioner -> Director -> Editor -> Producer -> Final QA -> Private archive
              |          |          |
-         self-review self-review  Markcut CLI + Relay review run
+         evidence     story       timeline    Markcut CLI + Relay review run
                                    | generic Outcome Reviewer
                                    + Video Director
                                    + Market
@@ -33,7 +33,7 @@ independent owner authorization.
 │                              │
 │ real-media story contract    │
 │ episode hook / arc / quality │
-│ vlog-editor / vlog-producer  │
+│ Director / Editor / Producer │
 └──────────────┬───────────────┘
                │
                v
@@ -82,10 +82,13 @@ real phone/media evidence
 source-manifest.json
         │
         v
-story.md
+vision-evidence.json
         │
         v
-visual-brief.md        <-- creative direction
+shot-selection.json + story.md
+        │
+        v
+visual-brief.md        <-- Director creative direction
         │
         ├── hook / story beats
         ├── selected source media
@@ -94,7 +97,10 @@ visual-brief.md        <-- creative direction
         └── sound / narration intent
         │
         v
-video.md               <-- canonical Markcut source
+edit-decision-list.json <-- Editor exact cuts
+        │
+        v
+video.md               <-- Producer canonical Markcut source
         │
         v
 execution/ + assets/
@@ -117,6 +123,8 @@ runs/<YYYY-MM-DD[-slug]>/
 ├── vision-human-review.json    # optional; records skip/request/response and provenance
 ├── source-manifest.json
 ├── story.md
+├── shot-selection.json
+├── edit-decision-list.json
 ├── post.md
 ├── visual-brief.md
 ├── video.md
@@ -184,9 +192,9 @@ uses the packaged runtime and PM2 boot persistence.
 
 The optional watcher treats `manifest.json` as the producer's final-ready signal. A supported manifest is JSON with `schema_version: 1`, a safe `submission_id`, and a non-empty `media` array whose entries are either relative path strings or `{ "path": "..." }` objects. Media must be downloaded local regular files; missing, zero-byte, symlinked, absolute, or traversal paths are rejected.
 
-The watcher moves a valid submission directory atomically into `runs/YYYY-MM-DD/HH/<submission-id>/input/` before creating one planner-backed Episode Job through Agents Relay. The Vlog-local Planner creates the ordered Task DAG; the watcher does not define an agentGraph. On restart it scans moved inputs first, so a crash after the move and before Task creation is recoverable without a local database. The planned root Visioner Task identity is `vlog-episode-<submission_id>`.
+The watcher moves a valid submission directory atomically into `runs/YYYY-MM-DD/HH/<submission-id>/input/` before creating one planner-backed Episode Job through Agents Relay. The Vlog-local Planner creates the ordered Task DAG; the watcher does not define an agentGraph. On restart it scans moved inputs first, so a crash after the move and before Task creation is recoverable without a local database. The Visioner stage Task uses `vlog-visioner-<submission_id>`; the Episode Job owns the overall outcome.
 
-For a persistent process, package `vlog/` with `npm pack` and run the resulting `vlog-inbox-watcher` bin through the existing process supervisor via `npx --package <tarball> vlog-inbox-watcher` (do not point PM2 at a developer checkout). By default the watcher consumes Neox’s fixed app-owned iCloud inbox at `~/Library/Mobile Documents/iCloud~com~neox~app/Documents/Vlog Inbox`; `VLOG_ICLOUD_INBOX` remains an explicit override. Configure these deployment values: `VLOG_ICLOUD_INBOX`, `VLOG_RUNS_DIR`, `VLOG_RELAY_REPO`, `VLOG_RELAY_PR`, `VLOG_RELAY_JOB_ID`, and optionally `VLOG_RELAY_AGENT` and `VLOG_WATCH_INTERVAL_MS`. The watcher creates a normal model-backed Task without adapter/provider/model constraints, so Agents Relay performs the required worker-router then model-router selection. The project-local Planner derives Visioner, Editor, Producer and Final QA Tasks from the Canonical Graph; reviewers run inside Producer through the Relay Action, not separate Tasks.
+For a persistent process, package `vlog/` with `npm pack` and run the resulting `vlog-inbox-watcher` bin through the existing process supervisor via `npx --package <tarball> vlog-inbox-watcher` (do not point PM2 at a developer checkout). By default the watcher consumes Neox’s fixed app-owned iCloud inbox at `~/Library/Mobile Documents/iCloud~com~neox~app/Documents/Vlog Inbox`; `VLOG_ICLOUD_INBOX` remains an explicit override. Configure these deployment values: `VLOG_ICLOUD_INBOX`, `VLOG_RUNS_DIR`, `VLOG_RELAY_REPO`, `VLOG_RELAY_PR`, `VLOG_RELAY_JOB_ID`, and optionally `VLOG_RELAY_AGENT` and `VLOG_WATCH_INTERVAL_MS`. The watcher creates a normal model-backed Task without adapter/provider/model constraints, so Agents Relay performs the required worker-router then model-router selection. The project-local Planner reads `graph.mmd` to derive normal Stage Tasks; reviewers run inside Producer through the Relay Action, not separate Tasks.
 
 
 ## Route Story template

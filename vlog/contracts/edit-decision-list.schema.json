@@ -1,0 +1,60 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Vlog Editor decision list",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "edits"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "edits": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "shot_id",
+          "source_id",
+          "source_hash",
+          "in_seconds",
+          "out_seconds",
+          "beat"
+        ],
+        "properties": {
+          "shot_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source_hash": {
+            "type": "string",
+            "minLength": 1
+          },
+          "in_seconds": {
+            "type": "number",
+            "minimum": 0
+          },
+          "out_seconds": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "beat": {
+            "type": "string",
+            "minLength": 1
+          },
+          "transition": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true
+}

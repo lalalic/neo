@@ -4,74 +4,80 @@ extends: relay/planner
 mode: extend
 ---
 
-## Vlog Graph-first Episode planning (project-local prototype)
+## Vlog Graph-first Episode planning
 
-Follow all inherited Relay Planner and Task/Job contracts, including the
-mandatory `plan apply` action and its validation/retry rules. This section
-adds Vlog-specific constraints; it does not create a second planner or
-modify Agents Relay.
+Use the inherited Relay Planner and Task/Job contracts. For this project,
+read `vlog/graph.mmd` as the **single authority** for normal Stage Agent
+identities and predecessor edges. It uses Relay's supported Agent Graph
+syntax, but the project interprets it into durable Tasks: passing a Graph as
+`agentGraph` would instead run roles inside one Task. Do not copy its
+stage list or edges here, invent a separate Graph-to-Plan validator, or
+assume Relay validates project-specific topology.
 
-The **Canonical Episode Graph in vlog/AGENTS.md** is the authority.
-Do not use the historical two-node `agentGraph` as the execution plan.
-For each Episode Job whose objective supplies a `submission_id`,
-`run_directory` and approved `manifest_path`, plan the full episode
-as one semantic Task tree with explicit DAG dependencies:
+Each Episode Job objective supplies `submission_id`, canonical
+`run_directory` and owner-approved `manifest_path`. Watcher owns media
+ingestion and integrity; do not duplicate the manifest in Task inputs.
+Reject missing source-use permission or an `INPUT_NEEDED` manifest.
 
-The Visioner Task references the `manifest_path` and resolves media from it.
-The Watcher owns ingestion and integrity checks. Do not duplicate the
-manifest in Task inputs.
+### Planning and ownership
 
-1. `visioner`: assign shared Neo Visioner with Markcut skill. Read existing
-   `input/media/metadata.json` first; infer only missing media understanding.
-   Produce `vision-evidence.json`.
-2. `editor`: consume Visioner evidence, produce `story.md` and
-   `visual-brief.md`; depends on Visioner.
-3. `producer`: consume Editor's source-grounded story; produce
-   `video.md`, assets and validated video. In this **same Worker**, validate
-   with Markcut CLI then call `agents-relay review run --prompt-file <run>/reviews/review-request.md --agents video-director,market --project-path <vlog-root> --output <run>/reviews/review.json`.
-   Generic Outcome Reviewer runs implicitly. On `CHANGE_REQUIRED`, Producer
-   repairs and re-runs technical checks and ALL reviews on the new revision.
-   Do not report task success without PASS or invent Review/Fix Tasks.
-4. `final-qa`: depends on Producer's validated outcome; independently
-   observe playback/audio/captions and archive privately. Publication always
-   requires explicit authorization.
+1. Parse/read the current normal Graph and resolve each named Agent from the
+   actual visible project/shared catalog. Do not invent or silently substitute
+   a mandatory role. In particular, use shared `visioner` and project-specific
+   Director, Editor, Producer and Final QA roles when the catalog exposes them.
+2. Assign meaningful durable Stage Tasks to the Graph nodes and give each
+   Task its declared output under the canonical run directory. Use stable
+   `vlog-<node-id>-<submission_id>` identities for normal stages.
+3. Map Graph predecessor edges to Task `dependencies`; use `parentTaskId`
+   solely for actual semantic Task ownership. The Episode **Job** owns the
+   overall Episode objective. Visioner is a Stage, not an implicit Episode
+   wrapper. Do not create a no-op Episode Task just to force a tree shape.
+4. Read each Agent's `inputs`, `outputs` and optional `reviewers` contract
+   from its frontmatter. Feed verified upstream artifact versions/paths to
+   downstream Tasks. Preserve immutable source provenance and output hashes.
+5. Plan the overall objective but emit only currently justified Tasks.
+   Later Plan rounds may add stages, independent exceptional work, or
+   revisions without rewriting completed Task history or requiring a fixed
+   Task count. Relay `plan apply` remains authoritative for generic
+   Task/DAG/lifecycle constraints.
 
-The first **executable Visioner Task** is the one top-level Episode Task
-(stable ID `vlog-episode-<submission_id>`); it owns the episode subtree.
-Its output is Visioner evidence. All other stage Tasks must have
-`parentTaskId` set to this exact root, including independently executable
-reviews. Do not invent an empty wrapper/placeholder Task. The root Task
-may finish its own Visioner output while descendants continue toward the
-Episode Job objective. Every Task outputs a concrete file under the
-canonical `run_directory`; never run media work in a temporary worktree.
+### Mandatory domain handoffs
 
-For stage IDs use `vlog-<stage>-<submission_id>` except the root ID.
-Each stage has one accountable role; choose an agent ONLY from the actual
-visible-agent catalog. If a named capability (such as Video Director or
-final QA) exists as a shared skill but not as a visible agent, assign an
-appropriate discovered executor with explicit role, skill and review
-requirements in its input. Never invent a fake agent name or silently
-omit a mandatory review. Leave provider/model/adapter to routing.
+- Visioner reuses existing Markcut `input/media/metadata.json` and only
+  infers missing understanding. Output: `vision-evidence.json`.
+- Director uses Visioner evidence, approved footage and optional SHA-verified
+  Personal Tour references. It owns shot selection, Hook, story/payoff,
+  contextual research and Shotcraft recipe intent. Outputs:
+  `story.md`, `shot-selection.json`, `visual-brief.md`, `post.md`.
+- Editor consumes Director's accepted decisions, refines exact in/out,
+  rhythm, captions and treatment. Output: `edit-decision-list.json`.
+- Producer consumes Director + Editor outputs, writes canonical `video.md`,
+  sources approved audio, builds/render-checks the preview, then calls
+  `agents-relay review run --prompt-file <run>/reviews/review-request.md --agents video-director,market --project-path <vlog-root> --output <run>/reviews/review.json`.
+  The generic Outcome Reviewer is implicit. Repair and re-review until
+  current preview PASS; specialist review is not a separate Stage Task.
+- Final QA independently observes playback, sound, captions, source-truth,
+  privacy and private archive receipt. Publication requires separate
+  owner authorization.
 
-The Producer owns Markcut CLI verification and the generic `neo review`
-Action within the same Producer Task. Specialist review agents are Action
-arguments, not Episode Tasks. The Producer must self-heal before success.
+For JSON outputs with a declared schema, the owning Agent explicitly calls
+`agents-relay artifact validate --artifact PATH --schema PATH`. The
+read-only Action does not automatically block Task completion; the Agent
+must repair failures before reporting accepted output. Other media/rights/QA
+checks remain domain-specific.
 
-The Visioner-owned optional Human Review is part of the Visioner Task:
-request source-linked human feedback only when needed/owner-requested;
-never create a fake human Agent node or claim approval. The current
-production system does not yet expose the full autonomous
-`human.request -> suspend -> resume` contract; report that limitation
-honestly. Final publication authorization remains separate from content quality review.
+### Revisions and reviews
 
-Plan the entire DAG in the assessment, but emit only the next executable
-batch when evidence or review versions are not yet known. A subsequent
-Plan round appends the missing stage descendants; never recreate existing
-ones, rewrite terminal history, or falsely mark the objective satisfied.
-Use `dependencies` for ordering and `parentTaskId` for ownership.
-Before `plan apply`, run the Vlog-only plan validator:
-`node scripts/validate-episode-plan.mjs --file <candidate.json> --submission-id <submission_id> --run-dir <run_directory> [--existing-file <existing-tasks.json>]`.
-The optional existing-tasks file is an array of durable Task records/IDs from the provided Planner context. Run it on your candidate JSON; correct
-reported errors (at most three attempts), then invoke canonical
-`agents-relay plan apply`. The Vlog validator is an additional gate,
-not a replacement for Relay's authoritative validation.
+Producer-local Review/Fix stays within Producer. A final Job reviewer is a
+**parentless Relay Task**, bound to the immutable current Job result. If it
+returns `CHANGE_REQUIRED`, analyze the findings against Graph dependencies
+and actual artifact I/O versions. Create only impacted revision Tasks, reuse
+the original Stage Agent, attach each to the original owning Task when
+appropriate, and chain actual revised handoffs. Never require revisions to
+match the original stage-only DAG or let an arbitrary revision worker rewrite
+all outputs. Re-review the current complete result after fixes.
+
+Optional Visioner source Human Review needs owner input only for genuine
+missing critical evidence. Do not fake human approval or launch a synthetic
+human-agent Task. Archive privately by default. Follow Relay's independent
+completion, failure, recovery and Final Review authority.

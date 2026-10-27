@@ -4,13 +4,13 @@ import { readFileSync } from 'node:fs';
 
 const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
 
-test('Editor owns optional route, event and hotspot research without inventing visits', () => {
-  const editor = read('../agents/vlog-editor.agent.md');
+test('Director owns optional route, event and hotspot research without inventing visits', () => {
+  const editor = read('../agents/vlog-director.agent.md');
   const graph = read('../AGENTS.md');
-  for (const term of ['location-enrichment.json', 'verified recorded visit', 'external context only', 'NOT_APPLICABLE', 'inferred, not recorded tracks', 'opening 0–3 second shot']) {
+  for (const term of ['local events', 'hotspots', 'privacy', 'shot-selection.json', '0–3 second']) {
     assert.ok(editor.includes(term), `missing Editor requirement: ${term}`);
   }
-  assert.match(editor, /without explicit approval/);
+  assert.match(editor, /without disclosure approval/);
   assert.match(graph, /Research is optional and does not add Graph nodes/);
 });
 

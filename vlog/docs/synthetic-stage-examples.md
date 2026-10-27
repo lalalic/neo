@@ -2,7 +2,7 @@
 
 Everything in this page is a fabricated teaching fixture. Media, GPS, timestamps, owner consent, music rights, reviews, QA and authorization events are **SYNTHETIC**. The materialized artifacts stay under ignored `runs/2026-10-21-workflow-design/`; tracked excerpts below are copied from the same deterministic generator output. Parser validation is structural only and is never playback, render, audio, or hosted-player E2E.
 
-The owner is `vlog-editor`, composing shared phone-media/EXIF and location research capabilities. The emitted graph remains `vlog-editor -> vlog-producer`; route/location work is research ownership inside that stage, not additional scheduler nodes.
+These examples are historical synthetic fixtures from the former `vlog-editor -> vlog-producer` flow. The current canonical Episode Graph adds Visioner and separates Director (shot selection, optional route/location research and story) from Editor (precise cuts), then Producer and Final QA. Do not use the fixture graph to plan a new episode.
 
 | Boundary | No GPS — 阳台上的突然小雨 | Partial GPS — 市场里找回笔记本 | GPS enhanced — 天台风筝被风抢走 |
 | --- | --- | --- | --- |

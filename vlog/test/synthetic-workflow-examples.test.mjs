@@ -12,7 +12,10 @@ import {
   reviewCurrent,
   sha256,
 } from '../scripts/synthetic-workflow-examples.mjs';
-import { EPISODE_STAGES, episodeTaskId } from '../scripts/validate-episode-plan.mjs';
+import { readFileSync } from 'node:fs';
+const graph = readFileSync(new URL('../graph.mmd', import.meta.url), 'utf8');
+const EPISODE_STAGES = [...new Set([...graph.matchAll(/([\w-]+)\[agent:([\w-]+)\]/g)].map(([, stage]) => stage.replaceAll('_', '-')))];
+const episodeTaskId = (stage, submissionId) => `vlog-${stage}-${submissionId}`;
 import { optionalRouteScene } from '../lib/gps-route.mjs';
 
 const MODES = ['no-gps', 'partial-gps', 'gps-enhanced'];
@@ -295,10 +298,10 @@ test('publication requires exact scope, rights, current review, observable QA, a
 });
 
 test('canonical Vlog stages map to distinct ordered Task IDs', () => {
-  assert.deepEqual(EPISODE_STAGES, ['visioner', 'editor', 'producer', 'final-qa']);
-  assert.equal(episodeTaskId('visioner', 's1'), 'vlog-episode-s1');
+  assert.deepEqual(EPISODE_STAGES, ['visioner', 'director', 'editor', 'producer', 'final-qa']);
+  assert.equal(episodeTaskId('visioner', 's1'), 'vlog-visioner-s1');
   assert.equal(episodeTaskId('final-qa', 's1'), 'vlog-final-qa-s1');
-  const edges = [['visioner', 'editor'], ['editor', 'producer'], ['producer', 'final-qa']];
+  const edges = [['visioner', 'director'], ['director', 'editor'], ['editor', 'producer'], ['producer', 'final-qa']];
   assert.equal(isDAG(edges), true);
   assert.equal(isDAG([...edges, ['final-qa', 'visioner']]), false);
 });

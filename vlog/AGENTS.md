@@ -4,41 +4,35 @@ Vlog is a thin Neo content project. Root `AGENTS.md` and `MISSION.md` apply firs
 
 All Vlog episodes obey [the stage acceptance contract](docs/episode-stage-contract.md). Do not create an episode Task for a manifest with `INPUT_NEEDED`; source-use approval is mandatory. Archive accepted output by default, publishing only after explicit human authorization. Review corrections are Relay lifecycle work rather than agentGraph cycles.
 
-## Canonical Episode Graph — primary project asset
+## Canonical Episode Graph
 
-The Episode Graph describes only durable Agent outcomes, not review,
-validation or self-repair work:
+The **only** normal-stage DAG is [graph.mmd](graph.mmd), in the syntax parsed
+by Relay's Agent Graph Parser. Watcher/ingress is outside this Graph.
+The Graph describes normal Stage Agent order. It does not describe Final
+Review, Revision, Troubleshoot, Human Approval or publication lifecycle.
 
-```text
-iCloud Watcher (outside episode graph)
-  -> Visioner (validated source understanding)
-  -> Vlog Editor (validated story and visual brief)
-  -> Vlog Producer (validated video and specialist self-review)
-  -> Final render and technical QA (private archive)
-```
+Each Stage owns its `execute -> validate/review -> repair -> accepted output`
+loop. Producer calls `agents-relay review run` with optional specialist
+`video-director,market` Agents and implicit generic Outcome Reviewer.
+No specialist review creates a normal Stage Task.
 
-Each Agent owns its `execute -> validate/review -> repair -> valid outcome`
-loop inside the same Worker. The Producer calls `agents-relay review run`
-with a review Prompt and professional `video-director,market` agents; the
-generic Outcome Reviewer is implicit. All must PASS on the current preview
-before Producer can report success. Markcut technical checks remain part of
-the producing Agent's work. Neither Review nor Fix is a separate Episode Task.
+The Episode **Job** is the durable outcome container. Stage Task
+`dependencies` follow Graph edges, while `parentTaskId` expresses
+semantic Task ownership independently. Never call Visioner the Episode Root,
+invent an empty wrapper Task, or force the entire Task Tree to match the Graph.
+The Planner can create partial/incremental Tasks and later cross-stage revisions.
+Final Review is a separate parentless Relay Task and reviews a Job's immutable
+current result. Relay owns completion and recovery.
 
-The first Visioner Task is the one root Episode Task. Editor, Producer and
-Final QA are dependent descendants. Planner enforces this tree with
-`scripts/validate-episode-plan.mjs`. Watcher owns media ingestion and
-integrity; Visioner reuses existing Markcut `input/media/metadata.json`
-perception before requesting only missing observations.
-
-Optional source Human Review stays within Visioner; no HIL Action is added in
-this prototype. Source-use approval and public publishing authorization remain
-separate from technical/content PASS. Do not publish without owner permission.
+Optional source Human Review remains within Visioner when needed; it does
+not imply human approval. Source-use permission and publication authorization
+remain independent, mandatory gates.
 
 ## Ownership
 
 ```text
 Vlog-specific judgment
-  -> vlog-editor / vlog-producer / this contract
+  -> vlog-director / vlog-editor / vlog-producer / this contract
 
 Agents Relay lifecycle
   -> Job / Task / graph / retry / routing / events / reconcile
@@ -49,9 +43,23 @@ Reusable capability
 
 Do not build Vlog-local copies of phone-media access, vision, Video Director, Execution Director, image/video generation, audio/TTS, Markcut, Market Agent, post adapters, model router, worker router, or troubleshooting.
 
-## Editor-owned story enrichment
+## Private Personal Tour index
 
-Editor chooses whether GPS route, timely local events, and popular nearby locations help the *recorded* episode. Research is optional and does not add Graph nodes. Record the decision and source provenance in the run; externally researched attractions/events may be labeled context but are not proof of a visit. Reject unverified dates, invented stops, and unapproved sensitive locations. Choose a source-grounded first-three-second hook, deliver its promised payoff, and retain real creator speech, imperfections and personality without inventing inner thoughts. Market review validates audience retention, authenticity, contextual accuracy, privacy and justified omission.
+`runs/personal-library/tour-director.json` is the canonical editable Tour
+manifest **and** Director's private recording index. Stable `shots[].id`
+identifies a prompt; `shots[].library.recordings` is append-only for archived
+takes; `active_recording_id` selects the current version without destroying
+older media. Keep original MOV in the private dated `runs/personal-library/`
+run directory and verify bytes/SHA-256 before making a take selectable.
+The initial tracked `templates/personal-voice-tour-v1.json` is only a seed,
+not an authoritative library. Director uses archived source evidence, not
+prompt text, as selectable footage; public insertion needs separate owner
+approval and historical-context disclosure. Voice cloning remains denied
+unless separately authorized.
+
+## Director-owned story enrichment
+
+Director chooses whether GPS route, timely local events, and popular nearby locations help the *recorded* episode. Research is optional and does not add Graph nodes. Record the decision and source provenance in the run; externally researched attractions/events may be labeled context but are not proof of a visit. Reject unverified dates, invented stops, and unapproved sensitive locations. Choose a source-grounded first-three-second hook, deliver its promised payoff, and retain real creator speech, imperfections and personality without inventing inner thoughts. Market review validates audience retention, authenticity, contextual accuracy, privacy and justified omission.
 
 ## Optional location branch
 
@@ -63,7 +71,7 @@ Use only authoritative real media/evidence from the requested source window. Pho
 
 PRs or system logs may support context when the episode is about technical work, but Vlog remains story-first rather than artifact-list-first.
 
-The editor must produce one coherent arc:
+The Director must produce one coherent arc:
 
 ```text
 real media
@@ -72,14 +80,14 @@ source-manifest.json
    ↓
 HOOK -> MOMENT/TENSION -> DEVELOPMENT -> PAYOFF
    ↓
-visual-brief.md
+shot-selection.json + visual-brief.md
 ```
 
 Do not widen dates, fabricate activities, or imply that media shows something it does not show.
 
 ## Visual-direction contract
 
-`visual-brief.md` is the primary creative asset consumed by Producer and Video Director.
+`shot-selection.json` and `visual-brief.md` are Director-owned creative assets consumed by Editor and Producer. Editor records exact cut choices in `edit-decision-list.json`.
 
 For each beat specify:
 
@@ -119,6 +127,8 @@ Final QA observes the actual render, not only CLI success.
 runs/<YYYY-MM-DD[-slug]>/
 ├── source-manifest.json
 ├── story.md
+├── shot-selection.json
+├── edit-decision-list.json
 ├── post.md
 ├── visual-brief.md
 ├── video.md
@@ -141,6 +151,7 @@ All per-run artifacts belong in the run root. `runs/` is ignored by Git.
 Publication target/authorization comes from the active Job/Task. Use shared `post-agent`, verify platform-side state, and persist the receipt/status. A successful click or adapter exit code is not publication proof.
 
 ## Project learnings
+- 2026-10-27: Visioner discovers evidence; Director selects shots and owns story and creative intent; Editor owns exact cuts and edit-decision-list; Producer implements Markcut and owns reviews. Keep these boundaries explicit in graph.mmd and Agent output contracts.
 - 2026-10-26: Watcher owns media integrity; Planner and Visioner work from the manifest and existing Markcut Vision metadata. Reuse cached perception before invoking missing media analysis.
 - 2026-10-26: Before applying an episode Plan, reconcile the supplied Job ID against Relay's durable local Job list; inherited planner context can reference a Job that is not present, and another episode Job must never be substituted.
 - 2026-10-26: Persistent watcher lifecycle is exposed by `./neo-project`; PM2 runs the packaged watcher, and `health` checks real iCloud Inbox access.
