@@ -74,6 +74,7 @@ async function discordSetupStatus(){
   let parent=null;
   try{ parent=await client.channels.fetch(config.discord.parentChannelId); }catch{}
   const guild=parent?.guild||null;
+  if(guild) await guild.channels.fetch();
   const children=config.children.map(child=>{
     const channel=guild?.channels?.cache?.find(candidate=>candidate.type===ChannelType.GuildText&&candidate.name===child.id)||null;
     return {id:child.id,name:child.name,channelReady:Boolean(channel)};
@@ -300,7 +301,9 @@ function startBootstrapControl(){
     const url=new URL(req.url||'/',`http://${req.headers.host||'127.0.0.1'}`);
     const send=(status,body)=>{const text=JSON.stringify(body);res.writeHead(status,{'content-type':'application/json; charset=utf-8','content-length':Buffer.byteLength(text),'cache-control':'no-store'});res.end(text);};
     if(req.method==='GET'&&url.pathname==='/health'){
-      const discordReady=client.isReady()&&Boolean(familyGuildId);
+      let discordReady=false;
+      try{ discordReady=client.isReady()&&Boolean(familyGuildId)&&(await discordSetupStatus()).discordReady; }
+      catch(error){ console.error('[family-tutor] Discord channel health failed',error); }
       let tutorReady=false;
       try{
         const status=await tutorClient?.status();
