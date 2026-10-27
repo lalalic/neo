@@ -19,6 +19,7 @@ Create thin Neo projects. The project owns domain intent, Graph, Agent and Artif
 ├── config/                  # reusable non-secret configuration, optional
 ├── templates/               # reusable project templates, optional
 ├── neo-project              # optional executable lifecycle entrypoint
+├── setup/bootstrap.md       # optional interactive setup agent instructions
 └── runs/                    # ignored, private durable execution artifacts
 ```
 
@@ -126,6 +127,8 @@ Installable/persistent projects expose exactly one optional executable `<project
 - Commands must be idempotent. `setup` prepares dependencies/config without starting work. `start` starts only owned services. `stop` drains/stops. `restart` verifies the replacement.
 - `status` emits machine-readable JSON. `health` checks actual dependencies and exits nonzero when unhealthy.
 - `uninstall` removes services, never user media, credentials or `runs/`.
+- A project or feature may provide a non-empty `setup/bootstrap.md` for interactive installation. Neo.app exposes **Setup with Agent** only when that file exists. The button opens a new user Chrome tab at ChatGPT with a short prefilled prompt that names the **absolute bootstrap path** and asks @neo to read it. ChatGPT on its own cannot access the Mac filesystem: the setup agent must use @neo. The user owns the conversation; no Relay Job or Browser Workspace setup session is created.
+- The bootstrap coordinates account creation, permissions, ChatGPT Projects/threads, service setup and real first-use verification, with consent gates. It is idempotent, does not contain secrets, and checks existing state before making changes. `./neo-project setup` remains the safe scripted dependency/config preparation step; do not overload it with browser/account setup.
 - Pure Agent projects may omit this entrypoint or unsupported commands.
 - Reuse PM2/shared Neo service management; never add another scheduler, Task database, MCP server or Neo.app project backend unless a concrete missing capability requires it.
 

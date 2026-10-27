@@ -14,7 +14,7 @@ Graph is not a validator of historical Task trees.
 
 This repository is the canonical Family Tutor runtime home. Never deploy the
 standalone commercial/hosted service, Cloudflare Gateway, website or Chrome
-extension. The only lifecycle entrypoint is ./neo-project.
+extension. The only lifecycle entrypoint is ./neo-project. Interactive installation is specified by [setup/bootstrap.md](setup/bootstrap.md) and launched through Neo.app's generic Setup with Agent action; never confuse it with the tutoring-runtime `skills/family-tutor/bootstrap/latest.md`.
 
 Verify lifecycle status, real Gateway readiness, Browser Workspace, and
 authorized Discord child and parent round trips. A command exit code or

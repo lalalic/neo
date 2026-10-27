@@ -20,6 +20,10 @@ The canonical normal workflow is [graph.mmd](graph.mmd). [AGENTS.md](AGENTS.md)
 defines privacy, Task ownership and acceptance rules. Project-specific roles
 are under `agents/`. The project uses Browser Workspace for ChatGPT sessions.
 
+## Guided setup
+
+Open Neo.app → Projects → Family Tutor → **Setup with Agent**. Neo.app opens a new user Chrome tab with a ChatGPT prompt pointing @neo to the absolute [setup/bootstrap.md](setup/bootstrap.md) path. The agent resumes the existing Discord bot, child/parent channels and persistent ChatGPT Project threads, then verifies real first-Hello replies and parent status. This interactive setup is separate from the technical lifecycle script below.
+
 ## Lifecycle
 
 ```bash
