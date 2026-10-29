@@ -1,13 +1,13 @@
 ---
 name: xchat-orchestrator
-description: Orchestrate a closed-loop coding task through a GitHub pull request and a local Codex worker on the user's Mac. Use when the active XChat assistant should inspect, implement, review, revise, validate, and optionally merge repository changes.
+description: Orchestrate repository changes through managed PR/Relay jobs or explicit direct-chat hotfixes with isolated worktrees and iterative review. Use when the active XChat assistant should inspect, implement, review, revise, validate, and optionally merge repository changes.
 ---
 
 # XChat Orchestrator
 
-Use this skill when the user invokes `@orchestrator` or asks the current XChat assistant to drive a repository task through a pull request until it is merged, intentionally closed, blocked, or awaiting a user decision.
+Use this skill when the user invokes `@orchestrator`, requests a managed repository PR, or explicitly says `hotfix` for a direct-chat repository change.
 
-The active XChat assistant owns the top-level objective. Agents Relay owns managed worker launch, wait, recovery, and reconciliation. GitHub is the durable PR/job record, NeoY is the local control channel, and `events-bus` is the correlated progress stream.
+The active XChat assistant owns the top-level objective. For normal managed PR work, Agents Relay owns worker lifecycle, GitHub is the durable PR/job record, and `events-bus` carries progress. **Explicit HOTFIX uses this XChat thread and NeoY directly without a Relay Job, Task, or managed PR.**
 
 ## Neo MCP Shell rejection recovery
 
@@ -15,7 +15,7 @@ When a normal Neo MCP Shell invocation is rejected by the agent/tool safety laye
 
 ## Session project binding
 
-At session start, follow `xchat-bootstrap.md`, including its mandatory reads of the Agents Relay task/job contract and orchestrator workflows before any project binding. When Project/Space instructions provide `xchat_project`, resolve it with `neo project resolve <xchat_project>` before project-dependent work. Bind the returned project identity, `local_path`, `git_root`, and `repo` once and inherit that exact context into every managed task and executor. Read the applicable `AGENTS.md` / `README.md`; do not require a separate XChat metadata file or central JSON registry. Keep the binding sticky unless the user explicitly switches project/path/repository.
+At session start, follow `xchat-bootstrap.md`. Load Agents Relay contracts only for normal managed mode, never as a HOTFIX prerequisite. Resolve `xchat_project` or the current Project/Space identity through `neo project resolve` and bind the exact `local_path`, `git_root`, and `repo` once. Inherit that binding for managed children; do not re-resolve it. Read applicable project context files and keep binding sticky until an explicit project switch.
 
 ## Capability discovery
 
@@ -28,6 +28,8 @@ Before the orchestrator creates any initial or direct child Tasks, read the cano
 If that planner contract is unavailable, direct Task decomposition is blocked. The orchestrator may still create or bind the durable Job, but it must not invent ad-hoc Task boundaries.
 
 ## Operating invariants
+
+The following managed PR/Relay invariants apply to **normal non-HOTFIX work**. An explicit `hotfix` directive selects the direct-chat protocol below; do not reclassify a failed managed job as a hotfix to bypass Relay.
 
 - One top-level objective maps to one GitHub PR and one Agents Relay job. Do not mix unrelated objectives in one managed PR/job.
 - **PR creation is durable job creation.** For repository work represented by a GitHub PR, create/reuse the top-level PR and its trusted `agents-relay:job:v1` marker through `agents-relay job create`. Adopt an existing unmanaged PR with `agents-relay job adopt`; repair a damaged/duplicate same-job marker with `agents-relay job repair`. Do not use raw `gh pr create`, GitHub UI/API, or another path to create the orchestrator's managed work PR.
@@ -44,7 +46,21 @@ If that planner contract is unavailable, direct Task decomposition is blocked. T
 - Use the exact repository, branch, PR, job ID, and Codex thread resolved during preflight. Never guess among multiple local checkouts, jobs, or threads.
 - Never expose secrets in PR descriptions, comments, metadata, logs, or commits.
 
+## Direct-chat HOTFIX protocol
+
+An explicit `hotfix` directive (case-insensitive, not a casual mention or quoted example) selects this mode before any managed-job creation. An explicit request for a Relay-managed job takes precedence. This exception does not waive safety or repository rules.
+
+1. **Preflight:** Resolve the canonical project/repository; check `git status --porcelain=v2 -b`, intended target/base branch and SHA, remote, relevant instructions, existing worktrees and pending changes. Preserve unrelated dirty work.
+2. **Isolate:** Create a **new** `hotfix/<slug>` branch in a new temporary Git worktree under `/Users/chengli/Workspace/.worktrees/orchestrator/`, based on the verified intended target. Never implement in the main checkout or under `.worktrees/agents-relay/`.
+3. **Execute in chat:** The current XChat thread implements and reviews via NeoY tools. **Do not create, adopt, repair, or use Agents Relay Jobs/Tasks**, create a managed work PR, or use a Relay/background worker. Direct self-review needs no worker routing; if another reviewer is explicitly launched, apply worker/model routing first.
+4. **Iterate:** **implement → review → fix → review → fix → …** until acceptance criteria are fully satisfied. Review the actual diff against the task, contracts, architecture, security and regressions. Run focused tests and real-user/E2E checks. Fix findings and re-review the current version. After three failures with one approach, switch approach. A passing command is not sufficient evidence.
+5. **Prepare:** Stage only scoped paths, review the staged diff/file list, commit on the hotfix branch, and verify its SHA and tests. Reconcile latest target/remote before merge. No force, reset, discarded user work, unreviewed merge, or protected-branch bypass.
+6. **Merge → live → clean:** Merge the reviewed hotfix into the intended target; use the project's applicable **authorized** delivery path (push, deploy or restart when appropriate) and verify the observable live result. A documentation-only change needs no service restart; verify the merged/published document when applicable. Once commits are durable and the worktree clean, remove it with `git worktree remove` and `git worktree prune`; delete the hotfix branch only when safe.
+7. **Fail closed:** Preserve branch/worktree if merge, live delivery or verification fails. Report the blocker, SHA, tests and missing evidence. Hotfix does not authorize otherwise unauthorized destructive/external operations. Report full completion only after merge, live verification and safe cleanup.
+
 ## Closed-loop protocol
+
+The PR metadata, Relay routing, worker lifecycle, review and merge procedures below apply to **normal non-HOTFIX managed work only**. HOTFIX follows the direct-chat protocol above.
 
 ### Progress event contract
 
