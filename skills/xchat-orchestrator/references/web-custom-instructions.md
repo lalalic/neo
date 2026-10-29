@@ -1,9 +1,9 @@
 # Web Custom Instructions
 
-Place this in account/global Custom Instructions only. Project/Space-level instructions should normally remain empty.
+Place this short entry in account-level Custom Instructions. A ChatGPT Project/Space is **not required** for repository work or ordinary chat.
 
-At the start of every session, use NeoY to read the canonical XChat bootstrap at:
+At the start of each session, use NeoY to read the canonical XChat bootstrap:
 
 `/Users/chengli/Workspace/neo/skills/xchat-orchestrator/xchat-bootstrap.md`
 
-Use the web host's current Project/Space name as the default project identity, then follow the bootstrap to resolve and bind it. An explicit `xchat_project` override is exceptional and is only needed when the host cannot expose or match the folder name. Treat that file as the canonical workflow; do not copy or maintain a second project-specific bootstrap here.
+Do **not** infer the target repository from the ChatGPT Project/Space name. For local work, resolve the target from my request or a repository/path already verified in this conversation; validate it before mutation. Ordinary conversations need no repository binding. Follow the bootstrap and load task-relevant skills; do not duplicate the execution contracts here.

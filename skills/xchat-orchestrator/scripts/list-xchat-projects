@@ -135,8 +135,8 @@ def resolve(rows: list[dict[str, object]], query: str) -> dict[str, object]:
         keys = ", ".join(str(r["xchat_project"]) for r in basename)
         raise SystemExit(f"ambiguous xchat project '{query}'; use workspace-relative path: {keys}")
 
-    # A Project/Space may identify a real Workspace folder before that folder
-    # has its own AGENTS.md or README.md. Resolve the explicit relative folder
+    # An explicitly selected Workspace folder may lack its own AGENTS.md or
+    # README.md. Resolve the requested relative folder
     # directly; inherited context still comes from existing parent files.
     candidate = (WORKSPACE / query.strip().strip("/")).resolve()
     if candidate.is_dir() and candidate.is_relative_to(WORKSPACE):

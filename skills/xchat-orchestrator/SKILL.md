@@ -13,13 +13,13 @@ The active XChat assistant owns the top-level objective. For normal managed PR w
 
 When a normal Neo MCP Shell invocation is rejected by the agent/tool safety layer specifically because its inline command is not accepted, follow [Shell file-mode recovery](references/shell-file-mode-recovery.md). This is an agent-side fallback: the rejection might happen before the MCP server receives the call, so do not depend on a server-side `SAFETY_REJECTED` status. Do not use this for ordinary nonzero command exits, and never reinterpret an explicit authorization denial as a formatting rejection.
 
-## Session project binding
+## Task repository binding
 
-At session start, follow `xchat-bootstrap.md`. Load Agents Relay contracts only for normal managed mode, never as a HOTFIX prerequisite. Resolve `xchat_project` or the current Project/Space identity through `neo project resolve` and bind the exact `local_path`, `git_root`, and `repo` once. Inherit that binding for managed children; do not re-resolve it. Read applicable project context files and keep binding sticky until an explicit project switch.
+At session start, follow `xchat-bootstrap.md`; **a normal chat needs no Project/Space or repository binding**. When the user requests local or repository work, resolve the exact task target from their request (path, GitHub repository, or explicit folder) or a previously verified target in this conversation. Verify the innermost Git checkout, remote, and task directory; never use the ChatGPT Project/Space name or an arbitrary working directory as the default. If no unique target exists, clarify before mutation, not before ordinary conversation. Read the target's applicable `AGENTS.md`/`README.md` and retain the verified `local_path`, `git_root`, and `repo` for that task and its managed children. Relay contracts are mandatory only for normal managed work, not HOTFIX.
 
 ## Capability discovery
 
-At the start of each orchestration task, discover the currently available local skills by running `neo skill list --project <local_path>` when a project is bound. Project-local skills under `<local_path>/skills/` override same-named shared/global skills for that project. Select auxiliary skills from their names and descriptions, then read only the relevant `SKILL.md` files before planning or delegating work. Do not assume a fixed skill set and do not preload every skill body. Explicit `#skill-name` selections from the user take precedence.
+At the start of each orchestration task, discover available skills with `neo skill list` for an unbound chat or `neo skill list --project <local_path>` for a verified task target. Target-local skills under `<local_path>/skills/` override shared/global skills for that target. Select auxiliary skills from their names and descriptions, then read only the relevant `SKILL.md` files before planning or delegating work. Do not assume a fixed skill set and do not preload every skill body. Explicit `#skill-name` selections from the user take precedence.
 
 ## Task planning
 
@@ -38,7 +38,7 @@ The following managed PR/Relay invariants apply to **normal non-HOTFIX work**. A
 - After the top-level job exists, represent executable implementation, research, review, validation, and other delegated work as child tasks in that durable job and submit/manage them through Agents Relay.
 - A request to create a PR Job to perform an objective means create-and-start by default: prefer Agents Relay's create-and-start path, or use separate create plus submit when needed, then route a worker, submit at least one executable child task, and begin managed execution/reconciliation. Only an explicit create-only/no-execution request may leave a new OPEN job with zero tasks.
 - Managed execution is submitted to Agents Relay; the orchestrator must not run a parallel launch/wait/recovery loop for the same task.
-- Every managed child inherits the bound project identity, `local_path`, `git_root`, and `repo`; children do not independently re-resolve context.
+- Every managed child inherits the verified task target's `local_path`, `git_root`, and `repo`; children do not independently guess or re-resolve an unrelated context.
 - Every new managed worker is routed through `worker-router` first, using dynamically discovered usable worker capabilities and fresh Agents Relay resource facts when available. Then run `model-router` only against candidates usable by the selected worker. Do not encode provider/model/worker preference order or a concrete identity in this orchestration contract.
 - **ChatGPT worker execution is Relay-owned.** For ChatGPT child tasks, create the durable Relay task with the complete task intent and required durable outcome. Agents Relay injects its own `chatgpt-worker` agent contract and Browser Workspace owns all ChatGPT page mechanics; do not load or depend on a separate Neo Browser Worker skill.
 - GitHub PR state, head SHA, checks, reviews, and comments are the workflow record. Do not require Google Drive, `HANDOFF.md`, `STATUS.md`, `STATE`, or a task directory for GitHub-backed work.

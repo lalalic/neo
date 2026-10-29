@@ -2,7 +2,7 @@
 
 This is the account-level bootstrap for **XChat**: web AI orchestrators such as **ChatGPT, Grok, and Claude**. The web assistant in the current conversation is the top-level orchestrator. **NeoY** is the MCP/control plane that gives the orchestrator access to the user's Mac, local repositories, authenticated CLI state, apps, and other local capabilities.
 
-Keep this bootstrap small. Do not copy the whole local skill library or repository context into account-level Custom Instructions. Resolve project context and load skills dynamically through NeoY.
+Keep this bootstrap small. Do not copy the whole local skill library or repository context into account-level Custom Instructions. Resolve repository context only when the task needs it; discover skills dynamically through NeoY.
 
 
 ## Execution mode selection
@@ -17,58 +17,45 @@ HOTFIX bypasses only Relay/managed-PR lifecycle, not project instructions, tests
 
 ## Bootstrap workflow
 
-Run this workflow at the start of **every XChat session**, before the first project-dependent answer. A failed resolve, unreadable required context file, or unavailable mandatory skill is a blocked session: report the failure and do not perform project-dependent work.
+At the start of an XChat session, read this bootstrap and [SKILL.md](SKILL.md). Choose HOTFIX or MANAGED only when a repository task requires execution. **Ordinary chats do not need a ChatGPT Project/Space or a bound local repository.** Never block a general question because no project identity exists.
 
-1. Read `/Users/chengli/Workspace/neo/skills/xchat-orchestrator/SKILL.md` and apply its contracts before delegating or answering project-dependent questions.
-2. **Normal managed mode only:** read `/Users/chengli/Workspace/agents-relay/skills/agents-relay/contracts/task-job-contract.md` before starting a Relay Job/Task. HOTFIX does not depend on Relay contract availability.
-3. **Normal managed mode only:** read `/Users/chengli/Workspace/agents-relay/skills/agents-relay/contracts/orchestrator-workflows.md` before executing P0/self-job work. HOTFIX skips this Relay-only prerequisite.
-4. Determine the project folder identifier. Prefer an explicit `xchat_project` from Project/Space instructions; otherwise use the current Project/Space name itself. Project/Space names are expected to match a folder under `~/Workspace` (a nested project may use its workspace-relative path). Resolve it with:
+1. Read `/Users/chengli/Workspace/neo/skills/xchat-orchestrator/SKILL.md`.
+2. For **MANAGED repository work only**, read the Agents Relay task/job contract and orchestrator workflows from `/Users/chengli/Workspace/agents-relay/skills/agents-relay/contracts/` before creating/managing its Job. HOTFIX has no Relay-doc prerequisite.
+3. When the task needs local files or Git, identify the **exact repository or target directory from the current request**, an already verified target in this thread, or a concrete user-provided path/URL. Validate the physical directory, innermost Git root, remote identity, current branch, and dirty state. Do not infer a repository from a ChatGPT Project/Space name, and do not assume Neo's current working directory is the user's intended repository. If multiple targets remain possible, ask which one before any mutation.
+4. Once verified, bind the task's `local_path`, `git_root`, and `repo` for that task; pass the same values to managed children. Reuse a previously verified binding for follow-ups unless the user switches targets. Bind no repository for unrelated/general questions.
+5. Read applicable context **for the selected target**, in precedence order: `~/.agents/AGENTS.md`, existing `AGENTS.md` files from workspace parent to target, and the target `README.md` when available. Follow any mandatory files named there (for Neo, `MISSION.md`). Missing files are skipped unless explicitly required; do not recursively read unrelated projects.
+6. Discover skills with `neo skill list --project <local_path>` when a target directory is resolved, otherwise `neo skill list`. Load only task-relevant skills; an explicit `#skill-name` takes precedence.
+7. Before launching a **new worker**, follow [SKILL.md](SKILL.md#mandatory-routing-invariant) for ordered worker/model routing and truthful events. Direct self-work in HOTFIX needs no worker routing.
+8. For **MANAGED** execution, Relay owns correlated child tasks and lifecycle. For **HOTFIX**, use the direct-chat protocol in [SKILL.md](SKILL.md#direct-chat-hotfix-protocol).
 
-   `neo project resolve <project-folder>`
-
-5. Bind the resolved project identity, `local_path`, `git_root`, and `repo` to the conversation before any project-dependent work. Pass that exact bound context to every managed child; children do not independently re-resolve it. The binding stays sticky unless the user explicitly switches project/path/repository.
-6. Read every path returned in `context_files` exactly in order. The resolver builds the same instruction hierarchy used by local agents: `~/.agents/AGENTS.md`, then every existing `AGENTS.md` from `~/Workspace` down through the bound project folder, skipping missing levels, followed by the project folder's `README.md` when present. Treat mandatory session documents named by those files (for Neo, `/Users/chengli/Workspace/neo/MISSION.md`) as required reads before project work; if one is missing or unreadable, stop. Then read task-relevant docs/source on demand; do not recursively ingest the whole project.
-7. Run `neo skill list --project <local_path>` to discover non-bootstrap skills. The active layers are `~/.agents/skills/*`, `~/Workspace/neo/skills/*`, and `<local_path>/skills/*`; resolve duplicate names by project-local > Neo > global. Load only relevant `SKILL.md` files, with an explicit `#skill-name` taking precedence over ordinary selection. The loaded AGENTS.md files decide which discovered skills are mandatory; the bootstrap does not duplicate their bodies.
-8. Before launching a **new worker**, follow the ordered worker-router → model-router and event requirements in [SKILL.md](SKILL.md#mandatory-routing-invariant). Direct self-work in HOTFIX mode does not launch a worker.
-9. **MANAGED mode only:** submit child Tasks through Relay with the bound project and exact job/task IDs. Relay owns lifecycle and events; XChat does not run a competing worker loop. **HOTFIX** follows the direct-chat protocol instead.
-
-The user must not need to repeat the project name, repository, or local folder. The web host's current Project/Space identity is project context, not user task text.
+Repository discovery is **task-driven, not ChatGPT Project/Space-driven**. A user need not repeat a target already established and verified in this thread. An unavailable or ambiguous repository blocks only repository-dependent operations, not the rest of the conversation.
 
 ## Managed execution
 
 For normal managed work, one top-level objective maps to one GitHub PR and one Agents Relay job. Child implementation, research, review, validation, retry, and recovery work stays inside that job unless it is genuinely a separate objective. GitHub is the durable work record; Relay owns managed worker lifecycle; `events-bus` carries correlated progress. The direct-chat HOTFIX lifecycle above is independent of this Job/PR mapping.
 
-## Project binding
+## Repository identification
 
-There is **no central project registry file**. Project discovery is dynamic and derives truth from the filesystem and Git.
+There is no central project registry requirement. For repository work, start from the request's explicit path, repository URL/name, or the target already verified in this conversation. Inspect Git and local files to identify the correct checkout, including nested repositories. **Never assume** the current Project/Space, browser chat title, an arbitrary Neo working directory, or a folder basename defines the Git target.
 
-Name each ChatGPT/Grok/Claude Project or Space after its folder under `~/Workspace`, for example `neox`. For nested projects, use the workspace-relative path such as `neo/neo-build-log`. An explicit `xchat_project` in Project/Space instructions remains an override when the web-visible project name cannot match the folder.
+`neo project resolve <workspace-folder>` remains an **optional directory discovery utility** when the user explicitly references such a folder. It is not a session bootstrap prerequisite and does not turn a normal chat into a Project-bound session.
 
-`neo project resolve` resolves the Project/Space's workspace-relative folder under `~/Workspace`, finds the nearest enclosing Git checkout, and reads that checkout's `origin`. A project folder does not need its own `AGENTS.md` or `README.md`; missing instruction levels are skipped while existing parent instructions are inherited. Discovery output also lists folders that already expose project context files. No duplicate JSON registry is maintained.
-
-A unique folder basename such as `neo-build-log` is accepted as a convenience, but the workspace-relative path is canonical and avoids ambiguity.
-
-The automatic chain is:
+The task-driven chain is:
 
 ```text
-account Custom Instructions
-  -> read xchat-bootstrap.md and select HOTFIX / MANAGED
-  -> read SKILL.md
-  -> [MANAGED only] read Agents Relay task/job + orchestrator workflow contracts
-  -> current Project/Space name (or explicit xchat_project override)
-  -> neo project resolve
-  -> local_path + git_root + repo
-  -> applicable AGENTS.md chain + project README.md
-  -> task context and skills
-  -> user request
+account instructions → XChat bootstrap and relevant skill
+  → user request and established task target
+  → verified local path / innermost Git checkout / remote
+  → applicable AGENTS.md / README.md and task-relevant skills
+  → selected execution mode (HOTFIX or MANAGED)
 ```
 
 ## Rules
 
-- Projects are under `/Users/chengli/Workspace`.
+- Prefer verified repositories under `/Users/chengli/Workspace`; an explicit path outside it requires the same identity and safety checks. No ChatGPT Project/Space is required.
 - The only allowed workspace root for temporary Git worktrees is `/Users/chengli/Workspace/.worktrees/`. Never create or use `/Users/chengli/Workspace/.xchat-worktrees` (or any `.xchat-worktree*` variant). Agents Relay uses `.worktrees/agents-relay/`; orchestrator-owned temporary worktrees use `.worktrees/orchestrator/`.
 - Temporary worktrees are task state, not project structure. After the owning work is merged/completed, verify there is no unique or uncommitted work, remove the worktree through Git, and prune stale worktree metadata.
-- Treat `neo project resolve` as the canonical dynamic XChat project resolver.
+- `neo project resolve` is optional folder discovery, never the default way to choose an execution target.
 - `lalalic/neo/xxx` means the `xxx` folder inside the `lalalic/neo` repository checkout; it does **not** mean a repository named `lalalic/neo/xxx`.
 - Prefer local skills and NeoY when a task depends on the user's Mac, local repositories, authenticated CLI state, or local app state.
 - When XChat reaches an execution/permission boundary that appears to require the user, invoke `neo escalation` before asking the user directly. Give it the intent, blocker, relevant context, and optionally an `--on-needs-user`/`--on-needs-user-file` instruction describing how to notify the user if escalation proves the remaining action is genuinely non-delegable. Without an override, Neo supplies the default notification instruction: prefer WeChat-bro to File Helper, then fall back to iMessage to the user themself. This only defines notification after `needs_user`; it does not change the classification threshold. `neo escalation` runs the dedicated local escalation agent with elevated Codex permissions; treat `resolved` as evidence to continue, `failed` as a technical recovery result, and only `needs_user` as justification for asking or waiting on the human.

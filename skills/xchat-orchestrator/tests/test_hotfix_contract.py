@@ -6,6 +6,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 BOOTSTRAP = (ROOT / "xchat-bootstrap.md").read_text(encoding="utf-8")
 SKILL = (ROOT / "SKILL.md").read_text(encoding="utf-8")
+CUSTOM = (ROOT / "references/web-custom-instructions.md").read_text(encoding="utf-8")
 
 
 class HotfixContractTests(unittest.TestCase):
@@ -35,10 +36,29 @@ class HotfixContractTests(unittest.TestCase):
         self.assertIn("agents-relay job create", SKILL)
 
     def test_relay_documents_not_required_for_hotfix(self):
-        self.assertIn("HOTFIX does not depend on Relay contract availability", BOOTSTRAP)
-        self.assertIn("HOTFIX skips this Relay-only prerequisite", BOOTSTRAP)
-        self.assertIn("never as a HOTFIX prerequisite", SKILL)
-        self.assertIn("[MANAGED only]", BOOTSTRAP)
+        self.assertIn("HOTFIX has no Relay-doc prerequisite", BOOTSTRAP)
+        self.assertIn("Relay contracts are mandatory only for normal managed work", SKILL)
+        self.assertIn("For **MANAGED repository work only**", BOOTSTRAP)
+
+    def test_plain_chat_requires_no_project_binding(self):
+        self.assertIn("Ordinary chats do not need a ChatGPT Project/Space", BOOTSTRAP)
+        self.assertIn("a normal chat needs no Project/Space or repository binding", SKILL)
+        self.assertIn("Do not infer a repository from a ChatGPT Project/Space name", BOOTSTRAP)
+        self.assertNotIn("Prefer an explicit `xchat_project`", BOOTSTRAP)
+        self.assertNotIn("Use the web host's current Project/Space", BOOTSTRAP)
+
+    def test_target_discovery_is_explicit_and_safe(self):
+        self.assertIn("from the current request", BOOTSTRAP)
+        self.assertIn("previously verified target", SKILL)
+        self.assertIn("innermost Git root", BOOTSTRAP)
+        self.assertIn("If multiple targets remain possible", BOOTSTRAP)
+        self.assertIn("optional directory discovery utility", BOOTSTRAP)
+        self.assertIn("neo skill list", BOOTSTRAP)
+
+    def test_custom_instructions_template_matches_unbound_chat(self):
+        self.assertIn("Project/Space is **not required**", CUSTOM)
+        self.assertIn("Do **not** infer the target repository", CUSTOM)
+        self.assertNotIn("Use the web host's current Project/Space name", CUSTOM)
 
     def test_failure_preserves_unique_work(self):
         self.assertIn("Keep unique work if blocked", BOOTSTRAP)
