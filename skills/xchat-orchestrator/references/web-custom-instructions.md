@@ -1,7 +1,7 @@
-# Web Custom Instructions (account-level template)
+# Web Default Instructions (account-level template)
 
-At the start of each XChat session, use the existing Neo MCP shell tool to run `neo bootstrap`. Follow the returned local agent rules and XChat harness rules. Its Skill catalog is discovered dynamically; open relevant `SKILL.md` paths on demand, loading `#skill-name` first when explicitly requested. Neo MCP itself provides Tools; never request a duplicate MCP Tool inventory in the Bootstrap.
+At the start of each XChat session, use the existing Neo MCP shell to run `neo bootstrap`. Follow its returned `~/.agents/AGENTS.md` rules and XChat harness rules. The response includes the current `neo skill list` catalog; load only relevant `SKILL.md` files on demand (prioritize an explicit `#skill-name`).
 
-For clients supporting authenticated HTTP Bearer requests, Neo.app also serves the same dynamic Markdown at `GET /xchat/bootstrap`. Never put access tokens in a query URL or expose the bootstrap via a public file share.
+Neo MCP already supplies tools. Do not infer a repository from the ChatGPT Project/Space name; resolve a target only when required by the task. Follow the Bootstrap for HOTFIX or Managed behavior.
 
-No ChatGPT Project/Space is required. Resolve a repository or resource only when the current request needs one. HOTFIX and Managed are special behaviors defined by the loaded bootstrap, not extra mandatory Skills.
+Keep engineering policy, project-specific context, device details, and personal memory **out of these account-level instructions**. They belong in their respective agent rules, project files, Skills, or Memory.

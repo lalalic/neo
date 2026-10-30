@@ -10,7 +10,7 @@ CUSTOM = (ROOT / "references/web-custom-instructions.md").read_text(encoding="ut
 class XChatHarnessContractTests(unittest.TestCase):
     def test_bootstrap_is_small_and_not_relay_or_project_dependent(self):
         self.assertLess(len(BOOTSTRAP.splitlines()), 60)
-        self.assertIn("No ChatGPT Project/Space", CUSTOM)
+        self.assertIn("Do not infer a repository from the ChatGPT Project/Space", CUSTOM)
         self.assertIn("neo bootstrap", CUSTOM)
         self.assertIn("Legacy Default Instructions compatibility", BOOTSTRAP)
         self.assertIn("Do not invoke it again when reading the generated output", BOOTSTRAP)
@@ -33,7 +33,9 @@ class XChatHarnessContractTests(unittest.TestCase):
         self.assertIn("MCP already provides tools", BOOTSTRAP)
         self.assertIn("Load the selected `SKILL.md` only when relevant", BOOTSTRAP)
         self.assertIn("`#skill-name`", BOOTSTRAP)
-        self.assertIn("authenticated HTTP Bearer", CUSTOM)
+        self.assertIn("Neo MCP already supplies tools", CUSTOM)
+        self.assertNotIn("Bearer", CUSTOM)
+        self.assertIn("personal memory **out of these account-level instructions**", CUSTOM)
 
 
 if __name__ == "__main__":
