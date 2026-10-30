@@ -39,6 +39,19 @@ Next use `tools/call` `status`, then `tools/call` `shell` with `command=exec` an
 
 Inspect the JSON-RPC result and later verify real side effects. A text-only claim of having run commands is not proof.
 
+## Renew interactively with the current Access Token
+
+For an authorized `Z.ai interactive` client, while the current token is **still valid** and before the original **eight-hour** session deadline, the agent can invoke:
+
+```sh
+# Supply the current short-lived token within this SAME Bash invocation.
+curl --fail-with-body -sS --max-time 20 -X POST https://neoy.qili2.com/token/renew \
+  -H "Authorization: Bearer $NEO_ACCESS_TOKEN" \
+  -H 'Accept: application/json'
+```
+
+The response contains a **new** `access_token`, `expires_in`, and `session_expires_in`. The old token is immediately invalid; use the returned one for all subsequent calls. This response is sensitive. Do not publish it in chat prose or persistent logs. Refresh proactively while the token is active; this does not require or reveal a 30-day Refresh Token, a browser Cookie, or the Neo Master token. After the fixed session deadline or an expired/revoked token, the user must issue a new token. Ordinary OAuth clients retain their established refresh-token behavior; only explicitly issued interactive access can use this bounded rotation endpoint.
+
 ## Revoke when finished
 
 ```sh
