@@ -6,6 +6,7 @@ import { dirname, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { executeControl } from './neo-control.mjs';
 import { buildXChatBootstrap, renderXChatBootstrap } from './xchat-bootstrap.mjs';
+import { runNeoMcpToken } from './neo-mcp-token.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '..');
@@ -24,6 +25,8 @@ function usage() {
   neo skill list [--project PATH]|package SKILL_DIR OUTPUT.zip
   neo bootstrap [--json] [--project PATH]
   neo service list|status NAME|start|stop|restart NAME --apply
+  neo mcp token issue --output ABSOLUTE_PATH [--origin HTTPS_URL] [--client-name NAME]
+  neo mcp token revoke --file ABSOLUTE_PATH [--origin HTTPS_URL]
 
 Options:
   --handoff-file PATH            Required handoff file containing the full escalation request
@@ -133,7 +136,7 @@ export function runEscalation(request, options = {}) {
   return validateResult(parsed);
 }
 
-function main(argv) {
+async function main(argv) {
   const [command, ...args] = argv;
   if (!command || command === '--help' || command === '-h') {
     process.stdout.write(usage());
@@ -146,6 +149,15 @@ function main(argv) {
       throw new Error('usage: neo bootstrap [--json] [--project PATH]');
     const manifest = buildXChatBootstrap({ project: filtered[1] });
     process.stdout.write(json ? JSON.stringify(manifest, null, 2) + '\n' : renderXChatBootstrap(manifest));
+    return 0;
+  }
+  if (command === 'mcp') {
+    if (args[0] !== 'token') throw new Error('usage: neo mcp token issue|revoke');
+    if (args.includes('--help') || args.includes('-h')) {
+      process.stdout.write(usage());
+      return 0;
+    }
+    process.stdout.write(JSON.stringify(await runNeoMcpToken(args.slice(1)), null, 2) + '\n');
     return 0;
   }
   if (['status', 'doctor', 'project', 'workspace', 'skill', 'service'].includes(command)) return executeControl([command, ...args]);
@@ -161,7 +173,7 @@ function main(argv) {
 
 if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))) {
   try {
-    process.exitCode = main(process.argv.slice(2));
+    process.exitCode = await main(process.argv.slice(2));
   } catch (error) {
     process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
     process.exitCode = 1;

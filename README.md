@@ -10,6 +10,7 @@ This repository is the public Neo monorepo: root orchestration rules, reusable a
 - `AGENTS.md` — workspace-wide agent operating rules.
 - `skills/` — canonical editable Neo skills, including orchestration, events, model routing, social posting, and skill authoring.
 - `.bin/` — compatibility and packaging helpers; canonical XChat discovery/resolution scripts live under `skills/xchat-orchestrator/scripts/`.
+- `neo mcp token issue|revoke` — provider-neutral, one-hour OAuth PKCE credentials for interactive external MCP clients; see `docs/interactive-mcp-access.md`.
 - `skills/xchat-orchestrator/` — self-contained XChat bootstrap, orchestrator protocol, dynamic project discovery, and skill discovery for ChatGPT, Grok, Claude, and other web orchestrators.
 - `neo-build-log/` — public build-log production system; each actual episode lives under ignored `runs/`.
 - `neo-highlights/` — selective event-to-video project; each highlight execution lives under ignored `runs/`.
