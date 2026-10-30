@@ -12,6 +12,8 @@ class XChatHarnessContractTests(unittest.TestCase):
         self.assertLess(len(BOOTSTRAP.splitlines()), 60)
         self.assertIn("No ChatGPT Project/Space", CUSTOM)
         self.assertIn("neo bootstrap", CUSTOM)
+        self.assertIn("Legacy Default Instructions compatibility", BOOTSTRAP)
+        self.assertIn("Do not invoke it again when reading the generated output", BOOTSTRAP)
         self.assertNotIn("Read `/Users/chengli/Workspace/neo/skills/xchat-orchestrator/SKILL.md`", BOOTSTRAP)
         self.assertIn("Do not infer a repository from Project/Space", BOOTSTRAP)
 

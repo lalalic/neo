@@ -2,6 +2,8 @@
 
 These rules extend `~/.agents/AGENTS.md`. The canonical `neo bootstrap` command combines both documents with the current `neo skill list` catalog. Neo MCP already provides tools: **do not duplicate a tool catalog in Bootstrap**. Do not automatically load the legacy `xchat-orchestrator/SKILL.md`.
 
+**Legacy Default Instructions compatibility:** If an account instruction loaded this Markdown file directly (rather than the generated `neo bootstrap` output), immediately call `neo bootstrap` once through the existing Neo shell tool and follow its combined agent rules and live Skill catalog. Do not invoke it again when reading the generated output.
+
 ## Startup and skill selection
 
 - The account's Default Instructions should load `neo bootstrap` through the existing Neo shell capability, or use the authenticated Neo.app HTTP `GET /xchat/bootstrap` endpoint when supported. Do not add a dedicated MCP Bootstrap tool.
