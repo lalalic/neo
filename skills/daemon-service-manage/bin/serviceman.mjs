@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { realpathSync } from 'node:fs';
 
 const part = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
 export function serviceId(skill, service) {
@@ -52,7 +53,7 @@ export function main(argv, spawn = spawnSync, write = console.log) {
   if (result.error) throw result.error;
   return result.status ?? 1;
 }
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+if (process.argv[1] && fileURLToPath(import.meta.url) === realpathSync(process.argv[1])) {
   try { process.exitCode = main(process.argv.slice(2)); }
   catch (error) { console.error(error.message); process.exitCode = 2; }
 }

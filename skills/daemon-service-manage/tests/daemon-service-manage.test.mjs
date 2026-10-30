@@ -1,6 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {serviceId,parse,pm2Arguments,main} from '../bin/serviceman.mjs';
+import {spawnSync} from 'node:child_process';
+import {mkdtempSync,symlinkSync,rmSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join,resolve} from 'node:path';
+
 test('namespaced service ID enforced', () => {
   assert.equal(serviceId('events-bus','history'),'events-bus/history');
   for (const [skill,service] of [['events-bus','../bad'],['Bad','history'],['webhelm','x/y'],['','service']]) assert.throws(()=>serviceId(skill,service));
@@ -22,4 +27,19 @@ test('define is idempotent when registered and does not restart running process'
   const calls=[];const spawn=(cmd,args)=>{calls.push(args);return {status:0,stdout:JSON.stringify([{name:'events-bus/history',pm2_env:{status:'online'}}])}};
   let message=''; assert.equal(main(['define','--skill','events-bus','--service','history','--apply','--','node','server.mjs'],spawn,x=>message=x),0);
   assert.equal(calls.length,1); assert.match(message,/"changed":false/);
+});
+
+test('symlinked serviceman actually executes its main entrypoint',()=>{
+  const dir=mkdtempSync(join(tmpdir(),'neo-serviceman-test-'));
+  const link=join(dir,'serviceman');
+  try {
+    symlinkSync(resolve('skills/daemon-service-manage/bin/serviceman.mjs'),link);
+    const direct=spawnSync(process.execPath,[resolve('skills/daemon-service-manage/bin/serviceman.mjs'),'invalid'],{encoding:'utf8'});
+    const linked=spawnSync(link,['invalid'],{encoding:'utf8'});
+    assert.equal(direct.status,2);
+    assert.equal(linked.status,2);
+    assert.match(linked.stderr,/usage: serviceman/);
+  } finally {
+    rmSync(dir,{recursive:true,force:true});
+  }
 });

@@ -123,6 +123,8 @@ Publishing is handled through shared `agents/post-agent.md` when the user explic
 
 ## Project learnings
 
+- 2026-10-29: Executable Node ESM CLIs installed as symlinks must compare the real path of argv[1] with import.meta.url. A global CLI symlink may otherwise exit successfully without executing its service-management action; integration tests must invoke the symlink itself.
+
 - 2026-09-26: Chrome Web Store new-item uploads reject extension manifests containing a `key`; preserve the authoritative source package, derive a store-compatible upload artifact without that field, and verify the assigned item/version only after reopening the publisher dashboard.
 - 2026-09-25: Chrome Web Store browser mechanics belong under the `browser-platforms` skill's `platforms/chrome-web-store`; keep the runner dry-run by default and require explicit authorization before upload, listing mutation, or review submission.
 - 2026-09-26: Chrome Web Store editor controls expose labels through `aria-labelledby`/`label[for]` and save drafts as `Save draft`; shared flows must resolve accessible labels and verify the publisher-scoped item URL before mutating a listing.
