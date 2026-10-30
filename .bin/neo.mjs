@@ -25,7 +25,7 @@ function usage() {
   neo skill list [--project PATH]|package SKILL_DIR OUTPUT.zip
   neo bootstrap [--json] [--project PATH]
   neo service list|status NAME|start|stop|restart NAME --apply
-  neo mcp token issue --output ABSOLUTE_PATH [--origin HTTPS_URL] [--client-name NAME]
+  neo mcp token issue (--stdout | --output ABSOLUTE_PATH) [--origin HTTPS_URL] [--client-name NAME]
   neo mcp token revoke --file ABSOLUTE_PATH [--origin HTTPS_URL]
 
 Options:
@@ -157,7 +157,9 @@ async function main(argv) {
       process.stdout.write(usage());
       return 0;
     }
-    process.stdout.write(JSON.stringify(await runNeoMcpToken(args.slice(1)), null, 2) + '\n');
+    const outcome = await runNeoMcpToken(args.slice(1));
+    // Only the explicit --stdout mode prints the temporary credential.
+    process.stdout.write('access_token' in outcome ? outcome.access_token + '\n' : JSON.stringify(outcome, null, 2) + '\n');
     return 0;
   }
   if (['status', 'doctor', 'project', 'workspace', 'skill', 'service'].includes(command)) return executeControl([command, ...args]);

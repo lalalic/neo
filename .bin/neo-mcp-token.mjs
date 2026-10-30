@@ -84,22 +84,35 @@ export async function issueNeoMcpToken({
 
 export function parseNeoMcpTokenArgs(args) {
   const [verb, ...options] = args;
-  if (verb !== 'issue' && verb !== 'revoke') throw Error('usage: neo mcp token issue --output ABSOLUTE_PATH [--origin HTTPS_URL] [--client-name NAME]\n       neo mcp token revoke --file ABSOLUTE_PATH [--origin HTTPS_URL]');
+  if (verb !== 'issue' && verb !== 'revoke') throw Error('usage: neo mcp token issue (--stdout | --output ABSOLUTE_PATH) [--origin HTTPS_URL] [--client-name NAME]\n       neo mcp token revoke --file ABSOLUTE_PATH [--origin HTTPS_URL]');
   const values = {};
-  for (let i = 0; i < options.length; i += 2) {
+  for (let i = 0; i < options.length;) {
     const option = options[i];
+    if (option === '--stdout') {
+      if (values[option] !== undefined) throw Error('Repeated Neo MCP token option: ' + option);
+      values[option] = true;
+      i += 1;
+      continue;
+    }
     if (!['--output', '--file', '--origin', '--client-name'].includes(option) || values[option] !== undefined) {
       throw Error('Invalid or repeated Neo MCP token option: ' + option);
     }
     if (!options[i + 1] || options[i + 1].startsWith('--')) throw Error(option + ' needs a value');
     values[option] = options[i + 1];
+    i += 2;
   }
+  const stdout = values['--stdout'] === true;
   const filepath = verb === 'issue' ? values['--output'] : values['--file'];
-  if (!filepath || !isAbsolute(filepath)) throw Error('Neo MCP token requires an absolute ' + (verb === 'issue' ? '--output' : '--file') + ' file path');
-  if (verb === 'issue' && values['--file'] !== undefined || verb === 'revoke' && (values['--output'] !== undefined || values['--client-name'] !== undefined)) {
+  if ((verb === 'issue' && values['--file'] !== undefined) ||
+      (verb === 'revoke' && (stdout || values['--output'] !== undefined || values['--client-name'] !== undefined))) {
     throw Error('Unsupported option for token ' + verb);
   }
-  return { verb, filepath, origin: values['--origin'], clientName: values['--client-name'] };
+  if (verb === 'issue' && stdout === (filepath !== undefined)) {
+    throw Error('Issue requires exactly one of --stdout or --output ABSOLUTE_PATH');
+  }
+  if (filepath && !isAbsolute(filepath)) throw Error('Neo MCP token requires an absolute file path');
+  if (verb === 'revoke' && !filepath) throw Error('Revoke requires --file ABSOLUTE_PATH');
+  return { verb, filepath, stdout, origin: values['--origin'], clientName: values['--client-name'] };
 }
 
 export async function runNeoMcpToken(args, {
@@ -108,6 +121,13 @@ export async function runNeoMcpToken(args, {
 } = {}) {
   const options = parseNeoMcpTokenArgs(args);
   const origin = options.origin ?? process.env.NEO_MCP_ORIGIN ?? DEFAULT_ORIGIN;
+  if (options.verb === 'issue' && options.stdout) {
+    // The caller explicitly opts in to seeing a credential on stdout.
+    // No access-token file is created; the unused refresh token is revoked by the issuer.
+    const operatorToken = (await readOperator()).trim();
+    const result = await issueNeoMcpToken({ origin, clientName: options.clientName, operatorToken, fetcher });
+    return { access_token: result.accessToken, expires_in_seconds: result.expiresInSeconds, mcp_url: result.mcpUrl };
+  }
   if (options.verb === 'issue') {
     // A failed output path must not cause needless credential issuance.
     const { open } = await import('node:fs/promises');

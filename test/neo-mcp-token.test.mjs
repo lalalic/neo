@@ -69,12 +69,29 @@ test('tokens are stored in a private file, metadata never prints credentials, an
   }finally{await rm(dir,{recursive:true,force:true})}
 });
 
+test('explicit --stdout issues a temporary credential without creating a file', async () => {
+  const fixture = oauthFixture();
+  const result = await runNeoMcpToken(['issue', '--stdout', '--client-name', 'Z.ai interactive'], {
+    fetcher: fixture.fetcher, readOperator: async () => 'trusted-operator-test-only',
+  });
+  assert.deepEqual(result, {
+    access_token: ACCESS_TOKEN, expires_in_seconds: 3600, mcp_url: 'https://neoy.qili2.com/mcp',
+  });
+  assert.deepEqual(fixture.seen.map(x => x.path), ['/register', '/authorize', '/authorize', '/token', '/revoke']);
+  assert.equal(new URLSearchParams(fixture.seen.at(-1).body).get('token'), REFRESH_TOKEN);
+});
+
 test('strict CLI arguments reject relative, unknown and repeated options',()=>{
   assert.throws(()=>parseNeoMcpTokenArgs(['issue','--output','token.txt']), /absolute/);
   assert.throws(()=>parseNeoMcpTokenArgs(['issue','--output','/tmp/a','--output','/tmp/b']), /repeated/);
-  assert.throws(()=>parseNeoMcpTokenArgs(['issue','--file','/tmp/a']), /absolute/);
+  assert.throws(()=>parseNeoMcpTokenArgs(['issue','--file','/tmp/a']), /Unsupported/);
   assert.throws(()=>parseNeoMcpTokenArgs(['revoke','--file','/tmp/a','--client-name','oops']), /Unsupported/);
   assert.throws(()=>parseNeoMcpTokenArgs(['issue','--output','/tmp/a','--format','json']), /Invalid/);
+  assert.throws(()=>parseNeoMcpTokenArgs(['issue']), /exactly one/);
+  assert.throws(()=>parseNeoMcpTokenArgs(['issue','--stdout','--output','/tmp/a']), /exactly one/);
+  assert.throws(()=>parseNeoMcpTokenArgs(['issue','--stdout','--stdout']), /Repeated/);
+  assert.throws(()=>parseNeoMcpTokenArgs(['revoke','--file','/tmp/a','--stdout']), /Unsupported/);
+  assert.equal(parseNeoMcpTokenArgs(['issue','--stdout']).stdout, true);
 });
 
 test('failed issuance removes the empty private file without leaking an operator secret',async()=>{

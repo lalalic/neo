@@ -4,6 +4,14 @@ This is a provider-neutral capability. Z.ai, Claude, other browsers with Bash/HT
 
 ## Issue a short-lived credential
 
+For an interactive Z.ai chat, issue the access token **directly** on the trusted Neo Master terminal, without creating or finding a token file:
+
+```sh
+neo mcp token issue --stdout --client-name "Z.ai interactive"
+```
+
+`--stdout` intentionally displays the **one-hour access token** as a single line for the user to copy into a private chat. Do not run this command in a logging or shared terminal. The operator/master credential stays on Neo Master and the unused refresh token is revoked. There is no automatic renewal. The existing `--output` option remains available for unattended local scripts that require a private file.
+
 Run locally on the trusted Neo Master Mac (never inside a third-party AI's cloud sandbox):
 
 ```sh
