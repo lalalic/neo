@@ -4,13 +4,6 @@
 
 Neo is a public monorepo containing multiple top-level projects plus shared skills and infrastructure.
 
-#### Project learnings
-
-- 2026-10-29: Agent operational privileges are invoked through the ordinary
-  `neo privilege` shell CLI. Bootstrap and shell error hints must teach discovery;
-  native Neo.app setup owns signing, installation, and approval, not execution.
-  The signed helper is the only root boundary and rejects unapproved actions.
-
 ### Project discovery
 
 A Neo project is a top-level directory containing both `README.md` and `AGENTS.md`. Root `AGENTS.md` applies first. Then read the selected project's `AGENTS.md`. If that project has an `agents/` directory, load only the role files relevant to the current task.

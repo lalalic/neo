@@ -19,12 +19,6 @@ class XChatHarnessContractTests(unittest.TestCase):
         self.assertNotIn("Read `/Users/chengli/Workspace/neo/skills/xchat-orchestrator/SKILL.md`", BOOTSTRAP)
         self.assertIn("Do not infer a repository from Project/Space", BOOTSTRAP)
 
-    def test_privilege_discovery_is_a_shell_command(self):
-        self.assertIn("neo privilege list", BOOTSTRAP)
-        self.assertIn("neo privilege status", BOOTSTRAP)
-        self.assertIn("neo privilege run <approved-action>", BOOTSTRAP)
-        self.assertIn("request owner approval", BOOTSTRAP)
-
     def test_hotfix_is_execution_behavior_not_a_skill_or_relay_job(self):
         self.assertIn("**hotfix**", BOOTSTRAP)
         self.assertIn("no Relay Job/Task or managed PR", BOOTSTRAP)

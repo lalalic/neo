@@ -5,7 +5,6 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { executeControl } from './neo-control.mjs';
-import { executePrivilege } from './neo-privilege.mjs';
 import { buildXChatBootstrap, renderXChatBootstrap } from './xchat-bootstrap.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -19,7 +18,6 @@ const DEFAULT_NEOY_MCP_URL = process.env.NEOY_MCP_URL ?? 'http://127.0.0.1:6767/
 function usage() {
   return `Usage:
   neo escalation --handoff-file PATH [options]
-  neo privilege list|status|run APPROVED_ACTION
   neo status|doctor
   neo project list|resolve NAME
   neo workspace show
@@ -150,7 +148,6 @@ function main(argv) {
     process.stdout.write(json ? JSON.stringify(manifest, null, 2) + '\n' : renderXChatBootstrap(manifest));
     return 0;
   }
-  if (command === 'privilege') return executePrivilege(args);
   if (['status', 'doctor', 'project', 'workspace', 'skill', 'service'].includes(command)) return executeControl([command, ...args]);
   if (command !== 'escalation') throw new Error(`unknown neo command: ${command}`);
   if (args.includes('--help') || args.includes('-h')) {
