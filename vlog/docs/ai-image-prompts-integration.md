@@ -1,0 +1,10 @@
+# AI image prompt references in Vlog stages
+
+The installed global Skill `ai-image-prompts-skill` is a **visual reference and prompt-retrieval aid**, not a source of real episode evidence and not a new Graph stage. Resolve its installed `SKILL.md` from `neo bootstrap` and follow that Skill's current workflow.
+
+- **Director:** When an episode needs a cover, illustrative graphic, title treatment, visual continuity reference or storyboard inspiration, search relevant categories (comic/storyboard, social media, YouTube thumbnails, poster). Select at most three original library templates with their mandatory sample images and cite their template IDs/URLs in `visual-brief.md`. Decide which one is useful based on the approved story and actual footage; no invented action, person, location or emotion. Without a visual need, mark NOT_APPLICABLE rather than adding AI art.
+- **Editor:** Treat selected references as *style/motion/composition guidance* for real shots. Record exact source footage, cut, crop and transition; avoid literal reconstruction of invented frames. Do not independently swap Director's chosen story or image source.
+- **Producer:** After a chosen reference is approved, remix its prompt for an explicitly **generated explanatory/branding** asset using the original template's style, and invoke an existing shared image/video generation skill. Preserve `sourceMedia` preview, prompt ID, model/output, generated-asset provenance and approval in the private run. Use Markcut to assemble. A prompt reference alone is not produced footage.
+- **Review:** Mark generated visuals as illustrative. Do not present AI-created maps, faces, landscapes or locations as footage from the trip. Route maps come from verified GPS and disclosure review. Keep BGM and real ambience independent from image generation.
+
+Operational limit: first check the Skill library freshness as instructed by that Skill, and use the sample image for **each** suggested template. Do not copy full category JSON files into agent context. Respect source-image permissions and rights checks.

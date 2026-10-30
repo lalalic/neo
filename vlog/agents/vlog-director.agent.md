@@ -61,6 +61,10 @@ This is guidance on an early draft, not Producer's final approval gate.
    treatment. Specify recipe identifier, purpose and real source constraints;
    do not ask Shotcraft to generate a standalone final MP4.
 
+## AI visual-reference discovery
+
+When cover/intro/illustrative graphics or storyboard style would materially improve this specific episode, load the discovered `ai-image-prompts-skill` and follow [AI image prompt integration](../docs/ai-image-prompts-integration.md). Choose source-grounded references with sample images and template IDs; record selected style in `visual-brief.md`. Do not use generated scenes as evidence. No visual need means NOT_APPLICABLE.
+
 ## Durable handoff
 
 Write `story.md`, `post.md`, `visual-brief.md` and
