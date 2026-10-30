@@ -65,6 +65,16 @@ rerun Markcut checks, and review the new version. `BLOCKED` or review
 execution errors are not success. Never reuse a PASS for a changed artifact.
 Persist evidence and return success only after all required checks PASS.
 
+## Producer feedback routing
+
+The optional `producer` Stage review page can collect artifact-version-bound
+change requests under `reviews/stages/producer/`, using the shared
+Stage review contract. The native `neo.markcut_preview` remains the **only**
+required human approval channel for the current real `video.md`, not this
+page. Read comments in this same Worker, change `video.md`, invalidate all
+older approvals and re-preview the new Markcut content hash. Never treat
+an HTML feedback submission, AI review, or a source-stage preview as approval.
+
 ## Required human preview review (within this Worker)
 
 Before reporting the Producer outcome, request human review of the current

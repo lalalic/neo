@@ -29,6 +29,20 @@ serve as proof of a new episode event or be inserted publicly without a
 separate explicit approval. Record chosen recording ID and source hash in
 `shot-selection.json`. Never claim an unrecorded prompt was said by the owner.
 
+## Storyboard owner review
+
+When requested, present `story.md`, `visual-brief.md` and
+`shot-selection.json` through the Stage-specific **director** review adapter
+described in `../docs/episode-stage-contract.md`. The owner reviews source
+frames, the hook/development/payoff, shot evidence, and selected time ranges,
+**not** a stitched final video. Read source/shot-bound comments from
+`node scripts/stage-review.mjs status --stage director --run <canonical-run>`.
+Revise your own story/selection, record explicit feedback dispositions,
+start a new revision and request re-review. Keep owner testimony separate
+from the observed media. If an explicitly requested review has not returned,
+retain its exact `awaiting_feedback` state instead of fabricating guidance
+or approval. Stop the private loopback server when the interactive session ends.
+
 ## Selection and story
 
 When real-world context, the creator's intent, or a proposed story direction
