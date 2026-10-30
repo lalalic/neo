@@ -34,6 +34,7 @@ class XChatHarnessContractTests(unittest.TestCase):
         self.assertIn("neo skill list", BOOTSTRAP)
         self.assertIn("MCP already provides tools", BOOTSTRAP)
         self.assertIn("Load the selected `SKILL.md` only when relevant", BOOTSTRAP)
+        self.assertIn("`name`, `description`, and `absolutePath`", BOOTSTRAP)
         self.assertIn("`#skill-name`", BOOTSTRAP)
         self.assertIn("Neo MCP already provides tools", CUSTOM)
         self.assertNotIn("Bearer", CUSTOM)

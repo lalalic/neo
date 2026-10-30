@@ -30,11 +30,24 @@ test('XChat combines canonical agent rules and dynamic discovered skill metadata
   assert.equal(result.agentRules, 'Agent rules for local workers');
   assert.equal(result.bootstrap, 'XChat harness rules');
   assert.equal(result.skills.length, 2);
+  assert.equal(result.skills[0].name, 'markcut');
+  assert.equal(result.skills[0].description, 'Video review');
+  assert.equal(result.skills[0].absolutePath, '/skills/markcut/SKILL.md');
+  assert.equal(result.skills[0].path, result.skills[0].absolutePath);
   assert.equal(result.skills[1].available, false);
   const markdown = renderXChatBootstrap(result);
-  assert.match(markdown, /markcut/);
-  assert.match(markdown, /\/skills\/markcut\/SKILL.md/);
+  assert.ok(markdown.includes('## Discovered Skills'));
+  assert.ok(markdown.includes('- name: `markcut`\n  description: Video review\n  absolutePath: `/skills/markcut/SKILL.md`'));
+  assert.ok(markdown.includes('absolutePath: `/skills/missing/SKILL.md`\n  available: false'));
+  assert.equal(markdown.split('\n').filter(line => line.startsWith('  absolutePath: ')).length, result.skills.length);
   assert.doesNotMatch(markdown, /tools\/list|shell, fs, computer/);
+});
+test('discovered skill descriptions are single-line in bootstrap content', () => {
+  const result = build({ executeControl: (_args, callbacks) => {
+    callbacks.emit(JSON.stringify([{ name: 'sample', description: 'Use it for\nmultiline work', path: '/tmp/sample/SKILL.md' }]));
+    return 0;
+  } });
+  assert.ok(renderXChatBootstrap(result).includes('description: Use it for multiline work\n  absolutePath: `/tmp/sample/SKILL.md`'));
 });
 test('project-specific discovery is only used when selected', () => {
   const result = build({ project: '/workspace/foo', executeControl: (args, callbacks) => {

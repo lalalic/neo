@@ -43,6 +43,9 @@ export function buildXChatBootstrap(options = {}) {
     return {
       name: row.name,
       description: row.description,
+      // Keep the historical JSON path field for existing consumers, while
+      // exposing the explicit absolutePath name used by the harness catalog.
+      absolutePath: row.path,
       path: row.path,
       available: row.requires_resolved !== false,
       ...(row.missing_required_skills?.length ? { missing_required_skills: row.missing_required_skills } : {}),
@@ -67,13 +70,20 @@ export function renderXChatBootstrap(manifest) {
     '',
     manifest.bootstrap,
     '',
-    '## Available Skills',
+    '## Discovered Skills',
+    '',
+    'The following catalog was discovered dynamically through neo skill list.',
+    'Each entry includes name, description, and absolutePath (the SKILL.md file to load on demand).',
     '',
   ];
   for (const skill of manifest.skills) {
-    const state = skill.available ? '' : ' (unavailable: missing prerequisites)';
-    lines.push(`- **${skill.name}**${state}: ${skill.description}`);
-    lines.push(`  Skill file: \`${skill.path}\``);
+    const description = skill.description.replace(/\s+/g, ' ').trim();
+    lines.push(`- name: \`${skill.name}\``);
+    lines.push(`  description: ${description}`);
+    lines.push(`  absolutePath: \`${skill.absolutePath}\``);
+    if (!skill.available) {
+      lines.push(`  available: false (missing prerequisites: ${(skill.missing_required_skills ?? []).join(', ') || 'unknown'})`);
+    }
   }
   return lines.join('\n') + '\n';
 }

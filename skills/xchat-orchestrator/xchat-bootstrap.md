@@ -8,7 +8,7 @@ These rules extend `~/.agents/AGENTS.md`. The canonical `neo bootstrap` command 
 
 - The account's Default Instructions should load `neo bootstrap` through the existing Neo shell capability, or use the authenticated Neo.app HTTP `GET /xchat/bootstrap` endpoint when supported. Do not add a dedicated MCP Bootstrap tool.
 - Each new chat starts without a required ChatGPT Project/Space or Git binding. Answer ordinary questions directly.
-- Discover Skills from the supplied dynamic catalog. Load the selected `SKILL.md` only when relevant. `#skill-name` is an explicit instruction to load that Skill first.
+- The Bootstrap content already includes each discovered Skill's `name`, `description`, and `absolutePath` (the absolute `SKILL.md` file path). Use the supplied catalog for initial routing without another discovery call; refresh only when needed. Load the selected `SKILL.md` only when relevant. `#skill-name` is an explicit instruction to load that Skill first.
 - If a needed Skill is not installed, use the available skill discovery and trusted `npx skills` workflow to evaluate a global installation; do not install unrelated Skills or bypass installation permissions.
 - For Xiaohongshu (XHS) post details use the discovered `webhelm` Skill's XHS research action; use that browser Skill for ChatGPT plugins, Projects, and settings when user-authorized UI access is needed. For Roku playback, load `play-to-roku`. These are on-demand routes, not mandatory startup Skills.
 - For a stuck ChatGPT turn or a long-thread handoff, discover the supported Neo ChatGPT turn/thread commands rather than assuming legacy `turnnew`/`threadnew` tools; carry forward full task context and verify the submission outcome.
