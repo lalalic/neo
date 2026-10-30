@@ -9,6 +9,9 @@ These rules extend `~/.agents/AGENTS.md`. The canonical `neo bootstrap` command 
 - The account's Default Instructions should load `neo bootstrap` through the existing Neo shell capability, or use the authenticated Neo.app HTTP `GET /xchat/bootstrap` endpoint when supported. Do not add a dedicated MCP Bootstrap tool.
 - Each new chat starts without a required ChatGPT Project/Space or Git binding. Answer ordinary questions directly.
 - Discover Skills from the supplied dynamic catalog. Load the selected `SKILL.md` only when relevant. `#skill-name` is an explicit instruction to load that Skill first.
+- If a needed Skill is not installed, use the available skill discovery and trusted `npx skills` workflow to evaluate a global installation; do not install unrelated Skills or bypass installation permissions.
+- For Xiaohongshu (XHS) post details use the discovered `webhelm` Skill's XHS research action; use that browser Skill for ChatGPT plugins, Projects, and settings when user-authorized UI access is needed. For Roku playback, load `play-to-roku`. These are on-demand routes, not mandatory startup Skills.
+- For a stuck ChatGPT turn or a long-thread handoff, discover the supported Neo ChatGPT turn/thread commands rather than assuming legacy `turnnew`/`threadnew` tools; carry forward full task context and verify the submission outcome.
 - For local files or Git, resolve the specific task target from the request, or reuse a previously verified target in this chat. Verify its real path, innermost Git root, remote and dirty state; read applicable `AGENTS.md` and `README.md`. Do not infer a repository from Project/Space or current working directory. When ambiguous, clarify before mutation.
 
 ## Special execution rules
@@ -18,3 +21,7 @@ These rules extend `~/.agents/AGENTS.md`. The canonical `neo bootstrap` command 
 - Otherwise execute directly in the current chat with relevant tools and Skills; no additional mode registry or job is needed.
 
 Honor repository safety constraints, scope, permissions and required reviews in all cases. Before calling another worker apply the appropriate dynamically discovered routing Skills. When blocked on authorization, use Neo escalation before asking the user.
+
+Neo.app is a native app, **not** a PM2-managed service. Do not restart the Neo MCP app for routine troubleshooting. When a task genuinely requires deployment or restart, follow the target repository's approved native install/launchd path; use `npx pm2` only for services PM2 actually owns.
+
+Use `neo escalation` when appropriate for elevated operations within existing authorization. Escalation is not blanket approval for destructive or external actions; return `needs_user` when permission is genuinely non-delegable.

@@ -10,8 +10,10 @@ CUSTOM = (ROOT / "references/web-custom-instructions.md").read_text(encoding="ut
 class XChatHarnessContractTests(unittest.TestCase):
     def test_bootstrap_is_small_and_not_relay_or_project_dependent(self):
         self.assertLess(len(BOOTSTRAP.splitlines()), 60)
-        self.assertIn("Do not infer a repository from the ChatGPT Project/Space", CUSTOM)
+        self.assertIn("Do not duplicate tool discovery or infer a repository from ChatGPT Project/Space", CUSTOM)
         self.assertIn("neo bootstrap", CUSTOM)
+        self.assertIn("run `neo bootstrap` once", CUSTOM)
+        self.assertIn("If Neo is unavailable", CUSTOM)
         self.assertIn("Legacy Default Instructions compatibility", BOOTSTRAP)
         self.assertIn("Do not invoke it again when reading the generated output", BOOTSTRAP)
         self.assertNotIn("Read `/Users/chengli/Workspace/neo/skills/xchat-orchestrator/SKILL.md`", BOOTSTRAP)
@@ -33,9 +35,10 @@ class XChatHarnessContractTests(unittest.TestCase):
         self.assertIn("MCP already provides tools", BOOTSTRAP)
         self.assertIn("Load the selected `SKILL.md` only when relevant", BOOTSTRAP)
         self.assertIn("`#skill-name`", BOOTSTRAP)
-        self.assertIn("Neo MCP already supplies tools", CUSTOM)
+        self.assertIn("Neo MCP already provides tools", CUSTOM)
         self.assertNotIn("Bearer", CUSTOM)
-        self.assertIn("personal memory **out of these account-level instructions**", CUSTOM)
+        self.assertNotIn("ASD-STE100", CUSTOM)
+        self.assertNotIn("pm2", CUSTOM)
 
 
 if __name__ == "__main__":
