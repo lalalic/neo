@@ -43,6 +43,6 @@ Successful revocation removes the private file. Expiration after one hour is the
 
 The canonical general rules are `neo bootstrap` (including Global AGENTS.md, XChat Harness and the live Skill catalog). This guide describes generic OAuth and HTTPS MCP mechanics.
 
-A Z.ai `bootstrap.md` is only a **platform adapter**: it explains Z Full-Stack Bash/tool behavior and that each new chat needs the file as an attachment. Z.ai Cloud uploads alone are not automatically visible as files to a new Full-Stack conversation. The Z adapter must not duplicate or fork the canonical Global AGENTS.md; it should direct the model to call `neo bootstrap` on the real Neo Master.
+The public Z.ai adapter lives at `docs/z-chat/bootstrap.md`, published as `https://neoy.qili2.com/files/z-chat/bootstrap.md` through a read-only `z-chat` file mount. New Z.ai Full-Stack conversations can read it directly by URL instead of attaching a file. This URL contains no credentials. Uploading a file to Z.ai Cloud alone does not make it available in a new chat. The adapter does not duplicate the canonical Global AGENTS.md; it instructs Z to run `neo bootstrap` on the real Neo Master after authentication. On Neo Master, provision the mount through the existing `setup files mount z-chat /Users/chengli/Workspace/neo/docs/z-chat` command (public read-only), then verify an unauthenticated GET from the public HTTPS hostname.
 
 No remote worker should fabricate Relay source IDs or task lifecycle events in an interactive chat. No automatic refresh or permanent user session is implied.
