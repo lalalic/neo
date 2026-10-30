@@ -1,9 +1,7 @@
-# Web Custom Instructions
+# Web Custom Instructions (account-level template)
 
-Place this short entry in account-level Custom Instructions. A ChatGPT Project/Space is **not required** for repository work or ordinary chat.
+At the start of each XChat session, use the existing Neo MCP shell tool to run `neo bootstrap`. Follow the returned local agent rules and XChat harness rules. Its Skill catalog is discovered dynamically; open relevant `SKILL.md` paths on demand, loading `#skill-name` first when explicitly requested. Neo MCP itself provides Tools; never request a duplicate MCP Tool inventory in the Bootstrap.
 
-At the start of each session, use NeoY to read the canonical XChat bootstrap:
+For clients supporting authenticated HTTP Bearer requests, Neo.app also serves the same dynamic Markdown at `GET /xchat/bootstrap`. Never put access tokens in a query URL or expose the bootstrap via a public file share.
 
-`/Users/chengli/Workspace/neo/skills/xchat-orchestrator/xchat-bootstrap.md`
-
-Do **not** infer the target repository from the ChatGPT Project/Space name. For local work, resolve the target from my request or a repository/path already verified in this conversation; validate it before mutation. Ordinary conversations need no repository binding. Follow the bootstrap and load task-relevant skills; do not duplicate the execution contracts here.
+No ChatGPT Project/Space is required. Resolve a repository or resource only when the current request needs one. HOTFIX and Managed are special behaviors defined by the loaded bootstrap, not extra mandatory Skills.

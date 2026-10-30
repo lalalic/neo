@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { executeControl } from './neo-control.mjs';
+import { buildXChatBootstrap, renderXChatBootstrap } from './xchat-bootstrap.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '..');
@@ -21,6 +22,7 @@ function usage() {
   neo project list|resolve NAME
   neo workspace show
   neo skill list [--project PATH]|package SKILL_DIR OUTPUT.zip
+  neo bootstrap [--json] [--project PATH]
   neo service list|status NAME|start|stop|restart NAME --apply
 
 Options:
@@ -135,6 +137,15 @@ function main(argv) {
   const [command, ...args] = argv;
   if (!command || command === '--help' || command === '-h') {
     process.stdout.write(usage());
+    return 0;
+  }
+  if (command === 'bootstrap') {
+    const json = args.includes('--json');
+    const filtered = args.filter(arg => arg !== '--json');
+    if (filtered.length && !(filtered.length === 2 && filtered[0] === '--project' && filtered[1] && !filtered[1].startsWith('-')))
+      throw new Error('usage: neo bootstrap [--json] [--project PATH]');
+    const manifest = buildXChatBootstrap({ project: filtered[1] });
+    process.stdout.write(json ? JSON.stringify(manifest, null, 2) + '\n' : renderXChatBootstrap(manifest));
     return 0;
   }
   if (['status', 'doctor', 'project', 'workspace', 'skill', 'service'].includes(command)) return executeControl([command, ...args]);
