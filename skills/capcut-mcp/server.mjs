@@ -139,25 +139,57 @@ const knownReadOnly = new Set([
 function isReadOnly(tool) {
   return tool.annotations?.readOnlyHint === true || knownReadOnly.has(tool.name);
 }
-function exposedTool(tool) {
-  const mutation = !isReadOnly(tool);
-  if (!mutation) return tool;
-  // Keep CapCut's original schema strict: remove this local gate before invoking the remote tool.
-  const schema = tool.inputSchema || { type: "object", properties: {} };
-  if (schema.type !== "object") return tool;
-  const props = { ...schema.properties, confirm_capcut_change: {
-    type: "boolean",
-    const: true,
-    description: creditTools.has(tool.name)
-      ? "Set true only after the user explicitly authorizes this generation and any CapCut credit cost."
-      : "Set true only when the user explicitly authorizes this CapCut operation.",
-  } };
-  return {
-    ...tool,
-    description: `${tool.description || ""}\nNeo safety gate: user approval is required for this operation${creditTools.has(tool.name) ? " and any credit spend" : ""}.`,
-    inputSchema: { ...schema, properties: props,
-      required: [...new Set([...(schema.required || []), "confirm_capcut_change"])] },
-  };
+const CAPCUT_TOOL = {
+  name: "capcut",
+  description: [
+    "Access CapCut Creation via one tool with subcommands.",
+    "Use command='help' to list supported subcommands, or command='help' and args.command='<subcommand>' for the exact CapCut input schema.",
+    "Call a CapCut subcommand by setting command to its name and args to its native parameters.",
+    "For a mutating operation, confirm_capcut_change=true requires prior explicit user approval.",
+    "Never confirm paid media generation without explicit approval of the credit cost.",
+    "Examples: {command:'search_capcut_material',args:{type:'font',prompt:'font',top_n:1}}, {command:'help',args:{command:'capcut_video_generate'}}.",
+  ].join(" "),
+  inputSchema: {
+    type: "object",
+    properties: {
+      command: { type: "string", description: "CapCut subcommand name, or 'help' for discovery." },
+      args: { type: "object", description: "Arguments for selected subcommand; for help, optional {command: subcommandName}.", additionalProperties: true },
+      confirm_capcut_change: {
+        type: "boolean",
+        description: "Required true only for write or paid operations, after explicit user approval of the action and any credit cost.",
+      },
+    },
+    required: ["command"],
+    additionalProperties: false,
+  },
+  annotations: { readOnlyHint: false },
+};
+function helpResult(tools, args) {
+  const name = args?.command;
+  if (name) {
+    const tool = tools.find(tool => tool.name === name);
+    if (!tool) return mcpError(`Unknown CapCut subcommand: ${name}`);
+    return mcpValue({
+      command: tool.name,
+      description: tool.description || "",
+      inputSchema: tool.inputSchema,
+      readOnly: isReadOnly(tool),
+      needsApproval: !isReadOnly(tool),
+      maySpendCredits: creditTools.has(tool.name),
+    });
+  }
+  return mcpValue({
+    commands: tools.map(tool => ({
+      name: tool.name,
+      readOnly: isReadOnly(tool),
+      needsApproval: !isReadOnly(tool),
+      maySpendCredits: creditTools.has(tool.name),
+    })).sort((a, b) => a.name.localeCompare(b.name)),
+    usage: "capcut({command:'help',args:{command:'name'}}) to inspect schema; capcut({command:'name',args:{...}}) to execute.",
+  });
+}
+function mcpValue(data) {
+  return { content: [{ type: "text", text: JSON.stringify(data) }], structuredContent: data };
 }
 function mcpError(message) {
   return { content: [{ type: "text", text: String(message) }], isError: true };
@@ -177,21 +209,23 @@ async function handle(msg) {
     if (method === "ping") return ok({});
     if (method === "resources/list") return ok({ resources: [] });
     if (method === "tools/list") {
-      const tools = await app.list();
-      return ok({ tools: tools.map(exposedTool) });
+      return ok({ tools: [CAPCUT_TOOL] });
     }
     if (method === "tools/call") {
-      const name = params.name;
-      const tool = (await app.list()).find(t => t.name === name);
-      if (!tool) return ok(mcpError("Unknown CapCut tool"));
-      const args = { ...(params.arguments || {}) };
-      if (!isReadOnly(tool)) {
-        if (args.confirm_capcut_change !== true) {
-          return ok(mcpError("Explicit user approval required before this CapCut operation; credit-consuming generation additionally requires user approval of the estimated cost."));
-        }
-        delete args.confirm_capcut_change;
+      if (params.name !== "capcut") return ok(mcpError("Unknown Neo CapCut tool"));
+      const { command, args = {}, confirm_capcut_change = false } = params.arguments || {};
+      if (typeof command !== "string" || !command) return ok(mcpError("command is required"));
+      if (args === null || typeof args !== "object" || Array.isArray(args)) {
+        return ok(mcpError("args must be an object"));
       }
-      const result = await app.invoke(name, args);
+      const tools = await app.list();
+      if (command === "help") return ok(helpResult(tools, args));
+      const tool = tools.find(t => t.name === command);
+      if (!tool) return ok(mcpError(`Unknown CapCut subcommand: ${command}; use 'help' to list commands`));
+      if (!isReadOnly(tool) && confirm_capcut_change !== true) {
+        return ok(mcpError("Explicit user approval required for this CapCut change. Credit-consuming generation also requires prior approval of its cost."));
+      }
+      const result = await app.invoke(command, args);
       return ok(result || mcpError("CapCut returned an empty tool response"));
     }
     return error(-32601, "Method not found");
