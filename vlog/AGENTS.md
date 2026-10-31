@@ -198,6 +198,11 @@ All per-run artifacts belong in the run root. `runs/` is ignored by Git.
 Publication target/authorization comes from the active Job/Task. Use shared `post-agent`, verify platform-side state, and persist the receipt/status. A successful click or adapter exit code is not publication proof.
 
 ## Project learnings
+- 2026-10-30: Reviews are artifact-type specific: source facts, storyboards,
+  EDL timing and rendered playback need different surfaces. Bind owner
+  comments to current stage/revision/source/shot/time, store corrections
+  as owner testimony, and re-preview after Stage Worker repair.
+  An unanswered preview is never approval.
 - 2026-10-27: When a required Relay subcommand appears unavailable, inspect which executable PATH selected before treating it as a shared CLI defect; the Homebrew `agents-relay` binary may lag the npm package. Verify and invoke the package launcher with `npx --no-install agents-relay ...` when it exposes the needed action.
 - 2026-10-27: Specialist preview review may BLOCK when calibrated audio, waveform, spectrogram, and playback-ready evidence do not establish an actual human perceptual audit. Producer must preserve the blocked review and request Relay recovery rather than treating objective loudness analysis as a human listening PASS.
 - 2026-10-27: Visioner discovers evidence; Director selects shots and owns story and creative intent; Editor owns exact cuts and edit-decision-list; Producer implements Markcut and owns reviews. Keep these boundaries explicit in graph.mmd and Agent output contracts.

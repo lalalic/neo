@@ -1,0 +1,144 @@
+<!doctype html><html lang="zh"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vlog Stage Review</title><style>
+:root{font:15px system-ui,-apple-system,sans-serif;color:#eef1f4;background:#111820}
+*{box-sizing:border-box} body{margin:0}header{padding:16px 22px;background:#1c2631;position:sticky;top:0;z-index:2;border-bottom:1px solid #344252}
+h1{font-size:20px;margin:2px 0}h2{font-size:17px}small,.muted{color:#aebdce}.layout{display:grid;grid-template-columns:minmax(290px,1fr) 330px;gap:14px;padding:14px;max-width:1450px;margin:auto}
+.panel{background:#1b2632;border:1px solid #344252;border-radius:12px;padding:15px;min-width:0}
+.media-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}
+.item{background:#121b25;border:1px solid #344252;border-radius:9px;padding:10px;margin:8px 0}
+img,video{width:100%;height:auto;max-height:55vh;object-fit:contain;background:#080d11;border-radius:8px}
+button,select,textarea,input{border:1px solid #607088;background:#101b28;color:#f4f6f8;border-radius:7px;padding:9px;font:inherit}
+button{cursor:pointer}button:hover{background:#29435c}button:focus,input:focus,textarea:focus,select:focus{outline:2px solid #77a5f9}
+a{color:#aad0fa}label{display:block;margin:12px 0 5px}textarea{width:100%;min-height:110px;resize:vertical}
+input,select{width:100%}.chips{display:flex;gap:6px;flex-wrap:wrap;margin:7px 0}.chip{border-radius:4px;border:1px solid #495769;padding:3px 7px;font-size:12px}
+.fact{border-left:3px solid #7aa9d1;padding:7px;margin:7px 0;background:#182532;white-space:pre-wrap}
+.story{white-space:pre-wrap;max-height:32vh;overflow:auto;font-size:14px}
+.timeline{display:flex;gap:3px;min-height:38px;margin:10px 0 16px}
+.bar{padding:10px 5px;flex-basis:0;min-width:60px;background:#29425c;border:1px solid #6c94ae;text-align:center;font-size:12px;overflow:hidden}
+#message{min-height:20px;font-size:13px}.error{color:#ffb6b6}.success{color:#b7e5c3}
+aside{position:sticky;top:100px;align-self:start;max-height:calc(100vh - 125px);overflow:auto}
+@media(max-width:800px){.layout{display:block}aside{position:static;max-height:none;margin-top:14px}}
+</style></head><body>
+<header><small id="stage"></small><h1 id="heading">Vlog Review</h1>
+<div class="chips"><span class="chip" id="revision"></span><span class="chip" id="status"></span><span class="chip">本预览不是最终成片审批</span></div></header>
+<div class="layout"><main class="panel"><div id="content"></div></main>
+<aside class="panel"><h2>按素材与时间反馈</h2><small>评论仅发送到当前阶段 Worker；修改内容后旧版评论不能批准新版。观察事实与主人纠正分开保存。</small>
+<label for="source">素材</label><select id="source"></select>
+<label for="shot">镜头 / 片段</label><select id="shot"></select>
+<label for="at">素材时间（秒，可留空）</label><input id="at" type="number" min="0" step=".01" placeholder="点击视频取当前播放时间">
+<label for="kind">反馈类型</label><select id="kind">
+<option value="guidance">创作建议</option><option value="source_correction">原始事实纠正（主人证言）</option>
+<option value="change_request">请求修改</option></select>
+<label for="comment">具体意见</label><textarea id="comment" placeholder="例如：IMG_8441 在 0.75 秒的主体不是……"></textarea>
+<button id="submit">发送此版本评论</button><div id="message" role="status"></div>
+<h2>已收到评论</h2><div id="comments"></div></aside></div>
+<script>
+const $=id=>document.getElementById(id);
+const qp=new URLSearchParams(location.search);const token=qp.get('token');
+let state;let activeVideo;
+const element=(tag,text,cls)=>{const e=document.createElement(tag); if(text!==undefined)e.textContent=String(text);if(cls)e.className=cls;return e};
+const add=(parent,tag,text,cls)=>{const e=element(tag,text,cls);parent.append(e);return e};
+const plain=v=>typeof v==='string'?v:JSON.stringify(v);
+function sourceSelect(id){$('source').value=id;$('shot').value='';$('at').value='';}
+function mediaCard(s){
+ const box=element('section',undefined,'item');add(box,'h2',s.id+' — '+s.name);
+ const media=document.createElement(s.type==='video'?'video':'img');
+ media.src='/media/'+encodeURIComponent(s.id)+'?token='+encodeURIComponent(token);
+ if(s.type==='video'){
+  media.controls=true;media.preload='metadata';
+  media.addEventListener('timeupdate',()=>{if(activeVideo===media)$('at').value=media.currentTime.toFixed(2)});
+  media.addEventListener('error',()=>{add(box,'small','原片解码失败，请用 Markcut 原片预览交叉核验。','error')});
+  const play=add(box,'button','播放此原始视频');
+  play.onclick=()=>{sourceSelect(s.id);activeVideo=media;
+    media.play().catch(e=>add(box,'small','无法播放: '+e.message,'error'));};
+ }
+ media.addEventListener('click',()=>{sourceSelect(s.id);activeVideo=media;if(media.currentTime!==undefined)$('at').value=media.currentTime.toFixed(2)});
+ box.append(media);add(box,'small','来源 SHA-256: '+s.hash.slice(0,16)+'… ｜ 时长: '+(s.durationSeconds??'静态图'));
+ for(const o of s.observations??[]){
+  const f=add(box,'div',o.text||'（未标注）','fact');
+  if(o.startSeconds!==null) add(f,'small','时间: '+o.startSeconds+'–'+(o.endSeconds??o.startSeconds)+'s');
+  if(o.region)add(f,'small',' | 区域: '+o.region);
+ }
+ if(s.frames?.length){
+  const gallery=add(box,'div',undefined,'media-list');
+  for(const frame of s.frames){
+   const item=add(gallery,'div',undefined,'item');
+   const image=document.createElement('img');
+   image.src='/frame/'+encodeURIComponent(s.id)+'/'+frame.id+'?token='+encodeURIComponent(token);
+   image.alt=s.id+' '+frame.timeSeconds+'秒观察帧';
+   item.append(image);
+   const btn=add(item,'button','在 '+frame.timeSeconds+'s 评论此帧');
+   btn.onclick=()=>{sourceSelect(s.id);$('at').value=frame.timeSeconds};
+  }
+ }
+ for(const u of s.uncertainty??[])add(box,'div','不确定：'+u,'muted');
+ const b=add(box,'button','对此素材评论');b.onclick=()=>sourceSelect(s.id);
+ return box;
+}
+function bindShot(shot){
+ const box=element('article',undefined,'item');
+ const row=add(box,'div',undefined,'chips');
+ add(row,'span',shot.beat??'镜头','chip');add(row,'strong',shot.id);
+ add(box,'small',shot.sourceId+' · '+(shot.startSeconds??0)+'–'+(shot.endSeconds??shot.durationSeconds??'?')+' s');
+ if(shot.evidenceRef)add(box,'p','证据: '+shot.evidenceRef);
+ for(const [k,label] of [['reason','选择理由'],['transition','转场意图'],['transitionIn','入场'],['transitionOut','出场'],['transitionReason','衔接理由'],['motive','剪辑目的'],['audio','原声/BGM'],['caption','字幕'],['visual','视觉处理']]){
+  if(shot[k]&&Object.keys(shot[k]).length) add(box,'p',label+'：'+plain(shot[k]));
+ }
+ const b=add(box,'button','评论此片段');b.onclick=()=>{$('shot').value=shot.id;$('source').value=shot.sourceId;$('at').value=shot.startSeconds??''};
+ return box;
+}
+function render(){
+ $('stage').textContent=state.reviewType.toUpperCase();
+ $('heading').textContent=({visioner:'Visioner · 逐份原始素材与证据',director:'Director · 故事与分镜板',editor:'Editor · 镜头时间线与声画边界',producer:'Producer · Markcut 成片（需单独原生审批）'})[state.stage];
+ $('revision').textContent=state.revisionId;$('status').textContent=state.status;
+ const root=$('content');root.replaceChildren();const content=state.content;
+ const src=$('source');src.replaceChildren();src.append(new Option('（不指定）',''));
+ const shot=$('shot');shot.replaceChildren();shot.append(new Option('（不指定）',''));
+ for(const s of state.sources)src.append(new Option(s.id+' / '+s.name,s.id));
+ if(state.stage==='visioner'){
+  const list=add(root,'div',undefined,'media-list');for(const s of state.sources)list.append(mediaCard(s));
+ }else if(state.stage==='director'){
+  add(root,'h2','真实素材与分镜');
+  const list=add(root,'div',undefined,'media-list');for(const s of state.sources)list.append(mediaCard(s));
+  add(root,'h2','叙事草案');add(root,'div',content.story,'story');
+  add(root,'h2','选定镜头与理由');for(const s of content.shots){shot.append(new Option(s.id,s.id));root.append(bindShot(s))}
+  add(root,'h2','视觉指导');add(root,'div',content.brief,'story');
+ }else if(state.stage==='editor'){
+  add(root,'h2','时间线 · 点击片段定位评论');
+  const timeline=add(root,'div',undefined,'timeline');
+  for(const s of content.timeline){
+   const bar=add(timeline,'button',s.order+' · '+s.beat,'bar');bar.style.flexGrow=Math.max(.5,Number(s.durationSeconds)||1);
+   bar.onclick=()=>{$('shot').value=s.id;$('source').value=s.sourceId;$('at').value=s.startSeconds};
+   shot.append(new Option(s.id,s.id));
+  }
+  for(const s of content.timeline)root.append(bindShot(s));
+  add(root,'h2','参考原始素材');const list=add(root,'div',undefined,'media-list');
+  for(const s of state.sources)list.append(mediaCard(s));
+ }else{
+  add(root,'h2','原生成片审核必须使用 neo.markcut_preview');
+  add(root,'p',content.note);add(root,'p','当前生产定义：'+content.canonicalVideo);
+  add(root,'p','如有修改反馈，Producer 必须修改 video.md，并重新调用 Markcut Preview 审核新的 revision/contentHash。');
+ }
+ const feed=$('comments');feed.replaceChildren();
+ for(const f of state.outstandingFeedback??[]){
+  const old=f.revisionId!==state.revisionId?'旧版未处理 · ':'';
+  add(feed,'div',old+f.kind+' · '+(f.sourceId||f.shotId||'整体')+' @ '+(f.timeSeconds??'-')+'s\n'+f.text,'fact');
+ }
+}
+async function refresh(){const r=await fetch('/api/status?token='+encodeURIComponent(token),{cache:'no-store'});if(!r.ok)throw Error('无法读取预览');state=await r.json();render();}
+$('submit').onclick=async()=>{
+ const payload={revisionId:state.revisionId,contentHash:state.contentHash,
+   kind:$('kind').value,text:$('comment').value,
+   sourceId:$('source').value||null,shotId:$('shot').value||null,
+   timeSeconds:$('at').value===''?null:Number($('at').value)};
+ const m=$('message');m.textContent='';
+ try{const r=await fetch('/api/comment?token='+encodeURIComponent(token),{
+   method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+   const out=await r.json();if(!r.ok)throw Error(out.error||'评论提交失败');
+   m.className='success';m.textContent='已写入此阶段的私有反馈；需 Worker 修订并重新预览。';
+   $('comment').value='';await refresh();
+ }catch(e){m.className='error';m.textContent=e.message;await refresh();}
+};
+refresh().catch(e=>{$('message').textContent=e.message});
+</script></body></html>

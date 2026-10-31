@@ -32,6 +32,78 @@ the draft as provisional, and keep the temporary file under `runs/`; do not
 claim generated placeholders are observed footage. Missing UI/tool
 is not approval. Save feedback, revision IDs and relevant answers in `runs/`.
 
+## Stage-specific review and correction protocol
+
+When the owner explicitly requests a Stage review (such as the Job #536 E2E),
+the owning **interactive** Worker must show the current artifact, read the
+feedback in the same execution, revise its own output, and show the new
+revision. An unanswered review stays `awaiting_feedback`. For ordinary
+episodes, early-stage reviews remain optional unless explicitly requested;
+opening a preview is never evidence of approval.
+
+The Vlog review utility is a **local, loopback-only presentation and feedback
+adapter**, not a second renderer, Relay lifecycle, or model-backed reviewer.
+It reads the canonical private run; it never copies media to Git or a public
+web path. Use the source manifest's explicit authorization and source hashes
+before any preview. Run it from the merged Neo Vlog project (or its development
+checkout while testing), targeting the **canonical** `vlog/runs/<episode>`:
+
+```sh
+node scripts/stage-review.mjs serve --stage visioner --run /absolute/path/to/neo/vlog/runs/<episode>
+node scripts/stage-review.mjs status --stage visioner --run /absolute/path/to/neo/vlog/runs/<episode>
+```
+
+Replace `visioner` with `director`, `editor`, or `producer` at the right
+stage. Serve only in the actual reviewer-accessible host browser. A remote
+reviewer who cannot reach loopback must be shown the existing Neo Markcut
+source preview where supported; **do not claim delivery** of an inaccessible
+local page. Keep the serving process for the review session only, then close
+it. Never persist or share the session token in a public task/comment.
+
+- **Visioner — source evidence**: original image/video, chronological
+  evidence frames, provenance, actual time ranges, observation and
+  uncertainty. Each comment requires source ID (and optionally source time).
+  `source_correction` goes to `reviews/owner-source-corrections.jsonl`
+  as `owner_testimony_unverified`; do not overwrite the model's observation
+  or assert the correction was independently filmed. If a correction changes
+  downstream interpretation, the Visioner writes a distinct
+  `owner_testimony_ref` / attribution in revised evidence.
+- **Director — storyboard**: story/visual brief and each selected shot's
+  evidence, source time and creative reason. Every comment binds to a
+  selected `shotId` and matching `sourceId`; no final-video acceptance.
+- **Editor — editorial timeline**: ordered clips, in/out/target duration,
+  motivated cuts/transitions, audio decisions and caption boundaries.
+  Every comment binds to a shot, source, and optionally original time.
+  The Editor revises the EDL; it cannot change an observed fact or the story
+  without returning that decision to its owner.
+- **Producer — rendered Markcut preview**: the local page can collect
+  instructions, but it **cannot grant human approval**. Required current
+  `video.md` approval is obtained only by `neo.markcut_preview` and
+  verified by the tool's actual `revisionId/contentHash` receipt.
+
+`reviews/stages/<stage>/revisions/` stores immutable snapshots;
+`feedback.jsonl` is append-only and stamped with the stage, artifact
+`revisionId/contentHash`, source hash, shot and source time.
+`resolutions.jsonl` records the Stage Worker's explicit disposition and
+new artifact revision; a worker cannot mark feedback `applied` without
+changing the reviewed artifact. The original observations and owner
+corrections stay separate. Use:
+
+```sh
+node scripts/stage-review.mjs status --stage editor --run /absolute/run
+node scripts/stage-review.mjs resolve --stage editor --run /absolute/run \
+  --feedback-revision <old-revision> --feedback-key <key-from-status> \
+  --disposition applied --explanation 'Precise change made in the current EDL'
+node scripts/stage-review.mjs start --stage editor --run /absolute/run
+```
+
+The Stage Worker must not infer a human verdict from local UI status, tests,
+or expired/stale approvals. Changed artifact/dependency bytes create a new
+review identity. If external feedback has not arrived, report the exact
+pending review and do not claim owner sign-off. Source permission, stage
+guidance, Producer approval, specialist PASS, and publishing authorization
+are separate gates.
+
 ## Visioner capability contract
 
 The Vlog Visioner is a normal Task worker using the shared Neo
