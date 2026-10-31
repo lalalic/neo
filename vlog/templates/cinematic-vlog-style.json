@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "id": "cinematic-vlog-v1",
+  "variants": ["cinematic-vlog-v1", "cinematic-vlog-v1-cuts"],
+  "format": { "width": 1080, "height": 1920, "fps": 30 },
+  "mood": "joyful, light, lively, unless the real story supports another tone",
+  "pacing": { "hook_seconds": [1, 3], "closing_seconds": [2, 5] },
+  "captions": {
+    "type": "Fade",
+    "fontSize": 48,
+    "fontFamily": "Arial, sans-serif",
+    "placement": "bottom center inside 10% safe area",
+    "style": "align-items:flex-end;justify-content:center;padding:0 10% 12% 10%"
+  },
+  "motion": { "photos": "a restrained custom scale from 1.02 to 1.08; the nonzero start prevents black frames on hard cuts; override only with evidence-grounded crop or movement intent" },
+  "audio": { "bgm_volume": 0.18, "source_video_volume": 0.72, "voice_volume": 1 },
+  "transitions": {
+    "default": { "type": "fade", "seconds": 0.25 },
+    "supported": ["cut", "fade", "slide", "wipe", "flip", "clockWipe"],
+    "rule": "Choose each boundary from its story motivation. A hard cut is valid when continuity, action, sound, or the beat calls for it; never add transition frames just to decorate."
+  },
+  "opening": "Open on the source-grounded hook, then reveal context.",
+  "closing": "Land the promised payoff with the strongest relevant real shot."
+}

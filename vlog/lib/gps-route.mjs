@@ -4,7 +4,16 @@ const execFileAsync=promisify(execFile);
 const tag=(r,...keys)=>keys.map(k=>r[k]??Object.entries(r).find(([name])=>name.endsWith(':'+k))?.[1]).find(v=>v!==undefined&&v!==null);
 const position=(r)=>{
   const a=tag(r,'GPSLatitude'),b=tag(r,'GPSLongitude');
-  if(a!=null&&b!=null)return [Number(a),Number(b)];
+  if(a!=null&&b!=null){
+    const latRef=String(tag(r,'GPSLatitudeRef')??'').toUpperCase();
+    const lonRef=String(tag(r,'GPSLongitudeRef')??'').toUpperCase();
+    let lat=Number(a),lon=Number(b);
+    if(['S','SOUTH'].includes(latRef))lat=-Math.abs(lat);
+    if(['N','NORTH'].includes(latRef))lat=Math.abs(lat);
+    if(['W','WEST'].includes(lonRef))lon=-Math.abs(lon);
+    if(['E','EAST'].includes(lonRef))lon=Math.abs(lon);
+    return [lat,lon];
+  }
   const iso=String(tag(r,'GPSCoordinates','GPSPosition')||'').match(/^([+-]\d+(?:\.\d+)?)([+-]\d+(?:\.\d+)?)/);
   return iso?[Number(iso[1]),Number(iso[2])]:[NaN,NaN];
 };
@@ -27,7 +36,7 @@ function timeOf(r,{defaultTimezone=null}={}){
 }
 export async function readGpsMetadata(paths,{exiftool='exiftool'}={}){
   if(!paths.length)return [];
-  const {stdout}=await execFileAsync(exiftool,['-json','-n','-a','-G1','-GPSLatitude','-GPSLongitude','-GPSCoordinates','-GPSPosition','-GPSDateTime','-DateTimeOriginal','-SubSecDateTimeOriginal','-CreateDate','-MediaCreateDate','-TrackCreateDate','-OffsetTimeOriginal','-OffsetTime','-GPSHPositioningError',...paths],{maxBuffer:16*1024*1024});
+  const {stdout}=await execFileAsync(exiftool,['-json','-n','-a','-G1','-GPSLatitude','-GPSLatitudeRef','-GPSLongitude','-GPSLongitudeRef','-GPSCoordinates','-GPSPosition','-GPSDateTime','-DateTimeOriginal','-SubSecDateTimeOriginal','-CreateDate','-MediaCreateDate','-TrackCreateDate','-OffsetTimeOriginal','-OffsetTime','-GPSHPositioningError',...paths],{maxBuffer:16*1024*1024});
   return JSON.parse(stdout);
 }
 export function extractRoutePoints(records,options={}){

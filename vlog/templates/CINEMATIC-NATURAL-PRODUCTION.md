@@ -11,6 +11,8 @@ This is the owner-approved editorial specification; `cinematic-vlog-style.json` 
 5. Reflection (5–15 s): creator-approved personal observations and emotional reaction.
 6. Route Recap (optional, based on validated points), fixed closing (2–4 s). Do not imply sparse fixes form a recorded driving trace.
 
+The executable P0 Director→Producer handoff and auto-insertion rules are in [geo-story-production.md](../docs/geo-story-production.md).
+
 ## Route production contract
 
 - Use `lib/route-subvideo.mjs:planRouteSubvideo(records,{disclosureApproved:true})` only with private original-media metadata, and `lib/gps-route.mjs` for source provenance, outlier screening and public redaction.
