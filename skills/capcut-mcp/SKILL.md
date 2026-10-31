@@ -22,11 +22,14 @@ neo setup mcp add capcut 'stdio:///opt/homebrew/bin/node?arg=/Users/chengli/Work
 neo setup mcp list
 ```
 
-The command above uses the current Neo Master path; adapt the absolute Node/script paths if deploying elsewhere. Only one tool, `capcut`, is exported by the bridge. Depending on Neo federation naming, it can appear as `capcut.capcut` or through a unified `mcp.capcut` entry. The bridge honors `CAPCUT_CODEX_HOME` and `CAPCUT_CODEX_BIN` for alternate deployments. Its default paths are `~/.local/share/neo/capcut-mcp-client` and `~/.local/bin/codex`.
+The command above uses the current Neo Master path; adapt the absolute Node/script paths if deploying elsewhere. **After registering the MCP, enable the `capcut` provider under Neo Setup → MCP/Deployment → Remote Exposure.** Federation enablement alone does not expose tools to authenticated external clients. Confirm the actual public `tools/list` includes `mcp.capcut`.
+
+Only one tool, `capcut`, is exported by the bridge. Depending on Neo federation naming, it can appear as `capcut.capcut` or through a unified `mcp.capcut` entry. The bridge honors `CAPCUT_CODEX_HOME` and `CAPCUT_CODEX_BIN` for alternate deployments. Its default paths are `~/.local/share/neo/capcut-mcp-client` and `~/.local/bin/codex`.
 
 ## Safety and test
 
-- `capcut({command:"help"})` lists all CapCut subcommands and approval requirements.
+- In the bridge, `capcut({command:"help"})` lists all CapCut subcommands and approval requirements.
+- Through the public Neo façade, call `mcp.capcut({command:"capcut",args:{command:"help"}})`, then use `mcp.capcut({command:"capcut",args:{command:"search_capcut_material",args:{type:"font",prompt:"font",top_n:1}}})`. Neo's outer command layer is expected.
 - `capcut({command:"help",args:{command:"search_capcut_material"}})` shows the exact input schema.
 - `capcut({command:"search_capcut_material",args:{type:"font",prompt:"font",top_n:1}})` runs a real read-only query.
 - Calls with `readOnlyHint: true` and a small vetted set of query/poll tools remain read-only; verified example: `search_capcut_material`.
