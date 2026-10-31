@@ -111,6 +111,43 @@ For each beat specify:
 
 Video Director turns the creative intent into canonical `video.md`. Execution Director compiles unresolved media requirements when needed. Runtime agents materialize assets; Markcut renders.
 
+## Agent-driven media tool selection
+
+Each Stage Agent decides whether an external media capability would materially
+improve its own accepted outcome, based on approved source footage, story,
+existing Markcut evidence and the current Stage responsibility. CapCut is an
+optional shared capability, **not** a new Agent, Graph Stage, required tool
+sequence or second production pipeline. Do not invoke tools solely because
+they are available.
+
+- Discover relevant installed skills on demand. When CapCut is useful, load the
+  shared `capcut-mcp` skill, inspect the current `mcp.capcut` command inventory
+  and input contracts through its `help` command, then choose only the operations
+  needed for that specific task. Do not hard-code a fixed CapCut command list or
+  assume future operations have today's names or capabilities.
+- Director may look for creative references; Editor may seek a candidate cut or
+  timing treatment; Producer may source or generate auxiliary material. Every
+  Agent stays within its existing ownership and accepted output contract.
+  Visioner must not repeat Markcut STT/VTT/vision work just to use CapCut.
+- Prefer already available source evidence and native Markcut functions when
+  they meet the objective. Optional CapCut results may inform decisions or
+  supply verified usable assets, but source-linked `edit-decision-list.json`,
+  canonical `video.md`, Markcut Preview, required reviews and final render/QA
+  remain authoritative. Do not silently substitute a CapCut cloud draft or
+  rough cut for these artifacts.
+- Read-only discovery may proceed without a new generation commitment. Before
+  CapCut uploads of private media, account/draft mutations or AI generation,
+  obtain the explicit approval required by `capcut-mcp`; estimate and obtain
+  approval for any credit cost first. Previously granted source-use permission
+  does not by itself authorize uploading media to CapCut.
+- Verify any selected result before use: exact source clip/time range for edit
+  proposals; accessible bytes and format for generated media; licenses/rights
+  for stock assets; and the absence of fabricated real-world evidence. Record
+  chosen capability, purpose, provenance, approval and verification (or a
+  reasoned `NOT_APPLICABLE`) in the existing Stage artifacts under `runs/`.
+  If a tool cannot supply a usable result, continue through Markcut where safe
+  or report the concrete blocker. Never claim an unverified asset was imported.
+
 ## Production quality
 
 - Prefer real footage and useful original sound.
