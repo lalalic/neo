@@ -4,7 +4,7 @@ const rl = readline.createInterface({ input: process.stdin });
 function send(msg) { process.stdout.write(JSON.stringify(msg) + "\n"); }
 const tools = [
   { name: "search_capcut_material", description: "Search materials", inputSchema: { type: "object", properties: { prompt: { type: "string" } }, required: ["prompt"], additionalProperties: false }, annotations: { readOnlyHint: true } },
-  { name: "capcut_video_generate", description: "Generate video using credits", inputSchema: { type: "object", properties: { prompt: { type: "string" } }, required: ["prompt"], additionalProperties: false }, annotations: { readOnlyHint: false } },
+  { name: "capcut_video_generate", description: "Generate video using credits", inputSchema: { type: "object", properties: { prompt: { type: "string" } }, required: ["prompt"], additionalProperties: false }, annotations: { readOnlyHint: false }, _meta: { ui: { resourceUri: "ui://capcut/demo", visibility: ["app"] }, "ui/resourceUri": "ui://capcut/demo", "openai/outputTemplate": "ui://capcut/demo", other: "preserved" } },
 ];
 rl.on("line", line => {
   let msg; try { msg = JSON.parse(line); } catch { return; }
