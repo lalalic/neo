@@ -123,6 +123,7 @@ Publishing is handled through shared `agents/post-agent.md` when the user explic
 
 ## Project learnings
 
+- 2026-10-31: A third-party MCP OAuth session saved in one client cannot automatically authenticate Neo federation's independent HTTP MCP connection. For shared ChatGPT tools, bridge through the authorized client using a private profile; verify actual read-only tool execution and guard paid or mutating calls rather than treating tool discovery as authorization.
 - 2026-10-29: Executable Node ESM CLIs installed as symlinks must compare the real path of argv[1] with import.meta.url. A global CLI symlink may otherwise exit successfully without executing its service-management action; integration tests must invoke the symlink itself.
 
 - 2026-09-26: Chrome Web Store new-item uploads reject extension manifests containing a `key`; preserve the authoritative source package, derive a store-compatible upload artifact without that field, and verify the assigned item/version only after reopening the publisher dashboard.
