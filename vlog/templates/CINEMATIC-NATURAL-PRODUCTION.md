@@ -18,6 +18,25 @@ This is the owner-approved editorial specification; `cinematic-vlog-style.json` 
 - Include the rendered `route.mp4` as an ordinary `- video src:assets/route.mp4 duration:9 ...` in the **main** Markcut `video.md`, with its own boundary decision. Call `assertRouteIncluded()` at Producer validation time; never treat a generated Markdown plan as proof of a playable MP4.
 - Do not infer travel mode, route geometry, distance, time or locations without evidence. Review route coordinates before publishing, particularly home/child/sensitive places. All GPS disclosure is independently approved.
 
+## Narrated geographic story — never a silent map montage
+
+The GPS subvideo is a **geographical story with speech**, not a standalone silent route. The Director reads the actual selected photos/video and trusted EXIF timestamps before writing each statement; it identifies the observed shooting locations, what the imagery really shows, and why the change of place adds context. Map data alone cannot establish a visit, movement route, transport mode, mood or activity. Default narration is concise spoken Chinese, with timed captions. Final speech must be actually audible in an exported file and in the interactive preview; text-only `script` nodes or a video with an empty AAC track are not acceptance.
+
+Choose from Markcut map views according to useful observed context:
+
+| View | Story purpose | Inclusion gate |
+| --- | --- | --- |
+| `overview` | Geographic establishing view or satellite dolly | Real location, map tiles and camera verified |
+| `route` | Photo stop locations and computed navigation context | At least two approved real coordinates; label computed path as navigation, not tracked motion |
+| `cinematic` | Short animated aerial/chase transition | Actual places verified; do not imply a recorded drone flight |
+| `streetview` | External ground-level reference imagery at a stop | Confirm an available panorama at that location, Google permissions, coverage and visible playback; clearly distinguish from source footage |
+
+Director can select 1–3 views rather than stacking all four by habit. For a short route, keep map pacing proportional to narration; add actual photo thumbnails or cut to real photos rather than extending an empty map animation. Produce a coherent sequence like **satellite context → GPS stop overview with two original photo thumbnails → actual source photo reflection**, or add street view only when verified. The user has allowed reuse/disclosure of the historical 2026-09-25 route in its ongoing preview; do not infer blanket GPS publication permission for unrelated journeys.
+
+For Markcut authoring, put the map and **real audio** as siblings inside a `layout:parallel` scene. Use a verified media file (`- audio src:...`) or a TTS output whose bytes and duration have been checked. A root WebVTT `subtitle` is an accessibility supplement, not a substitute for audio. Keep ambience/BGM as separate tracks mixed below speech, with ducking when appropriate. The map-footage MCP adapter must preserve independent audio siblings while replacing the map pixels with pre-rendered video; never drop narration simply because the map is precompiled.
+
+**Technical gate:** Markcut `view:route` auto-fits to vertical viewport when no fixed zoom is supplied. Verify actual map tiles, endpoint visibility and correct camera in HTTP and MCP (a successful compilation is insufficient). Reject Google Maps "development purposes only" overlays, API-key errors or failed panorama frames, even when the file has a valid H.264/AAC stream. A fallback to original photo + voiceover is preferable to a broken map shot.
+
 ## Personal Footage Library
 
 Canonical personal recording index: private `runs/personal-library/tour-director.json`; the tracked `personal-voice-tour-v1.json` is a seed only. Create new capture prompts where necessary, preserving stable shot IDs and existing recordings. Proposed coverage: movement/action (6–10 clips, 5–10s), talking head (5 clips, 10–20s), daily details (6–8 clips, 5–10s), and 3–5 minutes of natural voice recordings. Record vertically where possible with clean environmental audio and several seconds of handles.
