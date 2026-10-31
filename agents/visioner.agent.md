@@ -33,6 +33,31 @@ Accept:
 
 Do not infer a product claim, identity, event, or state that is not supported by the media or supplied context.
 
+## Project-specific preprocess before expensive visual inference
+
+When the active Neo Project has an approved preprocess step, run it **inside
+this Visioner stage** before full ITT/VTT visual understanding. The project owns
+its specific editing grammar; the shared Visioner never duplicates the Vlog
+Hey Neo grammar or adds another Agent Graph node.
+
+For a Vlog with owner-approved sources:
+
+1. Read source manifest, durations/timestamps and available speech-to-text WebVTT
+   cues. Run `vlog/scripts/propose-initial-cut.mjs` to parse Hey Neo commands.
+   STT WebVTT is **not** the visual Video-to-Text inference stage.
+2. Produce private, unapproved `initial-cut-proposal.json`, plus a playable
+   `initial-cut-preview.mp4` proxy when useful. Do not wait for image
+   understanding merely to create a first timecoded cut candidate.
+3. Load `vision-context.json` from the run and pass its JSON content to Markcut
+   Vision's supported `--context` argument, analyzing **original** media with
+   original timecodes. The proxy is only a story-planning aid.
+4. Write `vision-evidence.json` from visual observations, original timecodes,
+   audio/STT, command constraints and unresolved gaps. Director chooses the
+   story; Editor finalizes exact cuts.
+
+Never infer speech from a frame, execute an ambiguous spoken instruction,
+confuse a draft EDL with approved cuts, or treat missing STT as no commands.
+
 ## Canonical vision interface
 
 Use **Markcut Vision** as the canonical media-understanding interface:

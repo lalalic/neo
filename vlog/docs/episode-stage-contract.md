@@ -81,6 +81,20 @@ Normal stages are durable Tasks when their independent outputs require a lifecyc
 | **Technical QA / archive** | vlog-producer using shared render/QA; Relay preserves receipt | Dual PASS, approved draft and resolved Markcut backend | `output/` render, `qa.md`, immutable archive receipt | Actually observe final pixels, source media, route tiles/camera when used, Play/Seek, sound/BGM and WebVTT; verify exact delivered video bytes | Compilation/local HTTP alone does not pass hosted preview. Job 474 hosted iframe bootstrap remains a separate unresolved gate; no fake acceptance. Archive is default without publication authorization |
 | **Publish Authorization (optional)** | owner for authorization; shared post-agent for approved delivery | Accepted immutable output and explicit human authorization for platform/account/scope, including privacy and rights | `publish/` authorization reference; if authorized, shared post-agent receipt and platform verification | Record who approved which version, where and when, then post-agent platform-side status; retain archived copy | Without explicit authorization, **archive only**. No spending or posting by inference; missing receipt is not successful publication |
 
+## Visioner preprocess: spoken rules -> rough cut -> guided visual understanding
+
+**Inside the existing Visioner node**, before expensive image/video understanding,
+read approved source manifest and available STT WebVTT subtitles. Run
+`node vlog/scripts/propose-initial-cut.mjs <run> --preview` to detect timecoded
+Hey Neo commands, form a rules-based draft EDL and make the playable private
+`initial-cut-preview.mp4`. The preprocessor does **not** need ITT/VTT visual
+perception. It writes `vision-context.json` with draft order, source time map,
+spoken constraints and story context. Pass its content via Markcut Vision
+`--context` when analyzing **original media**. Preserve original source hashes
+and timestamps, then assemble `vision-evidence.json` before Director selects
+shots. The preliminary EDL and proxy do not satisfy Director/Editor/Producer
+approval. Missing STT must be flagged, never interpreted as no commands.
+
 ## Optional location semantics
 
 No usable GPS -> research no-op -> full normal Vlog. Partial GPS -> only source-linked reliable stops, no guessed stops for other footage. Two or more trustworthy samples may permit a brief optional map/context scene **only** if editorially useful and separately authorized for disclosure. Filter ambiguous clocks, outliers, large gaps, inaccurate and sensitive points. Redact location; never upload raw GPS to a public mount. Road directions and cinematic camera paths are inferred visualizations, **never recorded movement**; do not invent presence, transport mode or visited places. Samples/tests are labelled synthetic and never substituted for episode footage.
