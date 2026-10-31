@@ -22,11 +22,11 @@ neo setup mcp add capcut 'stdio:///opt/homebrew/bin/node?arg=/Users/chengli/Work
 neo setup mcp list
 ```
 
-The command above uses the current Neo Master path; adapt the absolute Node/script paths if deploying elsewhere. A tool should be exposed as `mcp.capcut.<CapCut tool name>` after federation refresh. The bridge honors `CAPCUT_CODEX_HOME` and `CAPCUT_CODEX_BIN` for alternate deployments. Its default paths are `~/.local/share/neo/capcut-mcp-client` and `~/.local/bin/codex`.
+The command above uses the current Neo Master path; adapt the absolute Node/script paths if deploying elsewhere. Neo may expose selected `capcut.<tool>` names and a consolidated `mcp.capcut` entry when the catalog is large. The bridge honors `CAPCUT_CODEX_HOME` and `CAPCUT_CODEX_BIN` for alternate deployments. Its default paths are `~/.local/share/neo/capcut-mcp-client` and `~/.local/bin/codex`.
 
 ## Safety and test
 
-- Calls with `readOnlyHint: true` remain read-only; verified example: `search_capcut_material`.
+- Calls with `readOnlyHint: true` and a small vetted set of query/poll tools remain read-only; verified example: `search_capcut_material`.
 - Mutating tools demand `confirm_capcut_change: true`, which the bridge strips before forwarding. A caller must only set it after the user explicitly approves the specific action. Generation that might consume credits needs explicit cost approval first; use the available estimate tools when possible.
 - Never autonomously start paid generation or modify existing drafts merely as a connectivity test.
 - Check `mcp capcut` inventory, fetch the tool list, and run a read-only material search to establish end-to-end availability.

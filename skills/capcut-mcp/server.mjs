@@ -126,8 +126,21 @@ class AppServer {
 
 const app = new AppServer();
 const creditTools = new Set(["capcut_video_generate", "capcut_image_generate"]);
+// CapCut omits readOnlyHint on some query operations; unknown tools default to guarded.
+const knownReadOnly = new Set([
+  "auto_caption_query",
+  "capcut_ailab_poll_edit_progress",
+  "capcut_batch_media_url",
+  "capcut_generation_poll",
+  "capcut_template_search",
+  "check_stdraft_state",
+  "get_stdraft_snapshot",
+]);
+function isReadOnly(tool) {
+  return tool.annotations?.readOnlyHint === true || knownReadOnly.has(tool.name);
+}
 function exposedTool(tool) {
-  const mutation = tool.annotations?.readOnlyHint !== true;
+  const mutation = !isReadOnly(tool);
   if (!mutation) return tool;
   // Keep CapCut's original schema strict: remove this local gate before invoking the remote tool.
   const schema = tool.inputSchema || { type: "object", properties: {} };
@@ -172,7 +185,7 @@ async function handle(msg) {
       const tool = (await app.list()).find(t => t.name === name);
       if (!tool) return ok(mcpError("Unknown CapCut tool"));
       const args = { ...(params.arguments || {}) };
-      if (tool.annotations?.readOnlyHint !== true) {
+      if (!isReadOnly(tool)) {
         if (args.confirm_capcut_change !== true) {
           return ok(mcpError("Explicit user approval required before this CapCut operation; credit-consuming generation additionally requires user approval of the estimated cost."));
         }
