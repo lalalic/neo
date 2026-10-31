@@ -22,7 +22,8 @@ function fixture(t) {
     metadata:{
       CLIP:{duration:4,perception:{desc:'A model-described pathway',subtitle:'CLIP.vtt',
         segments:{'0to2000':{vision:'trees',subtitle:'start'},
-          '2000to4000':{vision:'path',sampleSeconds:3.5}}}},
+          '2000to4000':{vision:'path',sampleSeconds:3.5,
+            instructions:[{utterance:'嘿 Neo 保留',intent:'keep this',time_seconds:3,confidence:'high'}]}}}},
       STILL:{perception:{desc:'Blue sky'}}
     },dir
   };
@@ -38,6 +39,8 @@ test('Markcut legacy segmentation keeps stable original-source ID/hash and time'
   assert.equal(out.observations[0].observation_status,'MODEL_OUTPUT_UNREVIEWED');
   assert.equal(out.observations[1].metadata_pointer,'/CLIP/perception/segments/2000to4000');
   assert.equal(out.sources[1].visual_summary,'Blue sky');
+  assert.equal(out.observations[1].agent_instructions[0].intent,'keep this');
+  assert.equal(out.observations[1].agent_instructions[0].status,'AGENT_INTERPRETATION_UNREVIEWED');
 });
 test('DeepSeek frame observations also bridge without pretending periodic sampling is a semantic cut',t=>{
   const f=fixture(t);

@@ -25,6 +25,13 @@ function parseMarkcutSegmentRanges(perception, sourceId, limit) {
       source_time_start_seconds: start, source_time_end_seconds: end,
       visual_observation: typeof value?.vision === 'string' ? value.vision : '',
       speech_hint: typeof value?.subtitle === 'string' ? value.subtitle : null,
+      semantic_description: typeof value?.description === 'string' ? value.description : null,
+      agent_instructions: Array.isArray(value?.instructions)
+        ? value.instructions.map(item => ({
+          utterance:item.utterance,intent:item.intent,
+          time_seconds:item.time_seconds,confidence:item.confidence||'unrated',
+          status:'AGENT_INTERPRETATION_UNREVIEWED',
+        })) : [],
       sample_time_seconds: isNum(value?.sampleSeconds) ? value.sampleSeconds : null,
       origin: 'markcut_metadata.perception.segments',
       observation_status: 'MODEL_OUTPUT_UNREVIEWED',

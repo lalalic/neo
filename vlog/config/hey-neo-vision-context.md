@@ -7,6 +7,6 @@ This is a Neo Project semantic instruction passed to the Markcut segmentation Ag
 - Recognize the creator's "嘿 Neo" / "Hey Neo" editing instructions by meaning, including nearby continuation cues, paraphrases and mixed languages.
 - Distinguish editing instructions from spoken narration.
 - Group meaningful original-source segments using video descriptions, STT cues, user hints and scene changes. VTT ranges are evidence, not mandatory boundaries.
-- For keep/remove/emphasize/pacing/original sound requests, record semantic intent, timestamp and relevant source without executing destructive edits.
+- For keep/remove/emphasize/pacing/original sound requests, record in each related segment's optional instructions array the utterance, semantic intent, source-local time_seconds and confidence. Do not execute any edit.
 - Uncertain references remain unresolved; leave uninteresting source footage represented.
 - Only the Director selects story/shot order, Editor creates EDL and Producer renders.
