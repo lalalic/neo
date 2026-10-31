@@ -145,23 +145,25 @@ export function episodeJobCreateArgs({ repo, projectPath, submissionId, objectiv
   ];
 }
 
+export function episodeJobShowArgs({ repo, jobId }) {
+  return ['job', 'show', '--repo', repo, '--id', String(jobId)];
+}
+
 export function createCliRelayClient(config = {}) {
   const env = config.env ?? process.env;
   const repo = env.VLOG_RELAY_REPO ?? 'lalalic/neo';
   const projectPath = env.VLOG_RELAY_PROJECT_PATH ?? 'vlog';
   const base = ['--yes', '--package', 'agents-relay@latest', 'agents-relay'];
+  const executor = config.exec ?? execFileAsync;
   const run = async (args, input) => {
-    const { stdout } = await execFileAsync('npx', [...base, ...args], { input, maxBuffer: 10 * 1024 * 1024 });
+    const { stdout } = await executor('npx', [...base, ...args], { input, maxBuffer: 10 * 1024 * 1024 });
     return JSON.parse(stdout);
   };
   return {
     createJob: async ({ submissionId, objectiveFile }) => run(
       episodeJobCreateArgs({ repo, projectPath, submissionId, objectiveFile })
     ),
-    getJob: async (jobId) => {
-      const jobs = await run(['job', 'list', '--repo', repo]);
-      return jobs.find((job) => String(job.id) === String(jobId)) ?? null;
-    },
+    getJob: (jobId) => run(episodeJobShowArgs({ repo, jobId })),
     planJob: (jobId) => run(['plan', '--repo', repo, '--id', String(jobId)]),
   };
 }
@@ -198,8 +200,11 @@ export async function processMovedInput(inputDir, { runsDir, relay, now = new Da
   if (!relay.planJob) throw new Error('Vlog Episode requires a Relay Planner action');
   const currentJob = relay.getJob ? await relay.getJob(jobId) : null;
   const plans = currentJob?.plans ?? [];
-  if (plans.some((plan) => plan.status === 'SUCCEEDED')) {
-    await fs.writeFile(receiptFile, JSON.stringify({ jobId, recovered: true }) + '\n', { flag: 'wx' });
+  // Legacy Jobs could already own durable Stage Tasks before Planner rounds
+  // existed. Recover their intake receipt without submitting a duplicate Plan.
+  const legacyTasks = plans.length === 0 && Array.isArray(currentJob?.tasks) && currentJob.tasks.length > 0;
+  if (plans.some((plan) => plan.status === 'SUCCEEDED') || legacyTasks) {
+    await fs.writeFile(receiptFile, JSON.stringify({ jobId, recovered: true, legacyTasks }) + '\n', { flag: 'wx' });
     return { status: 'already-jobbed', jobId, runDir };
   }
   if (plans.some((plan) => plan.status === 'PLANNING')) {

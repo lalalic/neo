@@ -5,7 +5,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SERVICE="vlog/watcher"
 RUNTIME="$ROOT/runs/.service"
-PACKAGE="$RUNTIME/lalalic-neo-vlog-runtime-0.1.0.tgz"
+PACKAGE="$RUNTIME/lalalic-neo-vlog-runtime-0.1.1.tgz"
 INBOX="${VLOG_ICLOUD_INBOX:-$HOME/Library/Mobile Documents/iCloud~com~neox~app/Documents/Vlog Inbox}"
 export VLOG_ICLOUD_INBOX="$INBOX"
 export VLOG_RUNS_DIR="${VLOG_RUNS_DIR:-$ROOT/runs}"
@@ -99,7 +99,12 @@ case "${1:-help}" in
   setup) setup ;;
   start) start ;;
   stop) stop ;;
-  restart) stop; start ;;
+  restart)
+    # Repack a new project runtime, rather than reviving a stale PM2 command.
+    if exists; then npx pm2 delete "$SERVICE" >/dev/null; fi
+    setup
+    start
+    ;;
   status) status ;;
   health) health ;;
   uninstall)

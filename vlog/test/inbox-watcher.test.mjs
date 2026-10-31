@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 import { mkdtemp, mkdir, writeFile, readFile, stat } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { processSubmission, scanOnce, episodeJobCreateArgs, NEOX_ICLOUD_INBOX_RELATIVE } from '../lib/inbox-watcher.mjs';
+import { processSubmission, scanOnce, episodeJobCreateArgs, episodeJobShowArgs, createCliRelayClient, NEOX_ICLOUD_INBOX_RELATIVE } from '../lib/inbox-watcher.mjs';
 
 async function fixture(manifest, media = { 'media/clip.mov': 'video' }) {
   const root = await mkdtemp(path.join(os.tmpdir(), 'vlog-watcher-'));
@@ -151,4 +151,30 @@ test('lost plan receipt recovers from authoritative successful Plan', async () =
   const result = await scanOnce({ inboxDir: path.join(f.root, 'empty'), runsDir: f.runs, relay: r });
   assert.equal(result[0].status, 'already-jobbed');
   assert.equal(JSON.parse(await readFile(path.join(result[0].runDir, 'episode-plan.json'), 'utf8')).recovered, true);
+});
+
+test('Relay recovery fetches the exact Job ID, never the broken broad list endpoint', async () => {
+  const calls=[];
+  const client=createCliRelayClient({exec:async (bin,args)=>{
+    calls.push([bin,...args]);
+    return {stdout:JSON.stringify({id:'510',tasks:[{id:'existing-task'}],plans:[]})};
+  }});
+  assert.deepEqual(episodeJobShowArgs({repo:'lalalic/neo',jobId:510}),['job','show','--repo','lalalic/neo','--id','510']);
+  const existing=await client.getJob('510');
+  assert.equal(existing.id,'510');
+  assert.equal(calls.length,1);
+  assert.deepEqual(calls[0].slice(-6),['job','show','--repo','lalalic/neo','--id','510']);
+});
+
+test('pre-Planner legacy Job with real work Tasks must not acquire a duplicate Plan', async()=>{
+  const f=await fixture(manifest); const r=relay();
+  r.planJob=async()=>{throw new Error('simulated delivery loss after Job creation')};
+  await assert.rejects(processSubmission(f.source,{runsDir:f.runs,relay:r}));
+  r.getJob=async()=>({id:'99001',plans:[],tasks:[{id:'legacy-stage-task'}]});
+  let called=0;r.planJob=async()=>{called++};
+  const result=await scanOnce({inboxDir:path.join(f.root,'none'),runsDir:f.runs,relay:r});
+  assert.equal(result[0].status,'already-jobbed');
+  assert.equal(called,0);
+  const receipt=JSON.parse(await readFile(path.join(result[0].runDir,'episode-plan.json'),'utf8'));
+  assert.equal(receipt.legacyTasks,true);
 });
