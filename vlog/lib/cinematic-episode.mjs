@@ -19,6 +19,11 @@ const audioCodec=async(path)=>{
  const {stdout}=await run('ffprobe',['-v','error','-select_streams','a','-show_entries','stream=codec_name','-of','default=noprint_wrappers=1:nokey=1',path]);
  if(!stdout.trim())throw Error('NO_AUDIO_TRACK: '+path);
 };
+/** Include both selected source media and supplemental geotagged media. */
+export function gpsSourceFiles(input){
+ return [...new Set([...(input.scenes||[]).map(s=>s.sourceEvidencePath||s.path),...(input.geo?.media||[])].filter(Boolean))];
+}
+
 export function insertGeoRoute(input,route){
  if(!route?.required)return input;
  if(!input?.scenes?.length||!Array.isArray(input.boundaries))throw Error('Bad episode scene inputs');
@@ -38,7 +43,7 @@ export async function buildCinematicEpisode(input,{runDir=process.cwd(),markcutR
  await mkdir(root,{recursive:true});
  // Scan episode originals by default. GPS cannot be silently ignored because
  // the Director omitted a separate geo.media list.
- const sourceFiles=input.geo?.media?.length ? input.geo.media : (input.scenes||[]).map(s=>s.sourceEvidencePath||s.path);
+ const sourceFiles=gpsSourceFiles(input);
  if(sourceFiles.some(f=>!safeName(f)))throw Error('Invalid GPS media file reference');
  const metadata=await readGpsMetadata(sourceFiles.map(p=>resolve(root,p)));
  const evidence={...(input.geo||{}),mediaEvidence:(input.geo?.mediaEvidence||[]).map(m=>({...m,source:resolve(root,m.source)})),
