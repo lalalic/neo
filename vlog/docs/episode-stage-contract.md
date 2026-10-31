@@ -81,19 +81,24 @@ Normal stages are durable Tasks when their independent outputs require a lifecyc
 | **Technical QA / archive** | vlog-producer using shared render/QA; Relay preserves receipt | Dual PASS, approved draft and resolved Markcut backend | `output/` render, `qa.md`, immutable archive receipt | Actually observe final pixels, source media, route tiles/camera when used, Play/Seek, sound/BGM and WebVTT; verify exact delivered video bytes | Compilation/local HTTP alone does not pass hosted preview. Job 474 hosted iframe bootstrap remains a separate unresolved gate; no fake acceptance. Archive is default without publication authorization |
 | **Publish Authorization (optional)** | owner for authorization; shared post-agent for approved delivery | Accepted immutable output and explicit human authorization for platform/account/scope, including privacy and rights | `publish/` authorization reference; if authorized, shared post-agent receipt and platform verification | Record who approved which version, where and when, then post-agent platform-side status; retain archived copy | Without explicit authorization, **archive only**. No spending or posting by inference; missing receipt is not successful publication |
 
-## Visioner preprocess: spoken rules -> rough cut -> guided visual understanding
+## Visioner preprocess: Agent semantic splitting -> initial cut -> guided Vision
 
-**Inside the existing Visioner node**, before expensive image/video understanding,
-read approved source manifest and available STT WebVTT subtitles. Run
-`node vlog/scripts/propose-initial-cut.mjs <run> --preview` to detect timecoded
-Hey Neo commands, form a rules-based draft EDL and make the playable private
-`initial-cut-preview.mp4`. The preprocessor does **not** need ITT/VTT visual
-perception. It writes `vision-context.json` with draft order, source time map,
-spoken constraints and story context. Pass its content via Markcut Vision
-`--context` when analyzing **original media**. Preserve original source hashes
-and timestamps, then assemble `vision-evidence.json` before Director selects
-shots. The preliminary EDL and proxy do not satisfy Director/Editor/Producer
-approval. Missing STT must be flagged, never interpreted as no commands.
+Inside the existing Visioner stage, first read source metadata and STT WebVTT.
+The preprocessing code is only a technical evidence and verification layer. It
+must not use regex, hardcoded keywords, fixed clip windows or editorial
+classifiers for meaning or scene boundaries.
+
+Run node vlog/scripts/propose-initial-cut.mjs <dated-run> --context TEXT to
+write initial-cut-evidence.json and initial-cut-agent-prompt.md. Visioner Agent
+interprets all speech, decides commands and cut boundaries, and may split one
+source video into multiple timecoded segments. The Agent writes a source-grounded
+JSON decision. Run the same CLI with --agent-result ABS_PATH --preview to
+validate the decision and produce initial-cut-proposal.json,
+initial-cut-preview.mp4 and vision-context.json.
+
+The later Markcut/DeepSeek Vision pass uses original source media (not the proxy)
+plus the initial-cut context and original-source time map. The Agent proposal is
+not accepted Director/Editor/Producer output. Missing STT is an unresolved gap.
 
 ## Optional location semantics
 

@@ -40,23 +40,32 @@ this Visioner stage** before full ITT/VTT visual understanding. The project owns
 its specific editing grammar; the shared Visioner never duplicates the Vlog
 Hey Neo grammar or adds another Agent Graph node.
 
-For a Vlog with owner-approved sources:
+For a Vlog with owner-approved sources, you are the reasoning Agent for
+**semantic interpretation and intelligent first-cut splitting**. Do not ask a
+code regex/keyword classifier to decide speech meaning or split points:
 
-1. Read source manifest, durations/timestamps and available speech-to-text WebVTT
-   cues. Run `vlog/scripts/propose-initial-cut.mjs` to parse Hey Neo commands.
-   STT WebVTT is **not** the visual Video-to-Text inference stage.
-2. Produce private, unapproved `initial-cut-proposal.json`, plus a playable
-   `initial-cut-preview.mp4` proxy when useful. Do not wait for image
-   understanding merely to create a first timecoded cut candidate.
-3. Load `vision-context.json` from the run and pass its JSON content to Markcut
-   Vision's supported `--context` argument, analyzing **original** media with
-   original timecodes. The proxy is only a story-planning aid.
-4. Write `vision-evidence.json` from visual observations, original timecodes,
-   audio/STT, command constraints and unresolved gaps. Director chooses the
-   story; Editor finalizes exact cuts.
+1. Collect source-approved STT WebVTT, original media durations and context.
+2. Run node vlog/scripts/propose-initial-cut.mjs <dated-run> --context TEXT.
+   This produces private initial-cut-agent-prompt.md and initial-cut-evidence.json;
+   it does not create a rough cut by itself.
+3. As Visioner Agent, interpret all cue text and its meaning, including Hey Neo
+   editing commands spread over several cues. Resolve references only when
+   supported. Choose multiple distinct original-source time segments of one video
+   when justified by narration, pacing or story. **You** decide exact split
+   points, inclusion/removal, order and original-audio intent. Cite the exact
+   source ID and cue IDs for every spoken command.
+4. Save your Agent-produced decision JSON in the private episode run and run
+   the same CLI with --agent-result ABS_PATH --preview. Correct invalid Agent
+   decisions, not technical parsing. The runtime checks source hash, cue IDs
+   and time bounds but does not interpret words or make edit decisions.
+5. Pass vision-context.json as context to Markcut Vision while analyzing
+   original media with original timecodes. Reconcile image/video evidence with
+   Agent-drafted shot choices, then write vision-evidence.json. Director chooses
+   the story, Editor owns exact approved EDL, Producer owns preview approval.
 
-Never infer speech from a frame, execute an ambiguous spoken instruction,
-confuse a draft EDL with approved cuts, or treat missing STT as no commands.
+Never invent speech, commands, movement or source content. If STT is missing,
+do not certify the absence of Hey Neo commands. Never apply destructive cuts
+whose referenced target cannot be established.
 
 ## Canonical vision interface
 
