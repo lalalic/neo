@@ -49,6 +49,20 @@ inference used only when resources support it or offline operation is required.
 The Vlog contract does not choose a provider/model or implement fallback
 outside Markcut.
 
+DeepSeek is a generic ITT/VTT executor, not a separate Vlog workflow.
+When selected, Visioner supplies --itt/--vtt WebHelm DeepSeek hooks,
+preserves Markcut --stt and --agent semantic segmentation, and injects
+the project-local vlog/config/hey-neo-vision-context.md as --instruct.
+The source segmentation stage does not render an initial-cut video.
+
+Evidence bridge: Index Markcut's metadata.json with
+node vlog/scripts/index-markcut-vision.mjs <dated-run>. This validates
+source IDs/hashes and timestamps and writes vision-segment-index.json
+as a machine-verifiable model-observation reference. Visioner then
+authors separate source-grounded vision-evidence.json with interpretation,
+provenance and uncertainty. Index results are not accepted Visioner
+claims, an edit decision list or authorizations.
+
 The two distinct durable outputs are Markcut's
 `input/media/metadata.json` (per-media understanding) and Vlog's
 `vision-evidence.json` (source-grounded interpretation and uncertainty for
@@ -81,24 +95,16 @@ Normal stages are durable Tasks when their independent outputs require a lifecyc
 | **Technical QA / archive** | vlog-producer using shared render/QA; Relay preserves receipt | Dual PASS, approved draft and resolved Markcut backend | `output/` render, `qa.md`, immutable archive receipt | Actually observe final pixels, source media, route tiles/camera when used, Play/Seek, sound/BGM and WebVTT; verify exact delivered video bytes | Compilation/local HTTP alone does not pass hosted preview. Job 474 hosted iframe bootstrap remains a separate unresolved gate; no fake acceptance. Archive is default without publication authorization |
 | **Publish Authorization (optional)** | owner for authorization; shared post-agent for approved delivery | Accepted immutable output and explicit human authorization for platform/account/scope, including privacy and rights | `publish/` authorization reference; if authorized, shared post-agent receipt and platform verification | Record who approved which version, where and when, then post-agent platform-side status; retain archived copy | Without explicit authorization, **archive only**. No spending or posting by inference; missing receipt is not successful publication |
 
-## Visioner preprocess: Agent semantic splitting -> initial cut -> guided Vision
+## Visioner source segmentation: Markcut VTT + project rules
 
-Inside the existing Visioner stage, first read source metadata and STT WebVTT.
-The preprocessing code is only a technical evidence and verification layer. It
-must not use regex, hardcoded keywords, fixed clip windows or editorial
-classifiers for meaning or scene boundaries.
-
-Run node vlog/scripts/propose-initial-cut.mjs <dated-run> --context TEXT to
-write initial-cut-evidence.json and initial-cut-agent-prompt.md. Visioner Agent
-interprets all speech, decides commands and cut boundaries, and may split one
-source video into multiple timecoded segments. The Agent writes a source-grounded
-JSON decision. Run the same CLI with --agent-result ABS_PATH --preview to
-validate the decision and produce initial-cut-proposal.json,
-initial-cut-preview.mp4 and vision-context.json.
-
-The later Markcut/DeepSeek Vision pass uses original source media (not the proxy)
-plus the initial-cut context and original-source time map. The Agent proposal is
-not accepted Director/Editor/Producer output. Missing STT is an unresolved gap.
+The legacy Vlog rough-cut-video preprocessor is superseded. Visioner loads
+the project Hey Neo rules as --instruct and passes its configured DeepSeek
+visual backend through generic --itt/--vtt hooks. Markcut's original STT and
+Agent-based segmentation run normally, generating perception.segments in
+metadata.json. No MP4, video.md, preview approval or editing decision
+is produced here. Visioner then indexes these source-bound observations,
+adds evidence-based interpretation and uncertainties, and passes the separate
+vision-evidence.json to Director.
 
 ## Optional location semantics
 

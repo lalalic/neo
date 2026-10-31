@@ -33,39 +33,58 @@ Accept:
 
 Do not infer a product claim, identity, event, or state that is not supported by the media or supplied context.
 
-## Project-specific preprocess before expensive visual inference
+## Project-specific source segmentation
 
-When the active Neo Project has an approved preprocess step, run it **inside
-this Visioner stage** before full ITT/VTT visual understanding. The project owns
-its specific editing grammar; the shared Visioner never duplicates the Vlog
-Hey Neo grammar or adds another Agent Graph node.
+Visioner applies only its Neo Project's semantic segmentation rules before
+handing evidence to the Director. For Vlog, load project-owned "嘿 Neo" context
+and pass it to Markcut via --instruct. Markcut VTT and STT produce
+observations/cues; the existing Markcut Agent merges semantic segment boundaries
+and stores them in metadata.json as source-time ranges. This stage does NOT
+produce an initial-cut MP4, montage, proposed EDL or final shot order.
+The superseded Vlog-specific rough-cut video script has been removed;
+source segmentation remains part of Markcut Vision.
 
-For a Vlog with owner-approved sources, you are the reasoning Agent for
-**semantic interpretation and intelligent first-cut splitting**. Do not ask a
-code regex/keyword classifier to decide speech meaning or split points:
+Do not infer editing commands from images. When a speech command is ambiguous,
+preserve it as uncertainty. Never silently discard original footage.
+The Director makes story selections and Editor creates the EDL.
 
-1. Collect source-approved STT WebVTT, original media durations and context.
-2. Run node vlog/scripts/propose-initial-cut.mjs <dated-run> --context TEXT.
-   This produces private initial-cut-agent-prompt.md and initial-cut-evidence.json;
-   it does not create a rough cut by itself.
-3. As Visioner Agent, interpret all cue text and its meaning, including Hey Neo
-   editing commands spread over several cues. Resolve references only when
-   supported. Choose multiple distinct original-source time segments of one video
-   when justified by narration, pacing or story. **You** decide exact split
-   points, inclusion/removal, order and original-audio intent. Cite the exact
-   source ID and cue IDs for every spoken command.
-4. Save your Agent-produced decision JSON in the private episode run and run
-   the same CLI with --agent-result ABS_PATH --preview. Correct invalid Agent
-   decisions, not technical parsing. The runtime checks source hash, cue IDs
-   and time bounds but does not interpret words or make edit decisions.
-5. Pass vision-context.json as context to Markcut Vision while analyzing
-   original media with original timecodes. Reconcile image/video evidence with
-   Agent-drafted shot choices, then write vision-evidence.json. Director chooses
-   the story, Editor owns exact approved EDL, Producer owns preview approval.
+## Configuring DeepSeek through generic Markcut hooks
 
-Never invent speech, commands, movement or source content. If STT is missing,
-do not certify the absence of Hey Neo commands. Never apply destructive cuts
-whose referenced target cannot be established.
+When a Visioner run selects the signed-in DeepSeek web visual provider,
+use the **local Markcut checkout CLI** (node /absolute/markcut/src/render/cli.mjs vision)
+with generic --itt / --vtt templates. The published npm package may not
+yet contain this hook implementation; do not assume otherwise. Point hooks to
+the current Markcut checkout's src/vision/deepseek-infer.mjs:
+
+    --itt 'node /absolute/markcut/src/vision/deepseek-infer.mjs --input {input} --prompt {prompt_quoted}'
+    --vtt 'node /absolute/markcut/src/vision/deepseek-infer.mjs --input {input} --prompt {prompt_quoted} --sample-interval {sample_interval}'
+
+The --agent hook still handles semantic source segmentation. The --stt
+hook still handles transcription. DeepSeek is a visual provider accessed
+through the signed-in website and WebHelm, not developer API keys.
+Use only a Markcut version supporting {prompt_quoted}; incomplete or
+invalid visual responses are failures, not successful observations.
+
+For a Vlog project, load vlog/config/hey-neo-vision-context.md and
+pass its content combined with episode context via Markcut --instruct.
+Vlog semantics are project-owned, not hardcoded in Markcut.
+
+## Coordinated output: Markcut metadata and Visioner evidence
+
+Markcut writes input/media/metadata.json containing perception.desc,
+perception.subtitle, and time-keyed perception.segments or observations.
+Those are model observations, NOT accepted editorial or observed facts.
+Visioner must produce a separate vision-evidence.json citing source_id,
+source SHA-256 and original-source timestamps, with uncertainty and
+caption/visual provenance. Never treat proxy timeline positions as
+original source time.
+
+Use node vlog/scripts/index-markcut-vision.mjs <dated-run> to create a
+source-linked vision-segment-index.json from the approved manifest and
+Markcut metadata. Then use this index to author vision-evidence.json.
+The machine-readable index is an intermediate, NOT Director acceptance,
+a final cut, or approval to publish. Do not overwrite existing approved
+Visioner evidence automatically.
 
 ## Canonical vision interface
 
