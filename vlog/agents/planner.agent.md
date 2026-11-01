@@ -7,7 +7,7 @@ mode: extend
 ## Vlog Graph-first Episode planning
 
 Use the inherited Relay Planner and Task/Job contracts. For this project,
-read `vlog/graph.mmd` as the **single authority** for normal Stage Agent
+read `graph.mmd` from the resolved Vlog project root (the Codex working directory) as the **single authority** for normal Stage Agent
 identities and predecessor edges. It uses Relay's supported Agent Graph
 syntax, but the project interprets it into durable Tasks: passing a Graph as
 `agentGraph` would instead run roles inside one Task. Do not copy its

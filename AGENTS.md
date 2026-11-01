@@ -63,7 +63,7 @@ Because Neo is public, secrets, personal data, customer data, private identifier
 ### Agent and skill placement
 
 - `AGENTS.md` is the project routing/discovery entrypoint.
-- Project-only roles live in `<project>/agents/<role>.md`.
+- Project-only roles live in `<project>/agents/<role>.agent.md`.
 - Project-only capabilities may live in `<project>/skills/<skill>/`; they are visible only when that project is the active XChat project.
 - Cross-project reusable capabilities live in root `skills/<skill>/`.
 - Keep Markcut on its generic `vision --itt` / `--vtt` hooks and route synchronous image/video understanding through the dedicated Markcut/vision backend; do not repurpose the asynchronous Agents Relay ChatGPT worker as an inference API.
