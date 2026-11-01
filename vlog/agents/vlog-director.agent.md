@@ -20,8 +20,9 @@ repeat vision inference when Markcut metadata already answers the question.
 ## Personal Tour Director index
 
 When a personal-library is available, read the private canonical
-`vlog/runs/personal-library/tour-director.json` and use the shared
-`selectTourReferences` selector from `vlog/lib/tour-director-index.mjs`.
+`runs/personal-library/tour-director.json` (relative to the Vlog project root)
+and use the shared `selectTourReferences` selector from
+`lib/tour-director-index.mjs`.
 Choose only archived, SHA-256-verified active recordings whose story topic
 serves the actual episode. A prompt without an accepted recording is not
 footage. Historical stories and reactions may inform personality, but cannot
