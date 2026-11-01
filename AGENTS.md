@@ -63,7 +63,7 @@ Because Neo is public, secrets, personal data, customer data, private identifier
 ### Agent and skill placement
 
 - `AGENTS.md` is the project routing/discovery entrypoint.
-- Project-only roles live in `<project>/agents/<role>.md`.
+- Project-only roles live in `<project>/agents/<role>.agent.md`.
 - Project-only capabilities may live in `<project>/skills/<skill>/`; they are visible only when that project is the active XChat project.
 - Cross-project reusable capabilities live in root `skills/<skill>/`.
 - Keep Markcut on its generic `vision --itt` / `--vtt` hooks and route synchronous image/video understanding through the dedicated Markcut/vision backend; do not repurpose the asynchronous Agents Relay ChatGPT worker as an inference API.
@@ -97,7 +97,7 @@ This is a strong contract: source-code changes may use isolated worktrees, but r
 
 ### Neo orchestrator control plane
 
-At a Neo session or recovery, read `MISSION.md`, then the private top-level `.run/PLAN.md` when present, then `.run/state.json` and its task files. Review the durable plan before selecting or delegating tasks; decompose reviewed work into tasks owned by projects/workers, and feed evidence and results into later plan reviews. `.run/` is ignored and holds only the portfolio plan, current state index, per-task handoff records, and review/decision history; project execution artifacts remain in each project's `runs/`. Before and after every handoff, record task owner, project, worker/thread/profile when applicable, authoritative references, last observed state, next action, and `requires_user`. Reconcile `.run` against GitHub, events-bus, worker, and artifact state before acting; `.run` never overrides authoritative state. See `docs/control-plane.md`.
+At a Neo session or recovery, read `MISSION.md`, then the private top-level `.run/PLAN.md` when present, then `.run/state.json` and its task files. Review the durable plan before selecting or delegating tasks; decompose reviewed work into tasks owned by projects/workers, and feed evidence and results into later plan reviews. `.run/` is ignored and holds only the portfolio plan, current state index, per-task handoff records, and review/decision history; project execution artifacts remain in each project's `runs/`. Before and after every handoff, record task owner, project, worker/thread/profile when applicable, authoritative references, last observed state, next action, and `requires_user`. Reconcile Relay-backed Job, Plan, Task and Review status through the version-matched Relay CLI. Independently verify non-Relay worker and artifact evidence with its owning tools; `.run` never overrides authoritative state. Do not read Relay backing storage, PR markers or private service APIs. See `docs/control-plane.md`.
 
 Read `MISSION.md` at the start of every Neo session and treat it as the canonical Neo identity/mission context. Identify the user's intention before implementation. Mission and plan content are not permission to spend, publish, merge, make external commitments, or claim earnings.
 

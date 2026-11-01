@@ -1,6 +1,6 @@
-# One Episode Task — reusable stage contract
+# Vlog Episode Stages — reusable acceptance contract
 
-This is a design contract, **not** an episode, scheduler or authorization. It continues [PR #127](https://github.com/lalalic/neo/pull/127) and [PR #129](https://github.com/lalalic/neo/pull/129). Source approval is a prerequisite to *creating* a real Episode Task. The 2026-10-11 pilot manifest is `INPUT_NEEDED`, so no episode may be invented for it.
+This is a stage acceptance contract, not an episode, scheduler or authorization. Source approval is required before creating real Episode Stage Tasks. Do not create Stage Tasks for an `INPUT_NEEDED` manifest.
 
 **Graph authority:** [graph.mmd](../graph.mmd) is the sole canonical normal-stage DAG. Visioner runs first within an Episode (shared visioner/Markcut Vision) to write source-linked visual/audio evidence, available metadata and a missing-information report. Immediately afterward, optional human source review can answer material questions before Director. Default is skip if not requested and evidence is sufficient. Never invent answers, confuse owner testimony with observed video, or bypass source-use permission. Watcher/ingress is outside the Episode Graph.
 
@@ -52,11 +52,11 @@ outside Markcut.
 DeepSeek is a generic ITT/VTT executor, not a separate Vlog workflow.
 When selected, Visioner supplies --itt/--vtt WebHelm DeepSeek hooks,
 preserves Markcut --stt and --agent semantic segmentation, and injects
-the project-local vlog/config/hey-neo-vision-context.md as --instruct.
+the project-local `config/hey-neo-vision-context.md` (relative to Vlog project root) as `--instruct`.
 The source segmentation stage does not render an initial-cut video.
 
 Evidence bridge: Index Markcut's metadata.json with
-node vlog/scripts/index-markcut-vision.mjs <dated-run>. This validates
+`node scripts/index-markcut-vision.mjs <dated-run>` from the Vlog project root. This validates
 source IDs/hashes and timestamps and writes vision-segment-index.json
 as a machine-verifiable model-observation reference. Visioner then
 authors separate source-grounded vision-evidence.json with interpretation,
@@ -70,14 +70,7 @@ Director). Keep optional transcript/caption `.vtt` files under Markcut's
 source-relative paths. Do not confuse subtitle VTT with video-to-text
 inference. Watcher owns media integrity before the Episode Job.
 
-The old `vlog-editor -> vlog-producer` Agent Graph is historical; only `graph.mmd` defines current normal stages. Planner must preserve Visioner-first dependencies and all required review gates when selecting visible agents and compiling the executable Task graph.
-
-```text
-owner-approved source -> Visioner (Clarify?) -> Director (Guide? + Story) -> Editor (Guide?) -> Producer (Preview/Fix until Approved)
-                                   -> Video Director + Market reviews -> technical QA
-                                   -> explicit Publish Authorization? -> publish with receipt
-                                                                  \-> archive (default)
-```
+The current [graph.mmd](../graph.mmd) defines the only normal-stage ordering. Review, human interaction, optional publication and archive are gates/actions, not extra Graph edges.
 
 Normal stages are durable Tasks when their independent outputs require a lifecycle. Planner reads `graph.mmd` and resolves visible Agents; the Episode Job owns the outcome. Task parentage expresses semantic ownership, while dependencies express execution order. Final Review is parentless and is not a Graph stage. Relay owns retries, review revisions, escalation and recovery; do not add feedback edges or a project scheduler.
 
@@ -89,10 +82,10 @@ Normal stages are durable Tasks when their independent outputs require a lifecyc
 | **Research (conditional)** | vlog-director with shared phone-media/EXIF and location research capabilities | Approved manifest and story-relevant research questions; GPS metadata is optional | `route-evidence.json` or explicit `not-applicable` status, `location-enrichment.json` if relevant, research notes | Each fact links back to source ID, original EXIF/QuickTime metadata or attributable external source; capture timezone uncertainty, privacy and calculated-vs-observed distinction | Missing GPS is a successful no-op, not a pipeline failure; invalid/outlier/private GPS excluded; external permission holds only the affected enrichment |
 | **Story / shot selection** | vlog-director | Visioner evidence, source manifest, optional research and authentic story beats | `story.md`, `post.md`, `shot-selection.json`, `visual-brief.md`; optional [audience familiarity review](story-familiarity-review.md) | Hook/development/payoff references exact source IDs, shot ranges, original dialogue/ambient audio; generated context explicitly identified | Unsupported visits, invented movement/scene, unusable story evidence or invented dialogue: revise through Relay |
 | **Editing** | vlog-editor | Director shot selection and visual brief | `edit-decision-list.json` with exact source in/out and treatment | Each cut references the selected source ID, candidate interval and reason for adjustment | Unapproved scene/story replacement or missing source: return to Director, never invent |
-| **Production** | vlog-producer with shared video-director, audio-sourcing and Markcut | Director story, shot selection, Editor decision list and visual brief with approved media; original sound and licensed/authorized BGM plan | `music-plan.json`, `video.md`, `execution/`, `assets/`, WebVTT captions | Source references per scene, licenses and music clearance, audible mix/ducking decisions, Chinese default text, visual/source-truth checks; optional map insert separately redacted and authorized | Missing BGM clearance, absent original media, unavailable rights, unapproved private location or unresolved Markcut output: hold; never replace source footage with synthetic demonstration |
+| **Production** | vlog-producer with shared video-director, audio-sourcing and Markcut | Director story, shot selection, Editor decision list and visual brief with approved media; original sound and licensed/authorized BGM plan | `music-plan.json`, `video.md`, `execution/`, `assets/`, `output/` render and WebVTT captions | Source references per scene, licenses and music clearance, audible mix/ducking decisions, Chinese default text, visual/source-truth checks; optional map insert separately redacted and authorized | Missing BGM clearance, absent original media, unavailable rights, unapproved private location or unresolved Markcut output: hold; never replace source footage with synthetic demonstration |
 | **Immutable Preview Review** | owner via current ChatGPT Producer Worker and Markcut Preview | Canonical compiled draft, exact revision/content hash, human-accessible Markcut preview | Revision-specific preview and review record under `reviews/` | Owner decision bound to immutable revision and source/use scope; any changed draft invalidates earlier approval | Not reviewed or changes required: Producer holds; fix and re-preview in same Worker, no extra Relay Task |
 | **Video Director + Market reviews** | Producer's `agents-relay review run` Action calls implicit generic Reviewer and shared video-director/market; Producer stores results | Exact preview revision and draft | `reviews/review-request.md`, `reviews/review.json` | Explicit `PASS` from both, validating story/pace/source truth, sound mix, captions, platform/audience fit | Any `CHANGE_REQUIRED` or revision mismatch prevents final render |
-| **Technical QA / archive** | vlog-producer using shared render/QA; Relay preserves receipt | Dual PASS, approved draft and resolved Markcut backend | `output/` render, `qa.md`, immutable archive receipt | Actually observe final pixels, source media, route tiles/camera when used, Play/Seek, sound/BGM and WebVTT; verify exact delivered video bytes | Compilation/local HTTP alone does not pass hosted preview. Job 474 hosted iframe bootstrap remains a separate unresolved gate; no fake acceptance. Archive is default without publication authorization |
+| **Technical QA / archive** | vlog-final-qa independently inspects the Producer render; Relay preserves receipt | Approved draft, required review PASS and actual rendered `output/` | `qa.md`, immutable archive receipt | Actually observe final pixels, source media, route tiles/camera when used, Play/Seek, sound/BGM and WebVTT; verify exact delivered video bytes | Compilation/local HTTP alone does not pass hosted preview. Verify real hosted-preview playback when required; no fake acceptance. Archive is default without publication authorization |
 | **Publish Authorization (optional)** | owner for authorization; shared post-agent for approved delivery | Accepted immutable output and explicit human authorization for platform/account/scope, including privacy and rights | `publish/` authorization reference; if authorized, shared post-agent receipt and platform verification | Record who approved which version, where and when, then post-agent platform-side status; retain archived copy | Without explicit authorization, **archive only**. No spending or posting by inference; missing receipt is not successful publication |
 
 ## Visioner source segmentation: Markcut VTT + project rules

@@ -65,7 +65,7 @@ through the signed-in website and WebHelm, not developer API keys.
 Use only a Markcut version supporting {prompt_quoted}; incomplete or
 invalid visual responses are failures, not successful observations.
 
-For a Vlog project, load vlog/config/hey-neo-vision-context.md and
+For a Vlog project, load `<vlog-project-root>/config/hey-neo-vision-context.md` and
 pass its content combined with episode context via Markcut --instruct.
 Vlog semantics are project-owned, not hardcoded in Markcut.
 
@@ -79,7 +79,7 @@ source SHA-256 and original-source timestamps, with uncertainty and
 caption/visual provenance. Never treat proxy timeline positions as
 original source time.
 
-Use node vlog/scripts/index-markcut-vision.mjs <dated-run> to create a
+From the Vlog project root, use `node scripts/index-markcut-vision.mjs <dated-run>` to create a
 source-linked vision-segment-index.json from the approved manifest and
 Markcut metadata. Then use this index to author vision-evidence.json.
 The machine-readable index is an intermediate, NOT Director acceptance,
