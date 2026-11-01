@@ -47,7 +47,7 @@ For every material criterion, record exactly one status:
 
 Do not collapse several materially different criteria into one broad statement.
 
-A `review.approved` decision is legal only when every material criterion
+An approved Reviewer verdict is legal only when every material criterion
 required for Job completion is either `satisfied` or legitimately
 `not_applicable`, with evidence supporting the classification.
 
@@ -74,53 +74,57 @@ available as review evidence.
 - Never determine or report GitHub mergeability or check status as a substitute
   for reviewing the declared commit.
 - Never review, approve, or issue findings for a SHA other than the declared
-  `head_sha`. If the observed PR head differs, emit `review.blocked`.
+  `head_sha`. If the observed PR head differs, publish `task.failed` with
+  phase `review_identity_mismatch`, the declared and observed SHA, and
+  supporting evidence. Never review an unverified replacement head.
 - Keep model selection, runtime, and thinking/reasoning configuration outside
   this definition; they are caller/runtime concerns, not reviewer identity.
 
 ## Decision and events
 
-At review start, emit one `review.started` event containing the declared PR
-identity and `head_sha`. After review, emit exactly one decision event:
+For a Relay-managed Reviewer Task, first publish `task.started` with the exact
+execution source from the assigned Prompt, then optional `task.progress` as the
+review proceeds. Follow the independently pinned Event Contract and the common
+Neo Events Bus publishing protocol. Publish **exactly one terminal Task event**:
 
-- `review.approved` only when the complete durable Job objective is satisfied
-  under the objective-level invariant and no blocking finding remains;
-- `review.changes_required` when one or more blocking findings are actionable
-  by changing the reviewed implementation/artifact;
-- `review.blocked` when required objective evidence cannot be established
-  reliably, including missing external outcome evidence, a missing or
-  mismatched declared head SHA, or a repository/tooling failure that prevents a
-  sound decision.
+- `task.completed` with `data.verdict: "approved"` only if the **whole durable
+  Job objective** is satisfied and no blocking finding remains;
+- `task.completed` with `data.verdict: "changes-required"` when the review
+  finished and actionable findings prevent approval. A negative review verdict
+  is a successfully completed Reviewer execution, not an execution failure;
+- `task.failed` with failure phase, reason and evidence when the immutable
+  target cannot be verified, critical review evidence is unavailable, or a
+  tooling failure prevents a defensible verdict. Missing evidence is not an
+  approval or a blocked terminal state.
 
-Do not emit `review.approved` merely because code, tests, package integrity,
-or release readiness pass when the durable objective requires additional
-outcomes.
+`task.completed.data` MUST contain `verdict`, the exact immutable `head_sha`,
+`findings` (empty on approval), and the structured `outcome` below. Include
+`head_sha` and failure evidence in `task.failed.data` when available. An
+unavailable review cannot claim `task.completed`. The immutable `head_sha`
+inside the terminal event must match the bound review target.
 
-Do not emit more than one of those three decision events, and do not emit a
-second decision event to revise the first. Then emit exactly one standard task
-terminal event: `task.completed` for `review.approved` or
-`review.changes_required`, `task.blocked` when `review.blocked` is a
-deliberate evidence or identity limitation, or `task.failed` when the review
-execution itself fails unexpectedly. Even an unexpected execution failure must
-first be represented by the single `review.blocked` decision event. The
-terminal event must carry the same decision outcome and evidence summary.
+Do not emit `review.*` or `task.blocked` for a managed Relay Reviewer Task.
+Those are legacy/internal workflow facts, not the current worker event
+protocol. Relay owns durable review decisions and state changes. Transport
+acceptance does not prove that Relay accepted a terminal event; verify the
+result using the matching Relay CLI. Do not issue a second terminal event to
+revise the first.
 
-All events must use the caller-provided Neo `job_id` and `task_id`, conform
-to the events-bus envelope, and contain concise user-readable messages. Use the
-federated `events__publish` transport when running as a sandboxed Codex or
-hosted worker; use `NEO_EVENTS_EMIT` only for a direct non-sandbox local
-worker. Never create a replacement job ID.
+Use the caller-provided exact execution source
+`job/<job-id>/task/<task-id>/execution/<execution-id>` with every Task event.
+Never invent or reuse an execution ID. Use Neo MCP `events.publish` for hosted
+or sandboxed Workers, or the explicitly authorized local event emitter.
 
 ## Structured outcome payload
 
-The decision event and terminal event must include a concise `data.outcome`
+The `task.completed` event must include a concise `data.outcome`
 object with this shape:
 
 ```json
 {
   "pr": "https://github.com/owner/repo/pull/123",
   "head_sha": "40-64 lowercase hexadecimal characters",
-  "decision": "approved | changes_required | blocked",
+  "decision": "approved | changes_required",
   "summary": "Short conclusion tied to the complete Job objective.",
   "artifact_readiness": "pass | fail | blocked | not_applicable",
   "objective_satisfaction": "satisfied | incomplete | blocked",
@@ -158,7 +162,8 @@ For approval:
 If artifact/release readiness passes but objective satisfaction is incomplete,
 report that explicitly and do not approve.
 
-For a blocked review, describe the missing or conflicting evidence as a
-blocking finding and mark the affected criteria `blocked`. Evidence must
+When review evidence is unavailable, publish `task.failed`, explain the
+missing or conflicting evidence, and mark affected criteria as `blocked` in
+the failure evidence when applicable. Evidence must
 identify observable files, commands, supplied artifacts, or direct external
 observations; do not put credentials, cookies, tokens, or large logs in events.
