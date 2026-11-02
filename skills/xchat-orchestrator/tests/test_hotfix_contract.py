@@ -30,6 +30,24 @@ class XChatHarnessContractTests(unittest.TestCase):
         self.assertIn("load the discovered `agents-relay` Skill", BOOTSTRAP)
         self.assertIn("An explicit Relay request overrides", BOOTSTRAP)
 
+    def test_external_ai_child_bootstrap_is_on_demand_and_transport_neutral(self):
+        ref = (ROOT / "references/external-child-bootstrap.md").read_text(encoding="utf-8")
+        z = (ROOT.parents[1] / "docs/z-chat/bootstrap.md").read_text(encoding="utf-8")
+        self.assertIn("references/external-child-bootstrap.md", BOOTSTRAP)
+        self.assertIn("different AI website", ref)
+        self.assertIn("no Neo bootstrap", ref)
+        self.assertIn("generic `new-thread` Action", ref)
+        self.assertIn("https://neoy.qili2.com/files/z-chat/bootstrap.md", ref)
+        self.assertIn("Neo MCP", z)
+        self.assertIn("neo mcp token issue", ref)
+        self.assertIn("bootstrap-only first turn", ref)
+        self.assertIn("Only after bootstrap verification", ref)
+        self.assertIn("the **same** verified Z thread", ref)
+        self.assertIn("do not resend", ref)
+        self.assertIn("No master/operator token", ref)
+        self.assertIn("NEO_AUTH_REQUIRED", z)
+        self.assertNotIn("neoy.qili2.com", BOOTSTRAP)
+
     def test_skill_catalog_and_tools_not_duplicated(self):
         self.assertIn("neo skill list", BOOTSTRAP)
         self.assertIn("MCP already provides tools", BOOTSTRAP)

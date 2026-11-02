@@ -12,6 +12,7 @@ These rules extend `~/.agents/AGENTS.md`. The canonical `neo bootstrap` command 
 - If a needed Skill is not installed, use the available skill discovery and trusted `npx skills` workflow to evaluate a global installation; do not install unrelated Skills or bypass installation permissions.
 - For Xiaohongshu (XHS) post details use the discovered `webhelm` Skill's XHS research action; use that browser Skill for ChatGPT plugins, Projects, and settings when user-authorized UI access is needed. For Roku playback, load `play-to-roku`. These are on-demand routes, not mandatory startup Skills.
 - For a stuck ChatGPT turn or a long-thread handoff, discover the supported Neo ChatGPT turn/thread commands rather than assuming legacy `turnnew`/`threadnew` tools; carry forward full task context and verify the submission outcome.
+- For a ChatGPT-orchestrated **external AI child** that needs Neo tools, read `references/external-child-bootstrap.md` beside the discovered `xchat-orchestrator/SKILL.md`. Construct and verify that child's Neo bootstrap before sending its task; generic platform Actions stay Neo-agnostic.
 - For local files or Git, resolve the specific task target from the request, or reuse a previously verified target in this chat. Verify its real path, innermost Git root, remote and dirty state; read applicable `AGENTS.md` and `README.md`. Do not infer a repository from Project/Space or current working directory. When ambiguous, clarify before mutation.
 
 ## Special execution rules
