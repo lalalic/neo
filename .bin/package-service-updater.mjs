@@ -16,8 +16,8 @@ const POLL_INTERVAL_MS = 2000;
 const PULLABLE_TIMEOUT_MS = 5 * 60 * 1000;
 const ONLINE_TIMEOUT_MS = 60 * 1000;
 
-function run(command, args = [], timeoutMs = 30000) {
-  const result = spawnSync(command, args, { encoding: 'utf8', timeout: timeoutMs, env: process.env });
+function run(command, args = [], timeoutMs = 30000, env = process.env) {
+  const result = spawnSync(command, args, { encoding: 'utf8', timeout: timeoutMs, env });
   return { code: result.status ?? 1, stdout: result.stdout ?? '', stderr: result.stderr ?? '' };
 }
 
@@ -205,7 +205,8 @@ export async function handlePublicationEvent(event, dependencies = {}) {
       };
       try {
         await emit(publication, 'service.deploy.started', 'running', `Restarting ${target.name} for ${publication.packageName}@${publication.version}`, data);
-        const restarted = (dependencies.restart ?? (() => run('npx', ['pm2', 'restart', target.name], 60000)))();
+        const restarted = (dependencies.restart ?? (() => run('npx', ['pm2', 'restart', target.name, '--update-env'], 60000,
+          { ...process.env, npm_config_prefer_online: 'true' })))();
         if (restarted.code !== 0) throw new Error('pm2 restart failed: ' + restarted.stderr.trim());
         await (dependencies.waitUntilOnline ?? waitUntilOnline)(target.name);
         await (dependencies.emit ?? emit)(publication, 'service.deploy.completed', 'succeeded', `Restarted ${target.name} for ${publication.packageName}@${publication.version}`, data);
