@@ -4,6 +4,8 @@ Neo Project for licensed short-video CPS distribution. **RS Boost** is the first
 
 The sole normal-stage workflow is [graph.mmd](graph.mmd). [AGENTS.md](AGENTS.md) owns project-wide policy and approval gates; project-specific roles are in `agents/`. Reuse the installed Markcut Skill for editing and preview, and WebHelm for authorized browser actions. The project does not implement its own task queue or publishing backend.
 
+The [commercial release and attribution gates](docs/commercial-readiness.md) define the independent owner approval, licensed asset, channel link, publication receipt, measurement and payout evidence chain. The [attribution snapshot schema](contracts/attribution-snapshot.schema.json) records dated metrics without storing private links in Git.
+
 The [creative strategy library](templates/creative-strategies.md) gives grounded hook selection and compliant test variants. The [monitoring runbook](docs/monitoring.md) documents Worknode platform readiness, publication safeguards and feedback data capture.
 
 ## Where information belongs

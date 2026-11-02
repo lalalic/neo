@@ -1,6 +1,6 @@
 # Social publishing and feedback monitoring
 
-The execution node is **Worknode**. Project account identities and current Safelist state are exclusively in [accounts.md](../accounts.md); do not duplicate them in runs or store login secrets.
+The execution node is **Worknode**. Follow [commercial readiness](commercial-readiness.md) for complete rights, clickable-link, release and attribution gates and the [private measurement schema](../contracts/attribution-snapshot.schema.json). Project account identities and current Safelist state are exclusively in [accounts.md](../accounts.md); do not duplicate them in runs or store login secrets.
 
 1. Before any task, verify the Worknode **managed Chrome** account using the relevant WebHelm Platform `inspect` Action with the expected account identity. Stop on `blocked` or an identity mismatch; a Neo Master login does not authenticate Worknode.
 2. For each owner-approved, rights-cleared creative, use the platform `post` Action **only** with the explicit `confirm_publish:true` guard and the exact permitted destination. A browser Send/Post/Save click yields only an *unverified submission*. Collect the actual published post URL, visibility and channel receipt, or fail closed if ambiguous. No public posting was authorized during this platform review.
