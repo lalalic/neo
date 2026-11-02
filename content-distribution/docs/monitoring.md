@@ -9,3 +9,9 @@ The execution node is **Worknode**. Project account identities and current Safel
 5. Safelist registration is an account-level prerequisite, not approval to publish. Obtain explicit owner approval for each revised video, account and link, and observe current RS Boost permissions before posting. Financial withdrawals and sensitive identity/bank/tax submissions require separate approval.
 
 Platform Actions are maintained in the **Worknode** `~/.local/webhelm/platforms/{tiktok,youtube}` checkout. Read the installed WebHelm Skill and `platform profile`/`platform run --help` for current interfaces, not a copied CLI grammar. Platform features stay marked unverified until a real authenticated end-to-end result is observed.
+
+## Latest live read-only check (2026-11-02)
+
+- TikTok on Worknode: authenticated `lalalic001`; `inspect` returned `ready`, `monitor(mode=posts)` returned one existing public post and visible metrics (107 views, 1 like, 0 comments); `monitor(mode=comments)` returned a verified empty Comments page. These are not RS Boost campaign metrics.
+- YouTube on Worknode: `inspect` returned `ready` for channel `UCOoJX2s21KrOcRE0B46vx6g`; Shorts list and comments pages were accessible but returned `unverified` because no rows were observed.
+- Both platform publish Actions remain **not live E2E verified**. No test media was uploaded or published.

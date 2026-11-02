@@ -32,9 +32,10 @@ This verifies account *submission and persisted pending status*, **not** complet
 
 ## WebHelm execution node (2026-11-02 check)
 
-- **Worknode is the intended development and publishing/monitoring execution node**. TikTok Studio in Worknode WebHelm redirects to the login page; the authenticated Neo Master browser cannot be assumed to share its cookies.
+- **Worknode is the intended development and publishing/monitoring execution node**. TikTok Studio is now authenticated on Worknode as `lalalic001`: the `tiktok inspect` Action returned `ready`, with an Upload button present (2026-11-02). This verifies the existing upload control, not an end-to-end publication.
 - Worknode YouTube Studio initially showed a transient Chrome error, but subsequently loaded the expected channel and its Upload/Create controls. Read-only `youtube inspect` returned `ready` for the correct channel. No actual upload has been tested; the Shorts list showed no observed video rows.
-- The migrated TikTok and YouTube WebHelm `post` Actions have not passed an authenticated upload E2E. Worknode Actions now include read-only `inspect` and `monitor`, plus an explicit `confirm_publish` safety gate. Source and tests are maintained in the Worknode WebHelm Actions checkout. Do not claim production publishing/feedback monitoring is verified until a real authorized post can be observed.
+- Worknode `tiktok monitor` now successfully reads an **existing unrelated public post** and its visible views/likes/comments (107/1/0 on 2026-11-02); the Comments page explicitly reported no comments. This validates TikTok read-only monitoring for the observed state, but is not an RS Boost conversion or a test of nonempty comment parsing.
+- The migrated TikTok and YouTube WebHelm `post` Actions have not passed a real upload E2E. The read-only `inspect` and `monitor` Actions and explicit `confirm_publish` guard are installed on Worknode. Do not claim that public publishing or YouTube nonempty analytics is verified until a separately authorized live post is observed.
 
 ## Ownership and change control
 
