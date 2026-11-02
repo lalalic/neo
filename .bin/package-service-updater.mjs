@@ -62,11 +62,30 @@ export function discoverPackageServices(pm2List, packageName) {
     if (!['npx', 'npm'].includes(launcher)) continue;
     const args = Array.isArray(env?.args) ? env.args.map(String) : [];
     let matched = false;
+    let explicitPackage = false;
+    let firstPositional = null;
     for (let index = 0; index < args.length; index += 1) {
       const arg = args[index];
-      if ((arg === '-p' || arg === '--package') && packageNameFromSpec(args[index + 1]) === packageName) matched = true;
-      if (arg.startsWith('--package=') && packageNameFromSpec(arg.slice('--package='.length)) === packageName) matched = true;
+      if (arg === '-p' || arg === '--package') {
+        explicitPackage = true;
+        if (packageNameFromSpec(args[++index]) === packageName) matched = true;
+        continue;
+      }
+      if (arg.startsWith('--package=')) {
+        explicitPackage = true;
+        if (packageNameFromSpec(arg.slice('--package='.length)) === packageName) matched = true;
+        continue;
+      }
+      if (['--registry', '--workspace', '--prefix', '--call', '-c'].includes(arg)) {
+        index += 1;
+        continue;
+      }
+      if (arg.startsWith('-')) continue;
+      if (firstPositional === null) firstPositional = arg;
     }
+    // npx -y wechat-bro@latest --daemon does not use a --package flag.
+    // Only the first positional token is the direct package launcher.
+    if (!explicitPackage && packageNameFromSpec(firstPositional) === packageName) matched = true;
     if (matched && typeof process.name === 'string' && process.name) {
       services.push({ name: process.name, status: typeof env?.status === 'string' ? env.status : null });
     }

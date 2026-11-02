@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 
-import { handlePublicationEvent, waitUntilPullable, waitUntilLatest } from './package-service-updater.mjs';
+import { handlePublicationEvent, waitUntilPullable, waitUntilLatest, discoverPackageServices } from './package-service-updater.mjs';
 
 const publication = {
   type: 'package.published',
@@ -96,4 +96,49 @@ test('unmatched latest dist-tag prevents stale publication from restarting a ser
     restart:()=>{restarts++;return {code:0,stderr:''};},
   }),/stale publication/);
   assert.equal(restarts,0);
+});
+
+
+test('watcher identifies direct npx @latest launchers and avoids unrelated services', () => {
+  const process = (name, launcher, args) => ({
+    name, pm2_env: { status: 'online', pm_exec_path: launcher, args },
+  });
+  const inventory = [
+    process('wechat-bro/daemon', '/opt/homebrew/bin/npx', ['-y', 'wechat-bro@latest', '--daemon', '--port', '9231']),
+    process('wechat-bro/orchestrator', '/opt/homebrew/bin/npx', ['-y', 'wechat-bro@latest', 'orchestrator']),
+    process('agents-relay/daemon', '/opt/homebrew/bin/npx', ['-y', '--package', 'agents-relay@latest', 'agents-relayd']),
+    process('other/npx', '/opt/homebrew/bin/npx', ['--yes', '@unrelated/pkg@latest', '--command', 'wechat-bro@latest']),
+    process('vlog/watcher', '/opt/homebrew/bin/npx', ['-y', '--package', '/tmp/vlog-0.1.1.tgz', 'vlog-inbox-watcher']),
+    process('other/local', '/usr/bin/node', ['/tmp/wechat-bro@latest.mjs']),
+  ];
+  assert.deepEqual(discoverPackageServices(inventory, 'wechat-bro').map(x => x.name),
+    ['wechat-bro/daemon', 'wechat-bro/orchestrator']);
+  assert.deepEqual(discoverPackageServices(inventory, 'agents-relay').map(x => x.name),
+    ['agents-relay/daemon']);
+  assert.deepEqual(discoverPackageServices(inventory, '@unrelated/pkg').map(x => x.name),
+    ['other/npx']);
+});
+
+test('published direct npx package restarts both PM2 services after artifact and latest verification', async () => {
+  const order = [];
+  const result = await handlePublicationEvent({
+    type: 'package.published',
+    status: 'succeeded',
+    data: { package: 'wechat-bro', version: '3.1.5' },
+  }, {
+    waitUntilPullable: async () => { order.push('artifact'); },
+    waitUntilLatest: async () => { order.push('latest'); },
+    pm2List: () => [
+      { name: 'wechat-bro/daemon', pm2_env: { status: 'online', pm_exec_path: '/opt/homebrew/bin/npx', args: ['-y', 'wechat-bro@latest', '--daemon'] } },
+      { name: 'wechat-bro/orchestrator', pm2_env: { status: 'online', pm_exec_path: '/opt/homebrew/bin/npx', args: ['-y', 'wechat-bro@latest', 'orchestrator'] } },
+    ],
+    restart: () => { order.push('restart'); return { code: 0, stderr: '' }; },
+    waitUntilOnline: async name => { order.push('online:' + name); },
+    emit: async () => {},
+  });
+  assert.deepEqual(order, ['artifact', 'latest', 'restart', 'online:wechat-bro/daemon', 'restart', 'online:wechat-bro/orchestrator']);
+  assert.deepEqual(result.results, [
+    { service: 'wechat-bro/daemon', status: 'completed' },
+    { service: 'wechat-bro/orchestrator', status: 'completed' },
+  ]);
 });
