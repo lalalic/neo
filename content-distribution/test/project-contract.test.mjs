@@ -24,8 +24,8 @@ test('graph parses as one five-role DAG and resolves every project manifest', ()
 test('persistent account registry is project-level, indexed and referenced from execution docs', () => {
   const accounts = read('accounts.md');
   for (const [id, publicUrl] of [
-    ['tiktok-lalalic001', 'https://www.tiktok.com/@lalalic001'],
-    ['youtube-lalalic7595', 'https://www.youtube.com/@lalalic7595'],
+    ['tiktok-primary', 'https://www.tiktok.com/@lalalic001'],
+    ['youtube-primary', 'https://www.youtube.com/@lalalic7595'],
   ]) {
     assert.ok(accounts.includes(`\`${id}\``));
     assert.ok(accounts.includes(publicUrl));

@@ -19,8 +19,8 @@ All statuses below were last observed on **2026-11-02**. Check the current authe
 
 | Stable ID for campaign references | Service | Confirmed account | Public profile | RS Boost app | Safelist filing | Last observed |
 | --- | --- | --- | --- | --- | --- | --- |
-| `tiktok-lalalic001` | TikTok | `@lalalic001` | https://www.tiktok.com/@lalalic001 | ReelShort(Drama) | **Pending Update** | 2026-11-02 |
-| `youtube-lalalic7595` | YouTube Shorts | `@lalalic7595` (channel **lalalic**) | https://www.youtube.com/@lalalic7595 | ReelShort(Drama) | **Pending Update** | 2026-11-02 |
+| `tiktok-primary` | TikTok | `@lalalic001` | https://www.tiktok.com/@lalalic001 | ReelShort(Drama) | **Pending Update** | 2026-11-02 |
+| `youtube-primary` | YouTube Shorts | `@lalalic7595` (channel **lalalic**) | https://www.youtube.com/@lalalic7595 | ReelShort(Drama) | **Pending Update** | 2026-11-02 |
 
 YouTube's public channel ID is `UCOoJX2s21KrOcRE0B46vx6g`; its Handle URL above, not `/channel/<id>`, is required by the RS Boost Safelist form.
 
