@@ -8,6 +8,26 @@ The **only authoritative Episode Graph** is [graph.mmd](graph.mmd). Every episod
 
 For authentic personal narratives, the Story editor can use an optional [five-question audience familiarity review](docs/story-familiarity-review.md) (real situation, inner thoughts, familiar voice, audience takeaway, information density). It must cite source evidence or owner confirmation and never fabricate internal experiences.
 
+## Stage-by-stage owner reviews
+
+Run the private review UI against the canonical `vlog/runs/<episode>` tree,
+not a temporary Relay worktree:
+
+```sh
+node scripts/stage-review.mjs serve --stage visioner --run /absolute/path/to/vlog/runs/<episode>
+node scripts/stage-review.mjs status --stage visioner --run /absolute/path/to/vlog/runs/<episode>
+```
+
+The stages `visioner`, `director`, and `editor` have source evidence,
+storyboard, and timeline views respectively. Each comment is tied to the
+source/shot/time and immutable artifact revision, and the Stage Worker
+records how it revised the artifact before requesting another review.
+`producer` feedback is supplementary; the required rendered-video
+approval still uses `neo.markcut_preview`. The local page is only exposed
+on loopback, not to remote users without an authorized access path.
+Opening a page is not human feedback or approval. See
+[Stage review protocol](docs/episode-stage-contract.md#stage-specific-review-and-correction-protocol).
+
 ## Human mental model
 
 ```text

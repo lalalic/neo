@@ -21,6 +21,20 @@ Read `source-manifest.json`, `vision-evidence.json`, Director's
 `shot-selection.json`, `story.md` and `visual-brief.md`. Use only approved
 source media. Source IDs and candidate time ranges must resolve to real clips.
 
+## Stage-specific timeline review
+
+For a requested Editor review, use the local `editor` Stage review
+adapter in `../docs/episode-stage-contract.md`. It presents actual ordered
+source cuts, precise in/out and target duration, cut/transition motivation,
+source and BGM treatment, and caption boundaries. It is an EDL timeline
+review, **not** a Markcut final video playback. Read the current revision's
+shot/source/time comments through `node scripts/stage-review.mjs status
+--stage editor --run <canonical-run>`, revise the EDL in this Worker,
+record the disposition against its feedback key, and re-preview the new
+revision. Reject stale feedback and do not infer approval from a preview
+opening. If human review was requested and no comment was received, leave
+`awaiting_feedback` and report that fact.
+
 ## Workflow
 
 When a cut or edit command is materially ambiguous and changes the story,
