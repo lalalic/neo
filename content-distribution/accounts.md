@@ -30,6 +30,12 @@ The owner explicitly authorized account submission on 2026-11-02; **no permissio
 
 This verifies account *submission and persisted pending status*, **not** completion of provider review, video rights, per-video tracking, or public publication. Before posting, re-check status, provider-specific requirements, current rights, target account and correctly matched promotional link.
 
+## WebHelm execution node (2026-11-02 check)
+
+- **Worknode is the intended development and publishing/monitoring execution node**. TikTok Studio in Worknode WebHelm redirects to the login page; the authenticated Neo Master browser cannot be assumed to share its cookies.
+- Worknode YouTube Studio initially showed a transient Chrome error, but subsequently loaded the expected channel and its Upload/Create controls. Read-only `youtube inspect` returned `ready` for the correct channel. No actual upload has been tested; the Shorts list showed no observed video rows.
+- The migrated TikTok and YouTube WebHelm `post` Actions have not passed an authenticated upload E2E. Worknode Actions now include read-only `inspect` and `monitor`, plus an explicit `confirm_publish` safety gate. Source and tests are maintained in the Worknode WebHelm Actions checkout. Do not claim production publishing/feedback monitoring is verified until a real authorized post can be observed.
+
 ## Ownership and change control
 
 - The accounts and their Safelist history belong **here**, not under an episode or campaign Run. Use the stable IDs above in `runs/.../campaign.json` to refer to accounts without copying the registry.

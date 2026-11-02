@@ -4,6 +4,8 @@ Neo Project for licensed short-video CPS distribution. **RS Boost** is the first
 
 The sole normal-stage workflow is [graph.mmd](graph.mmd). [AGENTS.md](AGENTS.md) owns project-wide policy and approval gates; project-specific roles are in `agents/`. Reuse the installed Markcut Skill for editing and preview, and WebHelm for authorized browser actions. The project does not implement its own task queue or publishing backend.
 
+The [monitoring runbook](docs/monitoring.md) documents Worknode platform readiness, publication safeguards and feedback data capture.
+
 ## Where information belongs
 
 | Location | Responsibility |
