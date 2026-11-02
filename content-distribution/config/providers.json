@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "providers": [
+    {
+      "id": "rs-boost",
+      "name": "ReelShort RS Boost",
+      "stage": "first-pilot",
+      "official_register": "https://cps.reelshort.com/user/register",
+      "official_agreement": "https://cps.reelshort.com/user/agreement",
+      "resource_reference": "https://cps.reelshort.com/resource-square/detail/67f790bf2e5020721707e329?app=reelshort&book_type=0",
+      "notes": "Public source pointers only. Authenticate and verify episode/channel rights, current commissions, creator safelist, attribution and payout before use."
+    },
+    {
+      "id": "reeltree",
+      "name": "ReelTree / Forest Dream",
+      "stage": "research-only",
+      "reference": "https://support.forestdreammedia.com/",
+      "notes": "Support page is not a verified CPS affiliate signup or licensing agreement."
+    },
+    {
+      "id": "dream-cps",
+      "name": "Dream CPS",
+      "stage": "unverified",
+      "notes": "No verified official contracting entity or affiliate portal; do not register, pay or submit identity details."
+    }
+  ]
+}
