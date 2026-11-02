@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { readFileSync, realpathSync } from 'node:fs';
+import { readFileSync, realpathSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -169,7 +169,8 @@ async function main(argv) {
   if (command === 'eval') {
     const [subcommand = 'run', ...options] = args;
     if (['--help', '-h'].includes(subcommand)) { process.stdout.write(usage()); return 0; }
-    const neoSourceRoot = loadWorkspaceConfig().neoRoot;
+    const neoSourceRoot = existsSync(resolve(ROOT, 'scripts/eval-project-worker-prompts.mjs'))
+      ? ROOT : loadWorkspaceConfig().neoRoot;
     const script = subcommand === 'audit'
       ? resolve(neoSourceRoot, 'scripts/audit-project-worker-evals.mjs')
       : resolve(neoSourceRoot, 'scripts/eval-project-worker-prompts.mjs');

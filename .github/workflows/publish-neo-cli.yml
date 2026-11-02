@@ -9,13 +9,24 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    env:
+      AGENTS_RELAY_WORKSPACE_ROOT: ${{ github.workspace }}/..
+      AGENTS_RELAY_DIST_CLI: ${{ github.workspace }}/vendor/agents-relay/dist/cli.js
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: lalalic/agents-relay
+          path: vendor/agents-relay
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org
       - run: npm install --global npm@11.15.0
+      - name: Build canonical Agents Relay PromptBuilder for eval integration tests
+        working-directory: vendor/agents-relay
+        run: npm ci && npm run build
       - name: Portable source tests
         run: node --test --test-skip-pattern='live non-mutating CLI project route' test/*.test.mjs
       - name: Stage CLI distribution
