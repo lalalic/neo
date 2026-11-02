@@ -19,3 +19,14 @@ test('commentary lane and misleading hooks fail closed',()=>{
   assert.match(doc,/direct XHS note/i);
   assert.match(doc,/No evidence this editing method improves drama audience retention/);
 });
+
+test('XHS creator research cites original notes and rejects unlicensed narration',()=>{
+  const s=read('templates/creative-strategies.md');
+  const d=read('docs/research/xhs-hooks-2026-11-02.md');
+  assert.match(s,/docs\/research\/xhs-hooks-2026-11-02\.md/);
+  for(const id of ['6ace2aca00000000150103f8','6a97f846000000002b01ddda','6ad1e6a9000000001a0255e5','6ae80c7a000000001a022d33'])
+    assert.ok(d.includes(id), id);
+  assert.match(d,/Do not adopt subtitle rewriting/);
+  assert.match(d,/Script-only HOLD/);
+  assert.match(d,/our.*proposed.*test structure/);
+});

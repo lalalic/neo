@@ -37,6 +37,10 @@ This verifies account *submission and persisted pending status*, **not** complet
 - Worknode `tiktok monitor` now successfully reads an **existing unrelated public post** and its visible views/likes/comments (107/1/0 on 2026-11-02); the Comments page explicitly reported no comments. This validates TikTok read-only monitoring for the observed state, but is not an RS Boost conversion or a test of nonempty comment parsing.
 - The migrated TikTok and YouTube WebHelm `post` Actions have not passed a real upload E2E. The read-only `inspect` and `monitor` Actions and explicit `confirm_publish` guard are installed on Worknode. Do not claim that public publishing or YouTube nonempty analytics is verified until a separately authorized live post is observed.
 
+## Research accounts (not publication accounts)
+
+- **Xiaohongshu / Rednote — research-only:** Worknode WebHelm managed Chrome showed the signed-in public profile [李藕](https://www.xiaohongshu.com/user/profile/60d93722000000000101ff82) and authenticated XHS search on 2026-11-02. The account was used for **read-only strategy research**; XHS is **not** a RS Boost Safelist-approved distribution account and no XHS public posting authorization exists. Login is time-sensitive; re-check before future reads. The earlier DEVICE_LIMIT state no longer blocked the later session. Do not place login tokens, cookies or private saved-note contents in Git.
+
 ## Ownership and change control
 
 - The accounts and their Safelist history belong **here**, not under an episode or campaign Run. Use the stable IDs above in `runs/.../campaign.json` to refer to accounts without copying the registry.
