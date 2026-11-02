@@ -15,5 +15,7 @@ test('commentary lane and misleading hooks fail closed',()=>{
   assert.match(doc,/re-dub\/narrate\/spoil without prior consent/i);
   assert.match(doc,/written provider authorization/i);
   assert.match(doc,/as a guaranteed viral formula/i);
-  assert.match(doc,/LOGIN_REQUIRED/);
+  assert.match(doc,/DEVICE_LIMIT/);
+  assert.match(doc,/direct XHS note/i);
+  assert.match(doc,/No evidence this editing method improves drama audience retention/);
 });
