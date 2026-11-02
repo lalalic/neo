@@ -9,7 +9,8 @@ import { randomUUID } from 'node:crypto';
 const here = dirname(fileURLToPath(import.meta.url));
 const neoRoot = resolve(here, '..');
 const natsTransport = resolve(neoRoot, 'skills/events-bus/transport/nats.mjs');
-const SERVICE_NAME = 'neo-package-service-updater';
+const SERVICE_NAME = 'neo/package-service-updater';
+const LEGACY_SERVICE_NAME = 'neo-package-service-updater';
 const NATS_URL = process.env.NEO_NATS_URL || 'nats://127.0.0.1:4222';
 const POLL_INTERVAL_MS = 2000;
 const PULLABLE_TIMEOUT_MS = 5 * 60 * 1000;
@@ -71,6 +72,36 @@ export function discoverPackageServices(pm2List, packageName) {
     }
   }
   return services;
+}
+
+/**
+ * A successfully packed artifact may be visible before the registry latest
+ * dist-tag moves. Avoid restarting an @latest PM2 launcher onto an older
+ * version or replaying obsolete publication events.
+ */
+export async function waitUntilLatest(packageName, version, registry, options = {}) {
+  const timeoutMs = options.timeoutMs ?? PULLABLE_TIMEOUT_MS;
+  const pollIntervalMs = options.pollIntervalMs ?? POLL_INTERVAL_MS;
+  const runCommand = options.run ?? run;
+  const sleepFor = options.sleep ?? sleep;
+  const deadline = Date.now() + timeoutMs;
+  let last = '';
+  while (Date.now() < deadline) {
+    const result = runCommand('npm', [
+      'view', packageName, 'dist-tags.latest',
+      '--registry=' + registry, '--prefer-online',
+    ], 30000);
+    if (result.code === 0) {
+      last = result.stdout.trim().replace(/^["']|["']$/g, '');
+      if (last === version) return;
+      // A different latest tag is not a valid deployment target. Wait briefly
+      // for propagation; never restart to an unverified tag.
+    } else {
+      last = (result.stderr || result.stdout || 'unknown error').trim();
+    }
+    await sleepFor(pollIntervalMs);
+  }
+  throw new Error(`latest dist-tag for ${packageName} did not become ${version} (last=${last})`);
 }
 
 function pm2List() {
@@ -157,6 +188,7 @@ export async function handlePublicationEvent(event, dependencies = {}) {
   try {
     await (dependencies.waitUntilPullable ?? waitUntilPullable)(publication.packageName, publication.version, publication.registry);
 
+    await (dependencies.waitUntilLatest ?? waitUntilLatest)(publication.packageName, publication.version, publication.registry);
     const listServices = dependencies.pm2List ?? pm2List;
     const targets = discoverPackageServices(listServices(), publication.packageName);
     if (targets.length === 0) return { action: 'ignored', reason: 'no-matching-pm2-service' };
@@ -227,26 +259,25 @@ function install() {
   const dependency = run('npm', ['ci', '--omit=dev', '--prefix', resolve(neoRoot, 'skills/events-bus')], 120000);
   if (dependency.code !== 0) throw new Error('events-bus dependency install failed: ' + dependency.stderr.trim());
 
-  run('launchctl', ['bootout', `gui/${process.getuid()}/com.neo.package-service-updater`], 30000);
-  run('rm', ['-f', resolve(process.env.HOME, 'Library/LaunchAgents/com.neo.package-service-updater.plist')], 30000);
-  run('rm', ['-rf', resolve(process.env.HOME, '.neo/package-service-updater/runtime')], 30000);
-  run('rm', ['-f', resolve(process.env.HOME, '.neo/package-service-updater.json')], 30000);
-  run('rm', ['-f', resolve(process.env.HOME, '.neo/package-service-updater-state.json')], 30000);
+  const inventory = pm2List();
+  const legacy = inventory.find(entry => entry.name === LEGACY_SERVICE_NAME);
+  const modern = inventory.find(entry => entry.name === SERVICE_NAME);
+  if (!modern) {
+    const defined = run('serviceman', [
+      'define', '--skill', 'neo', '--service', 'package-service-updater', '--apply', '--',
+      process.execPath, script, 'daemon',
+    ], 60000);
+    if (defined.code !== 0) throw new Error('service definition failed: ' + defined.stderr.trim());
+    const created = pm2List().find(entry => entry.name === SERVICE_NAME);
+    if (created?.pm2_env?.status !== 'online') throw new Error(SERVICE_NAME + ' failed to start');
+  }
 
-  run('npx', ['pm2', 'delete', SERVICE_NAME], 30000);
-  const started = spawnSync('npx', [
-    'pm2', 'start', script,
-    '--name', SERVICE_NAME,
-    '--interpreter', process.execPath,
-    '--cwd', neoRoot,
-    '--time',
-  ], {
-    encoding: 'utf8',
-    env: { ...process.env, NEO_NATS_URL: NATS_URL },
-    timeout: 60000,
-  });
-  if ((started.status ?? 1) !== 0) throw new Error('pm2 start failed: ' + (started.stderr || '').trim());
-  const saved = run('npx', ['pm2', 'save'], 60000);
+  if (legacy) {
+    // Do not leave two active subscribers to the same package.published event.
+    const removed = run('npx', ['--yes','pm2', 'delete', LEGACY_SERVICE_NAME], 30000);
+    if (removed.code !== 0) throw new Error('legacy watcher removal failed: ' + removed.stderr.trim());
+  }
+  const saved = run('npx', ['--yes','pm2', 'save'], 60000);
   if (saved.code !== 0) throw new Error('pm2 save failed: ' + saved.stderr.trim());
   process.stdout.write(`installed ${SERVICE_NAME} from ${script}\n`);
 }

@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 
-import { handlePublicationEvent, waitUntilPullable } from './package-service-updater.mjs';
+import { handlePublicationEvent, waitUntilPullable, waitUntilLatest } from './package-service-updater.mjs';
 
 const publication = {
   type: 'package.published',
@@ -44,6 +44,7 @@ test('artifact timeout leaves the running service untouched', async () => {
   let restarts = 0;
   await assert.rejects(() => handlePublicationEvent(publication, {
     waitUntilPullable: async () => { throw new Error('artifact was not fetchable within 10ms (last=404)'); },
+    waitUntilLatest: async () => {},
     pm2List: () => [{
       name: 'example-service',
       pm2_env: { status: 'online', pm_exec_path: '/usr/local/bin/npx', args: ['-p', '@neo/example@1.2.2'] },
@@ -57,6 +58,7 @@ test('restart happens only after artifact verification succeeds', async () => {
   const order = [];
   const result = await handlePublicationEvent(publication, {
     waitUntilPullable: async () => { order.push('artifact'); },
+    waitUntilLatest: async () => {},
     pm2List: () => [{
       name: 'example-service',
       pm2_env: { status: 'online', pm_exec_path: '/usr/local/bin/npx', args: ['-p', '@neo/example@1.2.2'] },
@@ -68,4 +70,30 @@ test('restart happens only after artifact verification succeeds', async () => {
 
   assert.deepEqual(order, ['artifact', 'restart', 'online', 'completed']);
   assert.deepEqual(result.results, [{ service: 'example-service', status: 'completed' }]);
+});
+
+test('latest dist-tag must match published package before restarting', async () => {
+  const observed=[];
+  let polls=0;
+  await waitUntilLatest('@neo/example','1.2.3','https://registry.example.test',{
+    timeoutMs:100,pollIntervalMs:1,
+    run(command,args){
+      observed.push([command,...args]);
+      polls+=1;
+      return {code:0,stdout:polls===1?'1.2.2\n':'1.2.3\n',stderr:''};
+    },
+  });
+  assert.equal(polls,2);
+  assert.ok(observed.every(x=>x.includes('--prefer-online')));
+});
+
+test('unmatched latest dist-tag prevents stale publication from restarting a service', async () => {
+  let restarts=0;
+  await assert.rejects(() => handlePublicationEvent(publication,{
+    waitUntilPullable:async()=>{},
+    waitUntilLatest:async()=>{throw new Error('stale publication');},
+    pm2List:()=>[{name:'example',pm2_env:{status:'online',pm_exec_path:'/usr/bin/npx',args:['--package','@neo/example@latest']}}],
+    restart:()=>{restarts++;return {code:0,stderr:''};},
+  }),/stale publication/);
+  assert.equal(restarts,0);
 });
