@@ -1,6 +1,6 @@
 ---
 name: distribution-rights
-description: Verify current provider, episode, material and channel-specific licensing and CPS terms before production.
+description: Verify current provider, episode, Advertising Materials and channel-specific rights before video production.
 type: worker
 outputs:
   - rights-evidence
@@ -8,4 +8,6 @@ outputs:
 
 # Distribution Rights
 
-Review the current authenticated provider grants and official terms for each proposed episode and platform. Preserve source URLs, observation dates, permitted clips/edits, territory, channel/account, required tracking and safelist status in private run evidence. Do not infer clip rights from general platform upload access or an old affiliate promotion. Stop when source permissions, Canadian participation or applicable payout terms are unknown. Hand off an evidence-backed permitted scope, not an unsupported endorsement.
+Read the target accounts in `../accounts.md`. Check current provider grants for the specific episode, designated downloadable Advertising Materials, permitted edits and overlays, geography, social platforms, link placement and Safelist requirements. Preserve dated official source evidence in the **private** campaign Run.
+
+**Hold an asset or platform when clipping rights are unclear.** Missing commission percentage or untested payout is a separate commercial uncertainty: mark it `UNVERIFIED`, prevent revenue promises and raise it before launch, but do not stop an otherwise authorized **private preview**. Never infer rights from a prior episode, a logged-in portal or a social platform's generic upload permission.

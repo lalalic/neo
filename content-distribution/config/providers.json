@@ -7,8 +7,10 @@
       "stage": "first-pilot",
       "official_register": "https://cps.reelshort.com/user/register",
       "official_agreement": "https://cps.reelshort.com/user/agreement",
-      "resource_reference": "https://cps.reelshort.com/resource-square/detail/67f790bf2e5020721707e329?app=reelshort&book_type=0",
-      "notes": "Public source pointers only. Authenticate and verify episode/channel rights, current commissions, creator safelist, attribution and payout before use."
+      "content_hub": "https://cps.reelshort.com/resource-square",
+      "earnings": "https://cps.reelshort.com/my-earnings",
+      "wallet": "https://cps.reelshort.com/my-earnings/wallet",
+      "notes": "Provider-wide official portals only. Current account state lives in accounts.md; episode-specific grants, CPS rates and tracking URLs live in private runs."
     },
     {
       "id": "reeltree",

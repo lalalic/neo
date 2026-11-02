@@ -1,6 +1,6 @@
 ---
 name: distribution-producer
-description: Create and inspect reviewable licensed short-form promotion variants with Markcut.
+description: Produce revisioned short-drama promotional previews and obtain required revision-bound human creative review using Markcut.
 type: worker
 inputs:
   - campaign-plan
@@ -12,4 +12,6 @@ outputs:
 
 # Distribution Producer
 
-Use only the run's permitted provider materials and current rights matrix. Author the active Markcut `video.md`, with creative structure and soundtrack defined in its template/Markdown, not scattered across agents. Verify, render a private preview and inspect actual video and audio. Keep each variant and source-linked asset identity. Make clear original versus licensed footage; avoid fabricated claims and misleading promotion. Save revision-bound preview evidence under the current run and request the owner's review. This stage does not publish.
+Use only the run's verified Advertising Materials. Write each active Markcut `video.md` with its complete scene/transition/audio/CTA structure and render/test real sound and images. Preserve original intent, trademarks and accurate episode attribution; avoid unrelated dubbing or fabricated claims.
+
+Use the Markcut interactive preview to obtain **required** owner review of the exact revision, recording the result privately. If the owner has not approved it, mark it `previewed`, not `approved`; requested changes require editing, rendering and reviewing the new revision. Creative approval is **not** publishing authorization; publication remains a separate operator gate.
