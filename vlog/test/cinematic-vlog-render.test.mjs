@@ -19,9 +19,9 @@ test('cinematic preset renders three source shots with no black boundary spans a
   try {
     process.chdir(dir);
     const scenes = [
-      { id: 'hook', beat: 'hook', type: 'video', path: 'assets/hook.mp4', duration: 1.5, authorized: true, sourceHash: 'synthetic-hook', evidenceRef: 'synthetic test source 1' },
+      { id: 'hook', beat: 'hook', type: 'video', path: 'assets/hook.mp4', duration: 1.5, audioIntent: 'speech', authorized: true, sourceHash: 'synthetic-hook', evidenceRef: 'synthetic test source 1' },
       { id: 'development', beat: 'development', type: 'image', path: 'assets/development.png', duration: 0.5, audioPath: 'assets/voice.m4a', audioDuration: 1.5, authorized: true, sourceHash: 'synthetic-development', evidenceRef: 'synthetic test source 2', override: { motion: 'slowPush', description: 'extend the still under the full audio beat', rationale: 'the visual is intentionally shorter than the sound bed', evidenceRef: 'synthetic test timeline' } },
-      { id: 'payoff', beat: 'payoff', type: 'video', path: 'assets/payoff.mp4', duration: 2.5, authorized: true, sourceHash: 'synthetic-payoff', evidenceRef: 'synthetic test source 3' }
+      { id: 'payoff', beat: 'payoff', type: 'video', path: 'assets/payoff.mp4', duration: 2.5, audioIntent: 'speech', authorized: true, sourceHash: 'synthetic-payoff', evidenceRef: 'synthetic test source 3' }
     ];
     mkdirSync('assets', { recursive: true });
     for (const [index, color] of ['red', 'green', 'blue'].entries()) {
@@ -30,16 +30,31 @@ test('cinematic preset renders three source shots with no black boundary spans a
       scenes[index].sourceHash = createHash('sha256').update(readFileSync(scenes[index].path)).digest('hex');
     }
     run('ffmpeg', '-hide_banner', '-loglevel', 'error', '-y', '-f', 'lavfi', '-i', 'sine=frequency=640:sample_rate=48000:duration=1.5', '-c:a', 'aac', 'assets/voice.m4a');
+    scenes[2].audioPath = 'assets/voice.m4a';
+    scenes[2].audioDuration = 1.5; // Validate real foreground voice overlay on a video scene.
     run('ffmpeg', '-hide_banner', '-loglevel', 'error', '-y', '-f', 'lavfi', '-i', 'sine=frequency=220:sample_rate=48000:duration=8', '-c:a', 'aac', 'assets/music.m4a');
-    const music = { path: 'assets/music.m4a', authorized: true, sha256: createHash('sha256').update(readFileSync('assets/music.m4a')).digest('hex'), evidenceRef: 'synthetic test sound authorization' };
+    const music = { path: 'assets/music.m4a', authorized: true, sha256: createHash('sha256').update(readFileSync('assets/music.m4a')).digest('hex'), evidenceRef: 'synthetic music provenance', catalogReference: 'Artlist:133995+133996', preMixedDucking: true, duckingEvidenceRef: 'synthetic ducking envelope' };
     writeFileSync('assets/captions.vtt', 'WEBVTT\n\n00:00:00.100 --> 00:00:01.000\n<span style="background:rgba(0,0,0,.68);padding:10px 18px;border-radius:8px">A real source-grounded hook</span>\n');
     const boundaries = [{ transition: 'fade', seconds: 0.3, rationale: 'soften the scene change' }, { transition: 'fade', seconds: 0.3, rationale: 'carry into the payoff' }];
     const captions = { path: 'assets/captions.vtt' };
-    const episode = { scenes, boundaries, music, captions, width: 160, height: 284, fps: 10 };
+    const story = {
+      goal: 'Capture an honest short autumn walk',
+      outcome: 'Complete the walk and show its real ending',
+      evidenceRef: 'synthetic test story',
+      progression: scenes.map((scene, index) => ({
+        sceneId: scene.id,
+        purpose: index === 0 ? 'hook' : index === scenes.length - 1 ? 'payoff' : 'development',
+        delivery: index === 1
+          ? { mode: 'voiceover', narrationText: 'A connected source-grounded observation', evidenceRef: 'synthetic narrated audio' }
+          : { mode: 'source-speech', listeningVerified: true, evidenceRef: 'synthetic fixture speech audited' },
+      })),
+    };
+    const episode = { scenes, boundaries, music, captions, story, width: 160, height: 284, fps: 10 };
     writeFileSync('episode-input.json', JSON.stringify(episode));
     run(process.execPath, resolve(cwd, 'scripts/compile-cinematic-vlog.mjs'), 'episode-input.json', 'video.md');
     const markdown = readFileSync('video.md', 'utf8');
     assert.match(markdown, /image src:assets\/development\.png duration:1\.5 fit:cover isBackground:true/);
+    assert.match(markdown, /## payoff[\s\S]*- video src:assets\/payoff\.mp4[\s\S]*- audio src:assets\/voice\.m4a duration:1\.5/);
     assert.match(markdown, /scale\(1\.02\)/);
     assert.match(markdown, /synthetic test timeline/);
     assert.deepEqual(lintCinematicVlog(markdown, { scenes, boundaries, music, captions }), []);
@@ -90,7 +105,7 @@ test('cinematic preset renders three source shots with no black boundary spans a
     const cuts = boundaries.map(() => ({ transition: 'cut', rationale: 'the action and source sound carry directly across this beat' }));
     writeFileSync('cuts-input.json', JSON.stringify({ ...episode, boundaries: cuts, variant: 'cinematic-vlog-v1-cuts' }));
     run(process.execPath, resolve(cwd, 'scripts/compile-cinematic-vlog.mjs'), 'cuts-input.json', 'cuts.md');
-    assert.match(readFileSync('cuts.md', 'utf8'), /layout:series\n/);
+    assert.match(readFileSync('cuts.md', 'utf8'), /layout:series(?![^\n]*transition:)/);
     run('markcut', 'verify', 'cuts.md');
     run('markcut', 'render', 'cuts.md', '--output', 'cuts.mp4');
     const cutRaw = run('ffmpeg', '-hide_banner', '-loglevel', 'error', '-i', 'cuts.mp4', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-');
@@ -131,8 +146,8 @@ test('compiler rejects missing boundary choices and unauthorized BGM', () => {
     { id: 'hook', beat: 'hook', type: 'video', path: 'a.mp4', duration: 1, authorized: true, sourceHash: 'a', evidenceRef: 'source a' },
     { id: 'payoff', beat: 'payoff', type: 'video', path: 'b.mp4', duration: 1, authorized: true, sourceHash: 'b', evidenceRef: 'source b' }
   ];
-  const validEvidence = { path: 'music.mp3', authorized: true, sha256: 'synthetic', evidenceRef: 'test' };
+  const validEvidence = { path: 'music.mp3', authorized: true, sha256: 'synthetic', evidenceRef: 'test', catalogReference: 'Artlist:133995+133996' };
   assert.throws(() => compileCinematicVlog({ scenes, boundaries: [], music: validEvidence }), /Every scene boundary/);
-  assert.throws(() => compileCinematicVlog({ scenes, boundaries: [{ transition: 'cut' }], music: { path: 'music.mp3', authorized: false } }), /Authorized BGM/);
+  assert.throws(() => compileCinematicVlog({ scenes, boundaries: [{ transition: 'cut' }], music: { path: 'music.mp3', authorized: false } }), /Template-selected BGM/);
   assert.throws(() => compileCinematicVlog({ scenes: [{ ...scenes[0], audioIntent: 'speech' }, scenes[1]], boundaries: [{ transition: 'cut', rationale: 'test' }], music: validEvidence }), /pre-mixed ducked BGM/);
 });

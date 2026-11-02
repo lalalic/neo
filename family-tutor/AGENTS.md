@@ -43,6 +43,10 @@ attempted message is not delivery evidence.
 
 ## Project learnings
 
+- 2026-10-28: ChatGPT learner Project names are not local Neo directories. Set
+  `xchat_project: neo/family-tutor` in each learner Project's Custom Instructions
+  so XChat resolves the canonical Family Tutor project instead of a nonexistent
+  child folder.
 - 2026-10-27: The local Discord Bot owns reply delivery, while Browser Workspace
   calls each learner's existing ChatGPT Project/thread. Never attach the retired
   Family Tutor MCP app mention; validate bindings read-only before any authorized

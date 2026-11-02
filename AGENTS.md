@@ -1,137 +1,35 @@
-# Working on Neo
+# Neo workspace rules
 
-## Monorepo project contract
+Neo is a public monorepo with independently executable projects, shared agents and Skills. Read [MISSION.md](MISSION.md) for identity and mission context; the mission is not authorization to spend, publish, merge or make commitments. Follow the global execution harness and discover installed Skills contextually, rather than hard-coding their paths.
 
-Neo is a public monorepo containing multiple top-level projects plus shared skills and infrastructure.
+## Project resolution
 
-### Project discovery
+A project has a top-level `README.md` and `AGENTS.md`. Load this root policy, then the selected project `AGENTS.md`, and only role files relevant to the current task in `<project>/agents/`. Project-specific responsibilities and workflow rules belong in that project. Shared capabilities belong in `skills/`; project-only Skills may live in `<project>/skills/`. A project-local Skill of the same name takes precedence inside its project.
 
-A Neo project is a top-level directory containing both `README.md` and `AGENTS.md`. Root `AGENTS.md` applies first. Then read the selected project's `AGENTS.md`. If that project has an `agents/` directory, load only the role files relevant to the current task.
+A normal project may contain `agents/`, `docs/`, `config/`, `templates/`, `scripts/` and other reusable source. Do not copy reusable Skill text into Agents or include optional platforms in every Worker Prompt. Product-specific executable structure (for example Markcut `.md` video templates), reusable configuration and media behavior belong in their owning project, not this file. Preserve one authoritative source for each setting.
 
-### Standard project layout
+## Canonical execution and Git boundary
 
-```text
-<project>/
-├── README.md
-├── AGENTS.md
-├── agents/       # optional project-specific roles
-├── config/       # reusable non-secret configuration
-├── docs/         # reusable documentation
-├── templates/    # reusable templates, including optional series templates
-├── scripts/      # reusable automation
-└── runs/         # every execution/series instance; ignored and never committed
-```
+`runs/` is Git-ignored and owns all execution-specific media, source uploads, prompts, intermediate artifacts, credentials, receipts, logs, reviews, render output and private mutable series state. Use `runs/<YYYY-MM-DD[-slug]>/` for a standalone run, or `runs/<series-name>/<YYYY-MM-DD[-slug]>/` for a series. Series-level `series.json`, `config/`, or `state/` may hold private state shared across dated episodes. Names like `current`, `latest`, `legacy` or bare sequence numbers are not canonical run identities.
 
-Projects may add other durable source directories, but actual executions must stay under `runs/`.
+Reusable, sanitized public series definitions may be committed under `templates/`. Never commit private media or generated run contents, and do not create tracked `episodes/`, `generated/`, `output/` or instance-specific `data/`. Projects must not depend on other projects' `runs/` directories.
 
-### Universal run contract
+**Execute production against the canonical project run tree**, never from an isolated Git worktree. Use isolated worktrees for source changes and tests, but final media production, continuation, QA, approvals and archive must all use the same persistent `runs/` evidence. Do not transfer ignored run artifacts between worktrees or claim a new checkout contains historical run state.
 
-Every Neo project supports the same two execution forms.
+## Work, roles and evidence
 
-Standalone work:
+The control plane is the private `.run/PLAN.md`, `.run/state.json` and project task handoffs when present; read them only for portfolio coordination (see [control plane](docs/control-plane.md)). The applicable Job/Task state must come from the discovered Agents Relay CLI, never internal databases, HTTP APIs or guessed records. Keep task owners, destinations, status and evidence aligned at handoffs; do not invent execution IDs, approval or completion.
 
-```text
-runs/<YYYY-MM-DD[-slug]>/
-```
+Use the smallest relevant role/skill context, local command `--help`, project schemas and real artifacts. Agent roles describe responsibility; adapters provide bootstrap and execution transport. The canonical event-bus protocol governs delegated lifecycle events. Subscribe/monitor where relevant, relay concrete progress, terminal failures and resource releases. Worker implementation includes self-review → fix → re-review until review has no actionable changes; verify results as a user rather than treating successful subprocess exit as evidence.
 
-Series work:
+Reuse shared Markcut media understanding and rendering capability; do not create parallel inference pipelines or use a managed Relay ChatGPT Worker as synchronous vision inference. Optional browser/platform operations use the discovered WebHelm Skill and its active session lifecycle; do not hard-code outdated CDP ports or browser implementation details.
 
-```text
-runs/<series-name>/
-├── series.json          # optional private/mutable series state
-├── config/              # optional private series-level configuration
-├── state/               # optional private series-level state
-├── <YYYY-MM-DD[-slug]>/
-├── <YYYY-MM-DD[-slug]>/
-└── ...
-```
+All external posting and publishing requires explicit owner permission. Draft/preview consent is not publication consent. Paid services, private uploads, credentials, private data or cloud mutations require their owning authorization gates. Services managed by Neo.app must use their published package `@latest` launchers rather than fixed npm version strings; the existing package publication watcher handles updates. Local archive or tarball sources are not registry packages.
 
-Use lowercase kebab-case for `<series-name>` and put the ISO date first in every actual run directory. Do not create canonical run names such as `current`, `local`, `latest`, `legacy`, or bare sequence numbers such as `001`; those are pointers/labels, not stable run identities.
+## Project Worker quality
 
-Series-level directories may hold private mutable context that genuinely spans multiple runs. Generated media, episode/storyboard content, logs, reviews, receipts, and outputs for one execution belong in that execution's dated child directory.
+- Every Neo Project with local Worker roles maintains `<project>/.evals/cases.json` and local, Git-ignored `.evals/reports/`. Run with the Neo CLI: `neo eval run --project NAME`; inspect with `neo eval list --project NAME` and audit coverage using `neo eval audit`. For model decision Cases, generate the actual Agent prompt with Relay PromptBuilder and evaluate its isolated built variant; do not concatenate static AGENTS/role text. Cases test project outcomes and decisions; deterministic executable tests (e.g. Markcut template verification) are distinct from model-graded role decisions. Generic Relay L4 bootstrap/transport PASS is not Worker quality evidence. Apply global Markdown and skill-builder rules when authoring cases.
 
-If a project needs a reusable public definition of a series, keep it under tracked `templates/` (for example `templates/series/<name>.json`). Actual series state belongs under `runs/<series-name>/`.
+## Learning
 
-### Git boundary
-
-Git stores the reusable system. `runs/` stores actual executions and private series state. Anything produced, selected, downloaded, captured, generated, rendered, or mutated while using a project belongs in `runs/`: episodes, instantiated prompts, private/user inputs, transcripts, generated media, intermediate files, caches, reviews, logs, delivery receipts, and final outputs.
-
-Do not create tracked top-level `episodes/`, `series/`, `generated/`, `output/`, or instance-specific `data/` directories. If a run artifact becomes reusable source, promote it deliberately after review and sanitization. Never auto-promote private/generated run content.
-
-Because Neo is public, secrets, personal data, customer data, private identifiers, unpublished user content, and authenticated runtime state must stay in ignored `runs/` or another private store.
-
-### Agent and skill placement
-
-- `AGENTS.md` is the project routing/discovery entrypoint.
-- Project-only roles live in `<project>/agents/<role>.agent.md`.
-- Project-only capabilities may live in `<project>/skills/<skill>/`; they are visible only when that project is the active XChat project.
-- Cross-project reusable capabilities live in root `skills/<skill>/`.
-- Keep Markcut on its generic `vision --itt` / `--vtt` hooks and route synchronous image/video understanding through the dedicated Markcut/vision backend; do not repurpose the asynchronous Agents Relay ChatGPT worker as an inference API.
-- If a project-local skill and a shared/global skill declare the same skill `name`, the project-local skill takes precedence within that project.
-- Do not duplicate a reusable skill as a project agent.
-- When Browser Workspace verifies a reusable external-platform flow, promote or update the canonical Browser Workspace platform implementation in the sibling Workspace checkout rather than leaving the knowledge as one-off automation.
-- A project must not depend on another project's `runs/` directory.
-
-### Project learning contract
-
-Every Neo project must learn from real work. After a meaningful implementation, failure, review, production run, or user correction, reflect on whether the experience produced a durable lesson that would improve future work in that project.
-
-- Record valuable, reusable project-specific lessons in `<project>/AGENTS.md` under a `## Project learnings` section.
-- Write learnings as concise dated rules or observations: what was learned and how future agents should behave differently.
-- Promote only durable lessons. Do not turn `AGENTS.md` into a run diary, changelog, transcript, incident log, or list of one-off facts.
-- Evidence and detailed run history remain in ignored `runs/`; the learning is the distilled reusable conclusion.
-- If a lesson applies to multiple Neo projects, promote it to root `AGENTS.md` instead of duplicating it across projects.
-- If a lesson is specific to one project agent role, put the detailed guidance in `agents/<role>.md` and keep only the routing-level consequence in the project `AGENTS.md` when needed.
-- Update or remove an older learning when later evidence shows it is wrong or obsolete. Do not preserve contradictory folklore.
-- Reflection is part of the normal workflow: `intent → implement → audit → verify → reflect → capture durable learning`.
-
-### Runtime hygiene
-
-Root `.gitignore` ignores `**/runs/`. Project code must write runtime artifacts there by construction rather than depending on media-extension ignores.
-
-### Canonical runs execution boundary
-
-`runs/` is the canonical persistent execution workspace for a Neo Project. Work whose durable output belongs under `runs/` must execute directly in that canonical project directory (for example `/Users/chengli/Workspace/neo/neo-build-log/runs/...`), not inside an Agents Relay or other temporary Git worktree.
-
-This is a strong contract: source-code changes may use isolated worktrees, but run production, continuation, review, QA, render, publication, receipts, and other run descendants must share the same canonical `runs/` tree. Never copy or commit ignored run artifacts merely to transfer state between Tasks, and never allow a fresh checkout to hide or replace prior run evidence.
-
-### Neo orchestrator control plane
-
-At a Neo session or recovery, read `MISSION.md`, then the private top-level `.run/PLAN.md` when present, then `.run/state.json` and its task files. Review the durable plan before selecting or delegating tasks; decompose reviewed work into tasks owned by projects/workers, and feed evidence and results into later plan reviews. `.run/` is ignored and holds only the portfolio plan, current state index, per-task handoff records, and review/decision history; project execution artifacts remain in each project's `runs/`. Before and after every handoff, record task owner, project, worker/thread/profile when applicable, authoritative references, last observed state, next action, and `requires_user`. Reconcile Relay-backed Job, Plan, Task and Review status through the version-matched Relay CLI. Independently verify non-Relay worker and artifact evidence with its owning tools; `.run` never overrides authoritative state. Do not read Relay backing storage, PR markers or private service APIs. See `docs/control-plane.md`.
-
-Read `MISSION.md` at the start of every Neo session and treat it as the canonical Neo identity/mission context. Identify the user's intention before implementation. Mission and plan content are not permission to spend, publish, merge, make external commitments, or claim earnings.
-
-Use the strongest model for architecture, ambiguous decisions, and integration review. Delegate bounded implementation, extraction, and tests to cheaper models when available. Role and model profile are separate concepts. The user explicitly requests cost-conscious subagent use.
-
-Workflow: intent → implement → audit against source contracts → verify as a user → reflect. Try an issue at most three times within one approach, then change approach or ask for help.
-
-For delegated or background work, use the `events-bus` contract in `skills/events-bus/references/protocol.md`. The owning orchestrator must create and propagate one `job_id`, subscribe before launching sub-agents, and proactively surface user-visible milestones, blocked/failure states, resource-release events such as `phone.released`, and completion. Writing progress only to a child process log is not sufficient.
-
-Audit sources: current user request, the active project `AGENTS.md`/`README.md`, installed task-relevant skills, local executable help, and observable artifacts. Do not replace an observable result with a successful exit code.
-
-For browser verification use `agent-browser` connected to the user's CDP port 64086 and close only the new testing tab. Keep manual assets in `assets/`; preserve Markcut caches. Use `npx` or `uvx` for missing Node/Python applications. Any PM2-managed service must execute/restart from its package launcher (`npx` for npm/Node, `uvx` for PyPI/Python), not from a local repository checkout. Use `apply_patch` for edits.
-
-Publishing is handled through shared `agents/post-agent.md` when the user explicitly asks to post or publish; a prepare/preview/draft request is not publication authorization. Engagement remains deferred unless explicitly requested. Keep personal media, workflow databases, generated media, and credentials out of Git.
-
-## Reflections
-
-- 2026-09-19: ChatGPT thread creation must click a fresh browser chat before selecting the exact Project; the returned conversation URL is evidence, but `thread_id` remains the durable identity.
-- 2026-09-19: Bind XChat project context once and let Agents Relay own managed worker lifecycle; child re-resolution or parallel lifecycle loops can split one PR objective and corrupt correlation.
-- 2026-09-11: Preserve the distinction between a durable workflow and an autonomous worker. A queued command plan is not evidence that a producer, phone trigger, or model call ran.
-- 2026-09-11: Agree on the CLI/config contract before parallel implementation, and request small reviewable patches early. Bind review approval to file bytes, not just filenames or a prose report.
-- 2026-09-19: Browser-backed ChatGPT workers need a pure contract layer that separates requested from observed thinking level, binds every operation to a verified Project, and treats deleted thread identities as terminal tombstones before any selector adapter is added.
-
-## Project learnings
-
-- 2026-10-31: A third-party MCP OAuth session saved in one client cannot automatically authenticate Neo federation's independent HTTP MCP connection. For shared ChatGPT tools, bridge through the authorized client using a private profile; verify actual read-only tool execution and guard paid or mutating calls rather than treating tool discovery as authorization.
-- 2026-10-29: Executable Node ESM CLIs installed as symlinks must compare the real path of argv[1] with import.meta.url. A global CLI symlink may otherwise exit successfully without executing its service-management action; integration tests must invoke the symlink itself.
-
-- 2026-09-26: Chrome Web Store new-item uploads reject extension manifests containing a `key`; preserve the authoritative source package, derive a store-compatible upload artifact without that field, and verify the assigned item/version only after reopening the publisher dashboard.
-- 2026-09-25: Chrome Web Store browser mechanics belong under the `browser-platforms` skill's `platforms/chrome-web-store`; keep the runner dry-run by default and require explicit authorization before upload, listing mutation, or review submission.
-- 2026-09-26: Chrome Web Store editor controls expose labels through `aria-labelledby`/`label[for]` and save drafts as `Save draft`; shared flows must resolve accessible labels and verify the publisher-scoped item URL before mutating a listing.
-- 2026-09-26: Chrome Web Store new-item uploads can reject an otherwise valid local extension package before an editor exists; report the visible package error (for example, a disallowed manifest `key`) as the blocker instead of misclassifying it as navigation failure.
-
-- 2026-09-19: Existing ChatGPT thread operations must open one durable `thread_id` at a time, verify the observed Project before sending or reading, and report completion only from a normalized assistant message.
-- 2026-09-19: Browser result retrieval must refuse active generation and require an observed message ID; a prior assistant bubble or synthetic fallback ID is not completion evidence.
-- 2026-09-25: Computer-use demos should receive a declarative intent and keep fresh-UI verification plus playable-artifact checks as explicit gates; contract validation alone is not E2E evidence.
-- 2026-09-25: Product-demo story contracts should emit Markcut Markdown plus semantic visible evidence, while rejecting automation-shaped fields and language so runtime navigation remains owned by downstream execution agents.
+Capture durable project-specific lessons in the project's `AGENTS.md` and role-specific details in its Agent files. Cross-project rules alone belong here. Distill the observation and future action; keep incident logs, detailed evidence and one-off workarounds in private run records. Consult [historical agent/platform lessons](docs/agent-execution-learnings.md) only when relevant, not as automatic Worker context. Review obsolete lessons and remove contradictions.

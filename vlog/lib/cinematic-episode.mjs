@@ -8,6 +8,7 @@ import {pathToFileURL} from 'node:url';
 import {readGpsMetadata} from './gps-route.mjs';
 import {planGeoStory,geoStoryMarkdown} from './geo-story.mjs';
 import {compileCinematicVlog,lintCinematicVlog} from './cinematic-vlog.mjs';
+import {assertAudiovisualStory} from './story-plan.mjs';
 const run=promisify(execFile);
 const safeName=s=>/^[\w.\-/]+$/.test(s)&&!s.split('/').includes('..');
 const sha=buf=>createHash('sha256').update(buf).digest('hex');
@@ -30,15 +31,20 @@ export function insertGeoRoute(input,route){
  const scenes=structuredClone(input.scenes), boundaries=structuredClone(input.boundaries);
  if(scenes.some(x=>x.id==='gps-geography'))throw Error('Route already inserted');
  if(boundaries.length!==scenes.length-1)throw Error('Missing Editor boundary decisions');
- const original=boundaries[0];
- const bridge={...original,rationale:`Geographical context from verified photo EXIF: ${route.evidenceRef}`};
- scenes.splice(1,0,{id:'gps-geography',type:'video',path:route.path,sourceHash:route.sha256,
+ // Place the route at the Director's narrative turn, before the payoff.
+ const afterId=input.geo?.insertAfterSceneId;
+ const at=afterId?scenes.findIndex(x=>x.id===afterId):0;
+ if(at<0||at>=scenes.length-1)throw Error('Invalid geographic story insertion point: choose a scene before payoff');
+ const original=boundaries[at];
+ const bridge={...original,rationale:`GPS context advances the story after ${scenes[at].id}; evidence: ${route.evidenceRef}. ${original.rationale}`};
+ scenes.splice(at+1,0,{id:'gps-geography',type:'video',path:route.path,sourceHash:route.sha256,
   authorized:true,evidenceRef:route.evidenceRef,beat:'geographical-context',duration:route.duration,volume:1,
-  audioIntent:'narration',intent:'Show real photographed stops and narrate sourced place and content evidence, never claim a tracked path'});
- boundaries.splice(0,1,bridge,{...original,rationale:`Return from GPS explanation to Editor's source story. ${original.rationale}`});
+  audioIntent:'narration',intent:input.geo?.storyIntent||'Real filmed stops and sourced local knowledge; road navigation is not a recorded track'});
+ boundaries.splice(at,1,bridge,{...original,rationale:`Continue the story from the map to ${scenes[at+2].id}. ${original.rationale}`});
  return {...input,scenes,boundaries};
 }
 export async function buildCinematicEpisode(input,{runDir=process.cwd(),markcutRoot,renderRoute=true}={}){
+ const storyPlan=assertAudiovisualStory(input);
  const root=resolve(runDir);
  await mkdir(root,{recursive:true});
  // Scan episode originals by default. GPS cannot be silently ignored because
@@ -48,7 +54,9 @@ export async function buildCinematicEpisode(input,{runDir=process.cwd(),markcutR
  const metadata=await readGpsMetadata(sourceFiles.map(p=>resolve(root,p)));
  const evidence={...(input.geo||{}),mediaEvidence:(input.geo?.mediaEvidence||[]).map(m=>({...m,source:resolve(root,m.source)})),
   locationEvidence:(input.geo?.locationEvidence||[]).map(m=>({...m,source:resolve(root,m.source)}))};
- const story=planGeoStory(metadata,evidence);
+ const story=input.geo?.required===false
+  ? {required:false,kind:'not-applicable',reason:input.geo.reason||'Director selected a mapless story'}
+  : planGeoStory(metadata,evidence);
  let route=null;
  if(story.required){
   if(!renderRoute)throw Error('GPS_ROUTE_REQUIRED: cannot omit subvideo without performing verified rendering');
@@ -90,7 +98,7 @@ export async function buildCinematicEpisode(input,{runDir=process.cwd(),markcutR
   route={required:true,path:'assets/route.mp4',duration:Number(duration.toFixed(3)),sha256:routeHash,
    evidenceRef:'geo-story/evidence.json',previewHash:preview.contentHash,output:renderPath};
   const publication={kind:story.kind,observedPoints:story.points,mediaEvidenceRefs:story.mediaEvidenceUsed,
-   locationEvidenceRefs:story.locationEvidenceUsed,scenes:story.scenes.map(s=>({id:s.id,view:s.view,narration:s.text,duration:s.duration})),
+   locationEvidenceRefs:story.locationEvidenceUsed,factEvidenceRefs:story.factEvidenceUsed,routeEvidenceRef:story.routeEvidenceUsed,travelMode:story.travelMode,scenes:story.scenes.map(s=>({id:s.id,view:s.view,narration:s.text,duration:s.duration})),
    previewHash:preview.contentHash,renderSha256:routeHash};
   await writeFile(join(assetsDir,'evidence.json'),JSON.stringify(publication,null,2));
  }
@@ -103,7 +111,7 @@ export async function buildCinematicEpisode(input,{runDir=process.cwd(),markcutR
   if(issues.length)throw Error(issues.join('\n'));
   if(route && !markdown.includes('src:assets/route.mp4'))throw Error('REQUIRED_GPS_ROUTE_MISSING');
   const main=resolve(root,'video.md');await writeFile(main,markdown);
-  await writeFile(resolve(root,'episode-production.json'),JSON.stringify({route,sourceSceneCount:input.scenes.length,finalSceneCount:expanded.scenes.length,status:'draft-needs-review'},null,2));
+  await writeFile(resolve(root,'episode-production.json'),JSON.stringify({route,sourceSceneCount:input.scenes.length,finalSceneCount:expanded.scenes.length,storyPlan,status:'draft-needs-review'},null,2));
   return {video:main,route,story,finalSceneCount:expanded.scenes.length};
  } finally {process.chdir(originalCwd);}
 }

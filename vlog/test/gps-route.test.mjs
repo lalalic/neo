@@ -25,13 +25,17 @@ test('speed outliers rejected and large time gaps segmented',()=>{
  assert.equal(rejected[0].reason,'implausible-speed');
  assert.equal(trackedMovement,false);
 });
-test('no raw GPS route without explicit disclosure; redaction and map evidence',()=>{
+test('source-authorized GPS keeps coordinate precision without a separate disclosure gate',()=>{
  const pts=extractRoutePoints(rows);
- assert.throws(()=>routeScene(pts),/GPS_DISCLOSURE_NOT_APPROVED/);
- const safe=publicRoutePoints(pts,{approved:true,precision:2});
- assert.equal(safe[0].source,'redacted');
- assert.match(routeScene(safe,{disclosureApproved:true,view:'cinematic'}),/map view:cinematic/);
- assert.doesNotMatch(routeScene(safe,{disclosureApproved:true}),/travelMode/);
+ const accurate=publicRoutePoints(pts);
+ assert.equal(accurate[0].source,'a.heic');
+ assert.equal(accurate[0].lat,43.6);
+ assert.match(routeScene(accurate,{view:'cinematic'}),/map view:cinematic/);
+ assert.doesNotMatch(routeScene(accurate),/travelMode/);
+ assert.match(routeScene(accurate,{travelMode:'WALKING'}),/travelMode:WALKING/);
+ const precise=publicRoutePoints([{source:'owner.jpg',lat:45.31234567,lng:-75.91234567}]);
+ assert.equal(precise[0].lat,45.31234567);
+ assert.equal(precise[0].lng,-75.91234567);
 });
 test('invalid coordinates rejected',()=>{
  assert.equal(extractRoutePoints([{SourceFile:'x',GPSLatitude:100,GPSLongitude:300,GPSDateTime:'2026:10:14 00:00:00'}]).length,0);

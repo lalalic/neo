@@ -1,265 +1,38 @@
-# Vlog Project Rules
+# Vlog — project execution policy
 
-Vlog is a thin Neo content project. Root `AGENTS.md` and `MISSION.md` apply first.
+Vlog produces one evidence-grounded short-form episode from real, owner-authorized media. Root `AGENTS.md` and `MISSION.md` apply. The canonical stage input/output, revision and failure contract is [episode-stage-contract.md](docs/episode-stage-contract.md); load only the sections relevant to the assigned Stage.
 
-All Vlog episodes obey [the stage acceptance contract](docs/episode-stage-contract.md). Do not create an episode Task for a manifest with `INPUT_NEEDED`; source-use approval is mandatory. Archive accepted output by default, publishing only after explicit human authorization. Interactive Stage feedback is fixed in the same Worker; independent Final Review corrections use Relay lifecycle work, never agentGraph cycles.
+## Planner topology
 
-## Human interaction rule
-
-Stage-specific human interaction requirements live in
-[`docs/episode-stage-contract.md`](docs/episode-stage-contract.md).
-Visioner/Director/Editor may ask for missing facts or guidance when useful.
-Producer must obtain approval of the latest Markcut `video.md` preview in a
-capable interactive ChatGPT Worker, fixing feedback and re-previewing in the
-same Worker. Final QA verifies the approval evidence. Do not confuse this
-in-Worker loop with independent Relay Final Review or publication consent.
-
-## Canonical Episode Graph
-
-The **only** normal-stage DAG is [graph.mmd](graph.mmd), in the syntax parsed
-by Relay's Agent Graph Parser. Watcher/ingress is outside this Graph.
-The Graph describes normal Stage Agent order. It does not describe Final
-Review, Revision, Troubleshoot, Human Approval or publication lifecycle.
-
-Each Stage owns its `execute -> validate/review -> repair -> accepted output`
-loop. Producer calls `agents-relay review run` with optional specialist
-`video-director,market` Agents and implicit generic Outcome Reviewer.
-No specialist review creates a normal Stage Task.
-
-The Episode **Job** is the durable outcome container. Stage Task
-`dependencies` follow Graph edges, while `parentTaskId` expresses
-semantic Task ownership independently. Never call Visioner the Episode Root,
-invent an empty wrapper Task, or force the entire Task Tree to match the Graph.
-The first Episode Plan creates all normal Graph Stage Tasks with predecessor dependencies. Later Plans may append exceptional or cross-stage revision Tasks without imposing a fixed historical Task Tree.
-Final Review is a separate parentless Relay Task and reviews a Job's immutable
-current result. Relay owns completion and recovery.
-
-Optional source Human Review remains within Visioner when needed; it does
-not imply human approval. Source-use permission and publication authorization
-remain independent, mandatory gates.
-
-## Ownership
+The [Graph](graph.mmd) is the only normal-stage ordering:
 
 ```text
-Vlog-specific judgment
-  -> vlog-director / vlog-editor / vlog-producer / this contract
-
-Agents Relay lifecycle
-  -> Job / Task / graph / retry / routing / events / reconcile
-
-Reusable capability
-  -> shared Neo agent/skill
+Visioner -> vlog-director -> vlog-editor -> vlog-producer -> vlog-final-qa
 ```
 
-Do not build Vlog-local copies of phone-media access, vision, Video Director, Execution Director, image/video generation, audio/TTS, Markcut, Market Agent, post adapters, model router, worker router, or troubleshooting.
+Watcher/ingress runs outside the Graph. For the current Relay episode model, one Job owns the outcome; its initial Plan creates all five normal Stage Tasks with predecessor dependencies. Do not invent an empty parent Task, extra Graph nodes, review Tasks, or feedback edges. Task parentage expresses ownership, not the Graph. Later revision/recovery work is Relay-owned. Agents and adapter/model routes must resolve from the active execution context.
 
-## Private Personal Tour index
+## Ownership and gates
 
-`runs/personal-library/tour-director.json` is the canonical editable Tour
-manifest **and** Director's private recording index. Stable `shots[].id`
-identifies a prompt; `shots[].library.recordings` is append-only for archived
-takes; `active_recording_id` selects the current version without destroying
-older media. Keep original MOV in the private dated `runs/personal-library/`
-run directory and verify bytes/SHA-256 before making a take selectable.
-The initial tracked `templates/personal-voice-tour-v1.json` is only a seed,
-not an authoritative library. Director uses archived source evidence, not
-prompt text, as selectable footage; public insertion needs separate owner
-approval and historical-context disclosure. Voice cloning remains denied
-unless separately authorized.
+- **Shared Visioner** records observations, hashes, source timecodes and uncertainties using Markcut; it does not select the story or edit clips.
+- **Director** chooses a truthful goal, scene progression and payoff; writes `story.md`, `shot-selection.json`, `visual-brief.md` and `post.md`. **Editor** resolves source-linked in/out cuts and boundary/audio intent in `edit-decision-list.json`.
+- **Producer** assembles `episode-input.json` from Director's story plan and Editor's accepted decisions, compiles/verifies `video.md`, owns Markcut preview, same-Worker revision loop and generic + Video Director + Market reviews. **Final QA** independently verifies the approved revision and actual rendered video.
+- No Stage may fabricate dialogue, location, movement, inner thought, observed footage or permissions. A real `INPUT_NEEDED` source manifest must be resolved before creating Episode Tasks.
+- The Producer requires **interactive human approval of the latest canonical Markcut preview**; an AI PASS or successful render is not an approval. If the selected Worker cannot present that UI, report the capability blocker, not success. Human preview approval does not authorize publication.
+- Publishing requires separate explicit owner authorization, platform-side evidence and a receipt. Private archive is the default. Independent Relay Final Review and retry remain separate from in-Worker revisions.
 
-## Director-owned story enrichment
+## Source, story and media
 
-Director chooses whether GPS route, timely local events, and popular nearby locations help the *recorded* episode. Research is optional and does not add Graph nodes. Record the decision and source provenance in the run; externally researched attractions/events may be labeled context but are not proof of a visit. Reject unverified dates, invented stops, and unapproved sensitive locations. Choose a source-grounded first-three-second hook, deliver its promised payoff, and retain real creator speech, imperfections and personality without inventing inner thoughts. Market review validates audience retention, authenticity, contextual accuracy, privacy and justified omission.
+- Start with authorized original source media; preserve hashes and observed timestamps. Use Simplified Chinese for titles, narration and captions unless the Task specifies otherwise. Recognize Hey Neo editing instructions as source-linked commands; do not treat wake-word/command audio as story dialogue by default.
+- One source-backed **story goal, ordered scene purposes and outcome** is required before compilation. Optional GPS/local-event research belongs to Director, not a new Stage. Follow [story, route and sound contract](docs/story-first-route-sound.md). Never invent a recorded route from sparse GPS; no GPS is a valid complete episode.
+- Private previews may retain accurate GPS from approved source media without a second production gate. **Before public distribution**, confirm that the owner's publication authorization covers the exact locations shown; otherwise remove/obscure sensitive place identifiers or hold publication. Do not silently export exact private coordinates.
+- Every episode needs one continuous **template-selected** main BGM by default. For private preview, do not gate on catalog license verification or silently substitute another song. If the actual chosen track is missing, report the unavailable asset rather than generate a stand-in. Preserve useful source ambience, duck under speech, review transitions in actual playback and do not manufacture synthetic footage as filmed evidence. The [executable Markcut template](templates/cinematic-vlog.md) defines BGM selection; its entry is not a license. Final publication holds until intended audio usage rights are verified.
+- Shared capabilities own media ingestion, TTS, image/video generation, CapCut, Markcut, specialist reviews and post adapters; discover relevant Skills on demand. Optional media tools follow [tool selection and authorization](docs/optional-media-tools.md) only when useful; CapCut cloud uploads, mutations and paid generation require separate approval. The current run's source evidence, canonical Markcut `video.md`, reviews and final output remain authoritative.
 
-## Optional location branch
+## Project quality evals
 
-The episode and its hook/development/payoff exist independently of GPS. Do not create or require a map scene without useful trustworthy metadata, creative relevance and explicit disclosure approval. No GPS means a complete ordinary episode; partial GPS means only verified sample locations, never invented stops or movement. Reject implausible points, ambiguous timestamps and sensitive coordinates. Label calculated road routes as inferred navigation, not recorded tracks. Preserve the canonical Agent outcome tree, Chinese narration/captions by default, authorized BGM, Producer-owned reviews and publication approval.
+Use `.evals/cases.json` with `neo eval run --project vlog`. Every Vlog Worker role needs a capability case; the Producer also requires an executable `template-verify` case that tests the canonical Markcut template, selected song, compilation and actual rendering. Eval evidence stays under ignored `.evals/reports/`. Decision PASS never substitutes for video playback, owner approval or Final QA.
 
-## Source and story contract
+## Artifact and review authority
 
-Use only authoritative real media/evidence from the requested source window. Phone media should come through the installed shared phone-media/NeoX capability when needed.
-
-PRs or system logs may support context when the episode is about technical work, but Vlog remains story-first rather than artifact-list-first.
-
-The Director must produce one coherent arc:
-
-```text
-real media
-   ↓
-source-manifest.json
-   ↓
-HOOK -> MOMENT/TENSION -> DEVELOPMENT -> PAYOFF
-   ↓
-shot-selection.json + visual-brief.md
-```
-
-Do not widen dates, fabricate activities, or imply that media shows something it does not show.
-
-## Visual-direction contract
-
-`shot-selection.json` and `visual-brief.md` are Director-owned creative assets consumed by Editor and Producer. Editor records exact cut choices in `edit-decision-list.json`.
-
-For each beat specify:
-
-- audience intent;
-- exact source media/evidence;
-- selected shot/image/audio or missing capture requirement;
-- crop/composition/visual treatment;
-- motion/transition relationship;
-- text/graphic/chart/diagram needs when they add meaning;
-- original sound / narration / BGM / SFX intent.
-
-Video Director turns the creative intent into canonical `video.md`. Execution Director compiles unresolved media requirements when needed. Runtime agents materialize assets; Markcut renders.
-
-## Agent-driven media tool selection
-
-Each Stage Agent decides whether an external media capability would materially
-improve its own accepted outcome, based on approved source footage, story,
-existing Markcut evidence and the current Stage responsibility. CapCut is an
-optional shared capability, **not** a new Agent, Graph Stage, required tool
-sequence or second production pipeline. Do not invoke tools solely because
-they are available.
-
-- Discover relevant installed skills on demand. When CapCut is useful, load the
-  shared `capcut-mcp` skill, inspect the current `mcp.capcut` command inventory
-  and input contracts through its `help` command, then choose only the operations
-  needed for that specific task. Do not hard-code a fixed CapCut command list or
-  assume future operations have today's names or capabilities.
-- Director may look for creative references; Editor may seek a candidate cut or
-  timing treatment; Producer may source or generate auxiliary material. Every
-  Agent stays within its existing ownership and accepted output contract.
-  Visioner must not repeat Markcut STT/VTT/vision work just to use CapCut.
-- Prefer already available source evidence and native Markcut functions when
-  they meet the objective. Optional CapCut results may inform decisions or
-  supply verified usable assets, but source-linked `edit-decision-list.json`,
-  canonical `video.md`, Markcut Preview, required reviews and final render/QA
-  remain authoritative. Do not silently substitute a CapCut cloud draft or
-  rough cut for these artifacts.
-- Read-only discovery may proceed without a new generation commitment. Before
-  CapCut uploads of private media, account/draft mutations or AI generation,
-  obtain the explicit approval required by `capcut-mcp`; estimate and obtain
-  approval for any credit cost first. Previously granted source-use permission
-  does not by itself authorize uploading media to CapCut.
-- Verify any selected result before use: exact source clip/time range for edit
-  proposals; accessible bytes and format for generated media; licenses/rights
-  for stock assets; and the absence of fabricated real-world evidence. Record
-  chosen capability, purpose, provenance, approval and verification (or a
-  reasoned `NOT_APPLICABLE`) in the existing Stage artifacts under `runs/`.
-  If a tool cannot supply a usable result, continue through Markcut where safe
-  or report the concrete blocker. Never claim an unverified asset was imported.
-
-## Production quality
-
-- Prefer real footage and useful original sound.
-- Narration is optional. If used, it must use the user's approved voice identity unless an explicit fallback is authorized.
-- BGM is mandatory by default; source it through the shared audio-sourcing capability and mix/duck it around dialogue, narration, and meaningful original sound. SFX remain deliberate editorial choices.
-- Use strong composition, meaningful cuts, motion, transitions, effects, and pacing.
-- Use charts, diagrams, generated explanatory images, screenshots, or kinetic typography only when they improve comprehension without pretending to be real source evidence.
-- Render vertical short-form video unless the Task specifies another format.
-- Verify the observable final video, including picture, sound, pacing, and source truth.
-
-## Mandatory pre-render gate
-
-Producer validates the Markcut preview, then invokes the Relay review Action
-using a `--prompt-file` that cites the current revision and source evidence.
-The implicit generic Reviewer checks outcome validity; Video Director checks
-visual storytelling, sound and pacing; Market checks audience clarity and
-authentic engagement. Producer incorporates all required changes and reruns
-verification before completing. Persist results in `reviews/`.
-Final QA observes the actual render, not only CLI success.
-
-## Run contract
-
-```text
-runs/<YYYY-MM-DD[-slug]>/
-├── source-manifest.json
-├── story.md
-├── shot-selection.json
-├── edit-decision-list.json
-├── post.md
-├── visual-brief.md
-├── video.md
-├── execution/
-├── assets/
-├── reviews/
-│   ├── video-director.md
-│   └── market.md
-├── output/
-├── qa.md
-└── publish/
-```
-
-A genuine named series may use `runs/<series-name>/<YYYY-MM-DD[-slug]>/`. Do not create generic wrappers such as `runs/neo-vlog/` or `runs/daily-vlog/`.
-
-All per-run artifacts belong in the run root. `runs/` is ignored by Git.
-
-## Publication
-
-Publication target/authorization comes from the active Job/Task. Use shared `post-agent`, verify platform-side state, and persist the receipt/status. A successful click or adapter exit code is not publication proof.
-
-## Project learnings
-- 2026-10-27: When a required Relay subcommand appears unavailable, inspect which executable PATH selected before treating it as a shared CLI defect; the Homebrew `agents-relay` binary may lag the npm package. Verify and invoke the package launcher with `npx --no-install agents-relay ...` when it exposes the needed action.
-- 2026-10-27: Specialist preview review may BLOCK when calibrated audio, waveform, spectrogram, and playback-ready evidence do not establish an actual human perceptual audit. Producer must preserve the blocked review and request Relay recovery rather than treating objective loudness analysis as a human listening PASS.
-- 2026-10-27: Visioner discovers evidence; Director selects shots and owns story and creative intent; Editor owns exact cuts and edit-decision-list; Producer implements Markcut and owns reviews. Keep these boundaries explicit in graph.mmd and Agent output contracts.
-- 2026-10-26: Watcher owns media integrity; Planner and Visioner work from the manifest and existing Markcut Vision metadata. Reuse cached perception before invoking missing media analysis.
-- 2026-10-26: Before applying an episode Plan, reconcile the supplied Job ID against Relay's durable local Job list; inherited planner context can reference a Job that is not present, and another episode Job must never be substituted.
-- 2026-10-26: Persistent watcher lifecycle is exposed by `./neo-project`; PM2 runs the packaged watcher, and `health` checks real iCloud Inbox access.
-
-- 2026-09-26: Vlog previously duplicated Agents Relay with local jobs, routing, autopilot, personas, style, and templates. Keep the project thin.
-- 2026-10-27: A normal Episode's initial Plan should create every `graph.mmd` Stage Task with dependency edges, so the whole pipeline is visible before execution. Keep later Plans open for revisions and exceptions; never require a fixed historical Task Tree or an empty Episode wrapper.
-- 2026-10-04: Route/movement evidence, mandatory BGM, spoken Hey Neo edit commands, lively motion/CG treatment, and Simplified Chinese defaults are enforceable production/review contracts rather than optional style suggestions.
-- 2026-10-21: Route/location research is optional work owned by `vlog-editor` with shared capabilities, not missing specialist graph nodes. Synthetic review fixtures must materialize every dependency and immutable r1/r2 revision, including per-beat sound/motion/transition evidence; hash real bytes, reject changed/stale dependencies, and never treat simulation, parser validation, or authorization booleans as QA or publication eligibility.
-
-
-## Route Story, language, movement, and command contract
-
-When source photos or videos contain usable GPS/location metadata, location and movement are first-class story evidence rather than decorative metadata.
-
-- Extract available GPS/location metadata and capture timestamps.
-- Group media into supported stops and route segments without fabricating missing coordinates.
-- Recognize movement mode from combined evidence, distinguishing at minimum walking/strolling, cycling, driving, and unknown.
-- Do not infer movement from GPS speed alone when visual/audio evidence contradicts it. Use road/trail context, camera motion/height, vehicle/bicycle/interior evidence, time displacement, and clear source audio.
-- Record confidence/evidence and prefer unknown over invention.
-- Use route and movement mode to shape narration, pacing, transitions, and scene interpretation.
-- Default generated titles, route narration, captions, chapter labels, and voiceover scripts to Simplified Chinese unless the user explicitly requests another language.
-- Route Story narrative order is: where we went -> how we moved -> what happened there.
-- Open with route/movement context when it helps the story; major location or movement changes may use short route transitions; end with a route recap when useful.
-- If only some media has GPS, associate no-GPS media with a stop only when timestamp/context evidence supports it. With no usable GPS, use the normal non-route flow.
-
-When source video contains speech, transcribe enough audio to detect explicit editing commands.
-
-- Hey Neo is the default wake phrase; equivalent configured wake phrases may also be supported.
-- Treat the utterance immediately after a wake phrase as an editing-instruction candidate, not ordinary story dialogue.
-- Persist source clip/time range, recognized command, confidence/ambiguity, and resulting edit intent/action in run evidence.
-- Apply clear supported instructions such as keep/remove/emphasize/reorder a shot, preserve original sound, add text/narration, change pacing, or choose a transition.
-- Do not invent missing arguments for ambiguous commands.
-- Normally exclude the wake phrase and command from final story audio unless the user clearly intends them to remain.
-
-## Default visual-energy contract
-
-- For ordinary personal/travel Vlogs, default to a joyful, light, lively, energetic tone unless the real source story clearly calls for another mood.
-- Avoid a static slideshow feel. Use purposeful composition, cuts, motion, transitions, effects, tempo changes, and music-synchronized editing.
-- Add meaningful motion graphics / CG / effects when they improve storytelling: dynamic route drawing, movement-mode graphics, kinetic typography, parallax/photo motion, speed ramps, freeze frames, playful graphic accents, or explanatory CG.
-- CG/generated/effect material must remain clearly editorial/explanatory and must never masquerade as real source footage.
-
-## Expanded review requirements
-
-Video Director review must explicitly verify:
-
-- hook, story-to-scene translation, and shot selection;
-- lively pacing and avoidance of stiff/static slideshow treatment;
-- purposeful cuts, transitions, motion graphics, CG/effects, and music-synchronized rhythm;
-- mandatory BGM plus intelligible mix/ducking around dialogue, narration, and meaningful original sound;
-- Optional map/movement-mode treatment only when reliable location evidence and disclosure approval exist; no-GPS episodes need no maps;
-- compliance with recognized Hey Neo edit commands and correct treatment of command audio;
-- source truth and clear separation of generated visuals from real footage.
-
-Market Agent review must explicitly verify:
-
-- audience clarity and hook/cover strength;
-- emotional energy appropriate to the story, defaulting to joyful/light/lively for ordinary personal/travel Vlogs;
-- curiosity/entertainment pull and platform fit;
-- whether the episode feels engaging and dynamic rather than stiff, repetitive, or visually flat;
-- whether route/movement context helps the viewer understand the journey when applicable.
-
-Final QA must include observable BGM/mix, visual energy, effects, route/movement treatment when applicable, spoken-command compliance, and source truth.
+All work stays inside the dated private `runs/<episode>/` root. Director/Editor/Producer output names and revision hash dependencies are in the [stage contract](docs/episode-stage-contract.md). `runs/` is Git-ignored; no public source material belongs in a prompt or repository. Reviewers evaluate the current preview/source evidence and return actionable changes rather than rebuilding the project style from prose. Instantiate the [Markcut Markdown template](templates/cinematic-vlog.md) only when the story fits it; the Markcut DSL and actual playback determine supported cuts, audio, effects and captions.

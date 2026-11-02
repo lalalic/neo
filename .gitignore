@@ -40,3 +40,6 @@ web-chatgpt/
 /.run/
 
 .wrangler/
+
+# Project-owned eval reports are local evidence; case definitions are tracked.
+**/.evals/reports/

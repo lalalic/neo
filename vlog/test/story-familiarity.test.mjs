@@ -13,6 +13,6 @@ test('five source-grounded checks are in the story and production contracts', ()
   assert.match(contract, /Never invent failures/);
   assert.match(contract, /Do not infer private thoughts/);
   assert.match(director, /audience familiarity review/);
-  assert.match(producer, /Video Director and Market must check/);
+  assert.match(producer, /both reviewers check its source-grounded questions/);
   assert.match(stages, /audience familiarity review/);
 });

@@ -66,10 +66,10 @@ Authorized photos/video/audio -> story (hook / development / payoff) -> visual b
               +-> optional EXIF/QuickTime GPS check
                          | no trusted GPS -> no map scene (normal complete Vlog)
                          | partial GPS -> only verified stops, no guessed movements
-                         + two+ approved points -> optional short map/scenic insert
+                         + two+ verified points -> story-led short map/scenic insert
 ```
 
-GPS must never gate an episode. Raw coordinates stay private; a redacted route is included only with explicit disclosure approval. Maps show location context or inferred navigation, not a recorded travel track. Mandatory authorized BGM, original sound, Chinese defaults, revision-specific preview, both reviews and the no-publication-unless-authorized rule remain unchanged.
+GPS must never gate an episode. Private production may preserve source GPS precision without a second production gate; public release needs authorization covering precise/sensitive places shown. Route maps distinguish observed stops from inferred road navigation, not a recorded travel track. Follow [story-first route and sound](docs/story-first-route-sound.md). A single root BGM carries the whole episode. Mandatory authorized BGM, original sound, Chinese defaults, revision-specific preview, both reviews and the no-publication-unless-authorized rule remain unchanged.
 
 ## Episode artifact flow
 
@@ -165,6 +165,8 @@ Original footage and useful original sound are first-class assets. Narration is 
 Use strong visual composition, purposeful cuts, charts/diagrams/images when they genuinely explain something, kinetic typography when useful, and deliberate motion/transitions/effects. Do not turn real-life footage into a static slideshow unless the story calls for it.
 
 Producer calls `agents-relay review run` with an outcome Prompt; generic, Video Director and Market reviews must all PASS before Producer can complete. Observable QA must check the actual video, not only render exit status.
+
+The executable production default is [`templates/cinematic-vlog.md`](templates/cinematic-vlog.md), instantiated with source-bound scene data by [`lib/cinematic-vlog.mjs`](lib/cinematic-vlog.mjs). The template owns root BGM identity and layout, scene blocks, caption styling, and supported transitions; Director/Editor own evidence and timing, not a competing style file. From the dated run directory, run `node <vlog-root>/scripts/compile-cinematic-vlog.mjs episode-input.json video.md`, then `markcut verify video.md`. It emits only supported Markcut Markdown constructs and lints source evidence, every motivated boundary, BGM continuity, hook/payoff, pacing and preset caption style. Read [`templates/CINEMATIC-PREVIEW.md`](templates/CINEMATIC-PREVIEW.md) for variant, override, and renderer limits. Mixed transition types are rejected because Markcut's current Markdown DSL exposes one transition per series; choose reasoned hard cuts or one consistent transition.
 
 ## Publication
 

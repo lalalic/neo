@@ -211,11 +211,11 @@ test('GPS-enhanced maps only authorized samples after payoff and records movemen
   assert.ok(map.start >= payoff.start + payoff.duration);
 });
 
-test('optional route research rejects denied disclosure, privacy exclusion, and insufficient use', () => {
+test('optional route uses source authorization and respects explicit excluded stops', () => {
   const point = (sourceId, capturedAtUtc, latitude, longitude) => ({ SourceFile: sourceId, GPSDateTime: capturedAtUtc, GPSLatitude: latitude, GPSLongitude: longitude });
   const points = [point('SYN-G1', '2026:10:14 12:00:00', 43.6, -79.3), point('SYN-G2', '2026:10:14 13:00:00', 43.7, -79.4)];
-  assert.equal(optionalRouteScene(points, { disclosureApproved: false }).reason, 'disclosure-not-approved');
-  assert.equal(optionalRouteScene(points, { disclosureApproved: true, excludeSources: ['SYN-G1'] }).reason, 'insufficient-approved-stops');
+  assert.equal(optionalRouteScene(points, { disclosureApproved: false }).reason, 'verified-source-gps');
+  assert.equal(optionalRouteScene(points, { disclosureApproved: true, excludeSources: ['SYN-G1'] }).reason, 'insufficient-selected-stops');
   assert.equal(optionalRouteScene([...points, { SourceFile: 'SYN-UNTAGGED' }], { disclosureApproved: true }).evidence.segments.at(-1).length, 2);
 });
 

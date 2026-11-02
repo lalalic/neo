@@ -10,7 +10,8 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const out = process.argv[2] ? resolve(process.argv[2]) : mkdtempSync(join(tmpdir(), 'neo-cli-dist-'));
 if (out === root || root.startsWith(out + '/') || out.startsWith(root + '/')) throw Error('Output must be outside the Neo source checkout');
 const allow = [
-  '.bin/neo.mjs', '.bin/neo-control.mjs', '.bin/workspace-config.mjs', 'skills/daemon-service-manage/bin/serviceman.mjs',
+  '.bin/neo.mjs', '.bin/neo-control.mjs', '.bin/workspace-config.mjs',
+  '.bin/xchat-bootstrap.mjs', '.bin/neo-mcp-token.mjs', 'skills/daemon-service-manage/bin/serviceman.mjs',
   '.bin/package-web-chatgpt-skill',
   'agents/escalation.agent.md', 'agents/escalation-needs-user.md', 'agents/escalation-result.schema.json',
   'skills/xchat-orchestrator/scripts/list-xchat-projects',
@@ -42,7 +43,7 @@ for (const entry of manifest.stdout.toString('utf8').split('\0').filter(Boolean)
   chmodSync(dst,mode==='100755'?0o755:0o644);
 }
 writeFileSync(join(out,'package.json'),JSON.stringify({
-  name:'@lalalic/neo', version:'1.0.2', type:'module',
+  name:'@lalalic/neo', version:'1.0.3', type:'module',
   description:'Neo CLI and deterministic service management commands',
   engines:{node:'>=22'},bin:{neo:'.bin/neo.mjs',serviceman:'skills/daemon-service-manage/bin/serviceman.mjs'},
   repository:{type:'git',url:'git+https://github.com/lalalic/neo.git'}, publishConfig:{access:'public'}, scripts:{},

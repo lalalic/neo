@@ -34,7 +34,7 @@ test('planner derives dependencies from graph and permits incremental revisions'
   assert.match(planner, /dependencies.*keep downstream Tasks waiting/);
   assert.match(planner, /Later Plan rounds/);
   assert.match(planner, /parentless|no parent/i);
-  assert.match(project, /first Episode Plan creates all normal Graph Stage Tasks/);
+  assert.match(project, /initial Plan creates all five normal Stage Tasks with predecessor dependencies/);
   assert.match(project, /graph\.mmd/);
   assert.doesNotMatch(planner, /validate-episode-plan/);
   assert.doesNotMatch(project, /validate-episode-plan/);
@@ -53,18 +53,18 @@ test('human preview gate is in-Worker, revision-bound and independent of publish
   const planner = read('../agents/planner.agent.md');
   const producer = read('../agents/vlog-producer.agent.md');
   const finalQa = read('../agents/vlog-final-qa.agent.md');
-  assert.match(stage, /Producer: \*\*required\*\*/);
-  assert.match(stage, /Visioner: optional/);
-  assert.match(stage, /temporary\*\* Markcut `video\.md`/);
-  assert.match(stage, /not the Producer's/);
+  assert.match(stage, /Producer must obtain \*\*interactive owner approval/);
+  assert.match(stage, /Visioner, Director and Editor may request optional/);
+  assert.match(stage, /temporary Markcut source preview/);
+  assert.match(stage, /not Producer approval/);
   assert.match(read('../agents/vlog-director.agent.md'), /temporary Markcut/);
   assert.match(planner, /interactive.*Worker|preview capability/);
   assert.match(producer, /neo\.markcut_preview/);
-  assert.match(producer, /changes_requested/);
+  assert.match(producer, /On changes, repair and preview again/);
   assert.match(producer, /same Worker/);
   assert.match(producer, /revisionId.*contentHash/);
   assert.match(finalQa, /human Markcut Preview approval/);
-  assert.match(producer, /Review does not authorize publication/);
+  assert.match(producer, /publication authorization are distinct/);
   assert.doesNotMatch(stage, /Corrections create a new Relay task/);
 });
 

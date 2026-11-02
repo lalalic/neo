@@ -70,13 +70,12 @@ export function segmentRoute(points,{maxSpeedKmh=250,maxGapHours=6,maxAccuracyMe
   if(current.length)segments.push(current);
   return {segments,rejected,evidenceType:'media-gps-samples',trackedMovement:false};
 }
-export function publicRoutePoints(points,{approved=false,precision=2,excludeSources=[]}={}){
-  if(!approved)throw Error('GPS_DISCLOSURE_NOT_APPROVED: route coordinates must be explicitly approved');
-  if(!Number.isInteger(precision)||precision<0||precision>5)throw Error('invalid location precision');
-  return points.filter(p=>!excludeSources.includes(p.source)).map(p=>({...p,lat:Number(p.lat.toFixed(precision)),lng:Number(p.lng.toFixed(precision)),source:'redacted',rawCaptureTime:null}));
+export function publicRoutePoints(points,{precision=null,excludeSources=[]}={}){
+  if(precision!==null&&(!Number.isInteger(precision)||precision<0||precision>7))throw Error('invalid location precision');
+  // Authorized episode source metadata is used at GPS precision; no separate location gate.
+  return points.filter(p=>!excludeSources.includes(p.source)).map(p=>({...p,lat:precision===null?p.lat:Number(p.lat.toFixed(precision)),lng:precision===null?p.lng:Number(p.lng.toFixed(precision))}));
 }
-export function routeScene(points,{duration=7,view='route',travelMode,disclosureApproved=false}={}){
-  if(!disclosureApproved)throw Error('GPS_DISCLOSURE_NOT_APPROVED');
+export function routeScene(points,{duration=7,view='route',travelMode}={}){
   if(points.length<2)throw Error('INSUFFICIENT_GPS: at least two geotagged media items are required');
   if(!['route','cinematic'].includes(view))throw Error('unsupported map view');
   if(travelMode&&!['DRIVING','WALKING','BICYCLING','TRANSIT'].includes(travelMode))throw Error('unsupported travel mode');
@@ -90,12 +89,11 @@ export function routeScene(points,{duration=7,view='route',travelMode,disclosure
 }
 
 // Optional enrichment: never make missing GPS a fatal episode condition.
-export function optionalRouteScene(records,{disclosureApproved=false,precision=2,excludeSources=[],view='route'}={}){
+export function optionalRouteScene(records,{precision=null,excludeSources=[],view='route',travelMode}={}){
   const evidence=segmentRoute(extractRoutePoints(records));
   const eligible=evidence.segments.filter(s=>s.length>=2);
   if(!eligible.length)return {included:false,reason:'insufficient-trusted-gps',scene:null,evidence};
-  if(!disclosureApproved)return {included:false,reason:'disclosure-not-approved',scene:null,evidence};
-  const safe=publicRoutePoints(eligible[0],{approved:true,precision,excludeSources});
-  if(safe.length<2)return {included:false,reason:'insufficient-approved-stops',scene:null,evidence};
-  return {included:true,reason:'approved-location-context',scene:routeScene(safe,{disclosureApproved:true,view}),evidence};
+  const points=publicRoutePoints(eligible[0],{precision,excludeSources});
+  if(points.length<2)return {included:false,reason:'insufficient-selected-stops',scene:null,evidence};
+  return {included:true,reason:'verified-source-gps',scene:routeScene(points,{view,travelMode}),evidence};
 }

@@ -7,6 +7,7 @@ import { spawnSync } from 'node:child_process';
 import { executeControl } from './neo-control.mjs';
 import { buildXChatBootstrap, renderXChatBootstrap } from './xchat-bootstrap.mjs';
 import { runNeoMcpToken } from './neo-mcp-token.mjs';
+import { loadWorkspaceConfig } from './workspace-config.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '..');
@@ -24,6 +25,9 @@ function usage() {
   neo workspace show
   neo skill list [--project PATH]|package SKILL_DIR OUTPUT.zip
   neo bootstrap [--json] [--project PATH]
+  neo eval run --project NAME [--case ID] [--model MODEL] [--dry-run]
+  neo eval list --project NAME
+  neo eval audit
   neo service list|status NAME|start|stop|restart NAME --apply
   neo mcp token issue (--stdout | --output ABSOLUTE_PATH) [--origin HTTPS_URL] [--client-name NAME]
   neo mcp token revoke --file ABSOLUTE_PATH [--origin HTTPS_URL]
@@ -161,6 +165,21 @@ async function main(argv) {
     // Only the explicit --stdout mode prints the temporary credential.
     process.stdout.write('access_token' in outcome ? outcome.access_token + '\n' : JSON.stringify(outcome, null, 2) + '\n');
     return 0;
+  }
+  if (command === 'eval') {
+    const [subcommand = 'run', ...options] = args;
+    if (['--help', '-h'].includes(subcommand)) { process.stdout.write(usage()); return 0; }
+    const neoSourceRoot = loadWorkspaceConfig().neoRoot;
+    const script = subcommand === 'audit'
+      ? resolve(neoSourceRoot, 'scripts/audit-project-worker-evals.mjs')
+      : resolve(neoSourceRoot, 'scripts/eval-project-worker-prompts.mjs');
+    if (!['run', 'list', 'audit'].includes(subcommand)) throw new Error('usage: neo eval run|list|audit');
+    if (subcommand === 'audit' && options.length) throw new Error('usage: neo eval audit');
+    const result = spawnSync(process.execPath, [script, ...(subcommand === 'list' ? ['--list'] : []), ...options], {
+      cwd: process.cwd(), stdio: 'inherit'
+    });
+    if (result.error) throw result.error;
+    return result.status ?? 1;
   }
   if (['status', 'doctor', 'project', 'workspace', 'skill', 'service'].includes(command)) return executeControl([command, ...args]);
   if (command !== 'escalation') throw new Error(`unknown neo command: ${command}`);

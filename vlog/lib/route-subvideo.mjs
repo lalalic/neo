@@ -1,14 +1,16 @@
 /** Route subvideo contract. The main video inserts the rendered MP4 only after a verified render. */
 import {optionalRouteScene} from './gps-route.mjs';
+import {readFileSync} from 'node:fs';
+const routeTemplate=readFileSync(new URL('../templates/route-overview.md',import.meta.url),'utf8');
 
-export function planRouteSubvideo(records, {disclosureApproved=false, duration=9, precision=2, excludeSources=[]}={}) {
-  const route=optionalRouteScene(records,{disclosureApproved,precision,excludeSources});
+export function planRouteSubvideo(records, {duration=9, precision=null, excludeSources=[],travelMode}={}) {
+  const route=optionalRouteScene(records,{precision,excludeSources,travelMode});
   if(!route.included) return {required:false,reason:route.reason,videoMd:null,evidence:route.evidence};
   if(!Number.isFinite(duration)||duration<6||duration>12)throw Error('Route overview must be 6–12 seconds');
   const mapLeaf=route.scene.replace(/duration:\d+(?:\.\d+)?/,`duration:${duration}`);
   return {
-    required:true, reason:'verified-approved-gps', duration,
-    videoMd:['# video','width:1080 height:1920 fps:30 layout:series','', '## Route Overview', 'layout:parallel', 'instruction:"Observed GPS samples only; gaps are not recorded tracks; no inferred travel mode."',mapLeaf,''].join('\n'),
+    required:true, reason:'verified-source-gps', duration,
+    videoMd:routeTemplate.replace('{{map}}',mapLeaf),
     evidence:route.evidence,
     mainVideoInsertion:{kind:'rendered-video',role:'route-overview',duration,required:true,source:'route.mp4'}
   };

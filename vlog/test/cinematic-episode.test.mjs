@@ -18,3 +18,23 @@ test('always scan source originals even if a geo.media supplement is supplied',(
  assert.deepEqual(gpsSourceFiles(x),['assets/a.jpg','original/b.mov','assets/c.jpg']);
  assert.deepEqual(gpsSourceFiles({scenes:[{path:'assets/a.jpg'}]}),['assets/a.jpg']);
 });
+
+test('Director places the real route at the narrative turn, with transitions on both sides',()=>{
+ const input={...structuredClone(base),geo:{insertAfterSceneId:'middle',storyIntent:'Explain the landscape before the final payoff'}};
+ const got=insertGeoRoute(input,{required:true,path:'assets/route.mp4',duration:8,sha256:'a'.repeat(64),evidenceRef:'gps-evidence'});
+ assert.deepEqual(got.scenes.map(s=>s.id),['hook','middle','gps-geography','end']);
+ assert.equal(got.scenes[2].intent,input.geo.storyIntent);
+ assert.equal(got.boundaries.length,3);
+ assert.ok(got.boundaries[1].rationale.includes('gps-evidence'));
+ assert.ok(got.boundaries[2].rationale.includes('payoff'));
+ assert.ok(got.boundaries.every(b=>b.transition==='fade'));
+ assert.throws(()=>insertGeoRoute({...input,geo:{insertAfterSceneId:'end'}},{required:true}),/before payoff/);
+});
+
+// Explicit Director decisions outrank automatic GPS discovery in the real builder.
+test('build script respects an explicit Director mapless decision even with GPS metadata',async()=>{
+ const {readFileSync}=await import('node:fs');
+ const code=readFileSync(new URL('../lib/cinematic-episode.mjs',import.meta.url),'utf8');
+ assert.match(code,/input\.geo\?\.required===false/);
+ assert.match(code,/Director selected a mapless story/);
+});

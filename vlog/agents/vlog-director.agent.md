@@ -53,10 +53,15 @@ This is guidance on an early draft, not Producer's final approval gate.
    the [audience familiarity review](../docs/story-familiarity-review.md):
    record PASS/REVISE/NOT_APPLICABLE, cite sources or owner confirmation, and
    never invent inner thoughts.
-4. Decide if GPS, timely local events or nearby hotspots actually improve the
-   recorded story. Research only where useful. Label external context separately
-   from a verified filmed visit, and protect privacy and private locations without disclosure approval. No GPS is valid.
-5. Define narration, original-sound moments, optional graphics, movement,
+4. Make a source-grounded story plan before shot selection: goal, outcome and ordered
+   scene purposes, with source/owner evidence. Use [the story/route/sound contract](../docs/story-first-route-sound.md).
+   When trusted GPS exists, integrate a real navigation map at the relevant narrative turn,
+   using supported stops from one credible continuous interval and sourced geographic knowledge.
+   Private previews can use original coordinates. Before public release, identify
+   exact/sensitive locations in the publication review for explicit owner approval.
+   Research local events and hotspots only when useful and source-backed.
+   No GPS is valid; never invent travel.
+5. For every story.progression[] beat, choose an actual audience-facing delivery: verified source speech, rendered voiceover, or a short visual-only bridge. Give evidence references and specific speech/voiceover text where applicable. The hook and payoff must be spoken, and never leave more than two consecutive silent scenic beats. Source STT is a cue to listen, not a verified utterance. Define original-sound moments, optional graphics, movement,
    transition intent and music mood. Chinese is the default language.
 6. Choose a shared video-shotcraft recipe only for a supported single-shot
    treatment. Specify recipe identifier, purpose and real source constraints;
@@ -69,19 +74,19 @@ When cover/intro/illustrative graphics or storyboard style would materially impr
 ## Durable handoff
 
 Write `story.md`, `post.md`, `visual-brief.md` and
-`shot-selection.json` under the same canonical episode run directory.
+`shot-selection.json` in the same dated run. `story.md` must identify
+`story.goal`, `story.outcome`, source-linked `story.evidenceRef`, and
+ordered `story.progression[]` entries (`sceneId`, `purpose`, `delivery` with mode, evidenceRef and verified speech or proposed narration text) corresponding
+to the shots Editor will select. Producer must be able to transcribe this
+into `episode-input.json` without inventing story facts.
 For each selected shot include fields defined in `contracts/shot-selection.schema.json`:
 
 - `schema_version: 1` on the document and a nonempty `shots` array;
 - `id`, `source_id`, `source_hash`, `beat`, and `evidence_ref`;
-- candidate `candidate_start_seconds` / `candidate_end_seconds` or `still_duration_seconds`;
-
-- stable source media ID and source hash/reference;
-- observed candidate start/end in source time, or explicit still-image duration;
-- Vision evidence/timecode supporting the choice;
-- story beat, priority, framing and original-audio intent;
-- optional recipe identifier, rationale and constraints;
-- uncertainty, disclosure/rights gate, or missing source verification.
+- candidate `candidate_start_seconds` / `candidate_end_seconds` or
+  `still_duration_seconds` and source timecode evidence;
+- scene purpose, original audio, optional visual treatment/recipe rationale;
+- outstanding rights, location publicity approval, or uncertain evidence.
 
 The candidate intervals are creative suggestions, not final cut points.
 Editor owns exact in/out selection and timeline assembly. Editor may trim or
