@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "input": {
+    "type": "path",
+    "path": {
+      "base": "runs",
+      "datedRunDirectory": true
+    }
+  }
+}

@@ -4,6 +4,8 @@ Neo Project for licensed short-video CPS distribution. **RS Boost** is the first
 
 The sole normal-stage workflow is [graph.mmd](graph.mmd). [AGENTS.md](AGENTS.md) owns project-wide policy and approval gates; project-specific roles are in `agents/`. Reuse the installed Markcut Skill for editing and preview, and WebHelm for authorized browser actions. The project does not implement its own task queue or publishing backend.
 
+To explicitly start a Relay-backed run from an HTTPS source reference, use `neo project run --url=https://... --project=content-distribution` (or separate flag values). The URL is private input evidence only; it grants no license and triggers no automatic download or publication. See the [Neo Project Run Contract](../docs/neo-project-run-contract.md) and retain the rights and owner-authorization gates below. Existing project graph behavior is unchanged.
+
 The [commercial release and attribution gates](docs/commercial-readiness.md) define reusable owner Campaign authorization, licensed assets, tracked links and separate publication, measurement and payout evidence.
 
 The [creative strategy library](templates/creative-strategies.md) gives grounded hook selection and compliant test variants. The [monitoring runbook](docs/monitoring.md) documents Worknode platform readiness, publication safeguards and feedback data capture.

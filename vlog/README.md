@@ -1,5 +1,7 @@
 # Vlog
 
+For an explicit run against an existing canonical dated run directory, use `neo project run --path=/absolute/neo/vlog/runs/YYYY-MM-DD-episode --project=vlog`. The path must be inside the configured canonical Vlog `runs/`, and media must be owner-approved for private production. This is separate from the legacy iCloud inbox watcher and its Planner-backed Jobs, which remain available as documented below. See the [Neo Project Run Contract](../docs/neo-project-run-contract.md).
+
 Vlog turns real daily media and evidence into one coherent short-form story and verified publication outcome. It is a thin Neo content project: Vlog owns the editorial/production contract; Agents Relay owns orchestration; shared Neo capabilities own reusable media, vision, rendering, and publishing implementation.
 
 See [the reusable stage input/output and review contract](docs/episode-stage-contract.md) for Source → optional Research → Story → Production → immutable Preview Review → technical QA → archive/explicit Publish Authorization. GPS is optional; owner-approved real media is required before creating an actual Episode Task.

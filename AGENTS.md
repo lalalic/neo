@@ -8,6 +8,8 @@ A project has a top-level `README.md` and `AGENTS.md`. Load this root policy, th
 
 A normal project may contain `agents/`, `docs/`, `config/`, `templates/`, `scripts/` and other reusable source. Do not copy reusable Skill text into Agents or include optional platforms in every Worker Prompt. Product-specific executable structure (for example Markcut `.md` video templates), reusable configuration and media behavior belong in their owning project, not this file. Preserve one authoritative source for each setting.
 
+Content-producing Projects that opt into `neo project run` must follow the canonical [Neo Project Run Contract](docs/neo-project-run-contract.md), declare their accepted input in project-local `project.run.json`, and retain the canonical `graph.mmd` as workflow authority.
+
 ## Canonical execution and Git boundary
 
 `runs/` is Git-ignored and owns all execution-specific media, source uploads, prompts, intermediate artifacts, credentials, receipts, logs, reviews, render output and private mutable series state. Use `runs/<YYYY-MM-DD[-slug]>/` for a standalone run, or `runs/<series-name>/<YYYY-MM-DD[-slug]>/` for a series. Series-level `series.json`, `config/`, or `state/` may hold private state shared across dated episodes. Names like `current`, `latest`, `legacy` or bare sequence numbers are not canonical run identities.

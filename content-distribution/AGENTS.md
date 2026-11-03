@@ -2,6 +2,10 @@
 
 Follow Neo root `AGENTS.md` and this project guide. [graph.mmd](graph.mmd) is the sole normal-stage DAG; do not reproduce its edges. Project agents are in `agents/`, reusable skills are discovered as needed, and Markcut owns video editing. Do not implement another queue, browser runner, affiliate backend or payout service.
 
+## Explicit CLI run input
+
+This project declares HTTPS URL input in [project.run.json](project.run.json). `neo project run --url=https://... --project=content-distribution` stores the complete source reference only in private canonical `runs/` evidence and delegates through the existing Relay CLI and [graph.mmd](graph.mmd). A URL, including an RS Root URL, is only a reference: it does not establish a license, authorize downloading, prove asset rights, or authorize publishing. Continue to follow the rights, source-acquisition, account, and campaign publication gates below. This explicit entry point does not download media or post content.
+
 ## Identity, evidence and privacy
 
 - [accounts.md](accounts.md) is the **only project-level account registry**. It contains verified public social handles/URLs, stable account IDs and as-of RS Boost registration/Safelist status. Check it at start and on cross-campaign reuse; validate live status before externally acting. Reference `target_account_ids` in private campaign plans instead of copying account identities into each Run.

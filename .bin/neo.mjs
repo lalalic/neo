@@ -21,7 +21,8 @@ function usage() {
   return `Usage:
   neo escalation --handoff-file PATH [options]
   neo status|doctor
-  neo project list|resolve NAME
+  neo project list|resolve NAME|setup-agent NAME
+  neo project run (--url HTTPS_URL | --path ABSOLUTE_RUN_DIR) --project NAME [--dry-run]
   neo workspace show
   neo skill list [--project PATH]|package SKILL_DIR OUTPUT.zip
   neo bootstrap [--json] [--project PATH]

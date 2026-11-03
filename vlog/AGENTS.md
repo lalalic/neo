@@ -2,6 +2,10 @@
 
 Vlog produces one evidence-grounded short-form episode from real, owner-authorized media. Root `AGENTS.md` and `MISSION.md` apply. The canonical stage input/output, revision and failure contract is [episode-stage-contract.md](docs/episode-stage-contract.md); load only the sections relevant to the assigned Stage.
 
+## Explicit CLI run input
+
+This project declares canonical run-path input in [project.run.json](project.run.json). `neo project run --path=/absolute/neo/vlog/runs/YYYY-MM-DD-episode --project=vlog` accepts only an existing dated run directory under this configured project's canonical `runs/`. Input media must be owner-approved for private production and all preview, QA, publication, and platform receipt gates below still apply. This explicit CLI path is separate from the legacy iCloud watcher and its Planner-backed Episode Jobs; those behaviors are unchanged.
+
 ## Planner topology
 
 The [Graph](graph.mmd) is the only normal-stage ordering:
