@@ -12,7 +12,7 @@ This is a Neo-owned Skill. Neo Projects require this **role-selection capability
 1. Preserve a domain-specific project Agent when it owns project behavior.
 2. For generic expertise, inspect `~/.local/share/agency-agents/integrations/dsh/` and select the narrowest existing `agency-<slug>/SKILL.md`. Read only that file.
 3. If the role library is absent, run the Neo-owned `skills/agency-agents/setup.sh` installer to recover the official source and generated roles. Do not silently turn a missing role into a valid graph node.
-4. Upstream role Skills are not automatically Relay Agent manifests. Check Agent discovery and the actual PromptBuilder result before using an Agent ID in `graph.mmd` or reviewers; otherwise adapt the selected role or reuse a verified fallback.
+4. Create `<project>/agents/<name>.agent.md` with project-specific rules and `extends: /absolute/path/to/agency-role/SKILL.md`. The current Relay resolver merges this external base using existing `mode` and `sections` rules; its role name may differ from the project Agent name. Use only the project Agent name in `graph.mmd` and reviewer lists. Confirm the base is readable and validate the assembled PromptBuilder result.
 5. Project artifacts, permissions and review contracts override generic persona instructions. Relay owns scheduling and execution, and Agency Agents supplies expertise only.
 
 ## Source and refresh

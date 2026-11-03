@@ -46,9 +46,9 @@ Keep `parentTaskId` (semantic ownership) separate from `dependencies` (execution
 
 Every Neo Project requires the Neo-owned [agency-agents](../agency-agents/SKILL.md) Skill as its specialist Agent Pool selection capability. Discover the actual role library at selection time; load individual roles only when relevant, not as global Skills.
 
-Keep project-specific Agents for domain-owned work. For generic duties prefer a compatible installed Agency Agents profile, then a verified shared Neo/global Agent. Add a thin project-local Agent only if the skill is missing or the domain needs its own behavior. Do not copy whole upstream profiles.
+Keep domain-owned project Agents. When selecting an Agency Agents specialist, create a thin `<project>/agents/<name>.agent.md` with an absolute `extends` path to that role's SKILL.md and only project-specific overrides. Reference the local Agent name in graph.mmd. Do not clone the full persona or add the 283 roles to Relay discovery.
 
-An upstream profile or installed Skill is **not** automatically a runnable Relay Agent. Check the active Relay Agent resolver and assembled PromptBuilder output before using its ID in graph.mmd or reviewer lists. If the required role pool is missing, report the prerequisite and restore it from its approved source. If one specialist is incompatible, selectively adapt it or use a verified fallback. Never silently reference a missing Agent.
+The local Agent is the Relay-visible identity. Relay reads and merges the explicit absolute base using existing `extends`, `mode` and `sections` behavior, without Agency Agents discovery. Confirm source readability and PromptBuilder output; fail clearly for an invalid or missing base.
 
 Load only the selected specialist definition per task. Project artifact contracts, approvals, safety requirements and Relay scheduling/events override generic persona advice. Agency Agents provides expertise, not a new scheduler or permission source. Eval cases should cover matching, domain separation, missing-profile fallback, compatibility and prompt size.
 
@@ -74,6 +74,7 @@ reviewers:
 
 - `name`, `description` identify the Agent; `type` describes `worker`, `planner` or `reviewer`.
 - `extends`, `mode`, `sections` may use the current supported inheritance contract.
+- To reuse an external Agency Agent, create a project-local manifest and set `extends` to the selected role SKILL.md absolute path. Relay merges it with the existing `mode` and `sections` machinery; the base name may differ from the project role name. Resolve paths before use and fail if the source is missing.
 - Optional `inputs`, `outputs` list artifact contract names. Optional `reviewers` lists specialist Agent names.
 - All referenced Agents must be visible in the resolved project/shared catalog. Do not invent names.
 - Dependencies belong in Graph; worker/provider/model and retry belong to Relay, not frontmatter.
