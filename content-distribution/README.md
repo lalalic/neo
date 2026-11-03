@@ -28,3 +28,5 @@ The Git repository is public. Only deliberately public channel handles/URLs and 
 5. After authorization, check public post receipts, impressions, clicks, qualified purchases, reported CPS commission and actual payout separately. A working redirect or dashboard registration is not a qualifying order.
 
 No persistent service or `neo-project` lifecycle entrypoint is necessary for this agent-only project. The Graph specifies roles, not an automatically scheduled Job; use existing orchestration tools only when explicitly requested.
+
+Release entrypoint (PRIVATE HOLD until genuinely signed, current evidence exists): `node scripts/check-publication.mjs --run <canonical-private-run>`; the `--reserve` flag additionally records a non-repeatable private attempt. See [business authorization boundary](docs/commercial-readiness.md). Generic WebHelm post Actions do not independently authorize RS Boost or any other commercial campaign.
