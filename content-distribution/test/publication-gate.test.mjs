@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, appendFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, rmSync, appendFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createHash, generateKeyPairSync, sign } from "node:crypto";
@@ -173,8 +173,17 @@ test("reserve is persistent and blocks repeated id, new id with same revision an
   const next={...f.payload,publication_attempt_id:"attempt-2",
     owner_approval:{...f.payload.owner_approval,publication_attempt_id:"attempt-2"}};
   assert.throws(()=>verifyPublication(f.opts(next)),/prior_publication_attempt_requires_manual_reconciliation/);
+  // Populate a second valid Run with every approved byte and evidence file.
+  // A missing file/ENOENT must not be mistaken for a cross-Run ledger test.
   const otherRun=join(f.runsRoot,"2026-11-03-other"); mkdirSync(otherRun);
-  assert.throws(()=>verifyPublication({...f.opts(next),runDir:otherRun}),/ENOENT|unsafe_private_evidence_path/);
+  for (const name of readdirSync(f.runDir)) {
+    if (name === "publication-attempts") continue;
+    writeFileSync(join(otherRun,name),readFileSync(join(f.runDir,name)));
+  }
+  assert.throws(
+    ()=>verifyPublication({...f.opts(next),runDir:otherRun}),
+    /prior_publication_attempt_requires_manual_reconciliation/
+  );
 });
 
 test("no independently enrolled owner key cannot authorize even synthetic status approved",t=>{
