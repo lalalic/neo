@@ -69,12 +69,7 @@ test('rejects tampered original, invalid timestamps, unapproved source and missi
   writeFileSync(f.manifest.media[1].original_path,'altered');
   assert.throws(index,/Source hash mismatch/);
 });
-test('real historical Markcut metadata indexes original images/video and never claims review',()=>{
+test('legacy cross-run source manifests cannot bypass canonical run containment',()=>{
   const run='/Users/chengli/Workspace/neo/vlog/runs/2026-10-30-job536-real-review-e2e';
-  const out=indexFromRun(run);
-  assert.equal(out.sources.length,3);
-  assert.equal(out.observations.length,2);
-  assert.deepEqual(out.observations.map(x=>[x.source_time_start_seconds,x.source_time_end_seconds]),
-    [[0,0.94],[0.94,1.5667]]);
-  assert.ok(out.observations.every(x=>x.observation_status==='MODEL_OUTPUT_UNREVIEWED'));
+  assert.throws(()=>indexFromRun(run),/Canonical source directory must resolve inside the dated Vlog run/);
 });

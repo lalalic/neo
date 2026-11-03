@@ -44,6 +44,7 @@ export function makeMarkcutVisionIndex(manifest, metadata, sourceDir, metadataHa
   if (manifest?.source_use?.approved !== true || !Array.isArray(manifest.media)) {
     throw new Error('Approved source manifest required');
   }
+  sourceDir = realpathSync(sourceDir);
   const sources = [];
   const observations = [];
   const seenKeys = new Set();
