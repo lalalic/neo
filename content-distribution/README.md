@@ -4,6 +4,8 @@ Neo Project for licensed short-video CPS distribution. **RS Boost** is the first
 
 The sole normal-stage workflow is [graph.mmd](graph.mmd). [AGENTS.md](AGENTS.md) owns project-wide policy and approval gates; project-specific roles are in `agents/`. Reuse the installed Markcut Skill for editing and preview, and WebHelm for authorized browser actions. The project does not implement its own task queue or publishing backend.
 
+The [commercial release and attribution gates](docs/commercial-readiness.md) define the independent owner approval, licensed asset, channel link, publication receipt, measurement and payout evidence chain. The [attribution snapshot schema](contracts/attribution-snapshot.schema.json) records dated metrics without storing private links in Git.
+
 The [creative strategy library](templates/creative-strategies.md) gives grounded hook selection and compliant test variants. The [monitoring runbook](docs/monitoring.md) documents Worknode platform readiness, publication safeguards and feedback data capture.
 
 ## Where information belongs
@@ -26,3 +28,5 @@ The Git repository is public. Only deliberately public channel handles/URLs and 
 5. After authorization, check public post receipts, impressions, clicks, qualified purchases, reported CPS commission and actual payout separately. A working redirect or dashboard registration is not a qualifying order.
 
 No persistent service or `neo-project` lifecycle entrypoint is necessary for this agent-only project. The Graph specifies roles, not an automatically scheduled Job; use existing orchestration tools only when explicitly requested.
+
+Release entrypoint (PRIVATE HOLD until genuinely signed, current evidence exists): `node scripts/check-publication.mjs --run <canonical-private-run>`; the `--reserve` flag additionally records a non-repeatable private attempt. See [business authorization boundary](docs/commercial-readiness.md). Generic WebHelm post Actions do not independently authorize RS Boost or any other commercial campaign.
