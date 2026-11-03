@@ -6,7 +6,7 @@ Neo is a public monorepo with independently executable projects, shared agents a
 
 A project has a top-level `README.md` and `AGENTS.md`. Load this root policy, then the selected project `AGENTS.md`, and only role files relevant to the current task in `<project>/agents/`. Project-specific responsibilities and workflow rules belong in that project. Shared capabilities belong in `skills/`; project-only Skills may live in `<project>/skills/`. A project-local Skill of the same name takes precedence inside its project.
 
-For generic specialist roles, follow the [Neo Project shared Agent Pool contract](skills/neo-project/SKILL.md#shared-specialist-agent-pool). Prefer installed, Relay-resolvable Agency Agents profiles when appropriate; keep domain-owned behavior in project agents. Upstream definitions are not automatically runnable Relay workers.
+Neo Projects require the Neo-owned [agency-agents](skills/agency-agents/SKILL.md) role-selection Skill under the [shared Agent Pool contract](skills/neo-project/SKILL.md#shared-specialist-agent-pool). Prefer compatible Relay-resolvable specialists for generic duties and preserve project-specific Agent ownership. The roster is Neo-scoped, not a global persona Skill catalog; upstream profiles are not automatically runnable Relay workers.
 
 A normal project may contain `agents/`, `docs/`, `config/`, `templates/`, `scripts/` and other reusable source. Do not copy reusable Skill text into Agents or include optional platforms in every Worker Prompt. Product-specific executable structure (for example Markcut `.md` video templates), reusable configuration and media behavior belong in their owning project, not this file. Preserve one authoritative source for each setting.
 

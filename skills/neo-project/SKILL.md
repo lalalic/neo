@@ -44,11 +44,11 @@ Keep `parentTaskId` (semantic ownership) separate from `dependencies` (execution
 
 ## Shared specialist Agent Pool
 
-Use [Agency Agents](https://github.com/msitarzewski/agency-agents) as the preferred optional roster for generic research, engineering, design, marketing, operations, security and QA specialists. Discover the actual installed profiles before choosing a specialist.
+Every Neo Project requires the Neo-owned [agency-agents](../agency-agents/SKILL.md) Skill as its specialist Agent Pool selection capability. Discover the actual role library at selection time; load individual roles only when relevant, not as global Skills.
 
 Keep project-specific Agents for domain-owned work. For generic duties prefer a compatible installed Agency Agents profile, then a verified shared Neo/global Agent. Add a thin project-local Agent only if the skill is missing or the domain needs its own behavior. Do not copy whole upstream profiles.
 
-An upstream profile or installed Skill is **not** automatically a runnable Relay Agent. Check the active Relay Agent resolver and assembled PromptBuilder output before using its ID in graph.mmd or reviewer lists. If unavailable, selectively install/adapt via approved skill workflows or use a valid fallback; never silently reference a missing Agent or install the entire roster.
+An upstream profile or installed Skill is **not** automatically a runnable Relay Agent. Check the active Relay Agent resolver and assembled PromptBuilder output before using its ID in graph.mmd or reviewer lists. If the required role pool is missing, report the prerequisite and restore it from its approved source. If one specialist is incompatible, selectively adapt it or use a verified fallback. Never silently reference a missing Agent.
 
 Load only the selected specialist definition per task. Project artifact contracts, approvals, safety requirements and Relay scheduling/events override generic persona advice. Agency Agents provides expertise, not a new scheduler or permission source. Eval cases should cover matching, domain separation, missing-profile fallback, compatibility and prompt size.
 
