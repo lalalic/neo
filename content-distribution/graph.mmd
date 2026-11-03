@@ -1,5 +1,6 @@
 flowchart TD
-    rights[agent:distribution-rights] --> plan[agent:distribution-planner]
+    rights[agent:distribution-rights] --> acquire[agent:distribution-acquirer]
+    acquire --> plan[agent:distribution-planner]
     plan --> produce[agent:distribution-producer]
     produce --> release[agent:distribution-operator]
     release --> measure[agent:distribution-analyst]

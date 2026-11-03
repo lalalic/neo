@@ -9,7 +9,8 @@
     "provider_id",
     "rights_evidence_path",
     "target_account_ids",
-    "creatives"
+    "creatives",
+    "original_source_path"
   ],
   "properties": {
     "campaign_id": {
@@ -132,6 +133,11 @@
       "type": "string",
       "minLength": 1,
       "description": "Run-relative private story context (contracts/story-context.schema.json). Optional until a grounded source is available."
+    },
+    "original_source_path": {
+      "type": "string",
+      "pattern": "^evidence/[a-zA-Z0-9._/-]+\\.json$",
+      "description": "Private manifest of exact retained licensed original episode; analysis must use this, never creative output."
     }
   }
 }

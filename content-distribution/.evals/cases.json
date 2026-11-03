@@ -61,7 +61,7 @@
   },
   {
     "id": "story-official-web-fallback",
-    "role": "distribution-rights",
+    "role": "distribution-acquirer",
     "capability": "source-backed drama metadata",
     "task": "The RS Boost Content Hub shows only the referral panel, and its UI includes an API Information label but no verified synopsis API response. The ReelShort official series page has a synopsis and named characters. How should the story context be sourced?",
     "expectedDecision": "use_official_web_with_provenance",
@@ -93,6 +93,42 @@
       "verify_name_with_timestamps",
       "leave_name_unresolved_forever",
       "map_every_voice_to_grayson"
+    ]
+  },
+  {
+    "id": "original-before-creative",
+    "role": "distribution-producer",
+    "capability": "source-first video understanding",
+    "task": "The full RS Boost licensed Episode 1 is saved as assets/episode-01.mp4 (116s) with a verified original SHA-256. An older Markcut preview.mp4 (21s) has existing Video Use transcript. Which input should be sent to Video Use, STT and Vision to understand and diarize characters before selecting cuts?",
+    "expectedDecision": "use_hash_verified_original",
+    "choices": [
+      "use_hash_verified_original",
+      "reuse_preview_transcript",
+      "analyze_latest_generated_video"
+    ]
+  },
+  {
+    "id": "source-missing-hold",
+    "role": "distribution-producer",
+    "capability": "source integrity gate",
+    "task": "The campaign has story context and an approved promotional Preview, but `original_source_path` has a wrong SHA-256 for the retained MP4. The operator wants new scene analysis immediately.",
+    "expectedDecision": "hold_until_original_verified",
+    "choices": [
+      "hold_until_original_verified",
+      "use_preview_instead",
+      "ignore_original_hash"
+    ]
+  },
+  {
+    "id": "metadata-action-fallback",
+    "role": "distribution-acquirer",
+    "capability": "licensed source and official plot acquisition",
+    "task": "RS Boost metadata API is not documented or verified for the logged-in account. The official ReelShort movie page and matching RS Boost series URL are known. Obtain source-backed episode plot before planning without exposing referral links.",
+    "expectedDecision": "use_webhelm_rsboost_metadata",
+    "choices": [
+      "use_webhelm_rsboost_metadata",
+      "guess_api_endpoint",
+      "infer_plot_from_preview"
     ]
   }
 ]

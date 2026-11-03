@@ -58,11 +58,11 @@ test('timestamps and duplicate speakers are checked', () => {
 test('producer and planner consume official provenance and never assert identity based on synopsis alone', () => {
   const producer = readFileSync(new URL('../agents/distribution-producer.agent.md', import.meta.url), 'utf8');
   const planner = readFileSync(new URL('../agents/distribution-planner.agent.md', import.meta.url), 'utf8');
-  const rights = readFileSync(new URL('../agents/distribution-rights.agent.md', import.meta.url), 'utf8');
+  const acquirer = readFileSync(new URL('../agents/distribution-acquirer.agent.md', import.meta.url), 'utf8');
   const campaign = JSON.parse(readFileSync(new URL('../contracts/campaign-plan.schema.json', import.meta.url)));
   assert.ok(campaign.properties.story_context_path);
   assert.match(planner, /story_context_path/);
   assert.match(producer, /original licensed episode/);
   assert.match(producer, /status:unresolved/);
-  assert.match(rights, /official provider summary/);
+  assert.match(acquirer, /official series metadata/);
 });

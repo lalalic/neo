@@ -7,11 +7,11 @@ import { fileURLToPath } from 'node:url';
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const read = (path) => readFileSync(join(root, path), 'utf8');
 
-test('graph parses as one five-role DAG and resolves every project manifest', () => {
+test('graph parses as one six-role DAG and resolves every project manifest', () => {
   const graph = read('graph.mmd').trim().split('\n');
   assert.equal(graph.shift(), 'flowchart TD');
   const agents = [...graph.join('\n').matchAll(/\[agent:([a-z-]+)\]/g)].map((m) => m[1]);
-  assert.equal(agents.length, 5);
+  assert.equal(agents.length, 6);
   assert.equal(new Set(agents).size, agents.length);
   assert.equal((graph.join('\n').match(/-->/g) || []).length, agents.length - 1);
   for (const agent of agents) {
