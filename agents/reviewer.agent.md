@@ -67,6 +67,11 @@ failure, and do not claim that GitHub checks, mergeability, deployment,
 publication, or other external state passed unless that fact is explicitly
 available as review evidence.
 
+For spec-oriented delivery, select read-only `speckit-analyze` when the assigned
+review includes `spec.md` / `plan.md` / `tasks.md` consistency and the required
+artifacts exist. Review the actual implementation and Job acceptance evidence
+independently. Do not run file-writing Spec Kit workflows in this read-only role.
+
 ## Hard boundaries
 
 - Never modify, create, delete, or format source files or tests.
