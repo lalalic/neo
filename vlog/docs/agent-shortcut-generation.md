@@ -1,11 +1,13 @@
 # Agent Shortcut Authoring
 
-Shortcuts are optional executable counterparts to existing shared Agent
-contracts. Put shared shortcuts in `agents/.shortcut/<agent>.agent.mjs`; a
-project may override one in `<project>/agents/.shortcut/<agent>.agent.mjs`.
-Keep the matching `.agent.md`, project directory, contracts and eval cases as
-the source of truth. Do not create a shortcut merely to avoid a Worker when the
-contract requires interactive capabilities the shortcut cannot provide.
+Shortcuts are optional executable counterparts to Agent contracts. Project-specific
+roles (such as `vlog-visioner`) own shortcuts under
+`<project>/agents/.shortcut/<agent>.agent.mjs`. Reserve shared
+`agents/.shortcut/` for behaviors genuinely independent of project sources,
+artifact schemas and run paths. Reuse Markcut Vision and its existing CLI,
+not a copied inference pipeline. Keep the matching `.agent.md`, project
+contracts and eval cases as the source of truth. Do not bypass a Worker when
+interactive capabilities or unavailable evidence are required.
 
 ## On-demand workflow
 
@@ -35,12 +37,12 @@ or templates, and must pass the normal tests/evals before use.
 
 ## Vlog Visioner
 
-`agents/.shortcut/visioner.agent.mjs` is the first concrete example. It requires
+`vlog/agents/.shortcut/vlog-visioner.agent.mjs` is the first concrete example. It requires
 a dated private run, an owner-approved source manifest and a host-provided
 owned-process command runner. Existing `input/media/metadata.json` is reused.
 Missing metadata requires explicit inference authorization and a configured
 authorized ITT/VTT adapter; Markcut Vision must advertise the template options
-from the shared Visioner contract. The existing
+from the Vlog Visioner contract. The existing
 `scripts/index-markcut-vision.mjs` validates source hashes and produces the
 intermediate source-linked index. The shortcut derives a separate
 `vision-evidence.json` from that index without turning model output into

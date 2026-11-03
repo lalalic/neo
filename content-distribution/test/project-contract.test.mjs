@@ -14,27 +14,41 @@ test('graph declares 7 roles: Acquirer → STT → speaker-name VTT → Vision �
   const order = [...new Set(agents)];
   assert.deepEqual(order, [
     'distribution-acquirer', 'distribution-transcriber', 'distribution-speaker-resolver',
-    'visioner', 'distribution-editor', 'distribution-operator',
+    'distribution-visioner', 'distribution-editor', 'distribution-operator',
     'distribution-analyst',
   ]);
   assert.equal((graph.join('\n').match(/-->/g) || []).length, order.length - 1);
   for (const agent of order) {
-    const filename = agent === 'visioner' ? '../agents/visioner.agent.md' : `agents/${agent}.agent.md`;
+    const filename = `agents/${agent}.agent.md`;
     assert.ok(existsSync(join(root, filename)), filename);
     assert.match(read(filename), new RegExp(`^name: ${agent}$`, 'm'));
   }
 });
 
-test('both projects use the shared Neo Visioner identity, without local duplicates', () => {
-  assert.match(read('../agents/visioner.agent.md'), /^name: visioner$/m);
-  assert.match(read('../vlog/graph.mmd'), /\[agent:visioner\]/);
-  assert.match(read('graph.mmd'), /\[agent:visioner\]/);
-  assert.ok(existsSync(join(root, '../agents/.shortcut/visioner.agent.mjs')));
-  for (const local of ['agents/visioner.agent.md', 'agents/distribution-visioner.agent.md', 'agents/.shortcut/visioner.agent.mjs']) {
-    assert.equal(existsSync(join(root, local)), false, local);
-  }
-  assert.equal(existsSync(join(root, '../vlog/agents/.shortcut/visioner.agent.mjs')), false);
-  assert.match(read('docs/vision-context.md'), /speaker-name\.vtt/);
+test('projects own distinct Visioner identities and domain-specific handoffs', () => {
+  const shared = join(root, '../agents/visioner.agent.md');
+  const vlog = read('../vlog/agents/vlog-visioner.agent.md');
+  const distribution = read('agents/distribution-visioner.agent.md');
+  assert.ok(existsSync(shared));
+  assert.match(read('../vlog/graph.mmd'), /\[agent:vlog-visioner\]/);
+  assert.match(read('graph.mmd'), /\[agent:distribution-visioner\]/);
+  assert.match(vlog, /^name: vlog-visioner$/m);
+  assert.match(distribution, /^name: distribution-visioner$/m);
+  assert.match(vlog, /^extends: \/Users\/chengli\/Workspace\/neo\/agents\/visioner\.agent\.md$/m);
+  assert.match(distribution, /^extends: \/Users\/chengli\/Workspace\/neo\/agents\/visioner\.agent\.md$/m);
+  const base = read('../agents/visioner.agent.md');
+  assert.match(vlog, /source-manifest\.json/);
+  assert.match(distribution, /speaker-name\.vtt/);
+  assert.doesNotMatch(base, /source-manifest\.json|hey-neo-vision-context|index-markcut-vision\.mjs/);
+  assert.doesNotMatch(distribution, /source-manifest\.json|index-markcut-vision\.mjs/);
+  assert.doesNotMatch(vlog, /speaker-name\.vtt|RS Boost Content Hub/);
+  assert.ok(existsSync(join(root, '../vlog/agents/.shortcut/vlog-visioner.agent.mjs')));
+  for (const prohibited of [
+    '../agents/.shortcut/visioner.agent.mjs',
+    'agents/.shortcut/visioner.agent.mjs',
+    'agents/.shortcut/distribution-visioner.agent.mjs',
+    'docs/vision-context.md',
+  ]) assert.equal(existsSync(join(root, prohibited)), false, prohibited);
 });
 
 test('persistent account registry is project-level, indexed and referenced from execution docs', () => {
@@ -86,7 +100,7 @@ test('campaign-scope owner permission replaces per-video review; platform safety
 test('Editor consumes named VTT and Vision evidence, not Video Use EDL', () => {
   const transcriber = read('agents/distribution-transcriber.agent.md');
   const resolver = read('agents/distribution-speaker-resolver.agent.md');
-  const visioner = read('docs/vision-context.md');
+  const visioner = read('agents/distribution-visioner.agent.md');
   const editor = read('agents/distribution-editor.agent.md');
   assert.match(transcriber, /Video Use/);
   assert.match(transcriber, /speaker-id\.vtt/);

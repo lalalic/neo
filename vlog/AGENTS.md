@@ -18,7 +18,7 @@ Watcher/ingress runs outside the Graph. For the current Relay episode model, one
 
 ## Ownership and gates
 
-- **Shared Visioner** records observations, hashes, source timecodes and uncertainties using Markcut; it does not select the story or edit clips.
+- **Vlog Visioner** records observations, hashes, source timecodes and uncertainties using Markcut; it does not select the story or edit clips.
 - **Director** chooses a truthful goal, scene progression and payoff; writes `story.md`, `shot-selection.json`, `visual-brief.md` and `post.md`. **Editor** resolves source-linked in/out cuts and boundary/audio intent in `edit-decision-list.json`.
 - **Producer** assembles `episode-input.json` from Director's story plan and Editor's accepted decisions, compiles/verifies `video.md`, owns Markcut preview, same-Worker revision loop and generic + Video Director + Market reviews. **Final QA** independently verifies the approved revision and actual rendered video.
 - No Stage may fabricate dialogue, location, movement, inner thought, observed footage or permissions. A real `INPUT_NEEDED` source manifest must be resolved before creating Episode Tasks.

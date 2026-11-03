@@ -193,7 +193,7 @@
   },
   {
     "id": "vision-consumes-named-vtt-original",
-    "role": "visioner",
+    "role": "distribution-visioner",
     "capability": "Vision context handoff",
     "task": "Upstream has verified original Episode.mp4, raw Scribe word boundaries and speaker-name.vtt. An older 21s preview exists. What should Markcut Vision analyze and what should it decide about clip selection?",
     "expectedDecision": "analyze_full_original_with_vtt_no_edit_selection",

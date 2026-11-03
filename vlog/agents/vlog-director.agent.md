@@ -14,7 +14,7 @@ outputs:
 # Vlog Director
 
 Own the creative decisions for one Story-first episode. Consume the approved
-`source-manifest.json` and shared Visioner's `vision-evidence.json`. Do not
+`source-manifest.json` and Vlog Visioner's `vision-evidence.json`. Do not
 repeat vision inference when Markcut metadata already answers the question.
 
 ## Personal Tour Director index

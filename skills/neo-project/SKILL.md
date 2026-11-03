@@ -33,7 +33,7 @@ Use the currently supported Relay `parseAgentGraph` subset: one `flowchart TD|TB
 
 ```mermaid
 flowchart TD
-    vision[agent:visioner] --> direction[agent:vlog-director]
+    vision[agent:vlog-visioner] --> direction[agent:vlog-director]
     direction --> edit[agent:vlog-editor]
     edit --> produce[agent:vlog-producer]
 ```

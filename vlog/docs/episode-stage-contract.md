@@ -17,12 +17,12 @@ again and store the current revision ID/hash and decision. If the UI is
 unavailable or the Worker times out, report a blocker; never infer approval.
 Final QA checks that evidence. Preview approval is not publishing consent.
 
-## Shared Visioner evidence
+## Vlog Visioner evidence
 
-Visioner is the first Graph Stage. Use the shared Neo Visioner Agent and
+Visioner is the first Graph Stage. Use the project-local `vlog-visioner` Agent and
 discovered Markcut Skill. Reuse `input/media/metadata.json`, `perception.desc`,
 source VTT and hashes. For gaps, **prefer the DeepSeek `--itt` / `--vtt`
-CLI templates defined in the shared Agent**, without provider-specific
+CLI templates defined in the Vlog Visioner Agent**, without provider-specific
 Markcut flags. Preserve Markcut STT and `--agent` segmentation; pass
 `config/hey-neo-vision-context.md` and episode context via `--instruct`.
 If DeepSeek fails, report why; only use another authorized CLI template.
@@ -39,7 +39,7 @@ the resolved Graph, never inventing them.
 | Stage | Owner | Accepted input / gate | Durable output under `runs/<episode>/` | Provenance and acceptance evidence | Hold or fail condition |
 | --- | --- | --- | --- | --- | --- |
 | **Source** | watcher/owner approval with shared phone-media | Owner confirms episode window and grants use permission per authentic asset | `source-manifest.json` with source IDs, hashes, original location, rights/use status, selected in/out ranges and timestamp provenance | Checksum and permission reference per item; selected real images/video and original audio | `INPUT_NEEDED`, missing rights, unsuitable media, ambiguous episode window: no Episode Task starts |
-| **Visioner** | shared visioner + Markcut Vision | Owner-approved manifest and local readable media | `vision-evidence.json` with timecoded visual/audio understanding, metadata and explicit gaps | Every assertion cites source media/time range or metadata origin; separate observation from inference | Unreadable material or critical uncertainty holds affected work; never fabricate |
+| **Visioner** | vlog-visioner + Markcut Vision | Owner-approved manifest and local readable media | `vision-evidence.json` with timecoded visual/audio understanding, metadata and explicit gaps | Every assertion cites source media/time range or metadata origin; separate observation from inference | Unreadable material or critical uncertainty holds affected work; never fabricate |
 | **Human source review (optional)** | owner through interactive Worker when available | Visioner findings and precise questions; default not requested | `vision-human-review.json` with status, questions, answers and provenance | Distinguish owner testimony from observed evidence | Do not invent missing answers; optional decline may proceed only without unsupported claims |
 | **Research (conditional)** | vlog-director with shared phone-media/EXIF and location research capabilities | Approved manifest and story-relevant research questions; GPS metadata is optional | `route-evidence.json` or explicit `not-applicable` status, `location-enrichment.json` if relevant, research notes | Each fact links back to source ID, original EXIF/QuickTime metadata or attributable external source; capture timezone uncertainty, original precision and calculated-vs-observed distinction | Missing GPS is a successful no-op, not a pipeline failure; invalid and outlier GPS excluded; external permission holds only the affected enrichment |
 | **Story / shot selection** | vlog-director | Visioner evidence, source manifest, optional research and authentic story beats | `story.md`, `post.md`, `shot-selection.json`, `visual-brief.md`; optional [audience familiarity review](story-familiarity-review.md) | Hook/development/payoff references exact source IDs, shot ranges, original dialogue/ambient audio; generated context explicitly identified | Unsupported visits, invented movement/scene, unusable story evidence or invented dialogue: revise through Relay |

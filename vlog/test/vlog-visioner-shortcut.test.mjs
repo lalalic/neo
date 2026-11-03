@@ -5,8 +5,8 @@ import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { indexFromRun } from '../../vlog/scripts/index-markcut-vision.mjs';
-import { run } from './visioner.agent.mjs';
+import { indexFromRun } from '../scripts/index-markcut-vision.mjs';
+import { run } from '../agents/.shortcut/vlog-visioner.agent.mjs';
 
 const hash = value => createHash('sha256').update(value).digest('hex');
 
@@ -162,4 +162,23 @@ test('rejects fake index output that does not prove the approved manifest and me
     return {code:0,stdout:'{}'};
   };
   await assert.rejects(run({input:{projectPath:f.root,vlogRoot:f.vlogRoot,runPath:f.runPath},...host}),/provenance hashes/);
+});
+
+test('Relay project-root and canonical Task text resolve the Vlog source without a nested vlog/vlog path',async t=>{
+  const f=await fixture(t,true);
+  const host=fakeHost();
+  const result=await run({input:{
+    projectPath:f.vlogRoot,
+    taskInput:`Run selected Neo Project.\n- Canonical run: ${f.runPath}\n`
+  },...host});
+  assert.equal(result.status,'COMPLETED');
+  assert.equal(result.markcut.reused,true);
+  assert.equal(host.calls.length,1);
+});
+test('Vlog project shortcut does not accept a run from a separate project',async t=>{
+  const f=await fixture(t,true);
+  const other=join(f.root,'content-distribution','runs','2026-11-03-elsewhere');
+  await mkdir(other,{recursive:true});
+  await assert.rejects(run({input:{projectPath:f.vlogRoot,runPath:other},...fakeHost()}),
+    /dated canonical Vlog runs/);
 });

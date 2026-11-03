@@ -23,7 +23,7 @@ Reject missing source-use permission or an `INPUT_NEEDED` manifest.
 
 1. Parse/read the current normal Graph and resolve each named Agent from the
    actual visible project/shared catalog. Do not invent or silently substitute
-   a mandatory role. In particular, use shared `visioner` and project-specific
+   a mandatory role. In particular, use project-local `vlog-visioner` and project-specific
    Director, Editor, Producer and Final QA roles when the catalog exposes them.
 2. Assign meaningful durable Stage Tasks to the Graph nodes and give each
    Task its declared output under the canonical run directory. Use stable

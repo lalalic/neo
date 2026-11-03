@@ -1,7 +1,7 @@
 [
   {
     "id": "visioner-uncertain-audio",
-    "role": "visioner",
+    "role": "vlog-visioner",
     "capability": "source evidence",
     "choices": [
       "record_uncertainty",

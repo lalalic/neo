@@ -8,7 +8,7 @@ import {execFileSync} from 'node:child_process';
 const vlogRoot=fileURLToPath(new URL('../',import.meta.url));
 const neoRoot=resolve(vlogRoot,'..');
 const markcutRoot=process.env.MARKCUT_ROOT || resolve(neoRoot,'../markcut');
-const visioner=readFileSync(resolve(neoRoot,'agents/visioner.agent.md'),'utf8');
+const visioner=readFileSync(resolve(vlogRoot,'agents/vlog-visioner.agent.md'),'utf8');
 const contract=readFileSync(resolve(vlogRoot,'docs/episode-stage-contract.md'),'utf8');
 
 test('Neo Visioner prefers DeepSeek as first generic Markcut ITT/VTT CLI templates',()=>{

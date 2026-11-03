@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
 const graph = read('../graph.mmd');
 const lines = graph.trim().split('\n').slice(1).map(line => line.trim());
-const nodes = [{ id: 'visioner', agent: 'visioner' }, ...lines.map(line => {
+const nodes = [{ id: 'visioner', agent: 'vlog-visioner' }, ...lines.map(line => {
   const [, id, agent] = line.match(/-->\s*([\w-]+)\[agent:([\w-]+)\]/) || [];
   return { id, agent };
 })];
@@ -19,7 +19,7 @@ test('canonical graph contains resolvable specialist agents', () => {
   assert.deepEqual(nodes.map(x => x.id), ['visioner', 'director', 'editor', 'producer', 'final_qa']);
   assert.deepEqual(edges, [['visioner', 'director'], ['director', 'editor'], ['editor', 'producer'], ['producer', 'final_qa']]);
   for (const { agent } of nodes) {
-    const path = agent === 'visioner' ? '../../agents/visioner.agent.md' : '../agents/' + agent + '.agent.md';
+    const path = '../agents/' + agent + '.agent.md';
     assert.ok(read(path).includes('name: ' + agent));
   }
 });
@@ -41,7 +41,7 @@ test('planner derives dependencies from graph and permits incremental revisions'
 });
 
 test('stage Agent frontmatter declares inputs, outputs and optional reviewers', () => {
-  for (const { agent } of nodes.filter(x => x.agent !== 'visioner')) {
+  for (const { agent } of nodes.filter(x => x.agent !== 'vlog-visioner')) {
     const contract = read('../agents/' + agent + '.agent.md');
     for (const key of ['inputs:', 'outputs:']) assert.ok(contract.includes(key), agent + ':' + key);
   }
@@ -79,12 +79,19 @@ test('artifact schemas are explicit and require source traceability', () => {
   assert.ok(shot.properties.shots.items.required.includes('source_hash'));
 });
 
-test('shared Visioner retains Markcut evidence ownership', () => {
-  const visioner = read('../../agents/visioner.agent.md');
+test('Vlog Visioner owns source semantics and inherits generic Markcut Vision capability', () => {
+  const visioner = read('../agents/vlog-visioner.agent.md');
+  const shared = read('../../agents/visioner.agent.md');
   const stage = read('../docs/episode-stage-contract.md');
-  for (const word of ['name: visioner', 'markcut', 'npx @lalalic/markcut vision']) assert.ok(visioner.includes(word));
-  for (const word of ['Optional human source preview', 'provisional Markcut `video.md`', 'neo.markcut_preview', 'same Worker', 'one media item per top-level Scene', 'one aggregate `video.md`', 'horizontal scene list', 'folder path directly']) {
-    assert.ok(visioner.includes(word));
+  assert.match(visioner, /^name: vlog-visioner$/m);
+  assert.match(visioner, /^extends: \/Users\/chengli\/Workspace\/neo\/agents\/visioner\.agent\.md$/m);
+  for (const word of ['source-manifest.json', 'Project-specific source segmentation', 'DeepSeek Web', 'vision-evidence.json']) {
+    assert.ok(visioner.includes(word), word);
+  }
+  for (const word of ['name: visioner', 'markcut', 'npx @lalalic/markcut vision',
+    'Optional human source preview', 'provisional Markcut `video.md`', 'neo.markcut_preview', 'same Worker',
+    'one media item per top-level Scene', 'one aggregate `video.md`', 'horizontal scene list', 'folder path directly']) {
+    assert.ok(shared.includes(word), word);
   }
   for (const word of ['input/media/metadata.json', 'perception.desc', 'vision-evidence.json']) assert.ok(stage.includes(word));
 });

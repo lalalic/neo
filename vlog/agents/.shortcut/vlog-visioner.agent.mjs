@@ -1,11 +1,11 @@
 import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { mkdir, readFile, realpath, writeFile } from 'node:fs/promises';
-import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const neoRoot = resolve(here, '../..');
+const neoRoot = resolve(here, '../../..');
 const sha256 = value => createHash('sha256').update(value).digest('hex');
 
 function asArgs(value) {
@@ -94,13 +94,19 @@ function evidenceFromIndex(index) {
 export async function run(context) {
   const input = context?.input;
   if (!input || typeof input !== 'object') throw new Error('Visioner shortcut requires structured input');
-  const projectRoot=await realpath(resolve(input.projectPath || neoRoot));
-  const suppliedRoot=resolve(input.vlogRoot || join(projectRoot, 'vlog'));
+  // Relay passes the current Neo Project root, not the Neo monorepo root.
+  // Support legacy fixture callers supplying a parent root explicitly.
+  const projectRoot=await realpath(resolve(input.projectPath || join(neoRoot,'vlog')));
+  const suppliedRoot=resolve(input.vlogRoot ||
+    (basename(projectRoot)==='vlog' ? projectRoot : join(projectRoot, 'vlog')));
   const actualRoot=await realpath(suppliedRoot);
   const rootRel=relative(projectRoot,actualRoot);
   if (rootRel==='..'||rootRel.startsWith(`..${sep}`)||isAbsolute(rootRel)) throw new Error('Visioner Vlog root escapes the resolved project root');
   const vlogRoot = actualRoot;
-  const runPath = await validRunPath(vlogRoot, input.runPath);
+  const taskText=typeof input.taskInput==='string' ? input.taskInput : '';
+  const declaredRun=input.runPath ?? taskText.match(/^- Canonical run:\s*(\/[^\r\n]+)$/m)?.[1];
+  if(typeof declaredRun!=='string'||!isAbsolute(declaredRun))throw new Error('Visioner requires an absolute canonical run path');
+  const runPath = await validRunPath(vlogRoot, declaredRun);
   const manifestPath = join(runPath, 'source-manifest.json');
   const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
   if (manifest?.source_use?.approved !== true || !Array.isArray(manifest.media) || manifest.media.length === 0) {
