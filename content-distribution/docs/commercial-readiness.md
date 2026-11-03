@@ -27,7 +27,7 @@ Execution: run `node scripts/check-publication.mjs --run <absolute-canonical-run
 | Stage | Evidence | When incomplete |
 | --- | --- | --- |
 | Original source | Provider-downloaded full episode, immutable SHA-256/size/duration and current campaign rights | HOLD analysis of unverified input |
-| Story and creative | Sourced plot/speakers; Markcut Markdown, actual rendered picture/sound QA | Revise or remain `previewed` |
+| Story and creative | Acquirer `campaign.json` manifest, Editor `creative-plan.json` with QA-passed variant evidence (legacy Campaign `creatives` for old Runs), Markcut Markdown and actual rendered picture/sound QA | Revise or remain `previewed` |
 | Campaign publication | Owner-signed scope and permissions applicable to the chosen platform/edit | PRIVATE HOLD |
 | Safelist | Correct filed account and currently observed state | Pending = monetization warning; rejected/unlisted = HOLD |
 | Tracking | Series-matched private promotion link, disclosed placement; clickability observed separately | HOLD if link absent; warn if clickability unverified |

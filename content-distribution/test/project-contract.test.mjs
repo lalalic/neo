@@ -7,15 +7,15 @@ import { fileURLToPath } from 'node:url';
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const read = (path) => readFileSync(join(root, path), 'utf8');
 
-test('graph declares ordered source → STT → speaker-name VTT → Vision → Producer DAG', () => {
+test('graph declares 7 roles: Acquirer → STT → speaker-name VTT → Vision → Editor → release → measure', () => {
   const graph = read('graph.mmd').trim().split('\n');
   assert.equal(graph.shift(), 'flowchart TD');
   const agents = [...graph.join('\n').matchAll(/\[agent:([a-z-]+)\]/g)].map((m) => m[1]);
   const order = [...new Set(agents)];
   assert.deepEqual(order, [
-    'distribution-rights', 'distribution-acquirer', 'distribution-planner',
-    'distribution-transcriber', 'distribution-speaker-resolver', 'distribution-visioner',
-    'distribution-producer', 'distribution-operator', 'distribution-analyst',
+    'distribution-acquirer', 'distribution-transcriber', 'distribution-speaker-resolver',
+    'distribution-visioner', 'distribution-editor', 'distribution-operator',
+    'distribution-analyst',
   ]);
   assert.equal((graph.join('\n').match(/-->/g) || []).length, order.length - 1);
   for (const agent of order) {
@@ -34,7 +34,7 @@ test('persistent account registry is project-level, indexed and referenced from 
     assert.ok(accounts.includes(`\`${id}\``));
     assert.ok(accounts.includes(publicUrl));
   }
-  for (const path of ['README.md', 'AGENTS.md', 'agents/distribution-planner.agent.md', 'agents/distribution-operator.agent.md']) {
+  for (const path of ['README.md', 'AGENTS.md', 'agents/distribution-acquirer.agent.md', 'agents/distribution-operator.agent.md']) {
     assert.match(read(path), /accounts\.md/, path);
   }
   assert.match(accounts, /Pending Update/);
@@ -54,10 +54,13 @@ test('campaign format references project account IDs and gates approved or publi
   const schema = JSON.parse(read('contracts/campaign-plan.schema.json'));
   assert.ok(schema.required.includes('target_account_ids'));
   assert.ok(!schema.properties.target_channels);
-  assert.equal(schema.properties.creatives.items.allOf.length, 1);
-  assert.ok(schema.properties.creatives.items.properties.status.enum.includes('qa_passed'));
-  assert.ok(!schema.properties.creatives.items.properties.owner_approval_evidence_path);
-  assert.ok(schema.properties.creatives.items.allOf.some((c) => c.then.required.includes('publication_evidence_path')));
+  assert.ok(!schema.required.includes('creatives'), 'Acquirer manifest must not require editorial variants');
+  const creative = JSON.parse(read('contracts/creative-plan.schema.json'));
+  assert.deepEqual(creative.required, ['schema_version', 'campaign_id', 'creatives']);
+  assert.equal(creative.properties.creatives.minItems, 1);
+  assert.ok(creative.properties.creatives.items.properties.status.enum.includes('qa_passed'));
+  assert.ok(!creative.properties.creatives.items.properties.owner_approval_evidence_path);
+  assert.ok(creative.properties.creatives.items.allOf.some(c => c.then.required.includes('publication_evidence_path')));
 });
 
 test('campaign-scope owner permission replaces per-video review; platform safety stays', () => {
@@ -68,19 +71,19 @@ test('campaign-scope owner permission replaces per-video review; platform safety
   assert.match(read('README.md'), /\*\*Ignored, private\*\*/);
 });
 
-test('producer consumes named VTT and Vision evidence, not Video Use EDL', () => {
+test('Editor consumes named VTT and Vision evidence, not Video Use EDL', () => {
   const transcriber = read('agents/distribution-transcriber.agent.md');
   const resolver = read('agents/distribution-speaker-resolver.agent.md');
   const visioner = read('agents/distribution-visioner.agent.md');
-  const producer = read('agents/distribution-producer.agent.md');
+  const editor = read('agents/distribution-editor.agent.md');
   assert.match(transcriber, /Video Use/);
   assert.match(transcriber, /speaker-id\.vtt/);
   assert.match(resolver, /speaker-name\.vtt/);
   assert.match(resolver, /scripts\/speaker-vtt\.mjs validate/);
   assert.match(visioner, /Markcut Vision/);
   assert.match(visioner, /original episode/);
-  assert.match(producer, /speech boundaries/);
-  assert.match(producer, /Do not repeat Video Use STT/);
-  assert.doesNotMatch(producer, /update .*speaker_map/);
+  assert.match(editor, /Scribe gaps/);
+  assert.match(editor, /Do not repeat Video Use STT/);
+  assert.doesNotMatch(editor, /update .*speaker_map/);
   assert.match(read('README.md'), /speaker-name\.vtt/);
 });

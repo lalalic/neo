@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://neo.local/content-distribution/campaign-plan.schema.json",
-  "title": "Private Content Distribution Campaign Plan",
+  "title": "Private Content Distribution Campaign Manifest",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -9,7 +9,6 @@
     "provider_id",
     "rights_evidence_path",
     "target_account_ids",
-    "creatives",
     "original_source_path"
   ],
   "properties": {
@@ -104,7 +103,8 @@
             }
           }
         ]
-      }
+      },
+      "description": "Legacy creative inventory for historical Runs only. New Runs use Editor-owned creative-plan.json; Acquirer must not create new entries here."
     },
     "measurement_evidence_path": {
       "type": "string",

@@ -1,4 +1,4 @@
-import {readFileSync,readdirSync,mkdirSync,openSync,writeFileSync,closeSync,fsyncSync,unlinkSync,realpathSync} from "node:fs";
+import {readFileSync,readdirSync,mkdirSync,openSync,writeFileSync,closeSync,fsyncSync,unlinkSync,realpathSync,lstatSync} from "node:fs";
 import {isAbsolute,join,resolve,sep,dirname} from "node:path";
 import {createHash,createPublicKey,verify} from "node:crypto";
 
@@ -81,7 +81,29 @@ function bundle(p,{run,approval,accountsMarkdown,providers,now}){
   eq(campaign.campaign_id,p.campaign_id,"campaign_id_mismatch");
   eq(campaign.provider_id,p.provider_id,"campaign_provider_mismatch");
   if(!campaign.target_account_ids?.includes(p.account_id))throw Error("campaign_target_not_listed");
-  const creative=campaign.creatives?.find(x=>x.id===p.creative_revision_id);
+  // New runs keep Acquirer metadata and Editor revisions in separate owning artifacts.
+  // Historical runs may still have an embedded creative inventory in campaign.json.
+  // A present but invalid creative-plan.json MUST NOT fall back to legacy creatives.
+  let planPresent=false;
+  try{lstatSync(join(run,"creative-plan.json"));planPresent=true;}
+  catch(e){if(e.code!=="ENOENT")throw e;}
+  let creatives=campaign.creatives;
+  if(planPresent){
+    const plan=json(child(run,"creative-plan.json"));
+    eq(plan.schema_version,1,"creative_plan_schema_invalid");
+    eq(plan.campaign_id,campaign.campaign_id,"creative_plan_campaign_mismatch");
+    if(!Array.isArray(plan.creatives)||!plan.creatives.length||
+       new Set(plan.creatives.map(x=>x.id)).size!==plan.creatives.length)
+      throw Error("creative_plan_inventory_invalid");
+    creatives=plan.creatives;
+  }
+  const creative=creatives?.find(x=>x.id===p.creative_revision_id);
+  if(planPresent&&creative&&
+     (!creative.angle?.trim()||!creative.hypothesis?.trim()||
+      !Array.isArray(creative.source_evidence)||!creative.source_evidence.length||
+      creative.source_evidence.some(x=>!Number.isFinite(x.start_s)||
+        !Number.isFinite(x.end_s)||x.end_s<=x.start_s||!x.observation?.trim())))
+    throw Error("creative_plan_evidence_invalid");
   if(!creative||!["qa_passed","approved"].includes(creative.status))
     throw Error("creative_not_rendered_or_qa_ready");
   const folder=dirname(child(run,creative.video_path));

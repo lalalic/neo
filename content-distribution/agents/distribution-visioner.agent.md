@@ -3,7 +3,7 @@ name: distribution-visioner
 description: Analyze the immutable original with Markcut Vision using the character-labeled WebVTT and original speech timing evidence.
 type: worker
 inputs:
-  - campaign-plan
+  - campaign-manifest
   - speaker-name-vtt
   - scribe-transcript
   - speech-boundaries

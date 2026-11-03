@@ -49,10 +49,10 @@ test('rejects generated creative path as a fake provider original', async t=>{
   await assert.rejects(verifyOriginalInput(f.run),/invalid_original_path_scope/);
 });
 
-test('campaign plan requires an original source manifest',()=>{
+test('campaign manifest and Editor require a verified original',()=>{
   const schema=JSON.parse(readFileSync(new URL('../contracts/campaign-plan.schema.json',import.meta.url)));
   assert.ok(schema.required.includes('original_source_path'));
-  const prod=readFileSync(new URL('../agents/distribution-producer.agent.md',import.meta.url),'utf8');
+  const prod=readFileSync(new URL('../agents/distribution-editor.agent.md',import.meta.url),'utf8');
   assert.match(prod,/check-original-source\.mjs/);
   assert.match(prod,/Video Use/);
   assert.match(prod,/creatives\/\*\/preview\.mp4/);

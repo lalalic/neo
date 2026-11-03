@@ -1,0 +1,136 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://neo.local/content-distribution/creative-plan.schema.json",
+  "title": "Editor-Owned Creative Variant Inventory",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "campaign_id",
+    "creatives"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "campaign_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "creatives": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "episode_reference",
+          "angle",
+          "hypothesis",
+          "source_evidence",
+          "hook",
+          "video_path",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "episode_reference": {
+            "type": "string",
+            "minLength": 1
+          },
+          "hook": {
+            "type": "string",
+            "minLength": 1
+          },
+          "video_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "status": {
+            "enum": [
+              "planned",
+              "draft",
+              "previewed",
+              "qa_passed",
+              "approved",
+              "published"
+            ]
+          },
+          "publication_evidence_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "qa_evidence_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "angle": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Genuinely distinct evidence-backed editorial angle"
+          },
+          "hypothesis": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Unverified creative hypothesis, not a performance guarantee"
+          },
+          "audience_interest": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Optional interest hypothesis, not inferred audience targeting"
+          },
+          "source_evidence": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "start_s",
+                "end_s",
+                "observation"
+              ],
+              "properties": {
+                "start_s": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "end_s": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "observation": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "const": "published"
+                }
+              },
+              "required": [
+                "status"
+              ]
+            },
+            "then": {
+              "required": [
+                "publication_evidence_path"
+              ]
+            }
+          }
+        ]
+      }
+    }
+  }
+}

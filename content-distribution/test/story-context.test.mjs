@@ -58,16 +58,15 @@ test('timestamps and duplicate speakers are checked', () => {
 });
 
 test('upstream story and speaker VTT have separate responsibilities', () => {
-  const producer = readFileSync(new URL('../agents/distribution-producer.agent.md', import.meta.url), 'utf8');
-  const planner = readFileSync(new URL('../agents/distribution-planner.agent.md', import.meta.url), 'utf8');
+  const editor = readFileSync(new URL('../agents/distribution-editor.agent.md', import.meta.url), 'utf8');
   const acquirer = readFileSync(new URL('../agents/distribution-acquirer.agent.md', import.meta.url), 'utf8');
   const campaign = JSON.parse(readFileSync(new URL('../contracts/campaign-plan.schema.json', import.meta.url)));
   assert.ok(campaign.properties.story_context_path);
-  assert.match(planner, /story_context_path/);
-  assert.match(producer, /speaker-name\.vtt/);
-  assert.match(producer, /original MP4/);
+  assert.match(acquirer, /story_context_path/);
+  assert.match(editor, /named WebVTT/);
+  assert.match(editor, /original/);
   const resolver = readFileSync(new URL('../agents/distribution-speaker-resolver.agent.md', import.meta.url), 'utf8');
   assert.match(resolver, /leave \`speaker_N\` unchanged/);
   assert.match(resolver, /only \`<v speaker_N>\` voice labels/);
-  assert.match(acquirer, /official series metadata/);
+  assert.match(acquirer, /official synopsis/);
 });

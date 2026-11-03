@@ -3,7 +3,7 @@ name: distribution-speaker-resolver
 description: Guess character names from speaker-ID WebVTT and available plot/character context; change only WebVTT voice annotations.
 type: worker
 inputs:
-  - campaign-plan
+  - campaign-manifest
   - speaker-id-vtt
   - story-context
 outputs:

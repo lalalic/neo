@@ -38,7 +38,7 @@ function declaredList(role, field) {
 
 test('actual Neo project graph has complete declarative artifact handoffs', () => {
   const {nodes,edges} = declarations();
-  assert.equal(nodes.size, 9);
+  assert.equal(nodes.size, 7);
   assert.equal(edges.length, nodes.size - 1);
   const outputNames = new Set();
   const ownership = new Map();
@@ -55,7 +55,7 @@ test('actual Neo project graph has complete declarative artifact handoffs', () =
     }
     visited.add(id);
   }
-  assert.equal(visited.size,9);
+  assert.equal(visited.size,7);
   const handoffs=read('contracts/artifact-handoffs.md');
   for(const [artifact,owner] of ownership){
     assert.ok(handoffs.includes('`'+artifact+'`'), owner+' output lacks project handoff contract: '+artifact);
@@ -73,12 +73,17 @@ test('Neo project run declaration is URL-only with recovery through a bound path
   assert.ok(!existsSync(join(project,'neo-project')), 'pure Agent project must not invent lifecycle services');
 });
 
-test('acquirer hands off source paths; only planner authors campaign.json',()=>{
+test('Acquirer owns source/account manifest and Editor owns creative plan and rendering',()=>{
   const acquirer=read('agents/distribution-acquirer.agent.md');
-  const planner=read('agents/distribution-planner.agent.md');
-  assert.match(acquirer, /Planner, which alone authors `campaign\.json`/);
-  assert.match(planner, /Produce `campaign\.json`/);
-  assert.match(read('contracts/artifact-handoffs.md'), /authored by the Planner only/);
+  const editor=read('agents/distribution-editor.agent.md');
+  assert.match(acquirer, /\*\*Own the Campaign manifest:\*\*/);
+  assert.match(editor, /Own both creative selection and execution/);
+  assert.match(editor, /creative-plan\.json/);
+  assert.match(read('contracts/artifact-handoffs.md'), /authored by the Acquirer/);
+  assert.match(read('contracts/artifact-handoffs.md'), /updated only by the Editor/);
+  for (const role of ['distribution-rights','distribution-planner','distribution-producer']) {
+    assert.equal(existsSync(join(project,'agents',role+'.agent.md')),false,role);
+  }
 });
 
 test('Visioner uses supported Markcut Vision flags and consumes VTT as Agent evidence',()=>{
@@ -89,5 +94,5 @@ test('Visioner uses supported Markcut Vision flags and consumes VTT as Agent evi
   assert.match(vision,/does \*\*not\*\* advertise a `--transcript-file` input/);
   assert.match(vision,/full named WebVTT \*\*as Agent evidence\*\*/);
   assert.match(overview,/does \*\*not\*\* advertise `--transcript-file`/);
-  assert.match(read('agents/distribution-producer.agent.md'),/Do not repeat Video Use STT/);
+  assert.match(read('agents/distribution-editor.agent.md'),/Do not repeat Video Use STT/);
 });

@@ -155,3 +155,50 @@ test("official worldwide promotional scope is not limited to Canada",t=>{
   const p={...f.payload,rights:{...f.payload.rights,allowed_territories:["worldwide"]}};
   assert.equal(verifyPublication(f.opts(p)).status,"validated_not_reserved");
 });
+function createEditorPlan(f, statuses=['qa_passed','qa_passed'], {keepLegacy=false}={}){
+  const campaignPath=join(f.runDir,"campaign.json");
+  const campaign=JSON.parse(readFileSync(campaignPath,'utf8'));
+  if(!keepLegacy){delete campaign.creatives;writeFileSync(campaignPath,JSON.stringify(campaign));}
+  const creatives=statuses.map((status,index)=>({
+    id:`v${index+1}`,episode_reference:"episode-01",angle:index?"mystery":"conflict",
+    hypothesis:index?"Question-led hook may attract curiosity":"Confrontation may increase retention",
+    source_evidence:[{start_s:10,end_s:20,observation:"Original scene contains a confrontation"}],
+    hook:index?"What follows?":"They refused entry",
+    video_path:`creatives/v${index+1}/video.md`,status
+  }));
+  const result={schema_version:1,campaign_id:campaign.campaign_id,creatives};
+  writeFileSync(join(f.runDir,"creative-plan.json"),JSON.stringify(result));
+  return result;
+}
+test("new Acquirer manifest + Editor creative-plan can release multiple QA-passed variants with one owner grant",t=>{
+  const f=fixture(t);
+  createEditorPlan(f);
+  assert.equal(verifyPublication(f.opts()).status,"validated_not_reserved");
+  const second={...f.payload,creative_revision_id:"v2",video_path:f.second.path,
+    video_sha256:f.second.sha256,publication_attempt_id:"new-attempt-2"};
+  assert.equal(verifyPublication(f.opts(second)).status,"validated_not_reserved");
+});
+test("new manifest without Editor creative-plan fails closed before release",t=>{
+  const f=fixture(t);
+  const manifest=JSON.parse(readFileSync(join(f.runDir,"campaign.json"),"utf8"));
+  delete manifest.creatives;
+  writeFileSync(join(f.runDir,"campaign.json"),JSON.stringify(manifest));
+  assert.throws(()=>verifyPublication(f.opts()),/creative_not_rendered_or_qa_ready/);
+});
+test("present Editor plan is authoritative; previewed or corrupt versions cannot fall back to legacy QA",t=>{
+  const f=fixture(t);
+  const plan=createEditorPlan(f,['previewed','qa_passed'],{keepLegacy:true});
+  assert.throws(()=>verifyPublication(f.opts()),/creative_not_rendered_or_qa_ready/);
+  plan.campaign_id="another-campaign";
+  writeFileSync(join(f.runDir,"creative-plan.json"),JSON.stringify(plan));
+  assert.throws(()=>verifyPublication(f.opts()),/creative_plan_campaign_mismatch/);
+  plan.campaign_id="campaign-1";
+  plan.creatives[0].status="qa_passed";
+  plan.creatives[0].source_evidence=[{start_s:20,end_s:10,observation:"bad time"}];
+  writeFileSync(join(f.runDir,"creative-plan.json"),JSON.stringify(plan));
+  assert.throws(()=>verifyPublication(f.opts()),/creative_plan_evidence_invalid/);
+  plan.creatives[0].source_evidence=[{start_s:10,end_s:20,observation:"source proof"}];
+  plan.creatives.push({...plan.creatives[0]});
+  writeFileSync(join(f.runDir,"creative-plan.json"),JSON.stringify(plan));
+  assert.throws(()=>verifyPublication(f.opts()),/creative_plan_inventory_invalid/);
+});

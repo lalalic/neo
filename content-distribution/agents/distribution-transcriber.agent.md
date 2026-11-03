@@ -3,7 +3,7 @@ name: distribution-transcriber
 description: Analyze the licensed complete episode with Video Use Scribe and produce speaker-ID WebVTT and speech-boundary evidence without editing footage.
 type: worker
 inputs:
-  - campaign-plan
+  - campaign-manifest
   - original-source
 outputs:
   - scribe-transcript

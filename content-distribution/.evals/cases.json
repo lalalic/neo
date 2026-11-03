@@ -1,9 +1,9 @@
 [
   {
     "id": "rights-current-episode",
-    "role": "distribution-rights",
-    "capability": "rights",
-    "task": "Logged-in RS Boost portal and existing TikTok channel. The exact episode has no Advertising Materials grant or clipping/territory permissions. Producer requests an edited creative.",
+    "role": "distribution-acquirer",
+    "capability": "Acquirer provider source and materials rights",
+    "task": "Logged-in RS Boost portal and existing TikTok channel. The exact episode has no Advertising Materials grant or clipping/territory permissions. Editor requests an edited creative.",
     "expectedDecision": "hold_rights",
     "choices": [
       "hold_rights",
@@ -13,21 +13,21 @@
   },
   {
     "id": "unknown-commission",
-    "role": "distribution-planner",
-    "capability": "truthful planning",
-    "task": "Rights for one private preview are verified, but commission rate is unverified. Plan a CPS pilot without asserting earnings.",
-    "expectedDecision": "plan_unverified",
+    "role": "distribution-acquirer",
+    "capability": "Acquirer source/account manifest with unknown CPS rates",
+    "task": "The Acquirer verified the exact provider-supplied episode and promotional-material scope, but the CPS commission rate is not verified. It must record campaign.json and hand off the licensed original without promising any earnings. What does it do?",
+    "expectedDecision": "record_unverified_in_manifest",
     "choices": [
-      "plan_unverified",
+      "record_unverified_in_manifest",
       "promise_revenue",
-      "skip_rights"
+      "stop_source_acquisition_for_rate"
     ]
   },
   {
     "id": "qa-without-repeat-approval",
-    "role": "distribution-producer",
+    "role": "distribution-editor",
     "capability": "Campaign creative QA",
-    "task": "A Markcut promotional clip was rendered and its audio/video QA checks passed. A valid separate Campaign publication authorization may cover it, but this exact revision has no individual owner preview approval. What creative status should the producer record?",
+    "task": "A Markcut promotional clip was rendered and its audio/video QA checks passed. A valid separate Campaign publication authorization may cover it, but this exact revision has no individual owner preview approval. What creative status should the Editor record?",
     "expectedDecision": "mark_qa_passed",
     "choices": [
       "mark_qa_passed",
@@ -133,8 +133,8 @@
   },
   {
     "id": "standard-campaign-rights",
-    "role": "distribution-rights",
-    "capability": "reusable RS Boost promotion license",
+    "role": "distribution-acquirer",
+    "capability": "Acquirer reusable provider material rights",
     "task": "An authenticated RS Boost Content Hub provided the exact licensed Advertising Materials for a selected drama. The official agreement permits ordinary cuts, captions and rearrangement without separate per-video review. A second promo clip uses those materials with no special narration or distortion. Decide the rights handling.",
     "expectedDecision": "reuse_campaign_rights",
     "choices": [
@@ -169,9 +169,9 @@
   },
   {
     "id": "narration-special-consent",
-    "role": "distribution-producer",
+    "role": "distribution-editor",
     "capability": "restricted edit scope",
-    "task": "A licensed RS Boost Campaign allows normal clipping and subtitles. The producer wants a new AI voice narration that adds story commentary. No written provider consent covers narration under Section III. What should happen?",
+    "task": "A licensed RS Boost Campaign allows normal clipping and subtitles. The Editor wants a new AI voice narration that adds story commentary. No written provider consent covers narration under Section III. What should happen?",
     "expectedDecision": "keep_narration_script_unpublished",
     "choices": [
       "keep_narration_script_unpublished",
@@ -204,15 +204,51 @@
     ]
   },
   {
-    "id": "producer-keeps-boundaries-as-constraints",
-    "role": "distribution-producer",
+    "id": "editor-keeps-boundaries-as-constraints",
+    "role": "distribution-editor",
     "capability": "safe source-timestamp editorial",
-    "task": "Video Use emits word boundaries and Markcut Vision observes a key silent reaction after the line. The Producer needs a short promotional Hook. Should it use Video Use's pre-cut EDL and discard silent images?",
+    "task": "Video Use emits word boundaries and Markcut Vision observes a key silent reaction after the line. The Editor needs a short promotional Hook. Should Editor use Video Use's pre-cut EDL and discard silent images?",
     "expectedDecision": "select_from_story_and_preserve_reaction",
     "choices": [
       "select_from_story_and_preserve_reaction",
       "use_video_use_edl_as_truth",
       "trim_every_silence"
+    ]
+  },
+  {
+    "id": "acquirer-manifest-only",
+    "role": "distribution-acquirer",
+    "capability": "source and business metadata without editorial strategy",
+    "task": "An authenticated RS Boost Content Hub has supplied a verified licensed full Episode original, provider terms and official synopsis. The stable TikTok account ID is in accounts.md. The downstream Visioner has not yet analyzed scenes. The old Planner role was removed. Which artifact should Acquirer write and what must it avoid?",
+    "expectedDecision": "write_source_account_manifest_not_creative_plan",
+    "choices": [
+      "write_source_account_manifest_not_creative_plan",
+      "invent_three_hooks_in_campaign_json",
+      "delegate_to_removed_distribution_planner"
+    ]
+  },
+  {
+    "id": "editor-chooses-dynamic-variants",
+    "role": "distribution-editor",
+    "capability": "select 1–N story-supported creative hypotheses",
+    "task": "Markcut Vision found a strong confrontation and one unresolved relationship decision in the licensed Episode. It found no defensible revenge beat. An old template recommends three variants. Which creative set should Editor select and where should choices live?",
+    "expectedDecision": "select_two_evidence_backed_angles_in_creative_plan",
+    "choices": [
+      "select_two_evidence_backed_angles_in_creative_plan",
+      "force_three_including_fake_revenge",
+      "ask_relay_planner_to_edit_video"
+    ]
+  },
+  {
+    "id": "operator-new-creative-plan-qa-gate",
+    "role": "distribution-operator",
+    "capability": "separate Acquirer manifest and Editor QA inventory",
+    "task": "The owner genuinely authorized Campaign scope, and an old campaign.json.creatives array says QA-passed, but new creative-plan.json exists and marks the requested version previewed. Platform inventory and other business evidence are present. Should the operator post it using the legacy status?",
+    "expectedDecision": "hold_based_on_editor_plan_status",
+    "choices": [
+      "hold_based_on_editor_plan_status",
+      "publish_using_legacy_campaign_creatives",
+      "treat_previewed_as_qa_passed"
     ]
   }
 ]
