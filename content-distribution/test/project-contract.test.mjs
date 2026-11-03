@@ -14,15 +14,27 @@ test('graph declares 7 roles: Acquirer → STT → speaker-name VTT → Vision �
   const order = [...new Set(agents)];
   assert.deepEqual(order, [
     'distribution-acquirer', 'distribution-transcriber', 'distribution-speaker-resolver',
-    'distribution-visioner', 'distribution-editor', 'distribution-operator',
+    'visioner', 'distribution-editor', 'distribution-operator',
     'distribution-analyst',
   ]);
   assert.equal((graph.join('\n').match(/-->/g) || []).length, order.length - 1);
   for (const agent of order) {
-    const filename = `agents/${agent}.agent.md`;
+    const filename = agent === 'visioner' ? '../agents/visioner.agent.md' : `agents/${agent}.agent.md`;
     assert.ok(existsSync(join(root, filename)), filename);
     assert.match(read(filename), new RegExp(`^name: ${agent}$`, 'm'));
   }
+});
+
+test('both projects use the shared Neo Visioner identity, without local duplicates', () => {
+  assert.match(read('../agents/visioner.agent.md'), /^name: visioner$/m);
+  assert.match(read('../vlog/graph.mmd'), /\[agent:visioner\]/);
+  assert.match(read('graph.mmd'), /\[agent:visioner\]/);
+  assert.ok(existsSync(join(root, '../agents/.shortcut/visioner.agent.mjs')));
+  for (const local of ['agents/visioner.agent.md', 'agents/distribution-visioner.agent.md', 'agents/.shortcut/visioner.agent.mjs']) {
+    assert.equal(existsSync(join(root, local)), false, local);
+  }
+  assert.equal(existsSync(join(root, '../vlog/agents/.shortcut/visioner.agent.mjs')), false);
+  assert.match(read('docs/vision-context.md'), /speaker-name\.vtt/);
 });
 
 test('persistent account registry is project-level, indexed and referenced from execution docs', () => {
@@ -74,7 +86,7 @@ test('campaign-scope owner permission replaces per-video review; platform safety
 test('Editor consumes named VTT and Vision evidence, not Video Use EDL', () => {
   const transcriber = read('agents/distribution-transcriber.agent.md');
   const resolver = read('agents/distribution-speaker-resolver.agent.md');
-  const visioner = read('agents/distribution-visioner.agent.md');
+  const visioner = read('docs/vision-context.md');
   const editor = read('agents/distribution-editor.agent.md');
   assert.match(transcriber, /Video Use/);
   assert.match(transcriber, /speaker-id\.vtt/);

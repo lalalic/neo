@@ -2,6 +2,8 @@
 name: visioner
 description: Convert existing image/video artifacts into structured, evidence-backed visual understanding for downstream agents through Markcut Vision.
 type: visioner
+outputs:
+  - vision-evidence
 ---
 
 # Neo Visioner Agent

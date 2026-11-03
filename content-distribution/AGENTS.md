@@ -19,6 +19,8 @@ For every campaign, retain the complete, licensed **provider-downloaded Episode 
 
 ## Speech → named dialogue → Vision
 
+The Graph uses the shared Neo [`visioner`](../agents/visioner.agent.md), with the project-specific [Vision context](docs/vision-context.md). The project must not provide a duplicate Visioner Agent manifest or independent vision pipeline. Visioner consumes the complete validated original and transcript evidence, not a rendered creative preview.
+
 Preserve the source-backed synopsis, characters and relationships in private `evidence/story-context.json`; distinguish provider API from official-web observations. After source validation, run Video Use on the **complete original** to get word timestamps and `speaker_N` IDs; export canonical `analysis/speech/speaker-id.vtt` and `boundaries.json` from the returned Scribe JSON. One `distribution-speaker-resolver` Agent infers character names using this VTT and the available plot/relationships, producing `analysis/speech/speaker-name.vtt` by changing **only** WebVTT voice annotations. Unknown names stay as their original speaker IDs. The `scripts/speaker-vtt.mjs validate` gate rejects modified timestamps, dialogue or inconsistent names.
 
 Markcut Vision analyzes the complete original; the Editor consumes Vision evidence, resolved VTT and raw speech boundaries, chooses 1–N distinct story-supported creative angles, and owns all editing decisions in `creative-plan.json` plus Markcut `video.md`. Do not run another STT or create a separate character database, speaker map or Video Use editing/EDL flow. Here `speaker-name.vtt` is WebVTT subtitles; Markcut's `--vtt` means video-to-text and is unrelated. Inferred names are not proven identities; story context grants no dubbing rights.

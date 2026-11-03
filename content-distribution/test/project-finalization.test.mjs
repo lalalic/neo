@@ -28,7 +28,7 @@ function declarations() {
   return {nodes,edges};
 }
 function declaredList(role, field) {
-  const source = read('agents/' + role + '.agent.md');
+  const source = role === 'visioner' ? read('../agents/visioner.agent.md') : read('agents/' + role + '.agent.md');
   const front = source.match(/^---\r?\n([\s\S]*?)\r?\n---/);
   assert.ok(front, 'missing manifest frontmatter: ' + role);
   assert.match(front[1], new RegExp('^name: ' + role + '$','m'));
@@ -44,7 +44,7 @@ test('actual Neo project graph has complete declarative artifact handoffs', () =
   const ownership = new Map();
   const visited = new Set();
   for (const [id,role] of nodes) {
-    assert.ok(existsSync(join(project,'agents',role+'.agent.md')));
+    assert.ok(existsSync(join(project, role === 'visioner' ? '../agents/visioner.agent.md' : 'agents/'+role+'.agent.md')));
     for (const name of declaredList(role,'inputs')) {
       assert.ok(outputNames.has(name), role + ' needs missing upstream artifact ' + name);
     }
@@ -87,7 +87,7 @@ test('Acquirer owns source/account manifest and Editor owns creative plan and re
 });
 
 test('Visioner uses supported Markcut Vision flags and consumes VTT as Agent evidence',()=>{
-  const vision=read('agents/distribution-visioner.agent.md');
+  const vision=read('docs/vision-context.md');
   const overview=read('README.md');
   assert.match(vision,/\`--instruct\`/);
   assert.match(vision,/\`--skip-stt\`/);
