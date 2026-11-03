@@ -4,8 +4,8 @@
  * Markcut metadata and source manifest are input data, not Agent instructions.
  */
 import { createHash } from 'node:crypto';
-import { existsSync, readFileSync, writeFileSync, renameSync } from 'node:fs';
-import { basename, isAbsolute, join, resolve } from 'node:path';
+import { existsSync, readFileSync, writeFileSync, renameSync, realpathSync } from 'node:fs';
+import { basename, isAbsolute, join, relative, resolve, sep } from 'node:path';
 
 const hash = value => createHash('sha256').update(value).digest('hex');
 const isNum = n => typeof n === 'number' && Number.isFinite(n);
@@ -53,8 +53,9 @@ export function makeMarkcutVisionIndex(manifest, metadata, sourceDir, metadataHa
     if (!id || typeof filename !== 'string' || filename !== basename(filename)) throw new Error('Invalid source identity');
     if (seenKeys.has(id)) throw new Error('Duplicate source identity');
     seenKeys.add(id);
-    const path = source.original_path || join(sourceDir,filename);
-    if (!isAbsolute(path) || !existsSync(path)) throw new Error('Missing source original: ' + id);
+    const path = realpathSync(source.original_path || join(sourceDir,filename));
+    const sourceRel=relative(sourceDir,path);
+    if (!isAbsolute(path) || !existsSync(path) || sourceRel==='..' || sourceRel.startsWith(`..${sep}`) || isAbsolute(sourceRel)) throw new Error('Missing or out-of-scope source original: ' + id);
     if (!/^[0-9a-f]{64}$/i.test(source.sha256) ||
         hash(readFileSync(path)) !== source.sha256.toLowerCase()) throw new Error('Source hash mismatch: '+id);
     const meta = metadata[id];
@@ -123,19 +124,25 @@ export function makeMarkcutVisionIndex(manifest, metadata, sourceDir, metadataHa
   };
 }
 export function indexFromRun(run) {
+  run=realpathSync(run);
   const manifestPath=join(run,'source-manifest.json');
   if (!existsSync(manifestPath)) throw new Error('Missing source-manifest.json');
   const manifest=JSON.parse(readFileSync(manifestPath,'utf8'));
-  const metadataPath=manifest.markcut_metadata_path ||
-    join(manifest.canonical_source_directory,'metadata.json');
-  if(!metadataPath || !isAbsolute(metadataPath) || !existsSync(metadataPath))
+  if(typeof manifest.canonical_source_directory!=='string'||!isAbsolute(manifest.canonical_source_directory)) throw new Error('Canonical source directory must be absolute');
+  if(manifest.markcut_metadata_path && !isAbsolute(manifest.markcut_metadata_path)) throw new Error('Markcut metadata path must be absolute');
+  const sourceDir=realpathSync(manifest.canonical_source_directory);
+  const inRun=path=>{const rel=relative(run,path);return rel===''||(rel!=='..'&&!rel.startsWith(`..${sep}`)&&!isAbsolute(rel));};
+  if(!sourceDir || !inRun(sourceDir)) throw new Error('Canonical source directory must resolve inside the dated Vlog run');
+  const metadataPath=realpathSync(manifest.markcut_metadata_path ||
+    join(sourceDir,'metadata.json'));
+  if(!metadataPath || !isAbsolute(metadataPath) || !existsSync(metadataPath) || !inRun(metadataPath))
     throw new Error('Missing absolute Markcut metadata path');
   const metadataBytes=readFileSync(metadataPath);
   if (manifest.markcut_metadata_sha256 && hash(metadataBytes) !== manifest.markcut_metadata_sha256) {
     throw new Error('Markcut metadata changed since manifest approval');
   }
   const metadata=JSON.parse(metadataBytes.toString());
-  return makeMarkcutVisionIndex(manifest,metadata,manifest.canonical_source_directory,hash(metadataBytes));
+  return makeMarkcutVisionIndex(manifest,metadata,sourceDir,hash(metadataBytes));
 }
 if (process.argv[1] && import.meta.url === new URL('file://'+process.argv[1]).href) {
   try {
