@@ -1,0 +1,8 @@
+# Artlist music is licensed for synchronization with videos, not standalone redistribution.
+# Keep downloaded audio private and available only in the canonical local checkout.
+*.mp3
+*.wav
+*.m4a
+*.flac
+*.aiff
+*.aac
