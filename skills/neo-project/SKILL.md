@@ -42,6 +42,16 @@ Graph nodes define normal roles and predecessor relations, not an entire histori
 
 Keep `parentTaskId` (semantic ownership) separate from `dependencies` (execution order). An Episode can have its own Root Task with Stage children; Visioner is not automatically the Episode Root. A Final Review Task needs no parent and references the Job/immutable reviewed artifact. Troubleshoot/revisions are dynamic Tasks outside the normal Graph. Pin the Graph version/hash in execution context when mid-run edits would change semantics.
 
+## Shared specialist Agent Pool
+
+Use [Agency Agents](https://github.com/msitarzewski/agency-agents) as the preferred optional roster for generic research, engineering, design, marketing, operations, security and QA specialists. Discover the actual installed profiles before choosing a specialist.
+
+Keep project-specific Agents for domain-owned work. For generic duties prefer a compatible installed Agency Agents profile, then a verified shared Neo/global Agent. Add a thin project-local Agent only if the skill is missing or the domain needs its own behavior. Do not copy whole upstream profiles.
+
+An upstream profile or installed Skill is **not** automatically a runnable Relay Agent. Check the active Relay Agent resolver and assembled PromptBuilder output before using its ID in graph.mmd or reviewer lists. If unavailable, selectively install/adapt via approved skill workflows or use a valid fallback; never silently reference a missing Agent or install the entire roster.
+
+Load only the selected specialist definition per task. Project artifact contracts, approvals, safety requirements and Relay scheduling/events override generic persona advice. Agency Agents provides expertise, not a new scheduler or permission source. Eval cases should cover matching, domain separation, missing-profile fallback, compatibility and prompt size.
+
 ## 3. Agent manifest
 
 Create `agents/<name>.agent.md` only for project-specific behavior. Shared Agents are discovered from Neo/global layers. Frontmatter contract:
@@ -137,7 +147,7 @@ Installable/persistent projects expose exactly one optional executable `<project
 1. Define one repeatable durable outcome and project/shared/Relay ownership.
 2. Create the one `graph.mmd` and parse it using the current Relay parser.
 3. Update README/AGENTS to reference Graph and describe Task parenting without restating Graph edges.
-4. Add only discoverable unique Agent manifests; declare useful I/O and reviewer fields.
+4. Resolve generic roles against installed Agency Agents/shared profiles; add only discoverable project-specific or missing Agent manifests, declaring useful I/O and reviewer fields.
 5. Add structured Artifact Schemas and per-run handoffs, then test valid/invalid examples with the Relay Action.
 6. Simulate one cross-stage finding and confirm the Planner can select minimal revision owners/dependencies without a Graph-to-Plan Validator.
 7. Add/test the lifecycle script only for persistent services.

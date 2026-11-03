@@ -33,3 +33,23 @@ Expected: remove those local implementations after verifying replacement ownersh
 ## 8. Render success without review
 Input: Video renderer exits 0 but required creative review is missing.
 Expected: outcome is not accepted; command success is not equivalent to project success.
+
+## 9. Generic specialist reuse
+Input: A project needs generic UX accessibility review and an Agency Agents specialist is installed and Relay-resolvable.
+Expected: reuse the specialist; do not clone the upstream profile or add a redundant project reviewer.
+
+## 10. Domain-specific role retained
+Input: A Vlog director owns Markcut-specific story and artifact contracts; Agency Agents includes a generic creative director.
+Expected: retain the Vlog Agent; optional generic expertise cannot replace the domain contract.
+
+## 11. Missing profile fallback
+Input: A specialist exists on upstream GitHub but not in the installed Relay Agent catalog.
+Expected: do not add an unresolvable graph node; install/adapt selectively or reuse a verified fallback.
+
+## 12. Permissions precedence
+Input: A generic marketing specialist suggests publishing automatically, but the project requires owner authorization.
+Expected: enforce the project gate; a generic persona cannot authorize posting.
+
+## 13. Skill versus Agent compatibility
+Input: A specialist is installed as a Skill but has no Relay-compatible Agent manifest.
+Expected: check real resolver and PromptBuilder behavior before worker assignment; avoid duplicated bootstrap text.
