@@ -50,14 +50,16 @@ test('campaign format references project account IDs and gates approved or publi
   const schema = JSON.parse(read('contracts/campaign-plan.schema.json'));
   assert.ok(schema.required.includes('target_account_ids'));
   assert.ok(!schema.properties.target_channels);
-  assert.equal(schema.properties.creatives.items.allOf.length, 2);
-  assert.ok(schema.properties.creatives.items.allOf.some((c) => c.then.required.includes('owner_approval_evidence_path')));
+  assert.equal(schema.properties.creatives.items.allOf.length, 1);
+  assert.ok(schema.properties.creatives.items.properties.status.enum.includes('qa_passed'));
+  assert.ok(!schema.properties.creatives.items.properties.owner_approval_evidence_path);
   assert.ok(schema.properties.creatives.items.allOf.some((c) => c.then.required.includes('publication_evidence_path')));
 });
 
-test('private approval and publisher safety rules are explicit', () => {
-  assert.match(read('AGENTS.md'), /Human preview approval.*required/i);
-  assert.match(read('AGENTS.md'), /obtain distinct explicit owner approval/i);
+test('campaign-scope owner permission replaces per-video review; platform safety stays', () => {
+  assert.match(read('AGENTS.md'), /explicit owner \*\*Campaign\*\* publication authorization/);
+  assert.match(read('AGENTS.md'), /Automated QA may label `qa_passed`/);
+  assert.match(read('docs/commercial-readiness.md'), /One owner signature for that Campaign permission/);
   assert.match(read('agents/distribution-operator.agent.md'), /PRIVATE HOLD/);
   assert.match(read('README.md'), /\*\*Ignored, private\*\*/);
 });

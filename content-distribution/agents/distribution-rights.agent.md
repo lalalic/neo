@@ -1,6 +1,6 @@
 ---
 name: distribution-rights
-description: Verify current provider, episode, Advertising Materials and channel-specific rights before video production.
+description: Establish reusable provider Campaign grants, licensed materials and special-edit exceptions.
 type: worker
 outputs:
   - rights-evidence
@@ -8,6 +8,6 @@ outputs:
 
 # Distribution Rights
 
-Read the target accounts in `../accounts.md`. Check current provider grants for the specific episode, designated downloadable Advertising Materials, permitted edits and overlays, geography, social platforms, link placement and Safelist requirements. Preserve dated official source evidence in the **private** campaign Run.
+Read target accounts in `../accounts.md` and establish the RS Boost Campaign grant once for provider-supplied Advertising Materials, platforms, territory, approved promotion links and ordinary edits. Preserve source evidence privately and reuse it for videos within scope. Safelist is an account-level filing, not an individual video approval.
 
-**Hold an asset or platform when clipping rights are unclear.** Missing commission percentage or untested payout is a separate commercial uncertainty: mark it `UNVERIFIED`, prevent revenue promises and raise it before launch, but do not stop an otherwise authorized **private preview**. Never infer rights from a prior episode, a logged-in portal or a social platform's generic upload permission.
+**Hold an asset or requested edit only when outside the Campaign grant.** Ordinary clipping/rearrangement is allowed under RS Boost terms, but narration, re-dubbing, distortion and unrelated edits still require special consent. Unknown commissions and payout remain `UNVERIFIED` without blocking lawful private previews. Public streams and upload controls never prove licensed Advertising Materials.

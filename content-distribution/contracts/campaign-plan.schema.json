@@ -71,40 +71,21 @@
               "planned",
               "draft",
               "previewed",
+              "qa_passed",
               "approved",
               "published"
             ]
           },
-          "owner_approval_evidence_path": {
+          "publication_evidence_path": {
             "type": "string",
             "minLength": 1
           },
-          "publication_evidence_path": {
+          "qa_evidence_path": {
             "type": "string",
             "minLength": 1
           }
         },
         "allOf": [
-          {
-            "if": {
-              "properties": {
-                "status": {
-                  "enum": [
-                    "approved",
-                    "published"
-                  ]
-                }
-              },
-              "required": [
-                "status"
-              ]
-            },
-            "then": {
-              "required": [
-                "owner_approval_evidence_path"
-              ]
-            }
-          },
           {
             "if": {
               "properties": {

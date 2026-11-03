@@ -15,7 +15,7 @@ The two Safelist statuses below were rechecked in the authenticated RS Boost Cre
 - Official agreement: https://cps.reelshort.com/user/agreement
 - Earnings: https://cps.reelshort.com/my-earnings
 
-## Approved distribution-account identities
+## Registered distribution-account identities
 
 | Stable ID for campaign references | Service | Confirmed account | Public profile | RS Boost app | Safelist filing | Last observed |
 | --- | --- | --- | --- | --- | --- | --- |
