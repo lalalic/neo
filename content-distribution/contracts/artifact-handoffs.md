@@ -1,0 +1,31 @@
+# Content Distribution Artifact Handoffs
+
+This is the project-owned handoff contract for the **artifact names** declared in the Agent manifests. [graph.mmd](../graph.mmd) alone owns execution order; this file is not another DAG, scheduler or Relay Task plan. Agents Relay owns Job/Task lifecycle, and Markcut, Video Use and WebHelm own their specialized execution.
+
+All paths below are relative to the **same canonical, Git-ignored** `runs/<dated-run>/`. A Worker must read its actual upstream artifacts, check provenance/version, and record accepted output paths in its private handoff. The owning Worker fixes invalid outputs. Schemas and explicit CLI checks are read-only; a passing check does not advance Relay Task state.
+
+| Declared artifact | Owning deliverable | Handoff verification |
+| --- | --- | --- |
+| `rights-evidence` | Current, source-dated provider terms and licensed-material observations in the Run's `evidence/` folder; referenced by `campaign.json.rights_evidence_path` | Confirm actual Content Hub grant, episode/materials, allowed edits and source; special narration consent is distinct |
+| `original-source` | Full licensed MP4 under `assets/` and `evidence/original-source.json` | `node scripts/check-original-source.mjs --run <absolute-run>`; its hash/bytes/duration must match the **full original**, not a preview |
+| `story-context` | `evidence/story-context.json`, referenced by `campaign.json.story_context_path` | `node scripts/check-story-context.mjs <absolute-json>`; source URLs, characters and uncertainty are preserved |
+| `campaign-plan` | `campaign.json`, authored by the Planner only | `npx agents-relay artifact validate --artifact <run>/campaign.json --schema contracts/campaign-plan.schema.json` from the project directory |
+| `scribe-transcript` | `analysis/speech/scribe.json` from Video Use on the verified full original | Keep the vendor's raw Scribe result and source hash; `scripts/speaker-vtt.mjs from-scribe` checks the word/speaker shape and derives two artifacts |
+| `speaker-id-vtt`, `speech-boundaries` | `analysis/speech/speaker-id.vtt`, `analysis/speech/boundaries.json` | Deterministically derived from Scribe; speech gaps are *candidates*, not an edit decision list |
+| `speaker-name-vtt` | `analysis/speech/speaker-name.vtt` | `node scripts/speaker-vtt.mjs validate --source <speaker-id.vtt> --resolved <speaker-name.vtt> --story-context <story-context.json>` verifies unchanged cue time/text and consistent names |
+| `vision-evidence` | Versioned `analysis/vision/` observations on the original, with original timestamps, provenance, uncertainty, named-VTT context and visual reactions | Check source hash and scene/time references; the Visioner does not perform editing or claim Markcut accepted a nonexistent subtitle-file flag |
+| `video`, `preview` | `creatives/<revision>/video.md`, `preview.mp4`, versioned QA evidence | `markcut verify <video.md>` and inspect actual rendered video **and audio**; `qa_passed` requires real QA, not just a file or a synthetic fixture |
+| `publication-receipt` | When permitted, the private `publication-attempts/` reservation and platform receipt with observed post identity/visibility | `scripts/check-publication.mjs --run <run> [--reserve]` checks Campaign approval; WebHelm's `submitted_unverified` is **not** a public post. On HOLD, record a hold, not a fabricated receipt |
+| `campaign-report` | Dated private attribution snapshots under `evidence/`, using `contracts/attribution-snapshot.schema.json` | Validate the JSON with Relay's `artifact validate` and separate impressions, clicks, qualified orders, commissions and actual payout; missing is not zero |
+
+## Failure and reuse rules
+
+- A URL passed to `neo project run` creates a **source reference**, not a licensed original or an authorization. Its private `source-reference.json` belongs to Neo's Run binding and is not an Agent output.
+- Rights, original, metadata and speaker evidence may be reused only when their source identity and immutable input version match. Never re-run paid transcription merely to satisfy an unchanged downstream request.
+- If a required artifact is absent or fails validation, record the concrete missing handoff and stop dependent production. Preserve accepted earlier stages for incremental resumption.
+- The Campaign owner grant is reusable for eligible revisions; it is **not** inferred from a preview, Safelist filing or this contract. If the post gate holds, the Analyst may report `NOT_RUN` but cannot fabricate a publication receipt, order or payout.
+- A single Relay Task hosting the Graph has one Task lifecycle; individual Graph nodes do **not** emit separate Task terminal events. Durable Stage Tasks, revisions and final review are created only through Relay when an actual Plan calls for them.
+
+## Verification
+
+Project smoke checks: `node --test content-distribution/test/*.test.mjs` from Neo root, `neo project run --url=https://example.com/episode --project=content-distribution --dry-run`, and an actual `npx agents-relay artifact validate` for each available private structured artifact. Use `neo eval run --project content-distribution` for model-graded decisions, separately from these executable tests. Real public-post E2E requires separate owner authorization; no synthetic PASS is publication proof.

@@ -31,7 +31,7 @@ Markcut Vision consumes the complete original plus the resolved VTT; Producer re
 - **Release:** Use the project-local [publication gate](scripts/check-publication.mjs) to check once-signed Campaign permission, true rendered-video SHA-256, the linked account, allowed edit and tracking link, then reserve each attempt. If owner authorization is absent, HOLD. Full post/draft inventory still belongs to the platform Action; never bypass its hold or retry ambiguous submissions.
 - **Measurement:** Record actual views, clicks, qualifying installs/orders, attributed earnings and cash payout separately, with dated source/currency/attribution window. `0` and `unavailable` are different.
 
-An Agent who finds a defect revises the smallest owning artifact, repeats QA and requests optional human feedback when applicable. Project Graph nodes do not automatically create persistent Tasks; external orchestration owns routing and lifecycle.
+Validate outputs and retain versions using the [Artifact Handoff Contract](contracts/artifact-handoffs.md); one Agent owns each artifact. An Agent who finds a defect revises the smallest owning artifact, repeats QA and requests optional human feedback when applicable. Project Graph nodes do not automatically create persistent Tasks; external orchestration owns routing and lifecycle.
 
 ## Providers
 
