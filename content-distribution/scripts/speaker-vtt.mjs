@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Deterministic WebVTT bridge around Video Use Scribe. Character inference belongs to the Agent.
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -124,15 +124,18 @@ function main(args) {
   if (mode === 'from-scribe') {
     const input = option(flags, '--input');
     const output = option(flags, '--output');
-    if (!input || !output || resolve(input) === resolve(output)) throw new Error('usage: from-scribe --input SCRIBE.json --output speaker-id.vtt [--boundaries boundaries.json]');
+    if (!input || !output || resolve(input) === resolve(output)) throw new Error('usage: from-scribe --input SCRIBE.json --output speaker-id.vtt [--boundaries boundaries.json] [--exclusive]');
     const doc = JSON.parse(readFileSync(resolve(input), 'utf8'));
     const vtt = scribeToVtt(doc);
     mkdirSync(dirname(resolve(output)), {recursive: true});
-    writeFileSync(resolve(output), vtt);
+    const exclusive = flags.includes('--exclusive');
     const boundaries = option(flags, '--boundaries');
+    if (exclusive && boundaries && existsSync(resolve(boundaries))) throw new Error('scribe_boundaries_output_exists');
+    writeFileSync(resolve(output), vtt, exclusive ? {flag:'wx'} : undefined);
     if (boundaries) {
       mkdirSync(dirname(resolve(boundaries)), {recursive: true});
-      writeFileSync(resolve(boundaries), JSON.stringify(speechBoundaryEvidence(doc), null, 2) + '\n');
+      writeFileSync(resolve(boundaries), JSON.stringify(speechBoundaryEvidence(doc), null, 2) + '\n',
+        exclusive ? {flag:'wx'} : undefined);
     }
     console.log(JSON.stringify({output: resolve(output), cues: parseVtt(vtt).length, boundaries: boundaries ? resolve(boundaries) : null}));
   } else if (mode === 'validate') {
@@ -147,7 +150,7 @@ function main(args) {
   }
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(resolve(process.argv[1]))).href) {
   try { main(process.argv.slice(2)); }
   catch (error) { console.error(`HOLD: ${error.message}`); process.exitCode = 1; }
 }

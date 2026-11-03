@@ -7,6 +7,7 @@ inputs:
   - original-source
 outputs:
   - scribe-transcript
+  - scribe-source
   - speaker-id-vtt
   - speech-boundaries
 ---
@@ -15,6 +16,6 @@ outputs:
 
 Validate the canonical Run original with `node scripts/check-original-source.mjs --run <absolute-run>`. On Worknode stage those verified original bytes and confirm SHA-256, byte count and duration against the manifest. HOLD for any mismatch; never analyze a Markcut preview or clipped variant.
 
-Use the installed **Video Use** Skill and its `helpers/transcribe.py` on the complete staged original. Reuse the cached Scribe JSON when the original and its transcript are unchanged; do not spend credits twice. Keep original Scribe JSON as the source of word timestamps, diarized `speaker_N` labels, audio events and uncertainty. Return the raw Scribe JSON from Worknode to the canonical private Run at `analysis/speech/scribe.json` using the existing Neo cluster file transport; never assume SSH, or that Neo Master paths exist on Worknode. On the canonical host export `analysis/speech/speaker-id.vtt` and `analysis/speech/boundaries.json` with `node scripts/speaker-vtt.mjs from-scribe --input <scribe.json> --output <speaker-id.vtt> --boundaries <boundaries.json>`. The boundary file lists **speech-gap candidates**, not proven silent regions or edit decisions. Preserve the raw word timestamps for cut QA. Do **not** propose selected scenes, change timestamps, name characters, generate an EDL, or cut the video.
+Use the installed **Video Use** Skill and its `helpers/transcribe.py` on the complete staged original. Reuse the cached Scribe JSON when the original and its transcript are unchanged; do not spend credits twice. Keep original Scribe JSON as the source of word timestamps, diarized `speaker_N` labels, audio events and uncertainty. Return the raw Scribe JSON from Worknode to the canonical private Run at `analysis/speech/scribe.json` using the existing Neo cluster file transport; never assume SSH, or that Neo Master paths exist on Worknode. After verified full-episode Video Use Scribe completion, record `analysis/speech/scribe-source.json` conforming to `../contracts/scribe-source.schema.json`, containing the check-original-source `source_sha256` and absolute `source_path`, the actual raw `scribe.json` SHA-256, `transcription_engine: video-use-scribe`, and truthful `observed_at`. Do not create this binding for an older preview, a guessed Scribe response or an unverified API result. On the canonical host export `analysis/speech/speaker-id.vtt` and `analysis/speech/boundaries.json` with `node scripts/speaker-vtt.mjs from-scribe --input <scribe.json> --output <speaker-id.vtt> --boundaries <boundaries.json>`. The boundary file lists **speech-gap candidates**, not proven silent regions or edit decisions. Preserve the raw word timestamps for cut QA. Do **not** propose selected scenes, change timestamps, name characters, generate an EDL, or cut the video.
 
 Store analysis artifacts in the canonical private Run (Worknode copies are temporary staging); never put licensed footage or transcripts in Git. Pass the complete episode's speaker-ID VTT and raw speech-boundary evidence downstream.
