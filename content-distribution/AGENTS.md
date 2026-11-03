@@ -9,6 +9,10 @@ Follow Neo root `AGENTS.md` and this project guide. [graph.mmd](graph.mmd) is th
 - Verify current **per-episode** grants for the exact Advertising Materials, derivative edits, territory, service, channel, required tracking link and Safelist status. A signed-in account or an original-video upload permission does not itself authorize short-drama clipping.
 - Treat each state separately: `registered`, `asset_rights_verified`, `tracking_link_issued`, `safelisted`, `posted`, `attributed_order`, `commission_reported`, `payout_received`. Public historical percentages, clicks and redirect tests never establish paid attribution. Unknown rates or payout methods remain `UNVERIFIED`; never fabricate a value.
 
+## Story context and identity
+
+Preserve series synopsis, character roster and relationships only from verified official sources in private `story-context.json` using `contracts/story-context.schema.json`, with source kind, URL and timestamp. Distinguish a documented API from browser-extracted data. Derive each `speaker_XX` from original episode audio, and map it to a named character only with corroborating scene/identity evidence; keep uncertain matches unresolved. Plot descriptions are not speaker diarization, and story metadata does not grant clipping or dubbing rights.
+
 ## Stage gates
 
 - **Rights:** Current specific material/channel permissions must be evidenced before production. If uncertain, hold that creative/channel. A missing fee percentage does **not** prohibit private previews, but blocks assertions about projected revenue.

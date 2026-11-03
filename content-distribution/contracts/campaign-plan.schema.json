@@ -127,6 +127,11 @@
     "measurement_evidence_path": {
       "type": "string",
       "minLength": 1
+    },
+    "story_context_path": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Run-relative private story context (contracts/story-context.schema.json). Optional until a grounded source is available."
     }
   }
 }

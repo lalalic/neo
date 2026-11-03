@@ -58,5 +58,41 @@
       "infer_payout",
       "assume_zero_commission"
     ]
+  },
+  {
+    "id": "story-official-web-fallback",
+    "role": "distribution-rights",
+    "capability": "source-backed drama metadata",
+    "task": "The RS Boost Content Hub shows only the referral panel, and its UI includes an API Information label but no verified synopsis API response. The ReelShort official series page has a synopsis and named characters. How should the story context be sourced?",
+    "expectedDecision": "use_official_web_with_provenance",
+    "choices": [
+      "use_official_web_with_provenance",
+      "invent_provider_api",
+      "skip_story_context"
+    ]
+  },
+  {
+    "id": "speaker-name-unverified",
+    "role": "distribution-producer",
+    "capability": "speaker identity grounding",
+    "task": "The official synopsis names Grayson and Ivan. Local diarization of original Episode 1 gives speaker_01 and speaker_02 with timestamps, but there is no reliable face synchronization or direct character naming evidence. Assign names.",
+    "expectedDecision": "keep_speaker_ids_unresolved",
+    "choices": [
+      "keep_speaker_ids_unresolved",
+      "assign_grayson_and_ivan",
+      "label_both_by_plot"
+    ]
+  },
+  {
+    "id": "speaker-name-evidence",
+    "role": "distribution-producer",
+    "capability": "speaker identity grounding",
+    "task": "Original episode transcription yields speaker_01 at 3-5 seconds and 15-17 seconds. Frame synchronized to 3-5 seconds shows a single speaking person; an on-screen label names that person Grayson Rodgers. At 15-17 seconds lip sync and a repeating voice corroborate same identity. Official metadata includes Grayson Rodgers. How should speaker_01 be recorded?",
+    "expectedDecision": "verify_name_with_timestamps",
+    "choices": [
+      "verify_name_with_timestamps",
+      "leave_name_unresolved_forever",
+      "map_every_voice_to_grayson"
+    ]
   }
 ]

@@ -14,7 +14,8 @@ The [creative strategy library](templates/creative-strategies.md) gives grounded
 | --- | --- |
 | [accounts.md](accounts.md) | **Single source of truth** for ongoing RS Boost registration status and public TikTok/YouTube identities, URLs, Safelist filing and observed status |
 | [config/providers.json](config/providers.json) | Official provider portals and research status, independent of any individual drama |
-| [contracts/campaign-plan.schema.json](contracts/campaign-plan.schema.json) | Reusable campaign handoff format; campaign references account IDs from `accounts.md` |
+| [contracts/campaign-plan.schema.json](contracts/campaign-plan.schema.json) | Reusable campaign handoff format; campaign references account IDs and optional private story context |
+| [contracts/story-context.schema.json](contracts/story-context.schema.json) | Sourced synopsis/characters and evidence-bound speaker identities for the original episode |
 | `runs/<YYYY-MM-DD[-campaign]>/` | **Ignored, private** episode licenses, downloaded media, Markcut videos/previews, private referral URLs, campaign plans, revision approvals, publication and conversion receipts |
 
 The Git repository is public. Only deliberately public channel handles/URLs and sanitized provider account status belong in `accounts.md`. Never commit credentials, signup email, tracking tokens, personal/bank/tax details, licensed clips, user media or per-campaign earnings.
@@ -22,7 +23,7 @@ The Git repository is public. Only deliberately public channel handles/URLs and 
 ## Operating a campaign
 
 1. Resolve with `neo project resolve content-distribution`; check [accounts.md](accounts.md) and current provider terms. Do not reuse an episode link simply because it appears in an older Run.
-2. Create a private dated Run in this **canonical** project directory (never in a temporary worktree). Select verified provider assets, channel/account IDs and exact permissions for the episode. Preserve date-stamped rights evidence.
+2. Create a private dated Run in this **canonical** project directory (never in a temporary worktree). Select verified provider assets, channel/account IDs and exact permissions for the episode. Save official synopsis/character relationships in private `story-context.json` if available (prefer verified provider API; otherwise official drama webpage); distinguish story facts from individual audio speaker identity. Preserve date-stamped rights evidence.
 3. Validate `campaign.json` with the [campaign schema](contracts/campaign-plan.schema.json). Produce private variants using Markcut `video.md` and verify/render them. Save review evidence for each revision.
 4. Obtain the owner's approval of the **exact video revision, target social account, post destination and tracking-link placement** before public publishing. Creator Safelist submission and posting are separate actions, each requiring their own authorization; an existing registration or Safelist record is not a post approval.
 5. After authorization, check public post receipts, impressions, clicks, qualified purchases, reported CPS commission and actual payout separately. A working redirect or dashboard registration is not a qualifying order.
