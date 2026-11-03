@@ -1,9 +1,9 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Private Episode Story Context and Speaker Attribution",
+  "title": "Private Episode Story Context",
   "type": "object",
   "additionalProperties": false,
-  "required": ["title", "provider_id", "synopsis", "sources", "characters", "speaker_map"],
+  "required": ["title", "provider_id", "synopsis", "sources", "characters"],
   "properties": {
     "title": {"type": "string", "minLength": 1},
     "provider_id": {"type": "string", "minLength": 1},
@@ -44,7 +44,7 @@
     },
     "speaker_map": {
       "type": "array",
-      "description": "Audio speaker IDs are not character identities until corroborated by scene evidence.",
+      "description": "Optional legacy speaker evidence only; new speaker guesses go into WebVTT voice labels.",
       "items": {
         "type": "object", "additionalProperties": false,
         "required": ["speaker_id", "character_name", "status", "evidence"],

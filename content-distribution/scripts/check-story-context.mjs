@@ -28,8 +28,8 @@ export function validateStoryContext(doc) {
   for (const character of doc.characters ?? []) for (const relation of character.relationships ?? []) {
     if (!characterNames.has(relation.to)) errors.push(`${character.name} relationship target not in roster: ${relation.to}`);
   }
-  if (!Array.isArray(doc.speaker_map)) errors.push('speaker_map must be an array (may be empty before analysis)');
-  else {
+  if (doc.speaker_map !== undefined && !Array.isArray(doc.speaker_map)) errors.push('speaker_map must be an array when supplied (legacy only)');
+  else if (Array.isArray(doc.speaker_map)) {
     const speakerIds = new Set();
     for (const [i, speaker] of doc.speaker_map.entries()) {
       if (!/^speaker_\d+$/.test(speaker?.speaker_id ?? '')) errors.push(`speaker_map[${i}] invalid speaker ID`);
@@ -59,6 +59,6 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
   try {
     const errors = validateStoryContext(JSON.parse(readFileSync(resolve(file), 'utf8')));
     if (errors.length) { console.error(errors.join('\n')); process.exitCode = 1; }
-    else console.log('Story context OK; speaker names are only verified when corroborated.');
+    else console.log('Story context OK; speaker names are resolved in WebVTT.');
   } catch (error) { console.error(error.message); process.exitCode = 1; }
 }

@@ -7,14 +7,18 @@ import { fileURLToPath } from 'node:url';
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const read = (path) => readFileSync(join(root, path), 'utf8');
 
-test('graph parses as one six-role DAG and resolves every project manifest', () => {
+test('graph declares ordered source → STT → speaker-name VTT → Vision → Producer DAG', () => {
   const graph = read('graph.mmd').trim().split('\n');
   assert.equal(graph.shift(), 'flowchart TD');
   const agents = [...graph.join('\n').matchAll(/\[agent:([a-z-]+)\]/g)].map((m) => m[1]);
-  assert.equal(agents.length, 6);
-  assert.equal(new Set(agents).size, agents.length);
-  assert.equal((graph.join('\n').match(/-->/g) || []).length, agents.length - 1);
-  for (const agent of agents) {
+  const order = [...new Set(agents)];
+  assert.deepEqual(order, [
+    'distribution-rights', 'distribution-acquirer', 'distribution-planner',
+    'distribution-transcriber', 'distribution-speaker-resolver', 'distribution-visioner',
+    'distribution-producer', 'distribution-operator', 'distribution-analyst',
+  ]);
+  assert.equal((graph.join('\n').match(/-->/g) || []).length, order.length - 1);
+  for (const agent of order) {
     const filename = `agents/${agent}.agent.md`;
     assert.ok(existsSync(join(root, filename)), filename);
     assert.match(read(filename), new RegExp(`^name: ${agent}$`, 'm'));
@@ -62,4 +66,21 @@ test('campaign-scope owner permission replaces per-video review; platform safety
   assert.match(read('docs/commercial-readiness.md'), /One owner signature for that Campaign permission/);
   assert.match(read('agents/distribution-operator.agent.md'), /PRIVATE HOLD/);
   assert.match(read('README.md'), /\*\*Ignored, private\*\*/);
+});
+
+test('producer consumes named VTT and Vision evidence, not Video Use EDL', () => {
+  const transcriber = read('agents/distribution-transcriber.agent.md');
+  const resolver = read('agents/distribution-speaker-resolver.agent.md');
+  const visioner = read('agents/distribution-visioner.agent.md');
+  const producer = read('agents/distribution-producer.agent.md');
+  assert.match(transcriber, /Video Use/);
+  assert.match(transcriber, /speaker-id\.vtt/);
+  assert.match(resolver, /speaker-name\.vtt/);
+  assert.match(resolver, /scripts\/speaker-vtt\.mjs validate/);
+  assert.match(visioner, /Markcut Vision/);
+  assert.match(visioner, /original episode/);
+  assert.match(producer, /speech boundaries/);
+  assert.match(producer, /Do not repeat Video Use STT/);
+  assert.doesNotMatch(producer, /update .*speaker_map/);
+  assert.match(read('README.md'), /speaker-name\.vtt/);
 });

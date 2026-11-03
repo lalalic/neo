@@ -73,33 +73,33 @@
   },
   {
     "id": "speaker-name-unverified",
-    "role": "distribution-producer",
-    "capability": "speaker identity grounding",
-    "task": "The official synopsis names Grayson and Ivan. Local diarization of original Episode 1 gives speaker_01 and speaker_02 with timestamps, but there is no reliable face synchronization or direct character naming evidence. Assign names.",
+    "role": "distribution-speaker-resolver",
+    "capability": "inferred character names in WebVTT",
+    "task": "You receive original-episode WebVTT with speaker_0 and speaker_1 plus an official synopsis naming Grayson and Ivan. No speaker speaks a name or identifies their role, and the dialogue gives no reliable clue as to which character speaks. Only change VTT voice names when grounded. What should you output?",
     "expectedDecision": "keep_speaker_ids_unresolved",
     "choices": [
       "keep_speaker_ids_unresolved",
       "assign_grayson_and_ivan",
-      "label_both_by_plot"
+      "rewrite_dialogue_by_plot"
     ]
   },
   {
     "id": "speaker-name-evidence",
-    "role": "distribution-producer",
-    "capability": "speaker identity grounding",
-    "task": "Original episode transcription yields speaker_01 at 3-5 seconds and 15-17 seconds. Frame synchronized to 3-5 seconds shows a single speaking person; an on-screen label names that person Grayson Rodgers. At 15-17 seconds lip sync and a repeating voice corroborate same identity. Official metadata includes Grayson Rodgers. How should speaker_01 be recorded?",
-    "expectedDecision": "verify_name_with_timestamps",
+    "role": "distribution-speaker-resolver",
+    "capability": "single-agent speaker-name guess",
+    "task": "Official character metadata says Grayson Rodgers is the gardener; Bianca is the guard confronting him. Speaker_0 says 'Sorry, this is closed for a private meeting.' Speaker_1 answers 'I'm a gardener. I have clearance.' What should the dialogue resolver do with the VTT?",
+    "expectedDecision": "infer_from_story_and_keep_cues",
     "choices": [
-      "verify_name_with_timestamps",
-      "leave_name_unresolved_forever",
-      "map_every_voice_to_grayson"
+      "infer_from_story_and_keep_cues",
+      "require_face_lip_sync_before_any_guess",
+      "regenerate_timestamps_and_dialogue"
     ]
   },
   {
     "id": "original-before-creative",
-    "role": "distribution-producer",
-    "capability": "source-first video understanding",
-    "task": "The full RS Boost licensed Episode 1 is saved as assets/episode-01.mp4 (116s) with a verified original SHA-256. An older Markcut preview.mp4 (21s) has existing Video Use transcript. Which input should be sent to Video Use, STT and Vision to understand and diarize characters before selecting cuts?",
+    "role": "distribution-transcriber",
+    "capability": "source-first transcript",
+    "task": "The full licensed RS Boost Episode 1 is saved as assets/episode-01.mp4 (116s) with SHA-256 manifest; an older Markcut preview.mp4 (21s) already has a Video Use transcript. Which input should be sent to Video Use STT before the dialogue resolver?",
     "expectedDecision": "use_hash_verified_original",
     "choices": [
       "use_hash_verified_original",
@@ -109,9 +109,9 @@
   },
   {
     "id": "source-missing-hold",
-    "role": "distribution-producer",
-    "capability": "source integrity gate",
-    "task": "The campaign has story context and an approved promotional Preview, but `original_source_path` has a wrong SHA-256 for the retained MP4. The operator wants new scene analysis immediately.",
+    "role": "distribution-transcriber",
+    "capability": "immutable source gate",
+    "task": "The campaign's original-source manifest has an incorrect SHA-256 for its Episode MP4. The operator wants new STT analysis immediately and an older Preview exists. What should the STT worker do?",
     "expectedDecision": "hold_until_original_verified",
     "choices": [
       "hold_until_original_verified",
@@ -177,6 +177,42 @@
       "keep_narration_script_unpublished",
       "publish_narration_as_standard_clip",
       "invent_written_consent"
+    ]
+  },
+  {
+    "id": "vtt-only-voice-annotation",
+    "role": "distribution-speaker-resolver",
+    "capability": "WebVTT integrity",
+    "task": "An agent can infer that speaker_1 is Grayson from the plot. The VTT contains 00:00:13.380 --> 00:00:15.740 and the text 'I'm a gardener. I have clearance.' Should the resolver adjust the timestamp for smoother subtitles or rewrite the English?",
+    "expectedDecision": "change_only_voice_label",
+    "choices": [
+      "change_only_voice_label",
+      "change_time_for_smoother_edit",
+      "paraphrase_dialogue"
+    ]
+  },
+  {
+    "id": "vision-consumes-named-vtt-original",
+    "role": "distribution-visioner",
+    "capability": "Vision context handoff",
+    "task": "Upstream has verified original Episode.mp4, raw Scribe word boundaries and speaker-name.vtt. An older 21s preview exists. What should Markcut Vision analyze and what should it decide about clip selection?",
+    "expectedDecision": "analyze_full_original_with_vtt_no_edit_selection",
+    "choices": [
+      "analyze_full_original_with_vtt_no_edit_selection",
+      "analyze_preview_with_new_stt",
+      "generate_final_edl_from_stt_only"
+    ]
+  },
+  {
+    "id": "producer-keeps-boundaries-as-constraints",
+    "role": "distribution-producer",
+    "capability": "safe source-timestamp editorial",
+    "task": "Video Use emits word boundaries and Markcut Vision observes a key silent reaction after the line. The Producer needs a short promotional Hook. Should it use Video Use's pre-cut EDL and discard silent images?",
+    "expectedDecision": "select_from_story_and_preserve_reaction",
+    "choices": [
+      "select_from_story_and_preserve_reaction",
+      "use_video_use_edl_as_truth",
+      "trim_every_silence"
     ]
   }
 ]

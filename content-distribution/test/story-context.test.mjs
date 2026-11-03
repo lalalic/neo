@@ -18,13 +18,15 @@ test('source-backed story context may exist before speaker identification', () =
   assert.deepEqual(validateStoryContext(story()), []);
   const schema = JSON.parse(readFileSync(new URL('../contracts/story-context.schema.json', import.meta.url)));
   assert.ok(schema.required.includes('sources'));
-  assert.ok(schema.required.includes('speaker_map'));
+  assert.ok(!schema.required.includes('speaker_map'));
   assert.ok(schema.properties.sources.items.properties.kind.enum.includes('official_web'));
   assert.ok(schema.properties.sources.items.properties.kind.enum.includes('provider_api'));
 });
 
-test('diarization does not invent character identities', () => {
+test('legacy speaker maps are optional but unresolved identities cannot be invented', () => {
   const doc = story();
+  delete doc.speaker_map;
+  assert.deepEqual(validateStoryContext(doc), []);
   doc.speaker_map = [{speaker_id: 'speaker_01', character_name: null, status: 'unresolved', evidence: []}];
   assert.deepEqual(validateStoryContext(doc), []);
   doc.speaker_map[0].character_name = 'Alex';
@@ -55,14 +57,17 @@ test('timestamps and duplicate speakers are checked', () => {
   assert.match(validateStoryContext(doc).join(';'), /evidence\[0\] invalid/);
 });
 
-test('producer and planner consume official provenance and never assert identity based on synopsis alone', () => {
+test('upstream story and speaker VTT have separate responsibilities', () => {
   const producer = readFileSync(new URL('../agents/distribution-producer.agent.md', import.meta.url), 'utf8');
   const planner = readFileSync(new URL('../agents/distribution-planner.agent.md', import.meta.url), 'utf8');
   const acquirer = readFileSync(new URL('../agents/distribution-acquirer.agent.md', import.meta.url), 'utf8');
   const campaign = JSON.parse(readFileSync(new URL('../contracts/campaign-plan.schema.json', import.meta.url)));
   assert.ok(campaign.properties.story_context_path);
   assert.match(planner, /story_context_path/);
-  assert.match(producer, /original licensed episode/);
-  assert.match(producer, /status:unresolved/);
+  assert.match(producer, /speaker-name\.vtt/);
+  assert.match(producer, /original MP4/);
+  const resolver = readFileSync(new URL('../agents/distribution-speaker-resolver.agent.md', import.meta.url), 'utf8');
+  assert.match(resolver, /leave \`speaker_N\` unchanged/);
+  assert.match(resolver, /only \`<v speaker_N>\` voice labels/);
   assert.match(acquirer, /official series metadata/);
 });

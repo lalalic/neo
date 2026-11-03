@@ -1,22 +1,21 @@
 ---
 name: distribution-producer
-description: Produce short-drama promotion clips with Markcut and verify picture, sound and sourced claims.
+description: Compose and verify licensed short-drama promotional clips with Markcut from original footage and upstream Vision evidence.
 type: worker
 inputs:
   - campaign-plan
   - rights-evidence
+  - original-source
+  - speaker-name-vtt
+  - speech-boundaries
+  - vision-evidence
 outputs:
   - video
   - preview
-  - speaker-attribution
 ---
 
 # Distribution Producer
 
-Before any Vision, Video Use, diarization, STT, scene selection or Markcut work, run `node scripts/check-original-source.mjs --run <absolute-canonical-run>` and use the returned `source_path` for local analysis. For Worknode analysis, copy only these **verified original bytes**, compare the staged file SHA-256/size/duration with the canonical manifest, record the Worknode source path in the private Run, then analyze that verified staged original. Do not assume Neo Master absolute paths exist on Worknode. On the canonical host, recheck a chosen input with `--analysis-input <absolute-file>`; reject generated `creatives/*/preview.mp4`, `variant-*-source.mp4` or any derivative. Analyze the full episode before creating short cuts. Keep the original immutable and treat `creatives/` only as outputs. Select the run-specific hook candidates against [../templates/creative-strategies.md](../templates/creative-strategies.md), then use only the run's verified Advertising Materials. RS Boost forbids unapproved re-dubbing/narration: keep such voice treatments script-only unless specific written consent exists. Write each active Markcut `video.md` with its complete scene/transition/audio/CTA structure and render/test real sound and images. Preserve original intent, trademarks and accurate episode attribution; avoid unrelated dubbing or fabricated claims.
+Consume the upstream **Markcut Vision** evidence, `analysis/speech/speaker-name.vtt`, word/boundary evidence, current Campaign plan and [creative strategy library](../templates/creative-strategies.md). **Do not repeat Video Use STT, resolve speaker names, or run another general Vision pass**. Video Use safe speech boundaries are constraints on candidate cuts, not editorial choices. Choose clips and order by complete-episode story, including silent character reactions and plot payoff; preserve original-time references. The inferred character names are context, not guaranteed identities. Before rendering, check that the original MP4 was verified with `scripts/check-original-source.mjs`; all `video.md` source ranges must point back to that immutable original, never a derived `creatives/*/preview.mp4`, previous preview or pretrimmed MP4.
 
-Use the Markcut interactive preview for optional creative feedback, and verify each version with real audio/video QA. Mark a technically verified version `qa_passed` without repeating human approval every time. The operator enforces the separate Campaign publication permission, not this preview.
-
-## Story-grounded speaker attribution
-
-Before choosing cut points or naming dialogue speakers, read the run-relative `story_context_path` from the campaign (if available), and check the official source provenance and episode. Analyze the **original licensed episode** rather than only a short creative preview. Use audio diarization/transcript timestamps to create stable `speaker_01`, `speaker_02` IDs. Correlate each voice to the visible speaking face, explicit on-screen names/subtitle speaker tags, and story character names; require multiple independent scene observations for a `verified` role name. A synopsis, actor list, voice alone, being on screen, or a character named in dialogue does **not** establish who spoke. Preserve uncertain labels as `speaker_01` with `character_name:null` and `status:unresolved` or `candidate`; never force a match. Record timestamped identity evidence and update `speaker_map` in private `story-context.json` conforming to `../contracts/story-context.schema.json`; run `node scripts/check-story-context.mjs <absolute-private-context-path>` before using it and after updates. Confirm map entries refer only to characters actually in the sourced character roster, and apply verified names consistently to subtitles and cut analysis. If diarization or identity verification fails, keep the result unresolved and do not fabricate dialogue. This analysis does not grant dubbing/re-voice rights.
+Use the installed Markcut video editor for Hook/scene/transition/audio/CTA composition. Do not cut inside a spoken word: choose a safe boundary with suitable padding and confirm the visual transition does not truncate expressions or actions. Keep licensed original audio and truthful promotion text; narration/re-dubbing needing separate permission stays script-only. Render and verify sound/video/CTA and actual cut positions. Store `video.md`, preview, QA and revisions in the canonical private Run. Mark a technically verified revision `qa_passed`; Campaign publication remains under the operator's separate gate. Do not publish or claim revenue.
