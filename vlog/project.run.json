@@ -1,11 +1,26 @@
 {
   "schemaVersion": 1,
-  "preflight": {"script": "scripts/preflight-template-assets.mjs"},
+  "preflight": {
+    "script": "scripts/preflight-template-assets.mjs"
+  },
   "input": {
     "type": "path",
     "path": {
       "base": "runs",
       "datedRunDirectory": true
     }
-  }
+  },
+  "stageValidation": {
+    "script": "scripts/validate-stage.mjs",
+    "agents": {
+      "vlog-visioner": "visioner",
+      "vlog-director": "director",
+      "vlog-editor": "editor",
+      "vlog-producer": "producer",
+      "vlog-final-qa": "final-qa",
+      "video-director": "video-director",
+      "market": "market"
+    }
+  },
+  "publicationReview": "separate"
 }

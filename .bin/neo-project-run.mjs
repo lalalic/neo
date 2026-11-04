@@ -100,7 +100,7 @@ function writePrivate(file, content) {
   chmodSync(file, 0o600);
 }
 
-function initializeRun(runDir, projectName, input, sourceUrl) {
+function initializeRun(runDir, projectName, input, sourceUrl, publicationReview = null) {
   const evidence = join(runDir, 'source-reference.json');
   const objective = join(runDir, 'neo-project-run.objective.md');
   const taskInput = join(runDir, 'neo-project-run.input.md');
@@ -119,8 +119,9 @@ function initializeRun(runDir, projectName, input, sourceUrl) {
   for (const file of [evidence, objective, taskInput, output]) if (existsSync(file)) fail(`run already contains ${basename(file)}; refusing to overwrite`);
   const data = { schemaVersion: 1, project: projectName, kind: sourceUrl ? 'url-reference' : 'canonical-run', ...(sourceUrl ? { sourceUrl } : { sourceRunPath: input }) };
   writePrivate(evidence, `${JSON.stringify(data, null, 2)}\n`);
-  const objectiveText = `Run the ${projectName} project workflow for the selected private canonical run.\n\nRead the run input at ${taskInput} and its private source evidence at ${evidence}. Treat references as unverified input; apply the project AGENTS.md rights, review, and publication gates. Do not infer permission or publish without explicit owner authorization.\n`;
-  const taskText = `Process this selected Neo Project run.\n\n- Project: ${projectName}\n- Canonical run: ${runDir}\n- Private input evidence: ${evidence}\n\nUse the project contract and existing Agent Graph. Preserve existing run files. Source references do not establish rights or publication permission.\n`;
+  const creativeOnly = publicationReview === 'separate';
+  const objectiveText = `Run the ${projectName} project workflow for the selected private canonical run.\n\nRead the run input at ${taskInput} and its source evidence at ${evidence}. ${creativeOnly ? 'Perform Stage contract validation/self-heal; a separate workflow owns all publication/license/use audits. Do not publish.' : 'Apply project source-use, review and publication gates. Do not infer permission or publish.'}\n`;
+  const taskText = `Process this selected Neo Project run.\n\n- Project: ${projectName}\n- Canonical run: ${runDir}\n- Private input evidence: ${evidence}\n\nUse the project contract and existing Agent Graph. Preserve existing run files. ${creativeOnly ? 'Do not perform licensing or rights checks in creative Stages; publication review is separate.' : 'Source references do not establish rights or publication permission.'}\n`;
   writePrivate(objective, objectiveText);
   writePrivate(taskInput, taskText);
   return { evidence, objective, taskInput, output, binding, saved: null };
@@ -247,7 +248,7 @@ export function runProject(args, options = {}) {
     chmodSync(runDir, 0o700);
     runDir = realpathSync(runDir);
   }
-  const files = initializeRun(runDir, parsed.project, isUrl ? undefined : runDir, isUrl ? parsed.url : undefined);
+  const files = initializeRun(runDir, parsed.project, isUrl ? undefined : runDir, isUrl ? parsed.url : undefined, selected.declaration.publicationReview);
   const repo = options.repository ?? process.env.NEO_RELAY_REPOSITORY ?? 'lalalic/neo';
   const projectPath = relative(selected.root, selected.project).split(sep).join('/');
   const invoke = args => relayInvocation(options, (options.localShortcut ?? Boolean(options.relayCli ?? process.env.NEO_RELAY_CLI)) ? [...args, '--shortcut-local'] : args);
