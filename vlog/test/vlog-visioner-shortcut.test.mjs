@@ -213,3 +213,30 @@ test('Vlog project shortcut does not accept a run from a separate project',async
   await assert.rejects(run({input:{projectPath:f.vlogRoot,runPath:other},...fakeHost()}),
     /dated canonical Vlog runs/);
 });
+
+test('unverified speech and absent optional source-preview approval do not block Visioner evidence handoff', async t => {
+  // Regression for Job 553: the 1.57s clip has a machine-only \"Thank you\" hint.
+  // The source evidence must complete without claiming verified speech or
+  // requesting the Producer-only canonical preview approval at this Stage.
+  const f = await fixture(t, true);
+  const metaPath = join(f.mediaDir, 'metadata.json');
+  const metadata = { CLIP: { duration: 1.57, perception: { desc: 'Creek and rocks',
+    segments: { '0to940': { vision: 'Shallow creek', subtitle: 'Thank you.' },
+      '940to1570': { vision: 'Water beside vegetation' } } } } };
+  const rawMetadata = JSON.stringify(metadata);
+  await writeFile(metaPath, rawMetadata);
+  const manifestPath = join(f.runPath, 'source-manifest.json');
+  const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
+  manifest.markcut_metadata_sha256 = hash(rawMetadata);
+  await writeFile(manifestPath, JSON.stringify(manifest));
+  const host = fakeHost();
+  const result = await run({ input: { projectPath: f.vlogRoot, runPath: f.runPath }, ...host });
+  assert.equal(result.status, 'COMPLETED');
+  assert.equal(result.evidence.status, 'EVIDENCE_READY_UNREVIEWED');
+  assert.equal(result.artifacts['vision-segment-index.json'].findings.length, 0);
+  assert.equal(result.evidence.observations.length, 2);
+  assert.ok(result.evidence.observations.every(item => item.status === 'MODEL_OUTPUT_UNREVIEWED'));
+  assert.match(JSON.stringify(result.evidence), /Thank you/);
+  assert.equal(host.calls.length, 1, 'only the source indexer runs; no mandatory preview or approval');
+  await assert.rejects(readFile(join(f.runPath, 'vision-human-review.json')), { code: 'ENOENT' });
+});

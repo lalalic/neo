@@ -29,6 +29,16 @@ Do not infer editing commands from images. When a speech command is ambiguous,
 preserve it as uncertainty. Never silently discard original footage.
 The Director makes story selections and Editor creates the EDL.
 
+A machine-only speech hint (for example, a single unverified \"Thank you\")
+is **not** a mandatory source-approval gate. Mark its provenance and keep it
+out of source-verified dialogue. Complete the Visioner source evidence and
+hand it to Director when the manifest, hashes and index are valid. Source
+clarification/review is optional at this Stage: ask only for a fact essential
+to the next Stage; do not demand the Producer's later immutable video.md
+preview approval before returning Visioner evidence. A Director unable to
+build a truthful story may independently hold that Stage with a specific
+evidence gap. Do not manufacture a story or assert the audio was heard.
+
 ## First choice: DeepSeek through Markcut CLI templates
 
 For **missing** image/video understanding, the first option is DeepSeek Web

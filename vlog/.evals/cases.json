@@ -18,6 +18,30 @@
     ]
   },
   {
+    "id": "visioner-optional-clarification-handoff",
+    "role": "vlog-visioner",
+    "capability": "uncertain speech and optional source review",
+    "references": [
+      "docs/episode-stage-contract.md"
+    ],
+    "choices": [
+      "record_uncertainty_and_handoff",
+      "block_until_source_preview_approved",
+      "treat_machine_speech_as_verified",
+      "create_director_story_in_visioner"
+    ],
+    "task": "Approved Vlog run contains two photos and a 1.57-second creek clip. Media hashes and Markcut source index pass. One clip has only machine speech hint “Thank you.” and nobody has independently listened to it. No owner source-preview decision exists. What should Visioner do now, before Director?",
+    "expectedDecision": "record_uncertainty_and_handoff",
+    "required": [
+      "unverified",
+      "provenance"
+    ],
+    "forbidden": [
+      "require Producer preview approval",
+      "verified transcript"
+    ]
+  },
+  {
     "id": "director-story-delivery",
     "role": "vlog-director",
     "capability": "story before shots",
