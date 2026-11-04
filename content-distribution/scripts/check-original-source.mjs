@@ -51,7 +51,7 @@ export async function verifyOriginalInput(runDir, analysisInput) {
   if (!Number.isFinite(duration) || Math.abs(duration-source.duration_s)>0.05) throw new Error('original_duration_mismatch');
   const rights = resolve(run, campaign.rights_evidence_path ?? '');
   if (!inside(resolve(run, 'evidence'), rights) || !existsSync(rights)) throw new Error('rights_evidence_missing');
-  return {ok:true, source_path:original, source_sha256:source.sha256, duration_s:duration, episode_number:source.episode_number, story_context_path:campaign.story_context_path ? resolve(run,campaign.story_context_path):null, rights_evidence_path:rights};
+  return {ok:true, source_path:original, source_sha256:source.sha256, source_bytes:lstatSync(original).size, duration_s:duration, episode_number:source.episode_number, story_context_path:campaign.story_context_path ? resolve(run,campaign.story_context_path):null, rights_evidence_path:rights};
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {

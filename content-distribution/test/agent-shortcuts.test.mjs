@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { cpSync, existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdtempSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -13,7 +13,7 @@ import { run as resolveSpeaker } from '../agents/.shortcut/distribution-speaker-
 const projectSource=dirname(dirname(fileURLToPath(import.meta.url)));
 const sha=b=>createHash('sha256').update(b).digest('hex');
 
-function fixture(t) {
+function fixture(t, kind='scribe') {
   const tmp=mkdtempSync(join(tmpdir(),'distribution-shortcut-synthetic-'));
   t.after(()=>rmSync(tmp,{recursive:true,force:true}));
   const project=join(tmp,'content-distribution');
@@ -39,21 +39,41 @@ function fixture(t) {
   put('evidence/story-context.json',JSON.stringify({title:'Synthetic drama',provider_id:'rs-boost',synopsis:'Alice objects',
     sources:[{kind:'official_web',url:'https://example.com/drama',observed_at:'2026-11-03T10:00:00Z'}],
     characters:[{name:'Alice',description:'Protagonist',relationships:[]}]}));
-  const raw=JSON.stringify({audio_duration_secs:3.1,words:[
-    {type:'word',speaker_id:'speaker_1',start:0,end:0.5,text:'Hello'},
-    {type:'word',speaker_id:'speaker_1',start:0.65,end:1.2,text:'there'},
-    {type:'word',speaker_id:'speaker_1',start:2,end:2.5,text:'Alice'},
-  ]});
-  put('analysis/speech/scribe.json',raw);
-  const provenance={schema:'content-distribution.scribe-source.v1',
-    source_sha256:sourceSha,source_path:sourcePath,scribe_sha256:sha(Buffer.from(raw)),
-    transcription_engine:'video-use-scribe',observed_at:'2026-11-03T10:00:00Z'};
-  const provenanceFile=put('analysis/speech/scribe-source.json',JSON.stringify(provenance));
+  let raw,provenance;
+  if(kind==='local-asr') {
+    raw=JSON.stringify({duration:1,segments:[
+      {start:0,end:0.4,words:[
+        {word:'Hello',start:0,end:0.1},{word:'there',start:0.2,end:0.4},
+      ]},
+      {start:0.7,end:0.9,words:[{word:'Alice',start:0.7,end:0.9}]},
+    ]});
+    put('analysis/speech/local-asr.json',raw);
+    provenance={schema:'content-distribution.local-asr-source.v1',
+      source_sha256:sourceSha,source_path:sourcePath,source_bytes:readFileSync(sourcePath).length,
+      source_duration_s:1,transcript_sha256:sha(Buffer.from(raw)),transcript_bytes:Buffer.byteLength(raw),
+      transcript_path:realpathSync(join(run,'analysis/speech/local-asr.json')),word_count:3,word_timestamps:true,
+      transcription_engine:'mlx-whisper',model_id:'mlx-community/whisper-large-v3-turbo',
+      model_version:'0123456789abcdef0123456789abcdef01234567',speaker_attribution:'unknown',
+      observed_at:'2026-11-03T10:00:00Z'};
+  } else {
+    raw=JSON.stringify({audio_duration_secs:3.1,words:[
+      {type:'word',speaker_id:'speaker_1',start:0,end:0.5,text:'Hello'},
+      {type:'word',speaker_id:'speaker_1',start:0.65,end:1.2,text:'there'},
+      {type:'word',speaker_id:'speaker_1',start:2,end:2.5,text:'Alice'},
+    ]});
+    put('analysis/speech/scribe.json',raw);
+    provenance={schema:'content-distribution.scribe-source.v1',
+      source_sha256:sourceSha,source_path:sourcePath,scribe_sha256:sha(Buffer.from(raw)),
+      transcription_engine:'video-use-scribe',observed_at:'2026-11-03T10:00:00Z'};
+  }
+  const provenanceFile=put(kind==='local-asr' ? 'analysis/speech/local-asr-source.json' : 'analysis/speech/scribe-source.json',
+    JSON.stringify(provenance));
   const calls=[];
   const runCommand=async (args,cwd)=>{
     calls.push(args);
     if(args.includes('check-original-source.mjs') || args[1]?.endsWith('/check-original-source.mjs'))
-      return {code:0,stdout:JSON.stringify({ok:true,source_sha256:sourceSha,source_path:sourcePath})};
+      return {code:0,stdout:JSON.stringify({ok:true,source_sha256:sourceSha,source_path:sourcePath,
+        source_bytes:readFileSync(sourcePath).length,duration_s:1})};
     if(args[0]==='npx'&&args.includes('artifact')&&args.includes('validate'))
       return {code:0,stdout:JSON.stringify({valid:true})};
     const result=spawnSync(args[0],args.slice(1),{cwd,encoding:'utf8',timeout:5000});
@@ -105,6 +125,33 @@ test('forged, mismatched or missing Scribe provenance cannot be shortcut-reused'
   f.provenance.source_sha256='1'.repeat(64);
   f.put('analysis/speech/scribe-source.json',JSON.stringify(f.provenance));
   await assert.rejects(transcribe(f.context),/cached_scribe_provenance_mismatch/);
+});
+
+test('local ASR provenance derives explicitly unknown speakers and repeats without duplicate work',async t=>{
+  const f=fixture(t,'local-asr');
+  const derived=await transcribe(f.context);
+  assert.equal(derived.status,'COMPLETED');
+  assert.equal(derived.output.route,'local-asr');
+  assert.equal(derived.output.transcription_engine,'mlx-whisper');
+  const vttPath=join(f.run,'analysis/speech/speaker-id.vtt');
+  const content=readFileSync(vttPath,'utf8');
+  assert.match(content,/WEBVTT/);
+  assert.match(content,/<v speaker_unknown>/);
+  assert.ok(JSON.parse(readFileSync(join(f.run,'analysis/speech/boundaries.json'))).gaps.length>0);
+  const before=f.calls.length;
+  const again=await transcribe(f.context);
+  assert.equal(again.status,'COMPLETED');
+  assert.equal(f.calls.slice(before).some(args=>args.includes('from-local-asr')),false,'cached local export must not re-run bridge');
+  assert.equal(readFileSync(vttPath,'utf8'),content);
+  f.put('analysis/speech/local-asr.json',readFileSync(join(f.run,'analysis/speech/local-asr.json'),'utf8')
+    .replace('Alice','Changed'));
+  await assert.rejects(transcribe(f.context),/cached_local_asr_provenance_mismatch/);
+});
+
+test('local and Scribe provenance cannot be mixed in one source-bound run',async t=>{
+  const f=fixture(t);
+  f.put('analysis/speech/local-asr-source.json',JSON.stringify({}));
+  await assert.rejects(transcribe(f.context),/local_and_scribe_provenance_conflict/);
 });
 
 test('partial Scribe export is not overwritten and fails into reconciliation',async t=>{

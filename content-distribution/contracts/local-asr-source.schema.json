@@ -1,0 +1,89 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://neo.local/content-distribution/local-asr-source.schema.json",
+  "title": "Source-bound local MLX Whisper provenance",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "source_sha256",
+    "source_path",
+    "source_bytes",
+    "source_duration_s",
+    "transcript_sha256",
+    "transcript_bytes",
+    "transcript_path",
+    "word_count",
+    "word_timestamps",
+    "transcription_engine",
+    "model_id",
+    "model_version",
+    "speaker_attribution",
+    "observed_at"
+  ],
+  "properties": {
+    "schema": {
+      "const": "content-distribution.local-asr-source.v1"
+    },
+    "source_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "source_path": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Absolute canonical original path returned by check-original-source"
+    },
+    "source_bytes": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "source_duration_s": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "transcript_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "transcript_bytes": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "transcript_path": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Absolute canonical private path to the exact raw local-ASR JSON"
+    },
+    "word_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "word_timestamps": {
+      "const": true,
+      "description": "Raw local transcript contains word-level start/end timestamps"
+    },
+    "transcription_engine": {
+      "const": "mlx-whisper"
+    },
+    "model_id": {
+      "const": "mlx-community/whisper-large-v3-turbo"
+    },
+    "model_version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[a-f0-9]{40,64}$",
+      "description": "Actual immutable model revision used by the local invocation"
+    },
+    "speaker_attribution": {
+      "const": "unknown",
+      "description": "MLX Whisper does not provide genuine diarization"
+    },
+    "observed_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Time of actual local transcription completion; do not fabricate"
+    }
+  }
+}
