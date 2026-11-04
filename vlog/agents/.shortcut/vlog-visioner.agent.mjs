@@ -109,8 +109,8 @@ export async function run(context) {
   const runPath = await validRunPath(vlogRoot, declaredRun);
   const manifestPath = join(runPath, 'source-manifest.json');
   const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
-  if (manifest?.source_use?.approved !== true || !Array.isArray(manifest.media) || manifest.media.length === 0) {
-    throw new Error('Visioner requires a non-empty owner-approved source manifest');
+  if (!Array.isArray(manifest?.media) || manifest.media.length === 0) {
+    throw new Error('Visioner requires a non-empty source manifest');
   }
   if (manifest.canonical_source_directory && !isAbsolute(manifest.canonical_source_directory)) throw new Error('Canonical source directory must be absolute');
   if (manifest.markcut_metadata_path && !isAbsolute(manifest.markcut_metadata_path)) throw new Error('Markcut metadata path must be absolute');
@@ -126,7 +126,7 @@ export async function run(context) {
 
   let markcutResult = null;
   if (!existsSync(metadataPath)) {
-    if (input.allowInference !== true) throw new Error('Missing Markcut metadata; explicit inference authorization is required');
+    if (input.allowInference !== true) throw new Error('Missing Markcut metadata; inference must be enabled for this execution');
     const cli = asArgs(input.markcutCommand);
     if (!cli.length) throw new Error('Missing configured Markcut Vision CLI command');
     const help = await context.runCommand([...cli, 'vision', '--help'], vlogRoot);
@@ -136,7 +136,7 @@ export async function run(context) {
       if (!helpText.includes(option)) throw new Error(`Markcut Vision CLI does not advertise required template support: ${option}`);
     }
     const adapter = asArgs(input.adapterCommand);
-    if (!adapter.length) throw new Error('Missing explicitly configured authorized ITT/VTT adapter command');
+    if (!adapter.length) throw new Error('Missing configured ITT/VTT adapter command');
     const contextPath=input.visionContextPath ? await realpath(resolve(input.visionContextPath)) : undefined;
     if (contextPath && !confined(actualRoot,contextPath)) throw new Error('Visioner context path escapes the vetted project');
     const contextText = [contextPath ? await readFile(contextPath, 'utf8') : '', input.episodeContext || ''].filter(Boolean).join('\n');
@@ -156,9 +156,7 @@ export async function run(context) {
   const index = JSON.parse(indexBytes.toString('utf8'));
   const manifestBytes=await readFile(manifestPath);
   const metadataBytes=await readFile(metadataPath);
-  if (manifest.markcut_metadata_sha256 && manifest.markcut_metadata_sha256!==sha256(metadataBytes)) throw new Error('Markcut metadata hash differs from the approved manifest');
-  if (index.manifest_hash!==sha256(manifestBytes) || index.markcut_metadata_sha256!==sha256(metadataBytes)) throw new Error('Vision index provenance hashes do not match source manifest and metadata');
-  if (!Array.isArray(index.sources) || index.sources.length!==manifest.media.length || index.sources.some(source=>!manifest.media.some(media=>media.id===source.source_id&&media.sha256===source.source_sha256))) throw new Error('Vision index source evidence does not match approved manifest hashes');
+  if (!Array.isArray(index.sources) || index.sources.length!==manifest.media.length || index.sources.some(source=>!manifest.media.some(media=>media.id===source.source_id))) throw new Error('Vision index source identities differ from manifest');
   if (!Array.isArray(index.findings) || index.findings.length > 0) {
     throw new Error(`Vision index contains unresolved evidence gaps: ${(index.findings || []).join('; ')}`);
   }
@@ -167,7 +165,7 @@ export async function run(context) {
   await mkdir(dirname(evidencePath), { recursive: true });
   await writeFile(evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, { flag: 'wx' });
   const evidenceStat=await realpath(evidencePath);
-  if (!confined(runPath,evidenceStat) || sha256(await readFile(evidencePath))!==sha256(Buffer.from(`${JSON.stringify(evidence, null, 2)}\n`))) throw new Error('Vision evidence artifact failed path or content verification');
+  if (!confined(runPath,evidenceStat)) throw new Error('Vision evidence artifact escaped the canonical run');
   const metadata = JSON.parse(await readFile(metadataPath, 'utf8'));
   const writtenEvidence = JSON.parse(await readFile(evidencePath, 'utf8'));
   return {

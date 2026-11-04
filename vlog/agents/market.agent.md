@@ -28,3 +28,5 @@ This is audience/content review, not a Git/PR code review.
 
 Technical Markcut CLI verification is the producing Agent's responsibility,
 not a separate reviewer Task.
+
+Before returning a terminal review verdict, run `node <vlog-root>/scripts/validate-stage.mjs market <run>` and repair this review file from any contract diagnostics before rerunning. Never claim PASS without observed video and audio.

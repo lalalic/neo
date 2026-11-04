@@ -49,9 +49,9 @@ test('worker prompt can resolve one authoritative story/production path and life
  assert.match(producer,/agents-relay review run/);
  assert.match(producer,/same Worker/);
  assert.match(producer,/terminal failure protocol/);
- assert.match(producer,/publication authorization are distinct/);
+ assert.match(producer,/separate publishing workflow/);
  assert.match(stage,/contentHash/);
- assert.match(project,/Before public distribution/);
+ assert.match(project,/separate publication-review workflow/);
  assert.match(text('templates/cinematic-vlog.md'),/license_status.*unverified/);
  assert.match(text('docs/story-first-route-sound.md'),/pre-mixed continuous asset/);
  assert.doesNotMatch(editor,/without source evidence/);

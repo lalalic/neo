@@ -26,3 +26,5 @@ This is specialist content review, not a Git/PR code review.
 
 The Producer owns Markcut CLI self-validation inside its own Task.
 Do not create another Task for routine Markcut technical review.
+
+Before returning a terminal review verdict, run `node <vlog-root>/scripts/validate-stage.mjs video-director <run>` and repair this review file from any contract diagnostics before rerunning. Never claim PASS without actual playable evidence.

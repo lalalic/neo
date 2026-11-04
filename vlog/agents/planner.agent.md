@@ -15,9 +15,9 @@ stage list or edges here, invent a separate Graph-to-Plan validator, or
 assume Relay validates project-specific topology.
 
 Each Episode Job objective supplies `submission_id`, canonical
-`run_directory` and owner-approved `manifest_path`. Watcher owns media
+`run_directory` and `manifest_path`. Watcher owns media
 ingestion and integrity; do not duplicate the manifest in Task inputs.
-Reject missing source-use permission or an `INPUT_NEEDED` manifest.
+Reject a missing source manifest or an `INPUT_NEEDED` manifest; rights and license decisions are external to planning.
 
 ### Planning and ownership
 
@@ -34,7 +34,7 @@ Reject missing source-use permission or an `INPUT_NEEDED` manifest.
    wrapper. Do not create a no-op Episode Task just to force a tree shape.
 4. Read each Agent's `inputs`, `outputs` and optional `reviewers` contract
    from its frontmatter. Feed verified upstream artifact versions/paths to
-   downstream Tasks. Preserve immutable source provenance and output hashes.
+   downstream Tasks. Preserve upstream source identities and output references; do not recompute hashes.
 5. In the **first successful Episode Plan**, create one durable Task for
    **every normal Stage node** in the current `graph.mmd`. Submit the full
    Task DAG together, even when upstream Stage artifacts do not exist yet.
@@ -43,7 +43,7 @@ Reject missing source-use permission or an `INPUT_NEEDED` manifest.
    Producer or Final QA. Give downstream Task inputs the expected upstream
    artifact paths and contracts; each Agent verifies the actual current
    accepted versions when it runs. Never fabricate an upstream artifact,
-   accepted result or immutable hash at planning time.
+   accepted result at planning time.
 6. If an initial Plan partially created normal Stage Tasks, later Plan rounds
    add only the missing Stage Tasks, preserving existing task IDs and evidence.
    Later Plan rounds can also add independent exceptional work and revisions,
@@ -56,14 +56,14 @@ Reject missing source-use permission or an `INPUT_NEEDED` manifest.
 
 - Visioner reuses existing Markcut `input/media/metadata.json` and only
   infers missing understanding. Output: `vision-evidence.json`.
-- Director uses Visioner evidence, approved footage and optional SHA-verified
+- Director uses Visioner evidence, source footage and optional documented
   Personal Tour references. It owns shot selection, Hook, story/payoff,
   contextual research and Shotcraft recipe intent. Outputs:
   `story.md`, `shot-selection.json`, `visual-brief.md`, `post.md`.
 - Editor consumes Director's accepted decisions, refines exact in/out,
   rhythm, captions and treatment. Output: `edit-decision-list.json`.
 - Producer consumes Director + Editor outputs, writes canonical `video.md`,
-  sources approved audio, builds/render-checks the preview, then calls
+  sources template-selected audio, builds/render-checks the preview, then calls
   `agents-relay review run --prompt-file <run>/reviews/review-request.md --agents video-director,market --project-path <vlog-root> --output <run>/reviews/review.json`.
   The generic Outcome Reviewer is implicit. Repair and re-review until
   current preview PASS; specialist review is not a separate Stage Task.
@@ -74,15 +74,13 @@ Reject missing source-use permission or an `INPUT_NEEDED` manifest.
   Express interactive preview as a Task worker requirement using capabilities
   actually advertised by Worker Router; if no eligible Worker exists, fail
   closed. Feedback/fix/re-preview stays in the Worker rather than extra Tasks.
-- Final QA independently observes playback, sound, captions, source-truth,
-  privacy and private archive receipt. Publication requires separate
-  owner authorization.
+- Final QA independently observes playback, sound, captions, source truth
+  and the private archive receipt. All publication decisions belong to a separate review.
 
-For JSON outputs with a declared schema, the owning Agent explicitly calls
+Before declaring completion, the Planner validates its Task Plan against the inherited Relay Plan contract and repairs contract errors in the same Planner turn. For Stage JSON outputs, the owning Agent calls
 `agents-relay artifact validate --artifact PATH --schema PATH`. The
 read-only Action does not automatically block Task completion; the Agent
-must repair failures before reporting accepted output. Other media/rights/QA
-checks remain domain-specific.
+must repair failures before reporting accepted output. Other media/QA checks remain domain-specific.
 
 ### Revisions and reviews
 

@@ -54,12 +54,9 @@ test('DeepSeek frame observations also bridge without pretending periodic sampli
   assert.equal(out.observations[0].origin,'markcut_metadata.perception.observations');
   assert.equal(out.observations[0].source_time_end_seconds,2);
 });
-test('rejects tampered original, invalid timestamps, unapproved source and missing Markcut metadata',t=>{
+test('rejects invalid timecodes and missing Markcut metadata without rehashing sources',t=>{
   const f=fixture(t);
   const index=()=>makeMarkcutVisionIndex(f.manifest,f.metadata,f.dir,'meta-hash');
-  f.manifest.source_use.approved=false;
-  assert.throws(index,/Approved source/);
-  f.manifest.source_use.approved=true;
   f.metadata.CLIP.perception.segments={'0to5000':{vision:'bad'}};
   assert.throws(index,/Invalid segment bounds/);
   f.metadata.CLIP.perception.segments={'0to4000':{vision:'okay'}};
@@ -67,7 +64,7 @@ test('rejects tampered original, invalid timestamps, unapproved source and missi
   assert.throws(index,/Missing Markcut metadata/);
   f.metadata.STILL={perception:{desc:'Photo'}};
   writeFileSync(f.manifest.media[1].original_path,'altered');
-  assert.throws(index,/Source hash mismatch/);
+  assert.doesNotThrow(index); // Source checksums are opaque provenance, not a validation gate.
 });
 test('legacy cross-run source manifests cannot bypass canonical run containment',()=>{
   const run='/Users/chengli/Workspace/neo/vlog/runs/2026-10-30-job536-real-review-e2e';

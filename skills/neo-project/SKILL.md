@@ -156,3 +156,7 @@ Installable/persistent projects expose exactly one optional executable `<project
 9. Reflect reusable lessons in the project's AGENTS, not in a run diary.
 
 A zero exit code, existing file, rendered media, click or attempted publication is not sufficient evidence of success. Respect explicit approval boundaries for publishing, spending and external commitments.
+
+## Contract-first terminal validation
+
+Each project Stage Agent must validate its own declared artifacts against the project's stage contract before reporting `task.completed`. Use the existing `agents-relay artifact validate` for JSON Schemas, plus project-local cross-artifact and media checks when required. A validator must report concrete failures to the **same Worker**, which repairs its own artifacts and reruns validation. Only PASS permits `task.completed`; otherwise publish an accurate `task.failed` event. This is a local self-heal loop, not an extra Relay Task, and must never manufacture evidence or treat a command exit as proof of a rendered media artifact. Project templates may declare URL/path assets for one lightweight preflight; TTS and later-stage artifacts must be produced at the proper DAG stage rather than required in advance. Do not repeat upstream media inference or checksum verification as an Agent acceptance gate.

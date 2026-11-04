@@ -1,5 +1,4 @@
-import {readFileSync} from 'node:fs';
-import {createHash} from 'node:crypto';
+import {readFileSync,statSync} from 'node:fs';
 import {relative,resolve,sep} from 'node:path';
 
 const DEFAULT_TEMPLATE = new URL('../templates/cinematic-vlog.md',import.meta.url);
@@ -56,8 +55,8 @@ export function compileCinematicVlog({
   fps ??=config.format.fps;
   if(!Array.isArray(scenes) || scenes.length<2)throw Error('At least two source scenes are required');
   if(!config.variants.includes(variant))throw Error('Unknown Vlog style variant: '+variant);
-  if(!music?.path || !music.sha256 || !music.evidenceRef)
-    throw Error('Template-selected BGM path, hash, and provenance are required');
+  if(!music?.path || !music.evidenceRef)
+    throw Error('Template-selected BGM path and origin are required');
   const songSource = config.song.provider+':'+config.song.vocal_track_id+'+'+config.song.instrumental_track_id;
   if(music.catalogReference!==songSource)
     throw Error('BGM_SOURCE_MISMATCH: run audio asset must match the song selected in the Markcut template');
@@ -78,7 +77,7 @@ export function compileCinematicVlog({
   if(!Number.isFinite(width)||!Number.isFinite(height)||!Number.isFinite(fps))
     throw Error('Invalid output format');
   const root=resolve(process.cwd());
-  const sha256=path=>createHash('sha256').update(readFileSync(resolve(root,path))).digest('hex');
+  const readable=path=>statSync(resolve(root,path)).isFile()&&statSync(resolve(root,path)).size>0;
   const local=path=>{
     const abs=resolve(root,path);
     const rel=relative(root,abs);
@@ -86,19 +85,16 @@ export function compileCinematicVlog({
     return rel.split(sep).join('/');
   };
   local(music.path);
-  let musicHash;
-  try{musicHash=sha256(music.path);}catch{throw Error('MISSING_TEMPLATE_SONG: supply the selected track, not a substitute');}
-  if(musicHash!==music.sha256.toLowerCase())throw Error('BGM bytes do not match music.sha256');
+  try{if(!readable(music.path))throw Error('empty');}catch{throw Error('MISSING_TEMPLATE_SONG: supply the selected track, not a substitute');}
   const renderedScenes=[];
   for(const [index,scene] of scenes.entries()) {
     if(!scene.id || !scene.path || !['video','image'].includes(scene.type) || !(scene.duration>0))
       throw Error('Invalid scene at index '+index);
-    if(!scene.authorized || !scene.sourceHash || !scene.evidenceRef)
-      throw Error('Scene '+scene.id+' lacks source authorization, hash, or evidence reference');
+    if(!scene.sourceHash || !scene.evidenceRef)
+      throw Error('Scene '+scene.id+' lacks source identity or evidence reference');
     const hashPath=scene.sourceEvidencePath??scene.path;
     local(hashPath);
-    if(sha256(hashPath)!==scene.sourceHash.toLowerCase())
-      throw Error('Scene '+scene.id+' source bytes do not match sourceHash');
+    try{if(!readable(hashPath))throw Error('empty');}catch{throw Error('Scene '+scene.id+' source media is unreadable');}
     if(scene.override && (!scene.override.description?.trim()||!scene.override.rationale?.trim()||!scene.override.evidenceRef))
       throw Error('Scene '+scene.id+' override lacks description, rationale, or evidence provenance');
     if(scene.override?.motion && (scene.type!=='image'||!['slowPush','none'].includes(scene.override.motion)))
@@ -120,7 +116,7 @@ export function compileCinematicVlog({
       const block=scene.override?.motion==='none'?'IMAGE_STATIC':'IMAGE_MOTION';
       media=substitute(blocks[block],{...common,'scene.duration':duration,'scene.background':scene.audioPath?' isBackground:true':''});
       if(scene.audioPath){
-        try{sha256(scene.audioPath);}catch{throw Error('STORY_VOICEOVER_MISSING: '+scene.id+' audio asset is unreadable');}
+        try{if(!readable(scene.audioPath))throw Error('empty');}catch{throw Error('STORY_VOICEOVER_MISSING: '+scene.id+' audio asset is unreadable');}
         media+='\n'+substitute(blocks.VOICE,{'scene.audio.path':local(scene.audioPath),'scene.audio.duration':scene.audioDuration??scene.duration});
       }
     }else{
@@ -129,7 +125,7 @@ export function compileCinematicVlog({
       if(scene.audioPath){
         if(!(scene.audioDuration>0)||scene.audioDuration>scene.duration)
           throw Error('STORY_VOICEOVER_DURATION: video '+scene.id+' ends before narration');
-        try{sha256(scene.audioPath);}catch{throw Error('STORY_VOICEOVER_MISSING: '+scene.id+' audio asset is unreadable');}
+        try{if(!readable(scene.audioPath))throw Error('empty');}catch{throw Error('STORY_VOICEOVER_MISSING: '+scene.id+' audio asset is unreadable');}
         media+='\n'+substitute(blocks.VOICE,{'scene.audio.path':local(scene.audioPath),'scene.audio.duration':scene.audioDuration});
       }
     }
@@ -141,7 +137,7 @@ export function compileCinematicVlog({
     }));
   }
   const song=config.song;
-  const metadata=`BGM ${song.title} — ${song.artist}, ${song.provider}; catalog vocal=${song.vocal_track_id??'none'} instrumental=${song.instrumental_track_id??'none'}; template rights=${song.license_status??'unknown'}; asset sha256 ${music.sha256}; rights evidence ${music.evidenceRef}${music.duckingEvidenceRef?'; mix evidence '+music.duckingEvidenceRef:''}`;
+  const metadata=`BGM ${song.title} — ${song.artist}, ${song.provider}; catalog vocal=${song.vocal_track_id??'none'} instrumental=${song.instrumental_track_id??'none'}; source reference ${music.evidenceRef}${music.duckingEvidenceRef?'; mix evidence '+music.duckingEvidenceRef:''}`;
   const subtitle=captions?.path?substitute(blocks.SUBTITLE,{'captions.path':q(local(captions.path))}):'';
   const transitionSetting=transition==='cut'?'':` transition:${transition} transitionTime:${seconds}`;
   const output=substitute(body,{
@@ -164,8 +160,8 @@ export function lintCinematicVlog(markdown,{scenes,boundaries,music,captions},{t
   if(music?.catalogReference!==config.song.provider+':'+config.song.vocal_track_id+'+'+config.song.instrumental_track_id)issues.push('BGM identity differs from the Markcut template');
   if(boundaries?.length!==scenes?.length-1 || boundaries?.some(b=>!b.transition||!b.rationale?.trim()))
     issues.push('Missing intentional edit decision or rationale at one or more scene boundaries');
-  if(!music?.sha256 || !music?.evidenceRef || !markdown.includes(`src:${music.path} isBackground:true`))
-    issues.push('Authorized BGM bed, hash, or rights evidence is missing');
+  if(!music?.path || !music?.evidenceRef || !markdown.includes(`src:${music.path} isBackground:true`))
+    issues.push('Template-selected BGM bed or origin is missing');
   if(scenes?.some(s=>['speech','dialogue','narration','meaningful-original-sound'].includes(s.audioIntent)) &&
     (!music?.preMixedDucking||!music?.duckingEvidenceRef))issues.push('Speech/original-sound ducking evidence is missing');
   const choices=boundaries?.map(b=>b.transition)??[];

@@ -11,8 +11,10 @@
     "provider": "Artlist",
     "vocal_track_id": "133995",
     "vocal_url": "https://artlist.io/royalty-free-music/song/good-times/133995",
+    "vocal_file": "assets/music/good-times-rynn-vocal.mp3",
     "instrumental_track_id": "133996",
     "instrumental_url": "https://artlist.io/royalty-free-music/song/good-times-instrumental-version/133996",
+    "instrumental_file": "assets/music/good-times-rynn-instrumental.mp3",
     "license_status": "unverified",
     "note": "Use one authorized pre-mixed continuous asset for vocal opening, instrumental speech and vocal ending; this selection does not grant publication rights"
   },

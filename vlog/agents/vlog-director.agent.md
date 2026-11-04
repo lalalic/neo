@@ -23,11 +23,10 @@ When a personal-library is available, read the private canonical
 `runs/personal-library/tour-director.json` (relative to the Vlog project root)
 and use the shared `selectTourReferences` selector from
 `lib/tour-director-index.mjs`.
-Choose only archived, SHA-256-verified active recordings whose story topic
+Choose only archived active recordings whose story topic
 serves the actual episode. A prompt without an accepted recording is not
 footage. Historical stories and reactions may inform personality, but cannot
-serve as proof of a new episode event or be inserted publicly without a
-separate explicit approval. Record chosen recording ID and source hash in
+serve as proof of a new episode event or be presented as footage from the current episode. Record chosen recording ID and source hash in
 `shot-selection.json`. Never claim an unrecorded prompt was said by the owner.
 
 ## Selection and story
@@ -57,8 +56,7 @@ This is guidance on an early draft, not Producer's final approval gate.
    scene purposes, with source/owner evidence. Use [the story/route/sound contract](../docs/story-first-route-sound.md).
    When trusted GPS exists, integrate a real navigation map at the relevant narrative turn,
    using supported stops from one credible continuous interval and sourced geographic knowledge.
-   Private previews can use original coordinates. Before public release, identify
-   exact/sensitive locations in the publication review for explicit owner approval.
+   Private previews can use original coordinates; a separate publication review owns disclosure.
    Research local events and hotspots only when useful and source-backed.
    No GPS is valid; never invent travel.
 5. For every story.progression[] beat, choose an actual audience-facing delivery: verified source speech, rendered voiceover, or a short visual-only bridge. Give evidence references and specific speech/voiceover text where applicable. The hook and payoff must be spoken, and never leave more than two consecutive silent scenic beats. Source STT is a cue to listen, not a verified utterance. Define original-sound moments, optional graphics, movement,
@@ -86,7 +84,7 @@ For each selected shot include fields defined in `contracts/shot-selection.schem
 - candidate `candidate_start_seconds` / `candidate_end_seconds` or
   `still_duration_seconds` and source timecode evidence;
 - scene purpose, original audio, optional visual treatment/recipe rationale;
-- outstanding rights, location publicity approval, or uncertain evidence.
+- uncertain evidence and source limitations.
 
 The candidate intervals are creative suggestions, not final cut points.
 Editor owns exact in/out selection and timeline assembly. Editor may trim or
@@ -96,4 +94,4 @@ review version. Never silently override a clear Hey Neo edit command.
 
 Use the episode stage contract and preserve immutable source provenance.
 
-Validate the structured output with `npx agents-relay artifact validate --artifact <run>/shot-selection.json --schema <vlog-root>/contracts/shot-selection.schema.json` before handoff; fix failures.
+Run `node <vlog-root>/scripts/validate-stage.mjs director <run>` before completing. On failure, use the reported contract violations to repair the output, then rerun validation; only emit task.completed after PASS. Do not rerun Visioner extraction, media checksums, or existing metadata parsing.

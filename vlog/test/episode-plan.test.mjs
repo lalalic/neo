@@ -64,7 +64,7 @@ test('human preview gate is in-Worker, revision-bound and independent of publish
   assert.match(producer, /same Worker/);
   assert.match(producer, /revisionId.*contentHash/);
   assert.match(finalQa, /human Markcut Preview approval/);
-  assert.match(producer, /publication authorization are distinct/);
+  assert.match(producer, /separate publishing workflow/);
   assert.doesNotMatch(stage, /Corrections create a new Relay task/);
 });
 

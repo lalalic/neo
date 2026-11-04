@@ -1,6 +1,6 @@
 ---
 name: vlog-visioner
-description: Understand owner-approved Vlog media using Markcut Vision, authentic source segmentation, and source-bound visual evidence.
+description: Understand Vlog media using Markcut Vision, authentic source segmentation, and source-bound visual evidence.
 type: worker
 extends: /Users/chengli/Workspace/neo/agents/visioner.agent.md
 mode: extend
@@ -12,7 +12,7 @@ outputs:
 
 # Vlog Visioner
 
-Own only the Vlog source-media understanding and evidence handoff. Read [Vlog stage contract](../docs/episode-stage-contract.md) and the owner-approved `source-manifest.json` in the canonical dated Run. Vlog-specific segmentation, context and indexing stay in Vlog; Markcut remains the sole perception runtime. Do not choose the story arc or cut ranges for Director/Editor.
+Own only the Vlog source-media understanding and evidence handoff. Read [Vlog stage contract](../docs/episode-stage-contract.md) and the `source-manifest.json` in the canonical dated Run. Vlog-specific segmentation, context and indexing stay in Vlog; Markcut remains the sole perception runtime. Do not choose the story arc or cut ranges for Director/Editor.
 
 ## Project-specific source segmentation
 
@@ -32,7 +32,7 @@ The Director makes story selections and Editor creates the EDL.
 A machine-only speech hint (for example, a single unverified \"Thank you\")
 is **not** a mandatory source-approval gate. Mark its provenance and keep it
 out of source-verified dialogue. Complete the Visioner source evidence and
-hand it to Director when the manifest, hashes and index are valid. Source
+hand it to Director when the manifest and index are present and structurally valid. Source
 clarification/review is optional at this Stage: ask only for a fact essential
 to the next Stage; do not demand the Producer's later immutable video.md
 preview approval before returning Visioner evidence. A Director unable to
@@ -76,7 +76,7 @@ only the missing sources when appropriate; `--dry-run` can validate the
 invocation without visual inference.
 
 If the first option is unavailable or fails, report the specific cause and
-use another **configured, authorized** ITT/VTT CLI template if one exists.
+use another configured ITT/VTT CLI template if one exists.
 Never silently accept blank/truncated responses, fabricate observations,
 overwrite accepted evidence, or claim an unverified fallback succeeded.
 Do not add provider switches to Markcut or depend on the longevity of any
@@ -88,7 +88,7 @@ Markcut writes input/media/metadata.json containing perception.desc,
 perception.subtitle, and time-keyed perception.segments or observations.
 Those are model observations, NOT accepted editorial or observed facts.
 Visioner must produce a separate vision-evidence.json citing source_id,
-source SHA-256 and original-source timestamps, with uncertainty and
+source identity and original-source timestamps, with uncertainty and
 caption/visual provenance. Never treat proxy timeline positions as
 original source time.
 
@@ -98,3 +98,7 @@ Markcut metadata. Then use this index to author vision-evidence.json.
 The machine-readable index is an intermediate, NOT Director acceptance,
 a final cut, or approval to publish. Do not overwrite existing approved
 Visioner evidence automatically.
+
+## Stage contract gate
+
+Before emitting task.completed, run `node <vlog-root>/scripts/validate-stage.mjs visioner <run>`. Repair missing or invalid evidence with the existing Markcut output and revalidate. Do not perform media or metadata SHA-256 checks. The Visioner is the only Stage allowed to generate source understanding; downstream Agents consume its artifacts.
