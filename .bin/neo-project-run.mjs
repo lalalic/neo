@@ -249,7 +249,7 @@ export function runProject(args, options = {}) {
     const exitCode = await executeBoundRun(options, files, [
       'job', 'run', '--mode', 'shortcut', '--repo', repo,
       '--id', jobId, '--task-id', TASK_ID,
-      '--project-path', selected.project, '--neo-root', selected.root,
+      '--project-path', selected.root, '--neo-root', selected.root,
       '--workspace-root', workspace.workspaceRoot,
     ]);
     if (exitCode !== 0) return exitCode;
