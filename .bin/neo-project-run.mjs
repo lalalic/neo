@@ -240,7 +240,7 @@ export function runProject(args, options = {}) {
   const files = initializeRun(runDir, parsed.project, isUrl ? undefined : runDir, isUrl ? parsed.url : undefined);
   const repo = options.repository ?? process.env.NEO_RELAY_REPOSITORY ?? 'lalalic/neo';
   const projectPath = relative(selected.root, selected.project).split(sep).join('/');
-  const invoke = args => relayInvocation(options, args);
+  const invoke = args => relayInvocation(options, (options.localShortcut ?? Boolean(options.relayCli ?? process.env.NEO_RELAY_CLI)) ? [...args, '--shortcut-local'] : args);
   const runBound = async (jobId, previouslyCompleted = false) => {
     if (previouslyCompleted) {
       (options.emit ?? (value => process.stdout.write(value)))(`${JSON.stringify({ project: parsed.project, runPath: runDir, jobId, taskId: TASK_ID, status: 'COMPLETED', reused: true })}\n`);
