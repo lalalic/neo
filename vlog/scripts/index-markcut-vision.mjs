@@ -40,7 +40,7 @@ function parseMarkcutSegmentRanges(perception, sourceId, limit) {
   return observations.sort((a,b)=>a.source_time_start_seconds-b.source_time_start_seconds);
 }
 
-export function makeMarkcutVisionIndex(manifest, metadata, sourceDir, metadataHash) {
+export function makeMarkcutVisionIndex(manifest, metadata, sourceDir, metadataHash, manifestHash=hash(JSON.stringify(manifest))) {
   if (manifest?.source_use?.approved !== true || !Array.isArray(manifest.media)) {
     throw new Error('Approved source manifest required');
   }
@@ -118,7 +118,7 @@ export function makeMarkcutVisionIndex(manifest, metadata, sourceDir, metadataHa
   return {
     schema_version:1,stage:'markcut_to_visioner_evidence_index',
     status:'SOURCE_LINKED_UNREVIEWED',
-    manifest_hash:hash(JSON.stringify(manifest)),
+    manifest_hash:manifestHash,
     markcut_metadata_sha256:metadataHash,
     sources,observations,findings,
     semantic_boundary:'Descriptions are machine observations, not authenticated visual facts or Director edit choices',
@@ -128,7 +128,8 @@ export function indexFromRun(run) {
   run=realpathSync(run);
   const manifestPath=join(run,'source-manifest.json');
   if (!existsSync(manifestPath)) throw new Error('Missing source-manifest.json');
-  const manifest=JSON.parse(readFileSync(manifestPath,'utf8'));
+  const manifestBytes=readFileSync(manifestPath);
+  const manifest=JSON.parse(manifestBytes.toString('utf8'));
   if(typeof manifest.canonical_source_directory!=='string'||!isAbsolute(manifest.canonical_source_directory)) throw new Error('Canonical source directory must be absolute');
   if(manifest.markcut_metadata_path && !isAbsolute(manifest.markcut_metadata_path)) throw new Error('Markcut metadata path must be absolute');
   const sourceDir=realpathSync(manifest.canonical_source_directory);
@@ -143,7 +144,8 @@ export function indexFromRun(run) {
     throw new Error('Markcut metadata changed since manifest approval');
   }
   const metadata=JSON.parse(metadataBytes.toString());
-  return makeMarkcutVisionIndex(manifest,metadata,sourceDir,hash(metadataBytes));
+  // File-backed provenance hashes the actual approved bytes, not reserialized JSON.
+  return makeMarkcutVisionIndex(manifest,metadata,sourceDir,hash(metadataBytes),hash(manifestBytes));
 }
 if (process.argv[1] && import.meta.url === new URL('file://'+process.argv[1]).href) {
   try {

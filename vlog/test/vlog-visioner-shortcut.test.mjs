@@ -1,14 +1,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { execFile } from 'node:child_process';
+import { copyFile, mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
+import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
 import { indexFromRun } from '../scripts/index-markcut-vision.mjs';
 import { run } from '../agents/.shortcut/vlog-visioner.agent.mjs';
 
 const hash = value => createHash('sha256').update(value).digest('hex');
+const execFileAsync = promisify(execFile);
 
 async function fixture(t, withMetadata = false) {
   const root = await mkdtemp(join(tmpdir(), 'neo-vision-shortcut-'));
@@ -78,6 +82,33 @@ test('reuses approved Markcut metadata and writes source-linked, explicitly unre
   assert.equal(evidence.observations[0].source_time_start_seconds, 0);
   assert.equal(evidence.observations[0].status, 'MODEL_OUTPUT_UNREVIEWED');
   assert.match(evidence.acceptance, /not Director acceptance, human approval/);
+});
+
+test('real subprocess indexes a pretty-printed approved manifest with byte-exact provenance', async t => {
+  const f = await fixture(t, true);
+  const manifestPath = join(f.runPath, 'source-manifest.json');
+  const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
+  const manifestBytes = Buffer.from(JSON.stringify(manifest, null, 2) + '\n');
+  assert.notEqual(hash(manifestBytes), hash(JSON.stringify(manifest)));
+  await writeFile(manifestPath, manifestBytes);
+  await copyFile(fileURLToPath(new URL('../scripts/index-markcut-vision.mjs', import.meta.url)),
+    join(f.vlogRoot, 'scripts/index-markcut-vision.mjs'));
+  const commands = [];
+  const result = await run({ input: { projectPath:f.vlogRoot, runPath:f.runPath },
+    runCommand: async (argv, cwd) => {
+      commands.push(argv);
+      const { stdout, stderr } = await execFileAsync(argv[0],argv.slice(1),{cwd});
+      return {code:0,stdout,stderr};
+    },
+  });
+  assert.equal(result.status,'COMPLETED');
+  assert.deepEqual(result.markcut,{invoked:false,reused:true});
+  assert.equal(commands.length,1);
+  const indexBytes = await readFile(join(f.runPath,'vision-segment-index.json'));
+  assert.equal(result.artifacts['vision-segment-index.json'].manifest_hash,hash(manifestBytes));
+  assert.equal(result.evidence.vision_segment_index_sha256,hash(indexBytes));
+  assert.equal(result.evidence.sources.length,1);
+  assert.equal(result.evidence.observations.length,1);
 });
 
 test('missing metadata requires explicit inference authorization and accepted CLI templates', async t => {
