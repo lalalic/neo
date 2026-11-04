@@ -22,7 +22,7 @@ function usage() {
   neo escalation --handoff-file PATH [options]
   neo status|doctor
   neo project list|resolve NAME|setup-agent NAME
-  neo project run (--url HTTPS_URL | --path ABSOLUTE_RUN_DIR) --project NAME [--dry-run]
+  neo project run (--url HTTPS_URL | --path ABSOLUTE_RUN_DIR) --project NAME [--dry-run]\n  neo project tts (--text TEXT | --text-file PATH) --output ABSOLUTE.m4a [--voice Tingting] [--rate 200] [--node local]
   neo workspace show
   neo skill list [--project PATH]|package SKILL_DIR OUTPUT.zip
   neo bootstrap [--json] [--project PATH]

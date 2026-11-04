@@ -3,6 +3,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadWorkspaceConfig } from './workspace-config.mjs';
 import { runProject } from './neo-project-run.mjs';
+import { runTts } from './neo-project-tts.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const scripts = resolve(root, 'skills/xchat-orchestrator/scripts');
@@ -47,6 +48,7 @@ export function executeControl(argv, options = {}) {
     return probe.gateway_http === 'reachable' && probe.node !== 'missing' && probe.python !== 'missing' ? 0 : 2;
   }
   if (category === 'project') {
+    if (command === 'tts') { emit(JSON.stringify(runTts(args),null,2)+'\n'); return 0; }
     if (command === 'run') return runProject(args, { emit, ...(options.workspace ? { workspace: options.workspace } : {}), ...(options.runRelay ? { runRelay: options.runRelay } : {}) });
     if (command === 'list' && args.length === 0) return execute(resolve(scripts, 'list-xchat-projects'), []);
     if (command === 'resolve' && args.length === 1 && !args[0].startsWith('-')) return execute(resolve(scripts, 'list-xchat-projects'), ['--resolve', args[0]]);
@@ -65,7 +67,7 @@ export function executeControl(argv, options = {}) {
       emit(JSON.stringify({ project: project.xchat_project, bootstrap, opened: true, browser: 'Google Chrome', promptSubmitted: false }) + '\n');
       return 0;
     }
-    return fail('usage: neo project list | resolve NAME | setup-agent NAME | run (--url URL | --path PATH) --project NAME [--dry-run]');
+    return fail('usage: neo project list | resolve NAME | setup-agent NAME | tts (--text TEXT | --text-file PATH) --output ABSOLUTE.m4a | run (--url URL | --path PATH) --project NAME [--dry-run]');
   }
   if (category === 'skill') {
     if (command === 'package' && args.length === 2 && args.every(value => value && !value.startsWith('-')))
