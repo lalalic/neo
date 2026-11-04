@@ -1,6 +1,6 @@
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { chmodSync, existsSync, linkSync, lstatSync, mkdirSync, readFileSync, realpathSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, closeSync, existsSync, linkSync, lstatSync, mkdirSync, openSync, readFileSync, realpathSync, statSync, unlinkSync, writeFileSync, writeSync } from 'node:fs';
 import { basename, dirname, isAbsolute, join, relative, sep } from 'node:path';
 import { loadWorkspaceConfig } from './workspace-config.mjs';
 
@@ -126,10 +126,67 @@ function initializeRun(runDir, projectName, input, sourceUrl) {
   return { evidence, objective, taskInput, output, binding, saved: null };
 }
 
+function relayCommand(options) {
+  const localCli = options.relayCli ?? process.env.NEO_RELAY_CLI;
+  if (localCli) {
+    if (!isAbsolute(localCli) || !statSync(localCli).isFile()) fail('NEO_RELAY_CLI must refer to an existing absolute Relay CLI file');
+    return { executable: process.execPath, prefix: [realpathSync(localCli)] };
+  }
+  const executable = options.relayExecutable ?? process.env.NEO_RELAY_EXECUTABLE ?? 'npx';
+  return { executable, prefix: executable === 'npx' ? ['-y', '--package', 'agents-relay@latest', 'agents-relay'] : [] };
+}
+
+/** Foreground child: forward every event as it arrives and retain an append-only,
+ * private per-Run transcript so another observer can tail the same execution. */
+export async function executeBoundRun(options, files, args) {
+  if (options.runRelayJob) {
+    const result = await options.runRelayJob(args);
+    if (!Number.isInteger(result) || result < 0 || result > 255) fail('Relay run returned invalid exit status');
+    return result;
+  }
+  const { executable, prefix } = relayCommand(options);
+  const path = join(dirname(files.binding), 'neo-project-run.log');
+  if (existsSync(path)) {
+    const stat = lstatSync(path);
+    if (!stat.isFile() || stat.isSymbolicLink() || (stat.mode & 0o077)) fail('existing run log is not a private regular file');
+  }
+  const fd = openSync(path, 'a', 0o600);
+  chmodSync(path, 0o600);
+  const output = options.emit ?? (value => process.stdout.write(value));
+  const errors = options.error ?? (value => process.stderr.write(value));
+  let child;
+  try {
+    child = (options.spawnImpl ?? spawn)(executable, [...prefix, ...args], {
+      cwd: dirname(files.binding), stdio: ['inherit', 'pipe', 'pipe'], env: process.env,
+    });
+  } catch (error) { closeSync(fd); throw error; }
+  const forward = (data, sink) => {
+    const bytes = Buffer.isBuffer(data) ? data : Buffer.from(data);
+    writeSync(fd, bytes);
+    sink(bytes.toString('utf8'));
+  };
+  child.stdout?.on('data', chunk => forward(chunk, output));
+  child.stderr?.on('data', chunk => forward(chunk, errors));
+  const onSignal = signal => { if (child.pid && child.exitCode === null && !child.killed) child.kill(signal); };
+  const interrupt = () => onSignal('SIGINT');
+  const terminate = () => onSignal('SIGTERM');
+  process.on('SIGINT', interrupt);
+  process.on('SIGTERM', terminate);
+  try {
+    return await new Promise((resolve, reject) => {
+      child.once('error', reject);
+      child.once('close', (code, signal) => resolve(signal ? 5 : code ?? 1));
+    });
+  } finally {
+    process.off('SIGINT', interrupt);
+    process.off('SIGTERM', terminate);
+    closeSync(fd);
+  }
+}
+
 function relayInvocation(options, args) {
   if (options.runRelay) return options.runRelay(args);
-  const executable = options.relayExecutable ?? process.env.NEO_RELAY_EXECUTABLE ?? 'npx';
-  const prefix = executable === 'npx' ? ['-y', '--package', 'agents-relay@latest', 'agents-relay'] : [];
+  const { executable, prefix } = relayCommand(options);
   const result = (options.spawnSyncImpl ?? spawnSync)(executable, [...prefix, ...args], { encoding: 'utf8', timeout: 120000, maxBuffer: 4 *  1024 * 1024 });
   if (result.error || result.status !== 0) fail(`Agents Relay command failed (${result.status ?? 'spawn error'}); run artifacts and recovery binding are preserved`);
   try { return JSON.parse(result.stdout); } catch { fail('Agents Relay returned invalid JSON; run artifacts and recovery binding are preserved'); }
@@ -184,6 +241,29 @@ export function runProject(args, options = {}) {
   const repo = options.repository ?? process.env.NEO_RELAY_REPOSITORY ?? 'lalalic/neo';
   const projectPath = relative(selected.root, selected.project).split(sep).join('/');
   const invoke = args => relayInvocation(options, args);
+  const runBound = async (jobId, previouslyCompleted = false) => {
+    if (previouslyCompleted) {
+      (options.emit ?? (value => process.stdout.write(value)))(`${JSON.stringify({ project: parsed.project, runPath: runDir, jobId, taskId: TASK_ID, status: 'COMPLETED', reused: true })}\n`);
+      return 0;
+    }
+    const exitCode = await executeBoundRun(options, files, [
+      'job', 'run', '--mode', 'shortcut', '--repo', repo,
+      '--id', jobId, '--task-id', TASK_ID,
+      '--project-path', selected.project, '--neo-root', selected.root,
+      '--workspace-root', workspace.workspaceRoot,
+    ]);
+    if (exitCode !== 0) return exitCode;
+    // Process exit alone does not establish success. Recheck SQLite-backed
+    // Relay state after the child has exited, not its terminal text output.
+    const updated = invoke(['job', 'show', '--repo', repo, '--id', jobId]);
+    const tasks = parseTaskRows(invoke(['task', 'list', '--repo', repo, '--id', jobId]));
+    const actual = tasks.find(row => String(row.id ?? row.taskId) === TASK_ID);
+    if (updated.state !== 'COMPLETED' || actual?.state !== 'SUCCEEDED') {
+      (options.error ?? (value => process.stderr.write(value)))('Relay exited zero without proven durable Job/Task completion\n');
+      return 2;
+    }
+    return 0;
+  };
   let jobId;
   if (files.saved?.jobId) {
     if (files.saved.repository !== repo) fail('existing Run binding is associated with a different Relay repository');
@@ -197,7 +277,7 @@ export function runProject(args, options = {}) {
     if (existing) {
       verifyBoundTask(existing, files, selected.graph);
       (options.emit ?? (text => process.stdout.write(text)))(`${JSON.stringify({ project: parsed.project, runPath: runDir, jobId, taskId: TASK_ID, verified: true })}\n`);
-      return 0;
+      return runBound(jobId, existing.state === 'SUCCEEDED' && job.state === 'COMPLETED');
     }
   } else {
     const created = invoke(['job', 'create', '--repo', repo, '--project-path', projectPath, '--objective-file', files.objective, '--shortcut-execution']);
@@ -209,7 +289,7 @@ export function runProject(args, options = {}) {
   const taskId = responseId(task, 'Task create');
   if (taskId !== TASK_ID) fail('Agents Relay created an unexpected Task id; run binding is preserved');
   (options.emit ?? (text => process.stdout.write(text)))(`${JSON.stringify({ project: parsed.project, runPath: runDir, jobId, taskId })}\n`);
-  return 0;
+  return runBound(jobId);
 }
 
 export const projectRunHelp = `Usage: neo project run (--url HTTPS_URL | --path ABSOLUTE_RUN_DIR) --project NAME [--dry-run]\n\nOptions accept --name value or --name=value in any order.\n--url       HTTPS source reference for a project that declares URL input\n--path      Existing canonical dated run directory (URL projects may use it to resume a bound Run)\n--project   Project directory beneath the configured Neo workspace\n--dry-run   Validate and preview without writing files or invoking Agents Relay\n`;

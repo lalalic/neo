@@ -1,6 +1,6 @@
 # Neo Project Run Contract
 
-`neo project run` is the explicit CLI entry point for creating one content-only Agents Relay Job and one Task for a project. Project declarations in `project.run.json` define the accepted input type and restrictions. A project without a valid declaration is not enabled. The declaration is input validation metadata; the project's `graph.mmd` remains the sole authority for workflow ordering.
+`neo project run` is the explicit foreground CLI entry point for creating or resuming one content-only Agents Relay Job and one Task for a project, then executing it until a verified terminal result. Project declarations in `project.run.json` define the accepted input type and restrictions. A project without a valid declaration is not enabled. The declaration is input validation metadata; the project's `graph.mmd` remains the sole authority for workflow ordering.
 
 ## Invocation
 
@@ -26,7 +26,9 @@ The CLI validates required project files (`AGENTS.md`, `README.md`, and `graph.m
 
 URL input creates a unique dated directory under the project's canonical `runs/`, with private mode-0600 source evidence and objective/input documents. The complete URL stays in the private evidence file and is never placed on Relay argv or printed. Path input references an existing run and never replaces its files. Both forms write a private atomic binding pointer containing only the project/run and Relay Job/Task identifiers and private artifact paths.
 
-Neo invokes the installed `agents-relay` CLI through argv: it creates a shortcut Job (`--repo lalalic/neo`, overridable by `NEO_RELAY_REPOSITORY`) and then a Task with the canonical project graph. Task creation is Relay's normal wake path. Neo does not call `job run`, maintain a second Job/Task status store, cancel failed work, or claim completion from the local binding. A repeated path verifies the Job repository/project/execution policy and Task input, output path and Agent Graph with Relay before returning the existing IDs; if the verified Job exists but its Task does not, Neo resumes Task creation.
+Neo invokes the installed `agents-relay` CLI through argv: it creates a shortcut Job (`--repo lalalic/neo`, overridable by `NEO_RELAY_REPOSITORY`) and then a Task with the canonical project graph. It then invokes `agents-relay job run --mode shortcut` as a foreground child, forwarding stdout/stderr and per-node events as they arrive. Exit 0 requires checking the authoritative Relay Job is `COMPLETED` and the bound Task is `SUCCEEDED`; non-success exit codes are forwarded (1 failure, 2 unverified success, 3 waiting event, 4 timeout, 5 interrupted). A repeated path verifies the Job repository/project/execution policy and Task input, output path and Agent Graph before resuming its bound Task. A fully completed bound Run returns success without rerunning completed work; if a verified Job exists but its Task does not, Neo resumes Task creation.
+
+The live terminal stream is also appended to a mode-0600 `neo-project-run.log` in the same canonical Run. An observer can follow it with `tail -f <run-dir>/neo-project-run.log` while the foreground command runs. The log may contain private run content: never commit or publish it. When testing unmerged Relay changes use `NEO_RELAY_CLI=/absolute/path/to/agents-relay/dist/cli.js` so **both** setup commands and the foreground execution target the same local build; the default is the installed `agents-relay@latest`. Do not use this override to bypass approval or authorization gates.
 
 Runs, source evidence, binding pointers, output, and diagnostics belong in ignored canonical project `runs/`. Source code changes and tests may use isolated worktrees; production runs must use the configured canonical Neo project tree.
 
