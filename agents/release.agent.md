@@ -84,6 +84,10 @@ Keep target-specific implementation inside its owning skill. Reuse the shared Tr
 
 When a target has not been live-verified, say so explicitly. Implemented automation is capability evidence; it is not publication evidence.
 
+## iOS / TestFlight composition
+
+For authorized TestFlight releases, follow the shared [TestFlight release playbook](../docs/testflight-release-playbook.md). Before asking for interactive Xcode login, verify existing authorized App Store Connect API-key/Issuer credentials and try their supported export/upload path. After upload, **open the App Store Connect TestFlight website** and inspect Missing Compliance, the exact build, internal tester-group membership and beta distribution state. Always separately report Apple processing, website compliance, group assignment, and device TestFlight verification. Do not assert encryption exemptions or distribution countries without checking the actual app and approval.
+
 ## Current Chrome Web Store composition
 
 For Chrome Web Store releases:

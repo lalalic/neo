@@ -34,6 +34,10 @@ All external posting and publishing requires explicit owner permission. Draft/pr
 
 - Every Neo Project with local Worker roles maintains `<project>/.evals/cases.json` and local, Git-ignored `.evals/reports/`. Run with the Neo CLI: `neo eval run --project NAME`; inspect with `neo eval list --project NAME` and audit coverage using `neo eval audit`. For model decision Cases, generate the actual Agent prompt with Relay PromptBuilder and evaluate its isolated built variant; do not concatenate static AGENTS/role text. Cases test project outcomes and decisions; deterministic executable tests (e.g. Markcut template verification) are distinct from model-graded role decisions. Generic Relay L4 bootstrap/transport PASS is not Worker quality evidence. Apply global Markdown and skill-builder rules when authoring cases.
 
+## Software distribution
+
+For any authorized iOS/TestFlight release, consult the shared [TestFlight release playbook](docs/testflight-release-playbook.md): check existing API-key upload capabilities before treating an Xcode login prompt as an owner-only blocker, and **always inspect the actual App Store Connect TestFlight website after upload** for encryption compliance, the exact build, tester-group distribution, and installability.
+
 ## Learning
 
 Capture durable project-specific lessons in the project's `AGENTS.md` and role-specific details in its Agent files. Cross-project rules alone belong here. Distill the observation and future action; keep incident logs, detailed evidence and one-off workarounds in private run records. Consult [historical agent/platform lessons](docs/agent-execution-learnings.md) only when relevant, not as automatic Worker context. Review obsolete lessons and remove contradictions.
