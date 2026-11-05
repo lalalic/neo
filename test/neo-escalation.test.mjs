@@ -125,7 +125,7 @@ test('native UI evidence and interactive authorization avoid premature human esc
   assert.match(prompt, /obtain `list_apps` and a fresh `get_app_state`/);
   assert.match(prompt, /background\/PTY process with observable output/);
   assert.match(prompt, /rejoin it and verify its outcome/);
-  assert.match(prompt, /Do not conclude `needs_user` merely because the first tool fails/);
+  assert.match(prompt, /One failed tool does not establish `needs_user`/);
   assert.match(prompt, /clicked button.*not proof of completion/);
 });
 
@@ -156,7 +156,7 @@ test('CLI help exposes only file-based content inputs', () => {
 
 test('default needs-user policy is a human fallback, not a primary execution path', () => {
   const prompt = buildEscalationPrompt({ handoff: 'Confirm a desktop setting first.', cwd: '/tmp' });
-  assert.match(prompt, /This policy is \*\*not\*\* a reason to notify the user before attempting the work/);
+  assert.match(prompt, /Never notify before attempting authorized recovery/);
   assert.match(prompt, /\`on_needs_user\`/);
   assert.match(prompt, /If WeChat\/File Helper cannot deliver/);
 });

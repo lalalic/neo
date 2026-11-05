@@ -70,6 +70,8 @@ export function toolsObserved(events = []) {
     const command = typeof event.input?.command === 'string' ? event.input.command : '';
     if (name === 'terminal' || name === 'execute_code') tools.add('shell');
     if (name === 'skills') tools.add('skills');
+    if (name === 'webhelm') tools.add('webhelm');
+    if (name === 'computer_use' || name === 'computer-use') tools.add('computer-use');
     if (/\bwebhelm\b/.test(command)) tools.add('webhelm');
     if (/\bneo\s+computer-use\b/.test(command)) tools.add('computer-use');
     if (/\bwechat-bro\b/.test(command)) tools.add('wechat-bro');

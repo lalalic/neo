@@ -1,9 +1,10 @@
 import { spawn } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createServer } from 'node:net';
 import { generateExperience } from './neo-escalation-experience.mjs';
+import { runStatelessAgent } from './neo-stateless-agent.mjs';
 
 const DEFAULT_GGUF = 'unsloth/Qwen3.5-4B-GGUF:Q4_K_M';
 const DEFAULT_MLX = 'mlx-community/Qwen3.5-4B-MLX-4bit';
@@ -61,6 +62,38 @@ export function hermesArguments(queryFile, config, baseUrl, cwd) {
     '--quiet', '--format', 'stream-json',
     '--source', 'tool', '--yolo', '--in', cwd,
   ];
+}
+
+/**
+ * Hermes persists chats and diagnostic transcripts under HERMES_HOME. Give
+ * each Neo escalation a private disposable home so none reach the owner's
+ * normal Hermes session/thread database or logs. Only share the installation's
+ * dependency environment and the read-only WebHelm skill source.
+ */
+export function prepareEphemeralHermesHome(temp, {
+  home = homedir(), fs = {mkdirSync, existsSync, symlinkSync, readdirSync, copyFileSync},
+} = {}) {
+  const isolated = join(temp, 'hermes-home');
+  fs.mkdirSync(isolated, {recursive: true, mode: 0o700});
+  const installs = join(home, '.hermes/installs');
+  if (!fs.existsSync(installs)) throw new Error('Hermes dependency store not installed');
+  fs.symlinkSync(installs, join(isolated, 'installs'), 'dir');
+  const tools = join(home, '.hermes/tools');
+  if (!fs.existsSync(tools)) throw new Error('Hermes installed toolchain not found');
+  // IMPORTANT: do NOT symlink the entire tools root. Hermes may otherwise
+  // republish its global launcher pointing to our disposable HERMES_HOME!
+  const toolDir = join(isolated, 'tools');
+  fs.mkdirSync(toolDir, {recursive:true, mode:0o700});
+  for (const entry of fs.readdirSync(tools).filter(name => /^(?:python|uv|node|npm|ripgrep|ffmpeg)-[A-Za-z0-9.+_-]+$/.test(name))) {
+    fs.symlinkSync(join(tools, entry), join(toolDir, entry), 'dir');
+  }
+  if (fs.existsSync(join(tools,'facts.json'))) fs.copyFileSync(join(tools,'facts.json'),join(toolDir,'facts.json'));
+  const skill = join(home, '.agents/skills/webhelm');
+  if (fs.existsSync(skill)) {
+    fs.mkdirSync(join(isolated, 'skills'), {recursive: true, mode: 0o700});
+    fs.symlinkSync(skill, join(isolated, 'skills/webhelm'), 'dir');
+  }
+  return isolated;
 }
 
 function delay(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
@@ -121,7 +154,7 @@ async function captureChild(command, args, { cwd, env, timeoutMs }) {
     child.once('close', (code, signal) => finish({code, signal}));
   });
   if (outcome.error) throw outcome.error;
-  if (outcome.code !== 0) throw new Error(`Local agent exited ${outcome.code ?? outcome.signal}: ${stderr.slice(-1600) || stdout.slice(-1600)}`);
+  if (outcome.code !== 0) throw new Error(`Local agent exited with code/signal ${outcome.code ?? outcome.signal}; secret-bearing output suppressed`);
   return stdout;
 }
 
@@ -133,7 +166,7 @@ export function parseLocalSession(output) {
   });
   const terminal = events.filter(event => event.type === 'result').at(-1);
   if (!terminal || terminal.exit_code !== 0 || typeof terminal.text !== 'string') {
-    throw new Error(`Local agent did not provide a successful terminal result: ${terminal?.error || 'missing result event'}`);
+    throw new Error('Local agent did not provide a successful terminal result; raw event content suppressed');
   }
   const text = terminal.text.trim();
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
@@ -194,21 +227,65 @@ export function normalizeLocalResult(raw) {
   return { status:raw.status, summary:raw.summary, reason, user_action:userAction, evidence, notification };
 }
 
+/** Public-facing output must not expose credential bytes. */
+export function redactEscalationResult(result, events = []) {
+  const names = new Set();
+  const secretAssignment = /\b(?:api[-_ ]?key|auth(?:orization)?|access[-_ ]?token|refresh[-_ ]?token|npm[-_ ]?token|password|cookie|secret|credential)\s*(?:[:=]|\bis\b)\s*["']?([^\s"';,]+)/gi;
+  for (const e of events) {
+    if (e?.type !== 'tool_result') continue;
+    const fields = [e.output, e.text, e.result, e.content];
+    for (const field of fields) {
+      if (field == null) continue;
+      const output = typeof field === 'string' ? field : JSON.stringify(field);
+      if (output.length > 4096) continue;
+      if (/^[A-Za-z0-9_+/=.!-]{6,512}$/.test(output.trim()) &&
+          !/^(?:success|failed|true|false|error|ok|done|verified)$/i.test(output.trim())) {
+        names.add(output.trim());
+      }
+      for (const match of output.matchAll(secretAssignment)) {
+        if (match[1].length >= 4) names.add(match[1]);
+      }
+    }
+  }
+  const scrub = input => {
+    if (typeof input !== 'string') return input;
+    let text = input;
+    // Match exact secret values observed in a tool result, including short
+    // provider keys that generic high-entropy heuristics cannot recognize.
+    for (const secret of names) text = text.split(secret).join('[REDACTED]');
+    return text
+      .replace(/\b(?:Bearer|Basic)\s+\S+/gi, '[REDACTED]')
+      .replace(/\b(?:sk[-_]|gh[pousr]_|github_pat_|npm_|xox[baprs]-|pk_live_|rk_live_)[A-Za-z0-9_\-]{6,}\b/gi, '[REDACTED]')
+      .replace(/\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/g, '[REDACTED]')
+      .replace(/\b(?:api[-_ ]?key|auth(?:orization)?|access[-_ ]?token|refresh[-_ ]?token|npm[-_ ]?token|password|cookie|secret|credential)\s*(?:[:=]|\bis\b)\s*["']?[^\s"';,]+/gi, '[REDACTED]')
+      .replace(/\b[A-Za-z0-9+/_=-]{28,}\b/g, '[REDACTED]');
+  };
+  return {
+    ...result,
+    summary: scrub(result.summary), reason: scrub(result.reason),
+    user_action: scrub(result.user_action),
+    evidence: result.evidence.map(scrub),
+    notification: result.notification ? {...result.notification,
+      details: scrub(result.notification.details)} : null,
+  };
+}
+
 /**
  * Start a process-owned inference engine, run one Hermes agent task, then
  * stop the owned engine in a finally block. The model remains on disk only.
  */
 export async function runLocalEscalation(request, {
-  config = localEscalationConfig(), fetcher = fetch, agentPrompt,
+  config = localEscalationConfig(), fetcher = fetch, agentPrompt, playbookPrompt = '',
   experiencePrompt = '', onExperience = () => {},
-  spawnServer = spawn, runAgent = captureChild, portFactory = freeTcpPort,
-  onServerStarted = () => {},
+  spawnServer = spawn, runAgent = null, portFactory = freeTcpPort,
+  onServerStarted = () => {}, redactResult = true,
 } = {}) {
   const temp = mkdtempSync(join(tmpdir(), 'neo-local-escalation-'));
   let server = null;
   const stopOnSignal = signal => {
-    // A cancelled synchronous call must not leave a large model resident.
+    // A cancelled call must not leave a model or transcript-bearing scratch.
     if (server && server.exitCode === null && server.signalCode === null) server.kill('SIGTERM');
+    try { rmSync(temp,{recursive:true,force:true,maxRetries:10,retryDelay:100}); } catch {}
     process.exit(signal === 'SIGINT' ? 130 : 143);
   };
   const onInterrupt = () => stopOnSignal('SIGINT');
@@ -216,7 +293,9 @@ export async function runLocalEscalation(request, {
   process.once('SIGINT', onInterrupt);
   process.once('SIGTERM', onTerminate);
   try {
+    const hermesHome = runAgent ? prepareEphemeralHermesHome(temp) : null;
     writeFileSync(join(temp, 'AGENTS.md'), agentPrompt, {mode: 0o600});
+    if (playbookPrompt) writeFileSync(join(temp, 'neo-escalation-playbook.md'), playbookPrompt, {mode: 0o600});
     const query = [
       'Continue this escalation task and obey the local execution rules in AGENTS.md.',
       `Original working directory: ${request.cwd}`,
@@ -241,18 +320,26 @@ export async function runLocalEscalation(request, {
       let startupError = null;
       if (typeof server.on === 'function') server.on('error', error => { startupError = error; });
       await ready(port, server, config.startupMs, fetcher, () => startupError).catch(error => {
-        let logTail = '';
-        try { logTail = readFileSync(logs, 'utf8').slice(-1200); } catch {}
-        throw new Error(`${error.message}; server: ${logTail}`);
+        throw new Error(`${error.message}; raw inference diagnostics suppressed`);
       });
       baseUrl = `http://127.0.0.1:${port}/v1`;
     }
-    const stdout = await runAgent(
-      config.hermesCommand, hermesArguments(queryFile, config, baseUrl, temp),
-      { cwd: temp, env: process.env, timeoutMs: (config.budgetSeconds + 60) * 1000 },
-    );
+    const stdout = runAgent
+      ? await runAgent(config.hermesCommand, hermesArguments(queryFile, config, baseUrl, temp),
+          { cwd:temp, env:{...process.env,HERMES_HOME:hermesHome,HERMES_RUNTIME_DIR:join(hermesHome,'tools')},
+            timeoutMs:(config.budgetSeconds+60)*1000 })
+      : await runStatelessAgent({baseUrl,
+          agentPrompt: [agentPrompt, playbookPrompt &&
+            'Relevant recovery reference is available in a local file at '+join(temp,'neo-escalation-playbook.md')+
+            '. For credential, browser or permission blockers, read it with Shell if needed.'].filter(Boolean).join('\n\n'),
+          request,config,
+          trace: process.env.NEO_ESCALATION_TOOL_DIAG === '1'
+            ? entry => process.stderr.write('Local tool status: '+JSON.stringify(entry)+'\n')
+            : () => {},
+        });
     const session = parseLocalSession(stdout);
-    const result = normalizeLocalResult(session.result);
+    const normalized = normalizeLocalResult(session.result);
+    const result = redactResult ? redactEscalationResult(normalized, session.events) : normalized;
     let experience = session.result.experience;
     let captureMethod = 'executor';
     // Let the executor concentrate on real tool use. If it omitted its
@@ -275,6 +362,6 @@ export async function runLocalEscalation(request, {
     await terminate(server);
     process.removeListener('SIGINT', onInterrupt);
     process.removeListener('SIGTERM', onTerminate);
-    rmSync(temp, {recursive:true, force:true});
+    rmSync(temp, {recursive:true, force:true, maxRetries:25, retryDelay:200});
   }
 }

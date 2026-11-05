@@ -49,7 +49,7 @@ export async function runEscalationSelfTest({
       onNeedsUser: 'Self-test only. Never notify a human; if a tool cannot run, return failed.',
     };
     const result = await run(request, {
-      agentPrompt, config,
+      agentPrompt, config, redactResult: false,
       onServerStarted(pid) { serverPid = pid; },
     });
     if (result.status !== 'resolved') {

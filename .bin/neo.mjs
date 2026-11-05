@@ -242,6 +242,7 @@ async function main(argv) {
       result = validateResult(await runLocalEscalation(request, {
         config,
         agentPrompt: readFileSync(AGENT_PATH, 'utf8'),
+        playbookPrompt: readFileSync(resolve(ROOT, 'agents/neo-escalation-playbook.md'), 'utf8'),
         experiencePrompt: readFileSync(resolve(ROOT, 'agents/escalation-experience.md'), 'utf8'),
         onExperience: payload => { captured = payload; },
       }));
