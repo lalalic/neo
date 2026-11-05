@@ -4,7 +4,8 @@
   "type": "object",
   "required": [
     "schema_version",
-    "edits"
+    "edits",
+    "personal_story_id"
   ],
   "properties": {
     "schema_version": {
@@ -21,7 +22,8 @@
           "source_hash",
           "in_seconds",
           "out_seconds",
-          "beat"
+          "beat",
+          "story_beat_id"
         ],
         "properties": {
           "shot_id": {
@@ -50,10 +52,18 @@
           },
           "transition": {
             "type": "string"
+          },
+          "story_beat_id": {
+            "type": "string",
+            "minLength": 1
           }
         },
         "additionalProperties": true
       }
+    },
+    "personal_story_id": {
+      "type": "string",
+      "minLength": 3
     }
   },
   "additionalProperties": true

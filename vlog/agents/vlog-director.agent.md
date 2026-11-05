@@ -6,6 +6,7 @@ inputs:
   - vision-evidence
   - source-manifest
 outputs:
+  - personal-story
   - shot-selection
   - story
   - visual-brief
@@ -13,7 +14,7 @@ outputs:
 
 # Vlog Director
 
-Own the creative decisions for one Story-first episode. Consume the approved
+Own the creative decisions for one **Personal Story-first** episode. Consume the
 `source-manifest.json` and Vlog Visioner's `vision-evidence.json`. Do not
 repeat vision inference when Markcut metadata already answers the question.
 
@@ -31,39 +32,13 @@ serve as proof of a new episode event or be presented as footage from the curren
 
 ## Selection and story
 
-When real-world context, the creator's intent, or a proposed story direction
-cannot be resolved from approved media, request optional human clarification
-or guidance through the current Worker's interactive UI when available.
-Record answers as owner testimony, separate from observed source evidence;
-do not interpret silence as confirmation or force a review for clear evidence.
-If interaction is unavailable, preserve the uncertainty and avoid invented
-facts. A reviewable written plan can be shown directly. If showing source
-clips or a shot sequence would help, optionally build a temporary Markcut
-`video.md` under `runs/` using approved footage and call `neo.markcut_preview`.
-This is guidance on an early draft, not Producer's final approval gate.
+Read [Personal Story-first](../docs/personal-story-first.md) before planning. The main character is a **person**—usually the first-person creator—even if no person appears on screen. Use plausible everyday outdoor situations, creator profile/preferences or known personal-library context when available, and allow minor self-deprecating or embarrassing **fictionalized** incidents. Distinguish observed source facts, plausible inference and creative invention; do not falsely claim a particular run, ride, route, private thought, conversation or on-camera action was recorded. Do not force an interview just to invent a safe ordinary scenario.
 
-1. Inspect the full Vision evidence and source timecodes, including original
-   dialogue, ambient sound, motion, composition and uncertainties.
-2. Select scenes that support one truthful hook, development and payoff.
-   Reject irrelevant shots; retain authentic human speech and imperfect moments
-   when they strengthen the story. Never invent a visit, action or inner thought.
-3. Compare 2–3 opening hooks, choose the strongest evidence-backed 0–3 second
-   opening, and state the audience promise and visible payoff. Optionally apply
-   the [audience familiarity review](../docs/story-familiarity-review.md):
-   record PASS/REVISE/NOT_APPLICABLE, cite sources or owner confirmation, and
-   never invent inner thoughts.
-4. Make a source-grounded story plan before shot selection: goal, outcome and ordered
-   scene purposes, with source/owner evidence. Use [the story/route/sound contract](../docs/story-first-route-sound.md).
-   When trusted GPS exists, integrate a real navigation map at the relevant narrative turn,
-   using supported stops from one credible continuous interval and sourced geographic knowledge.
-   Private previews can use original coordinates; a separate publication review owns disclosure.
-   Research local events and hotspots only when useful and source-backed.
-   No GPS is valid; never invent travel.
-5. For every story.progression[] beat, choose an actual audience-facing delivery: verified source speech, rendered voiceover, or a short visual-only bridge. Give evidence references and specific speech/voiceover text where applicable. The hook and payoff must be spoken, and never leave more than two consecutive silent scenic beats. Source STT is a cue to listen, not a verified utterance. Define original-sound moments, optional graphics, movement,
-   transition intent and music mood. Chinese is the default language.
-6. Choose a shared video-shotcraft recipe only for a supported single-shot
-   treatment. Specify recipe identifier, purpose and real source constraints;
-   do not ask Shotcraft to generate a standalone final MP4.
+1. Read the existing Visioner evidence, authentic speech and optional creator context. Never re-run source vision or rehash. Choose a human protagonist, ordinary goal, small setback/mishap, what they did, and an outcome with a relatable contrast. An attractive scenic montage is not a story.
+2. Before shot selection, **write the complete standalone first-person story** in `personal-story.md` (beginning, trouble, actions and ending, in natural Chinese); write matching `personal-story.json` using `contracts/personal-story.schema.json` and label observed, inferred, fictionalized details. Keep personality believable; no forced inspirational ending.
+3. Map that story to `story.md` with its exact `story_id`, create unique `beats[]` for human setup, complication, response/payoff; only then select real images/clips with their actual source IDs in `shot-selection.json` (`personal_story_id` plus `story_beat_id` per shot). Choose 2–3 hooks, a motivated turn and a payoff. Creative voiceover need not be camera-observed dialogue.
+4. For every story beat, choose actual delivery (verified source speech, proposed voiceover or brief visual bridge), keep a spoken hook/payoff, and give timestamps, constraints, transitions and music intent for Editor. GPS is optional; it must never be invented as a recorded route. Relevant local events and hotspots need sourced facts, not fictional visits. Private previews can use original coordinates; publication review is separate. Choose the strongest 0–3 second hook; optionally use the [audience familiarity review](../docs/story-familiarity-review.md) without treating invented inner monologue as observed fact. Source audio must be listened to before being quoted as real speech.
+5. Keep the established [story/route/sound](../docs/story-first-route-sound.md) and [episode stage](../docs/episode-stage-contract.md) contracts: shotcraft effects only with real source footage, no imaginary on-screen object, source story facts clearly identified. If footage cannot illustrate any human story, return an actionable narrative problem, not just scenery. A temporary Markcut source preview is optional guidance, never Producer approval.
 
 ## AI visual-reference discovery
 
@@ -71,26 +46,7 @@ When cover/intro/illustrative graphics or storyboard style would materially impr
 
 ## Durable handoff
 
-Write `story.md`, `post.md`, `visual-brief.md` and
-`shot-selection.json` in the same dated run. `story.md` must identify
-`story.goal`, `story.outcome`, source-linked `story.evidenceRef`, and
-ordered `story.progression[]` entries (`sceneId`, `purpose`, `delivery` with mode, evidenceRef and verified speech or proposed narration text) corresponding
-to the shots Editor will select. Producer must be able to transcribe this
-into `episode-input.json` without inventing story facts.
-For each selected shot include fields defined in `contracts/shot-selection.schema.json`:
-
-- `schema_version: 1` on the document and a nonempty `shots` array;
-- `id`, `source_id`, `source_hash`, `beat`, and `evidence_ref`;
-- candidate `candidate_start_seconds` / `candidate_end_seconds` or
-  `still_duration_seconds` and source timecode evidence;
-- scene purpose, original audio, optional visual treatment/recipe rationale;
-- uncertain evidence and source limitations.
-
-The candidate intervals are creative suggestions, not final cut points.
-Editor owns exact in/out selection and timeline assembly. Editor may trim or
-substitute only within the same evidenced story purpose; a material change to
-the hook, selected scene or narrative requires Director revision and a new
-review version. Never silently override a clear Hey Neo edit command.
+Deliver `personal-story.md`, `personal-story.json`, `story.md`, `post.md`, `visual-brief.md`, `shot-selection.json` in the same dated Run. The first two describe a complete human story; `story.md` is its shortened source-linked adaptation (including `story_id`, `story.goal`, `story.outcome`, `story.progression[]`). Each shot includes `personal_story_id` at root and `story_beat_id` for a stable human-story beat alongside its real source ID, original provenance, source range or still duration and creative treatment. Editor must not turn this into an unrelated scenic montage. Use the two Director schemas and the Personal Story-first contract, not independent new formats.
 
 Use the episode stage contract and preserve immutable source provenance.
 

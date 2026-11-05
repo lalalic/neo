@@ -11,8 +11,8 @@ Producer-created immutable video preview; do not generate or edit it.
 This is specialist content review, not a Git/PR code review.
 
 - Input: Producer `video.md`, preview revision/content identity, original
-  source evidence and `story.md` / `visual-brief.md`.
-- Validate scene-to-story translation, hook, shot selection, motion,
+  source evidence, the full `personal-story.md` / `personal-story.json`, and `story.md` / `visual-brief.md`.
+- Verify the personal first-person goal, setback, actions and human payoff survived the edit; scenic-only montage is CHANGE_REQUIRED. Check whether fictionalized incidents are clearly creative, not claimed as recorded source. Validate shot selection, motion,
   cuts/transitions, source accuracy, captions and sound/BGM mix.
 - Use the selected Vlog style preset as the baseline. Verify its concrete
   Markcut choices and review deviations by their stated source/story evidence;

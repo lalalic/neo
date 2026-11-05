@@ -3,6 +3,7 @@ name: vlog-producer
 description: Produce one polished Vlog episode from the story/visual brief using shared Video Director, execution/media capabilities, required content reviews, Markcut render and observable QA.
 type: worker
 inputs:
+  - personal-story
   - source-manifest
   - story
   - shot-selection
@@ -23,7 +24,7 @@ Produce one authentic episode from the canonical dated run. Read the [Stage cont
 
 ## Draft from accepted inputs
 
-1. Read source identities from `source-manifest.json`, Director's `story.md`, `shot-selection.json`, `visual-brief.md`, and Editor's `edit-decision-list.json`. Resolve each scene to source/timecode evidence; reject missing or invented media.
+1. Preserve Director's `personal_story_id` from `personal-story.json` in `episode-input.json.story`, and do not replace the human narrative with a scenic montage. Read source identities from `source-manifest.json`, Director's `story.md`, `shot-selection.json`, `visual-brief.md`, and Editor's `edit-decision-list.json`. Resolve each scene to source/timecode evidence; reject missing or invented media.
 2. Create `episode-input.json` inside the dated run. Its `story` must contain Director-evidenced `goal`, `outcome`, `evidenceRef`, and `progression[]` entries in **exact scene order** with `sceneId` and `purpose`. Match the `scenes[]` identifiers to the Editor's accepted source cuts. For each progression beat add delivery {mode,evidenceRef}; source-speech requires listeningVerified:true after real listening, voiceover requires an actual audioPath/audioDuration and text, visual-story is allowed only for brief bridges. The compiler enforces audible hook/payoff and no >2 consecutive visual-only scenes. Do not bypass STORY_FIRST_REQUIRED or STORY_CONTINUITY_REQUIRED with dummy text or mark unreviewed STT as verified. Obtain a Director revision if no supported story exists.
 3. Bind accepted scenes, boundaries, real audio media and captions into the **single executable [Markcut template](../templates/cinematic-vlog.md)**. Its layout, Hook/Body/Closing scene blocks, subtitle style, continuous root BGM, song selection and visual treatment are authoritative. `episode-input.json` provides only source assets, exact timings, evidence and justified overrides; it must not redefine template styles. If this story needs a different style, make and review a new Markcut `.md` template, rather than scattering instructions through Roles or JSON config.
 4. Generate Chinese narration **after** Editor timings using the shared [Neo Project TTS](../../skills/neo-project/SKILL.md): `neo project tts --text-file <run>/assets/voice/scene.txt --output <run>/assets/voice/scene.m4a`. Require `PASS`, real audio duration and playable output; never use guessed SSH aliases. Default Tingting is provisional, not the private `normal` voice clone.

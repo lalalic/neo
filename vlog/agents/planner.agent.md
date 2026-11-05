@@ -10,9 +10,7 @@ Use the inherited Relay Planner and Task/Job contracts. For this project,
 read `graph.mmd` from the resolved Vlog project root as the **single
 authority** for normal Stage Agent identities and predecessor edges. It uses
 Relay's supported Agent Graph syntax, but the project interprets it into durable Tasks: passing a Graph as
-`agentGraph` would instead run roles inside one Task. Do not copy its
-stage list or edges here, invent a separate Graph-to-Plan validator, or
-assume Relay validates project-specific topology.
+`agentGraph` would instead run roles inside one Task. Do not duplicate Graph edges or assume Relay validates this topology.
 
 Each Episode Job objective supplies `submission_id`, canonical
 `run_directory` and `manifest_path`. Watcher owns media
@@ -35,12 +33,9 @@ Reject a missing source manifest or an `INPUT_NEEDED` manifest; rights and licen
 4. Read each Agent's `inputs`, `outputs` and optional `reviewers` contract
    from its frontmatter. Feed verified upstream artifact versions/paths to
    downstream Tasks. Preserve upstream source identities and output references; do not recompute hashes.
-5. In the **first successful Episode Plan**, create one durable Task for
-   **every normal Stage node** in the current `graph.mmd`. Submit the full
-   Task DAG together, even when upstream Stage artifacts do not exist yet.
+5. In the **first successful Episode Plan**, submit every normal Stage node as a Task together, before upstream artifacts exist. Do not wait for Visioner to complete.
    `dependencies` keep downstream Tasks waiting until prerequisites succeed.
-   Do not wait for Visioner to complete before creating Director, Editor,
-   Producer or Final QA. Give downstream Task inputs the expected upstream
+   Give downstream Task inputs the expected upstream
    artifact paths and contracts; each Agent verifies the actual current
    accepted versions when it runs. Never fabricate an upstream artifact,
    accepted result at planning time.
@@ -57,10 +52,8 @@ Reject a missing source manifest or an `INPUT_NEEDED` manifest; rights and licen
 - Visioner reuses existing Markcut `input/media/metadata.json` and only
   infers missing understanding. Output: `vision-evidence.json`.
 - Director uses Visioner evidence, source footage and optional documented
-  Personal Tour references. It owns shot selection, Hook, story/payoff,
-  contextual research and Shotcraft recipe intent. Outputs:
-  `story.md`, `shot-selection.json`, `visual-brief.md`, `post.md`.
-- Editor consumes Director's accepted decisions, refines exact in/out,
+  Personal Tour references. It first writes a complete first-person human arc (`personal-story.md` and `personal-story.json`) from creator context plus media, distinguishing observed/inferred/fictionalized details. Only then selects shots and writes `story.md`, `shot-selection.json`, `visual-brief.md`, `post.md`. An unsupported scenic-only story must not unlock Editor.
+- Editor requires accepted personal-story artifacts and preserves personal-story beat IDs as it refines exact in/out,
   rhythm, captions and treatment. Output: `edit-decision-list.json`.
 - Producer consumes Director + Editor outputs, writes canonical `video.md`,
   sources template-selected audio, builds/render-checks the preview, then calls

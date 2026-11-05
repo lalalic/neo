@@ -8,7 +8,7 @@ See [the reusable stage input/output and review contract](docs/episode-stage-con
 
 The **only authoritative Episode Graph** is [graph.mmd](graph.mmd). Every episode starts internally with Visioner (shared media understanding and metadata extraction), followed by an optional human evidence review, then Director shot/story selection, Editor cut decisions, Producer-owned professional reviews, render/QA and private archive. Publication remains separately authorized. Watcher/ingress is outside the Episode Graph. The simplified flow below is explanatory only; Planner must use the canonical Graph and acceptance gates.
 
-For authentic personal narratives, the Story editor can use an optional [five-question audience familiarity review](docs/story-familiarity-review.md) (real situation, inner thoughts, familiar voice, audience takeaway, information density). It must cite source evidence or owner confirmation and never fabricate internal experiences.
+For **Personal Story-first**, Director must first write a complete first-person person-centered `personal-story.md` and structured `personal-story.json`: everyday goal, setback, actions, human payoff/contrast, observed/inferred/fictionalized distinctions and optional creator-profile context. Only then may Editor select/trim shots; see [the required personal-story contract](docs/personal-story-first.md). The Story editor can also use an optional [five-question audience familiarity review](docs/story-familiarity-review.md) (real situation, inner thoughts, familiar voice, audience takeaway, information density). It must cite source evidence or owner confirmation and never fabricate internal experiences.
 
 ## Human mental model
 
@@ -87,6 +87,9 @@ source-manifest.json
 vision-evidence.json
         │
         v
+personal-story.md + personal-story.json
+        │
+        v
 shot-selection.json + story.md
         │
         v
@@ -124,6 +127,8 @@ runs/<YYYY-MM-DD[-slug]>/
 ├── vision-evidence.json
 ├── vision-human-review.json    # optional; records skip/request/response and provenance
 ├── source-manifest.json
+├── personal-story.md
+├── personal-story.json
 ├── story.md
 ├── shot-selection.json
 ├── edit-decision-list.json
@@ -144,21 +149,21 @@ A genuine named series may use `runs/<series-name>/<YYYY-MM-DD[-slug]>/`. `runs/
 
 ## Story standard
 
-A Vlog is not a chronological media dump. Select one coherent story from the real source window:
+A Vlog is not a chronological media dump or a scenic observation. First write a coherent **person-centered** story (minor everyday fictionalized mishaps are allowed when tagged), then choose real footage that can illustrate its beats:
 
 ```text
-HOOK
+Person + everyday goal
   ↓
-Moment / Tension / Question
+Minor problem or embarrassing setback
   ↓
-Development / Discovery
+What the person tries or does
   ↓
-Best visual evidence
+Real visual evidence illustrating the experience
   ↓
-Payoff / feeling / next question
+Human contrast, result or self-deprecating punchline
 ```
 
-Do not widen the source window or fabricate events just to create a story.
+Do not widen the source window, invent real footage/route, or present fictionalized personal incidents as camera-proven facts.
 
 ## Production quality
 

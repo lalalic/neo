@@ -1,0 +1,233 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Vlog Director first-person personal story before shot planning",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "story_id",
+    "title",
+    "perspective",
+    "narrative",
+    "protagonist",
+    "arc",
+    "provenance",
+    "beats"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "story_id": {
+      "type": "string",
+      "minLength": 3
+    },
+    "title": {
+      "type": "string",
+      "minLength": 3
+    },
+    "perspective": {
+      "const": "first_person"
+    },
+    "narrative": {
+      "type": "string",
+      "minLength": 100
+    },
+    "protagonist": {
+      "type": "object",
+      "required": [
+        "role",
+        "persona_basis"
+      ],
+      "properties": {
+        "role": {
+          "type": "string",
+          "minLength": 1
+        },
+        "persona_basis": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "trait",
+              "origin"
+            ],
+            "properties": {
+              "trait": {
+                "type": "string",
+                "minLength": 1
+              },
+              "origin": {
+                "enum": [
+                  "profile",
+                  "owner_context",
+                  "creative_assumption"
+                ]
+              },
+              "reference": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "arc": {
+      "type": "object",
+      "required": [
+        "everyday_goal",
+        "setback",
+        "actions",
+        "outcome",
+        "contrast"
+      ],
+      "properties": {
+        "everyday_goal": {
+          "type": "string",
+          "minLength": 2
+        },
+        "setback": {
+          "type": "string",
+          "minLength": 2
+        },
+        "actions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 2
+          }
+        },
+        "outcome": {
+          "type": "string",
+          "minLength": 2
+        },
+        "contrast": {
+          "type": "string",
+          "minLength": 2
+        }
+      },
+      "additionalProperties": true
+    },
+    "tone": {
+      "type": "string"
+    },
+    "provenance": {
+      "type": "object",
+      "required": [
+        "observed",
+        "inferred",
+        "fictionalized"
+      ],
+      "properties": {
+        "observed": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": [
+              "claim",
+              "source_id"
+            ],
+            "properties": {
+              "claim": {
+                "type": "string",
+                "minLength": 2
+              },
+              "source_id": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "inferred": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "claim",
+              "basis"
+            ],
+            "properties": {
+              "claim": {
+                "type": "string",
+                "minLength": 2
+              },
+              "basis": {
+                "type": "string",
+                "minLength": 2
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "fictionalized": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "claim"
+            ],
+            "properties": {
+              "claim": {
+                "type": "string",
+                "minLength": 2
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "beats": {
+      "type": "array",
+      "minItems": 3,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "role",
+          "purpose",
+          "scene_intent",
+          "source_ids"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "role": {
+            "enum": [
+              "setup",
+              "complication",
+              "response",
+              "payoff"
+            ]
+          },
+          "purpose": {
+            "type": "string",
+            "minLength": 2
+          },
+          "scene_intent": {
+            "type": "string",
+            "minLength": 2
+          },
+          "source_ids": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true
+}

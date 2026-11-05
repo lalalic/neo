@@ -3,6 +3,7 @@ name: vlog-editor
 description: Execute Director-selected Vlog shots as precise timecoded editing decisions for Markcut.
 type: worker
 inputs:
+  - personal-story
   - shot-selection
   - visual-brief
 outputs:
@@ -18,7 +19,7 @@ the Director's story, source truth, accepted edit commands.
 ## Inputs
 
 Read the already-produced Visioner evidence by reference (no re-extraction, rehash or repeated media parsing), Director's
-`shot-selection.json`, `story.md` and `visual-brief.md`. Use the selected source media. Source IDs and candidate time ranges must resolve to real clips.
+`personal-story.md`, `personal-story.json`, `shot-selection.json`, `story.md` and `visual-brief.md`. The full readable human narrative is the editorial authority; a scenery-only shot plan is not enough. Use the selected source media. Source IDs and candidate time ranges must resolve to real clips.
 
 ## Workflow
 
@@ -29,7 +30,7 @@ a response, preserve uncertainty and refer story changes to Director.
 Do not call Markcut video Preview for an EDL alone. Follow [story/route/sound continuity](../docs/story-first-route-sound.md): motivated visible transition at each boundary; voice and one BGM continue across cuts.
 
 1. Use the Director-selected shot IDs and existing Visioner timecode evidence without re-parsing the source media.
-2. Refine exact in/out points, sequence, pace, crop, framing, transitions,
+2. Preserve the personal story's protagonist, everyday goal, setback and contrast/payoff; remove unnecessary scenery before sacrificing the human arc. Refine exact in/out points, sequence, pace, crop, framing, transitions,
    titles, captions and audio; keep the opening hook and promised payoff.
 3. Verify selected source speech by listening to the actual in/out clip, not by treating STT as ground truth. If an opening/payoff line is cut off, choose a different supported interval or return to Director. Carry a source-speech/voiceover/visual-story delivery decision for each beat into the EDL. Preserve authentic speech, meaningful ambient sound and Hey Neo editing
    commands. Usually exclude spoken control commands from the output audio.
@@ -40,7 +41,7 @@ Do not call Markcut video Preview for an EDL alone. Follow [story/route/sound co
    For every entry include Director shot reference, stable source media ID/hash,
    precise source in/out or still duration, beat, target duration, audio and
    visual treatment, transition, optional recipe and any deviation rationale.
-   Keep stable `sceneId` references and the Director's `story.progression[]`
+   Set the root `personal_story_id` and each edit's `story_beat_id` from Director, unchanged. Keep stable `sceneId` references and the Director's `story.progression[]`
    order when selecting cuts. Record an explicit `cut` or supported transition
    and a story/continuity rationale at each boundary; hard cuts are valid.
    Mark speech, dialogue, narration or meaningful original sound as `audioIntent`
@@ -59,7 +60,7 @@ trim a selected range and change a technical cut, but must not silently switch
 the depicted scene or rewrite the story. A meaningful narrative change must
 return to Director and invalidate review artifacts tied to the old revision.
 
-Missing GPS is not a failure. Do not invent movements, visits, thoughts or
+Missing GPS is not a failure. Do not misrepresent invented story actions or thoughts as footage facts or owner testimony; do not invent visible movements, visits or
 unverified local events. Use verified source-linked GPS in private route previews;
 publication handling is owned by a separate review. Chinese captions are the default; BGM is required
 unless expressly waived. Clearly separate generated explanatory effects from

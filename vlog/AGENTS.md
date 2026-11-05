@@ -8,27 +8,27 @@ This project declares canonical run-path input in [project.run.json](project.run
 
 ## Planner topology
 
-The [Graph](graph.mmd) is the only normal-stage ordering:
+[graph.mmd](graph.mmd) is the only normal-stage ordering:
 
 ```text
 Visioner -> vlog-director -> vlog-editor -> vlog-producer -> vlog-final-qa
 ```
 
-Watcher/ingress runs outside the Graph. For the current Relay episode model, one Job owns the outcome; its initial Plan creates all five normal Stage Tasks with predecessor dependencies. Do not invent an empty parent Task, extra Graph nodes, review Tasks, or feedback edges. Task parentage expresses ownership, not the Graph. Later revision/recovery work is Relay-owned. Agents and adapter/model routes must resolve from the active execution context.
+Watcher runs outside the Graph. One Job owns the outcome; its initial Plan creates all five normal Stage Tasks with predecessor dependencies. No invented Graph nodes or review Tasks. Task parentage expresses ownership, not the Graph. Later revision/recovery work is Relay-owned. Agents and adapter/model routes must resolve from the active execution context.
 
 ## Ownership and gates
 
 - **Vlog Visioner** records observations, source IDs, source timecodes and uncertainties using Markcut; it does not select the story or edit clips.
-- **Director** chooses a truthful goal, scene progression and payoff; writes `story.md`, `shot-selection.json`, `visual-brief.md` and `post.md`. **Editor** resolves source-linked in/out cuts and boundary/audio intent in `edit-decision-list.json`.
+- **Director** writes a complete, first-person human narrative as `personal-story.md` + `personal-story.json` **before selecting shots**, then adapts it to `story.md`, `shot-selection.json`, `visual-brief.md` and `post.md`. **Editor** resolves source-linked in/out cuts and boundary/audio intent in `edit-decision-list.json`.
 - **Producer** assembles `episode-input.json` from Director's story plan and Editor's accepted decisions, compiles/verifies `video.md`, owns Markcut preview, same-Worker revision loop and generic + Video Director + Market reviews. **Final QA** independently verifies the approved revision and actual rendered video.
-- No Stage may fabricate dialogue, location, movement, inner thought or observed footage. A real `INPUT_NEEDED` source manifest must be resolved before creating Episode Tasks.
+- A relatable everyday **fictionalized** first-person mishap is allowed (e.g. exercise plans foiled by photographing a creek); the story must label it as creative invention, not as recorded dialogue, observed movement, documentary event or owner testimony. A real `INPUT_NEEDED` source manifest must be resolved before creating Episode Tasks.
 - The Producer requires **interactive human approval of the latest canonical Markcut preview**; an AI PASS or successful render is not an approval. If the selected Worker cannot present that UI, report the capability blocker, not success. Human preview approval does not authorize publication.
 - Publishing and all permission/license audits are outside the creative DAG, to be handled by a separate publication-review workflow. Private archive is the default. Independent Relay Final Review and retry remain separate from in-Worker revisions.
 
 ## Source, story and media
 
 - Start with original source media; preserve existing source IDs and observed timestamps without rehashing. Use Simplified Chinese for titles, narration and captions unless the Task specifies otherwise. Recognize Hey Neo editing instructions as source-linked commands; do not treat wake-word/command audio as story dialogue by default.
-- One source-backed **story goal, ordered scene purposes and outcome** is required before compilation. Optional GPS/local-event research belongs to Director, not a new Stage. Follow [story, route and sound contract](docs/story-first-route-sound.md). Never invent a recorded route from sparse GPS; no GPS is a valid complete episode.
+- A complete human **goal → setback → actions → outcome/contrast** story is required before shot selection, even when no person appears in footage. Check [Personal Story-first](docs/personal-story-first.md), including observed/inferred/fictionalized labels and creator profile basis. Scenic-only observations cannot pass Director or Editor. Optional GPS/local-event research belongs to Director, not a new Stage. Follow [story, route and sound contract](docs/story-first-route-sound.md). Never invent a recorded route from sparse GPS; no GPS is a valid complete episode.
 - Use only observed GPS for story decisions; publication-location review is outside the creative DAG.
 - Every episode needs one continuous **template-selected** main BGM by default. Do not silently substitute another song. If the actual chosen track is missing, report the unavailable asset rather than generate a stand-in. Preserve useful source ambience, duck under speech, review transitions in actual playback and do not manufacture synthetic footage as filmed evidence. The [executable Markcut template](templates/cinematic-vlog.md) defines BGM selection; its entry is not a license. A separate publication-review workflow owns audio license decisions.
 - Shared capabilities own media ingestion, TTS, image/video generation, CapCut, Markcut, specialist reviews and post adapters; discover relevant Skills on demand. Optional media tools follow [tool selection](docs/optional-media-tools.md) when useful; asset production is separate from publication review. The current run's source evidence, canonical Markcut `video.md`, reviews and final output remain authoritative.
