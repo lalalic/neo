@@ -16,7 +16,6 @@ const ROOT = resolve(HERE, '..');
 const AGENT_PATH = resolve(ROOT, 'agents/escalation.agent.md');
 const SCHEMA_PATH = resolve(ROOT, 'agents/escalation-result.schema.json');
 const DEFAULT_NEEDS_USER_PATH = resolve(ROOT, 'agents/escalation-needs-user.md');
-const DEFAULT_NEOY_MCP_URL = process.env.NEOY_MCP_URL ?? 'http://127.0.0.1:6767/mcp';
 
 
 function usage() {
@@ -99,9 +98,7 @@ ${JSON.stringify({
 }
 
 export function codexArgs(request) {
-  const neoyMcpUrl = request.neoyMcpUrl ?? DEFAULT_NEOY_MCP_URL;
   return [
-    '-c', `mcp_servers.neoy.url=${JSON.stringify(neoyMcpUrl)}`,
     '--sandbox', 'danger-full-access',
     '--ask-for-approval', 'never',
     'exec',
