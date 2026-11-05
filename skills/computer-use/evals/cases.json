@@ -1,0 +1,49 @@
+{
+  "goal": "Complete macOS UI tasks through the native Neo Computer Use CLI using fresh state and verification",
+  "cases": [
+    {
+      "id": "inspect-before-action",
+      "prompt": "Find Finder and click a named UI element in its current window.",
+      "expected": [
+        "neo computer-use help or known command",
+        "neo computer-use call list_apps",
+        "neo computer-use call get_app_state --args-file",
+        "use state element target",
+        "verify changed app state"
+      ]
+    },
+    {
+      "id": "stale-target",
+      "prompt": "A previous click failed because the element index is stale; continue.",
+      "expected": [
+        "re-run get_app_state",
+        "avoid reusing old state_id or element_index"
+      ]
+    },
+    {
+      "id": "browser-route",
+      "prompt": "Navigate an already signed-in managed Chrome website and complete a form.",
+      "expected": [
+        "prefer webhelm skill",
+        "do not open a duplicate unmanaged browser"
+      ]
+    },
+    {
+      "id": "mcp-broader-tools",
+      "prompt": "Inspect Neo.app's registered tools and call a non-Computer tool.",
+      "expected": [
+        "neo mcp tools",
+        "neo mcp call TOOL --args-file PATH"
+      ]
+    },
+    {
+      "id": "permission-error",
+      "prompt": "A Neo.app Computer Use call returns isError true because permission is missing.",
+      "expected": [
+        "report tool failure accurately",
+        "do not claim UI action completed",
+        "escalate if not locally recoverable"
+      ]
+    }
+  ]
+}

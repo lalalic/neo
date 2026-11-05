@@ -8,6 +8,7 @@ import { executeControl } from './neo-control.mjs';
 import { runAgentDiscovery } from './neo-agent-catalog.mjs';
 import { buildXChatBootstrap, renderXChatBootstrap } from './xchat-bootstrap.mjs';
 import { runNeoMcpToken } from './neo-mcp-token.mjs';
+import { runComputerUseCli, runLocalMcpCli } from './neo-mcp-local.mjs';
 import { loadWorkspaceConfig } from './workspace-config.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -33,6 +34,8 @@ function usage() {
   neo service list|status NAME|start|stop|restart NAME --apply
   neo mcp token issue (--stdout | --output ABSOLUTE_PATH) [--origin HTTPS_URL] [--client-name NAME]
   neo mcp token revoke --file ABSOLUTE_PATH [--origin HTTPS_URL]
+  neo mcp tools | call TOOL [--args-file PATH]
+  neo computer-use help | call COMMAND [--args-file PATH]
 
 Options:
   --handoff-file PATH            Required handoff file containing the full escalation request
@@ -162,7 +165,12 @@ async function main(argv) {
     return 0;
   }
   if (command === 'mcp') {
-    if (args[0] !== 'token') throw new Error('usage: neo mcp token issue|revoke');
+    if (args[0] === 'tools' || args[0] === 'call') {
+      const result = await runLocalMcpCli(args);
+      process.stdout.write(JSON.stringify(result, null, 2) + '\n');
+      return result.isError ? 2 : 0;
+    }
+    if (args[0] !== 'token') throw new Error('usage: neo mcp tools|call|token');
     if (args.includes('--help') || args.includes('-h')) {
       process.stdout.write(usage());
       return 0;
@@ -171,6 +179,11 @@ async function main(argv) {
     // Only the explicit --stdout mode prints the temporary credential.
     process.stdout.write('access_token' in outcome ? outcome.access_token + '\n' : JSON.stringify(outcome, null, 2) + '\n');
     return 0;
+  }
+  if (command === 'computer-use') {
+    const result = await runComputerUseCli(args);
+    process.stdout.write(JSON.stringify(result, null, 2) + '\n');
+    return result.isError ? 2 : 0;
   }
   if (command === 'eval') {
     const [subcommand = 'run', ...options] = args;

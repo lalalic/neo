@@ -12,6 +12,8 @@ This repository is the public Neo monorepo: root orchestration rules, reusable a
 - `.bin/` — compatibility and packaging helpers; canonical XChat discovery/resolution scripts live under `skills/xchat-orchestrator/scripts/`.
 - `neo agent list [--project PATH]` and `neo agent search QUERY [--project PATH]` — discover context-visible project and shared Agent definitions plus Agency Agents specialist templates; templates require a project manifest before Relay dispatch.
 - `neo mcp token issue --stdout` (direct interactive copy) or `--output` (private file), plus `revoke` — provider-neutral, one-hour OAuth PKCE credentials; see `docs/interactive-mcp-access.md`.
+- `neo mcp tools` and `neo mcp call TOOL [--args-file PATH]` — synchronously discover/call **local Neo.app** MCP tools through its loopback listener; no remote token is needed. All tool results and errors are preserved.
+- `neo computer-use help` and `neo computer-use call COMMAND [--args-file PATH]` — native macOS Computer Use CLI, backed by the same Neo.app tool and permissions. See `skills/computer-use/SKILL.md`.
 - `skills/xchat-orchestrator/` — self-contained XChat bootstrap, orchestrator protocol, dynamic project discovery, and skill discovery for ChatGPT, Grok, Claude, and other web orchestrators.
 - `neo-build-log/` — public build-log production system; each actual episode lives under ignored `runs/`.
 - `neo-highlights/` — selective event-to-video project; each highlight execution lives under ignored `runs/`.
