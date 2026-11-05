@@ -24,6 +24,7 @@ export async function runEscalationSelfTest({
   config = localEscalationConfig(),
   run = runLocalEscalation,
   processAlive = isAlive,
+  onOwnedServerPid = () => {},
   random = () => randomBytes(16).toString('hex'),
   clock = () => Date.now(),
 } = {}) {
@@ -50,7 +51,7 @@ export async function runEscalationSelfTest({
     };
     const result = await run(request, {
       agentPrompt, config, redactResult: false,
-      onServerStarted(pid) { serverPid = pid; },
+      onServerStarted(pid) { serverPid = pid; onOwnedServerPid(pid); },
     });
     if (result.status !== 'resolved') {
       throw new Error(`Local Agent self-test returned ${result.status}: ${result.summary || 'no summary'}`);

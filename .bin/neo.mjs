@@ -11,6 +11,7 @@ import { runNeoMcpToken } from './neo-mcp-token.mjs';
 import { runLocalEscalation, localEscalationConfig } from './neo-local-escalation.mjs';
 import { prepareExperience, storeExperience, listExperience } from './neo-escalation-experience.mjs';
 import { runEscalationSelfTest } from './neo-escalation-self-test.mjs';
+import {withGlobalEscalationLock, escalationLockConfig} from './neo-escalation-lock.mjs';
 import { runComputerUseCli } from './neo-mcp-local.mjs';
 import { loadWorkspaceConfig } from './workspace-config.mjs';
 
@@ -19,6 +20,12 @@ const ROOT = resolve(HERE, '..');
 const AGENT_PATH = resolve(ROOT, 'agents/escalation.agent.md');
 const SCHEMA_PATH = resolve(ROOT, 'agents/escalation-result.schema.json');
 const DEFAULT_NEEDS_USER_PATH = resolve(ROOT, 'agents/escalation-needs-user.md');
+
+function escalationLockOptions() {
+  return {...escalationLockConfig(),
+    onWaiting: ()=>process.stderr.write('Neo Escalation resource busy; waiting for the exclusive model slot.\n'),
+  };
+}
 
 
 function usage() {
@@ -54,6 +61,8 @@ Runtime environment:
   NEO_ESCALATION_AGENT_COMMAND     Hermes executable (default hermes)
   NEO_ESCALATION_SERVER_COMMAND    Local inference server executable
   NEO_ESCALATION_BASE_URL          Loopback /v1 URL for external engine
+  NEO_ESCALATION_LOCK_DIR           Per-host exclusive-lock directory (default ~/.local/state/neo/escalation)
+  NEO_ESCALATION_LOCK_WAIT_SECONDS  Queue timeout (default 3600)
 `;
 }
 
@@ -210,7 +219,12 @@ async function main(argv) {
   if (command !== 'escalation') throw new Error(`unknown neo command: ${command}`);
   if (args[0] === 'test') {
     if (args.length !== 1) throw new Error('usage: neo escalation test');
-    const result = await runEscalationSelfTest({ agentPrompt: readFileSync(AGENT_PATH, 'utf8') });
+    const result = await withGlobalEscalationLock(
+      ({registerOwnedPid})=>runEscalationSelfTest({
+        agentPrompt: readFileSync(AGENT_PATH, 'utf8'), onOwnedServerPid: registerOwnedPid,
+      }),
+      escalationLockOptions(),
+    );
     process.stdout.write(JSON.stringify(result, null, 2) + '\n');
     return 0;
   }
@@ -239,15 +253,19 @@ async function main(argv) {
   try {
     if (backend === 'local') {
       config = localEscalationConfig();
-      result = validateResult(await runLocalEscalation(request, {
-        config,
-        agentPrompt: readFileSync(AGENT_PATH, 'utf8'),
-        playbookPrompt: readFileSync(resolve(ROOT, 'agents/neo-escalation-playbook.md'), 'utf8'),
-        experiencePrompt: readFileSync(resolve(ROOT, 'agents/escalation-experience.md'), 'utf8'),
-        onExperience: payload => { captured = payload; },
-      }));
+      result = validateResult(await withGlobalEscalationLock(
+        ({registerOwnedPid})=>runLocalEscalation(request, {
+          config,
+          onServerStarted: registerOwnedPid,
+          agentPrompt: readFileSync(AGENT_PATH, 'utf8'),
+          playbookPrompt: readFileSync(resolve(ROOT, 'agents/neo-escalation-playbook.md'), 'utf8'),
+          experiencePrompt: readFileSync(resolve(ROOT, 'agents/escalation-experience.md'), 'utf8'),
+          onExperience: payload => { captured = payload; },
+        }),
+        escalationLockOptions(),
+      ));
     } else if (backend === 'codex') {
-      result = runEscalation(request);
+      result = await withGlobalEscalationLock(()=>runEscalation(request), escalationLockOptions());
     } else {
       throw new Error('NEO_ESCALATION_BACKEND must be local or codex');
     }
