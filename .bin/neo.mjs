@@ -8,6 +8,7 @@ import { executeControl } from './neo-control.mjs';
 import { runAgentDiscovery } from './neo-agent-catalog.mjs';
 import { buildXChatBootstrap, renderXChatBootstrap } from './xchat-bootstrap.mjs';
 import { runNeoMcpToken } from './neo-mcp-token.mjs';
+import { runLocalEscalation } from './neo-local-escalation.mjs';
 import { runComputerUseCli } from './neo-mcp-local.mjs';
 import { loadWorkspaceConfig } from './workspace-config.mjs';
 
@@ -39,7 +40,16 @@ Options:
   --handoff-file PATH            Required handoff file containing the full escalation request
   --on-needs-user-file PATH      Optional notification-policy override file
   --cwd PATH                     Working directory for local Codex (default: current directory)
-  --codex-command PATH           Override Codex executable (default: codex)
+  --codex-command PATH           Override Codex executable when NEO_ESCALATION_BACKEND=codex
+
+Runtime environment:
+  NEO_ESCALATION_BACKEND           local (default) or codex
+  NEO_ESCALATION_ENGINE            llama (default), mlx, external
+  NEO_ESCALATION_MODEL             Model repo or local model file path
+  NEO_ESCALATION_CONTEXT           Context tokens (default 65536)
+  NEO_ESCALATION_AGENT_COMMAND     Hermes executable (default hermes)
+  NEO_ESCALATION_SERVER_COMMAND    Local inference server executable
+  NEO_ESCALATION_BASE_URL          Loopback /v1 URL for external engine
 `;
 }
 
@@ -198,7 +208,18 @@ async function main(argv) {
     process.stdout.write(usage());
     return 0;
   }
-  const result = runEscalation(parseEscalationArgs(args));
+  const request = parseEscalationArgs(args);
+  const backend = process.env.NEO_ESCALATION_BACKEND || 'local';
+  let result;
+  if (backend === 'local') {
+    result = validateResult(await runLocalEscalation(request, {
+      agentPrompt: readFileSync(AGENT_PATH, 'utf8'),
+    }));
+  } else if (backend === 'codex') {
+    result = runEscalation(request);
+  } else {
+    throw new Error('NEO_ESCALATION_BACKEND must be local or codex');
+  }
   process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
   return result.status === 'failed' ? 2 : 0;
 }
