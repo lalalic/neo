@@ -196,6 +196,7 @@ export function normalizeLocalResult(raw) {
 export async function runLocalEscalation(request, {
   config = localEscalationConfig(), fetcher = fetch, agentPrompt,
   spawnServer = spawn, runAgent = captureChild, portFactory = freeTcpPort,
+  onServerStarted = () => {},
 } = {}) {
   const temp = mkdtempSync(join(tmpdir(), 'neo-local-escalation-'));
   let server = null;
@@ -230,6 +231,7 @@ export async function runLocalEscalation(request, {
           cwd: temp, stdio: ['ignore', fd, fd], env: process.env,
         });
       } finally { fs.closeSync(fd); }
+      if (Number.isInteger(server.pid)) onServerStarted(server.pid);
       let startupError = null;
       if (typeof server.on === 'function') server.on('error', error => { startupError = error; });
       await ready(port, server, config.startupMs, fetcher, () => startupError).catch(error => {

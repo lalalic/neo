@@ -9,6 +9,7 @@ import { runAgentDiscovery } from './neo-agent-catalog.mjs';
 import { buildXChatBootstrap, renderXChatBootstrap } from './xchat-bootstrap.mjs';
 import { runNeoMcpToken } from './neo-mcp-token.mjs';
 import { runLocalEscalation } from './neo-local-escalation.mjs';
+import { runEscalationSelfTest } from './neo-escalation-self-test.mjs';
 import { runComputerUseCli } from './neo-mcp-local.mjs';
 import { loadWorkspaceConfig } from './workspace-config.mjs';
 
@@ -22,6 +23,7 @@ const DEFAULT_NEEDS_USER_PATH = resolve(ROOT, 'agents/escalation-needs-user.md')
 function usage() {
   return `Usage:
   neo escalation --handoff-file PATH [options]
+  neo escalation test              Run local-agent tool-use and model-cleanup self-test
   neo status|doctor
   neo agent list [--project PATH] [--source project|shared|global|agency]\n  neo agent search QUERY [--project PATH] [--source ...] [--limit N]\n  neo project list|resolve NAME|setup-agent NAME
   neo project run (--url HTTPS_URL | --path ABSOLUTE_RUN_DIR) --project NAME [--dry-run]\n  neo project tts (--text TEXT | --text-file PATH) --output ABSOLUTE.m4a [--voice Tingting] [--rate 200] [--node local]
@@ -204,6 +206,12 @@ async function main(argv) {
   }
   if (['status', 'doctor', 'project', 'workspace', 'skill', 'service'].includes(command)) return executeControl([command, ...args]);
   if (command !== 'escalation') throw new Error(`unknown neo command: ${command}`);
+  if (args[0] === 'test') {
+    if (args.length !== 1) throw new Error('usage: neo escalation test');
+    const result = await runEscalationSelfTest({ agentPrompt: readFileSync(AGENT_PATH, 'utf8') });
+    process.stdout.write(JSON.stringify(result, null, 2) + '\n');
+    return 0;
+  }
   if (args.includes('--help') || args.includes('-h')) {
     process.stdout.write(usage());
     return 0;

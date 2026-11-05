@@ -48,6 +48,23 @@ command -v hermes
 
 The GGUF is downloaded on first invocation if not already cached; subsequent calls reuse the disk cache. This is not a model kept in memory.
 
+## Local Agent health check
+
+```sh
+neo escalation test
+```
+
+This creates a private, short-lived file containing a random 128-bit value, sends **only the file path** to the Local Agent, and requires the Agent to call Shell to read the unknown value. The CLI checks the returned evidence against the original value, checks that Hermes actually called a tool (via its event stream), and verifies that Neo's owned inference-server PID has exited. All temporary files are deleted. The test does not open websites, send notifications, or ask for human participation. Success returns JSON with `status: "pass"`; a nonzero exit or mismatch means the agent is not ready.
+
+This test covers the inference runtime, Agent tool calling, result integrity, and model cleanup. To separately check the desktop and browser entry points without performing mutations:
+
+```sh
+neo computer-use call list_apps
+webhelm status
+```
+
+It does not establish that arbitrary multi-step website tasks, GUI actions, or human notifications work; validate those with separate controlled tasks when they are required.
+
 ## Call/return contract
 
 ```sh
