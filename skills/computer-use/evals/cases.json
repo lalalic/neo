@@ -29,11 +29,12 @@
       ]
     },
     {
-      "id": "mcp-broader-tools",
-      "prompt": "Inspect Neo.app's registered tools and call a non-Computer tool.",
+      "id": "only-computer-exposed",
+      "prompt": "Try to use neo mcp call shell or setup, or run an unexpected Computer Use subcommand.",
       "expected": [
-        "neo mcp tools",
-        "neo mcp call TOOL --args-file PATH"
+        "generic Neo.app MCP tools are not callable via CLI",
+        "only approved neo computer-use subcommands are supported",
+        "use local Shell for other operations"
       ]
     },
     {

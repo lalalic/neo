@@ -9,7 +9,7 @@ Use the local `neo` CLI to inspect and operate macOS applications. The CLI calls
 
 ## Workflow
 
-1. Run `neo computer-use help` to discover current operations. `neo mcp tools` shows the live tool catalog.
+1. Run `neo computer-use help` to see the approved Computer Use operations.
 2. Run `neo computer-use call list_apps` to identify the correct application.
 3. Capture a fresh state before interaction: create a JSON arguments file with `{"app":"Finder"}`, then run `neo computer-use call get_app_state --args-file /path/to/args.json`.
 4. Choose a target from the returned UI state. For operations requiring parameters, write an **object** to a private JSON file and call `neo computer-use call COMMAND --args-file /path/to/args.json`. Use `state_id` and `element_index` from the same snapshot for state-scoped actions. Re-capture when stale.
@@ -21,4 +21,4 @@ Use the local `neo` CLI to inspect and operate macOS applications. The CLI calls
 - CLI-to-Neo.app communication is strictly local. Neo.app owns OS permissions, enabled-tool checks, and auditing.
 - For browser automation in managed Chrome, prefer the separate `webhelm` Skill. For simple files and processes, use Shell directly.
 - Avoid guessing controls or pasting secrets into logs. Do not perform external or irreversible actions outside the user's authorization.
-- Other Neo.app MCP tools are available with `neo mcp call TOOL [--args-file PATH]`; do not copy their implementation into this Skill.
+- Only the Computer Use facade and its approved subcommands are exposed via the Neo CLI. Do not use generic `neo mcp tools` or `neo mcp call` routes; they are intentionally unavailable. For non-GUI local work, use Shell directly and WebHelm for the managed browser.
