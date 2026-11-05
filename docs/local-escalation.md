@@ -77,6 +77,10 @@ When human-only MFA, biometric, payment, legal confirmation, or secrets are requ
 
 Tool calls and cloud services remain constrained by the governing provider/runtime rules and original user authorization.
 
+## Experience recording
+
+Every real local escalation records a private, deduplicated scenario/solution candidate, including failures; if necessary the same local model performs one tool-free post-run summarization before unloading. Inspect with `neo escalation cases`. See [Escalation Experience](escalation-experience.md).
+
 ## Diagnostics
 
 ```sh

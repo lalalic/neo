@@ -8,7 +8,8 @@ import { executeControl } from './neo-control.mjs';
 import { runAgentDiscovery } from './neo-agent-catalog.mjs';
 import { buildXChatBootstrap, renderXChatBootstrap } from './xchat-bootstrap.mjs';
 import { runNeoMcpToken } from './neo-mcp-token.mjs';
-import { runLocalEscalation } from './neo-local-escalation.mjs';
+import { runLocalEscalation, localEscalationConfig } from './neo-local-escalation.mjs';
+import { prepareExperience, storeExperience, listExperience } from './neo-escalation-experience.mjs';
 import { runEscalationSelfTest } from './neo-escalation-self-test.mjs';
 import { runComputerUseCli } from './neo-mcp-local.mjs';
 import { loadWorkspaceConfig } from './workspace-config.mjs';
@@ -24,6 +25,7 @@ function usage() {
   return `Usage:
   neo escalation --handoff-file PATH [options]
   neo escalation test              Run local-agent tool-use and model-cleanup self-test
+  neo escalation cases [--search TEXT] [--limit N]  List private deduplicated scenarios
   neo status|doctor
   neo agent list [--project PATH] [--source project|shared|global|agency]\n  neo agent search QUERY [--project PATH] [--source ...] [--limit N]\n  neo project list|resolve NAME|setup-agent NAME
   neo project run (--url HTTPS_URL | --path ABSOLUTE_RUN_DIR) --project NAME [--dry-run]\n  neo project tts (--text TEXT | --text-file PATH) --output ABSOLUTE.m4a [--voice Tingting] [--rate 200] [--node local]
@@ -41,7 +43,7 @@ function usage() {
 Options:
   --handoff-file PATH            Required handoff file containing the full escalation request
   --on-needs-user-file PATH      Optional notification-policy override file
-  --cwd PATH                     Working directory for local Codex (default: current directory)
+  --cwd PATH                     Original working directory for the task (default: current directory)
   --codex-command PATH           Override Codex executable when NEO_ESCALATION_BACKEND=codex
 
 Runtime environment:
@@ -212,22 +214,65 @@ async function main(argv) {
     process.stdout.write(JSON.stringify(result, null, 2) + '\n');
     return 0;
   }
+  if (args[0] === 'cases') {
+    const options = args.slice(1);
+    if (options.length % 2 !== 0 || options.some((arg, i) => i % 2 === 0 && !['--search', '--limit'].includes(arg))) {
+      throw new Error('usage: neo escalation cases [--search TEXT] [--limit N]');
+    }
+    const rows = listExperience({
+      search: valueFor(options, '--search') || '',
+      limit: valueFor(options, '--limit') === undefined ? 30 : Number(valueFor(options, '--limit')),
+    });
+    process.stdout.write(JSON.stringify(rows, null, 2) + '\n');
+    return 0;
+  }
   if (args.includes('--help') || args.includes('-h')) {
     process.stdout.write(usage());
     return 0;
   }
   const request = parseEscalationArgs(args);
   const backend = process.env.NEO_ESCALATION_BACKEND || 'local';
+  let config;
   let result;
-  if (backend === 'local') {
-    result = validateResult(await runLocalEscalation(request, {
-      agentPrompt: readFileSync(AGENT_PATH, 'utf8'),
-    }));
-  } else if (backend === 'codex') {
-    result = runEscalation(request);
-  } else {
-    throw new Error('NEO_ESCALATION_BACKEND must be local or codex');
+  let captured;
+  let executionError;
+  try {
+    if (backend === 'local') {
+      config = localEscalationConfig();
+      result = validateResult(await runLocalEscalation(request, {
+        config,
+        agentPrompt: readFileSync(AGENT_PATH, 'utf8'),
+        experiencePrompt: readFileSync(resolve(ROOT, 'agents/escalation-experience.md'), 'utf8'),
+        onExperience: payload => { captured = payload; },
+      }));
+    } else if (backend === 'codex') {
+      result = runEscalation(request);
+    } else {
+      throw new Error('NEO_ESCALATION_BACKEND must be local or codex');
+    }
+  } catch (error) {
+    executionError = error;
   }
+  // Model writes its own sanitized case candidate into final JSON. Neo only
+  // validates and stores that candidate, or a minimal failure if it crashed.
+  // Never repeat the potentially mutating operation when recording fails.
+  try {
+    const experience = prepareExperience({
+      handoff: request.handoff,
+      result: executionError ? {status:'failed'} : result,
+      experience: captured?.experience,
+      captureMethod: captured?.captureMethod,
+      events: captured?.events,
+      backend,
+      engine: config?.engine ?? 'other',
+      model: config?.model ?? 'unknown',
+      error: executionError,
+    });
+    storeExperience(experience);
+  } catch (error) {
+    process.stderr.write(`Escalation experience could not be saved (task will not be retried): ${error.message}\n`);
+  }
+  if (executionError) throw executionError;
   process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
   return result.status === 'failed' ? 2 : 0;
 }

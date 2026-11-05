@@ -3,6 +3,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createServer } from 'node:net';
+import { generateExperience } from './neo-escalation-experience.mjs';
 
 const DEFAULT_GGUF = 'unsloth/Qwen3.5-4B-GGUF:Q4_K_M';
 const DEFAULT_MLX = 'mlx-community/Qwen3.5-4B-MLX-4bit';
@@ -124,7 +125,7 @@ async function captureChild(command, args, { cwd, env, timeoutMs }) {
   return stdout;
 }
 
-export function parseLocalAnswer(output) {
+export function parseLocalSession(output) {
   const lines = String(output || '').trim().split(/\r?\n/).filter(Boolean);
   const events = lines.map(line => {
     try { return JSON.parse(line); }
@@ -148,7 +149,11 @@ export function parseLocalAnswer(output) {
       throw new Error('Local agent claimed resolved without a successful tool result');
     }
   }
-  return result;
+  return { result, events };
+}
+
+export function parseLocalAnswer(output) {
+  return parseLocalSession(output).result;
 }
 
 export function normalizeLocalResult(raw) {
@@ -195,6 +200,7 @@ export function normalizeLocalResult(raw) {
  */
 export async function runLocalEscalation(request, {
   config = localEscalationConfig(), fetcher = fetch, agentPrompt,
+  experiencePrompt = '', onExperience = () => {},
   spawnServer = spawn, runAgent = captureChild, portFactory = freeTcpPort,
   onServerStarted = () => {},
 } = {}) {
@@ -245,7 +251,26 @@ export async function runLocalEscalation(request, {
       config.hermesCommand, hermesArguments(queryFile, config, baseUrl, temp),
       { cwd: temp, env: process.env, timeoutMs: (config.budgetSeconds + 60) * 1000 },
     );
-    return normalizeLocalResult(parseLocalAnswer(stdout));
+    const session = parseLocalSession(stdout);
+    const result = normalizeLocalResult(session.result);
+    let experience = session.result.experience;
+    let captureMethod = 'executor';
+    // Let the executor concentrate on real tool use. If it omitted its
+    // experience note, ask the same already-loaded local model to summarize
+    // the observed outcome in a short, tool-free post-run pass.
+    if ((!experience?.scenario_key || !experience?.strategy_key) && experiencePrompt) {
+      try {
+        experience = await generateExperience({
+          baseUrl, experiencePrompt, handoff: request.handoff, result,
+          events: session.events, fetcher,
+        });
+        captureMethod = 'postrun_model';
+      } catch {
+        experience = undefined; // recorded honestly as an incomplete fallback
+      }
+    }
+    onExperience({experience, events: session.events, result, captureMethod});
+    return result;
   } finally {
     await terminate(server);
     process.removeListener('SIGINT', onInterrupt);
