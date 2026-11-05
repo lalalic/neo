@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { executeControl } from './neo-control.mjs';
+import { runAgentDiscovery } from './neo-agent-catalog.mjs';
 import { buildXChatBootstrap, renderXChatBootstrap } from './xchat-bootstrap.mjs';
 import { runNeoMcpToken } from './neo-mcp-token.mjs';
 import { loadWorkspaceConfig } from './workspace-config.mjs';
@@ -21,7 +22,7 @@ function usage() {
   return `Usage:
   neo escalation --handoff-file PATH [options]
   neo status|doctor
-  neo project list|resolve NAME|setup-agent NAME
+  neo agent list [--project PATH] [--source project|shared|global|agency]\n  neo agent search QUERY [--project PATH] [--source ...] [--limit N]\n  neo project list|resolve NAME|setup-agent NAME
   neo project run (--url HTTPS_URL | --path ABSOLUTE_RUN_DIR) --project NAME [--dry-run]\n  neo project tts (--text TEXT | --text-file PATH) --output ABSOLUTE.m4a [--voice Tingting] [--rate 200] [--node local]
   neo workspace show
   neo skill list [--project PATH]|package SKILL_DIR OUTPUT.zip
@@ -154,6 +155,10 @@ async function main(argv) {
       throw new Error('usage: neo bootstrap [--json] [--project PATH]');
     const manifest = buildXChatBootstrap({ project: filtered[1] });
     process.stdout.write(json ? JSON.stringify(manifest, null, 2) + '\n' : renderXChatBootstrap(manifest));
+    return 0;
+  }
+  if (command === 'agent') {
+    process.stdout.write(JSON.stringify(runAgentDiscovery(args, { neoRoot: loadWorkspaceConfig().neoRoot }), null, 2) + '\n');
     return 0;
   }
   if (command === 'mcp') {
