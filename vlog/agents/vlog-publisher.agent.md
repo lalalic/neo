@@ -21,8 +21,9 @@ completed MP4, video fingerprint, exact platforms, action and permission,
 then calls existing `webhelm platform run wechat-channels post` and
 `webhelm platform run xhs post` with platform-specific payloads.
 Do not automate browser selectors or upload internals here. Reuse the
-installed WebHelm platform Actions. Default when request/authorization
-is absent is **skip and keep private**, not draft/upload/publish.
+installed WebHelm platform Actions. When `publisher-request.json` is **absent**, complete the stage with
+`publicationStatus: SKIPPED` and **no browser actions**; this is a normal
+success, not an authorization failure. Never draft, upload or post.
 
 No interactive approval/Preview or specialist review is required at this
 stage: Publisher directly executes the authorized posting request.
@@ -30,8 +31,10 @@ stage: Publisher directly executes the authorized posting request.
 The request must explicitly authorize the **specific MP4 fingerprint and
 target platform/account**. A prior Vlog Preview or Archive does not imply
 permission; a draft request does not authorize public publication.
-Honor video/audio/location privacy and publishing rights. Without a
-valid authorization, return `NOT_AUTHORIZED` without any side effects.
+Honor video/audio/location privacy and publishing rights. If a request
+**exists** but lacks valid per-target authorization, fail closed and report
+`NOT_AUTHORIZED` without any external action. Do not confuse this with
+the normal `SKIPPED` result for an absent request.
 
 A successful action must be checked against the platform-side status/ID,
 not just process exit. Save a separate receipt per platform with the
