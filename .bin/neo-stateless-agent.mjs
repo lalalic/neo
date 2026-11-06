@@ -82,6 +82,7 @@ export async function runStatelessAgent({
   for(let turn=0;turn<config.maxTurns;turn++){
     const remaining=(config.budgetSeconds*1000)-(Date.now()-start);
     if(remaining<1000) throw Error('Local agent budget expired');
+    trace({stage:'model_inference',turn});
     let response;
     try {
       response=await askModel(baseUrl+'/chat/completions',{
@@ -92,7 +93,7 @@ export async function runStatelessAgent({
           chat_template_kwargs:{enable_thinking:false}}),
         signal:AbortSignal.timeout(Math.min(remaining,180000)),
       });
-    } catch { throw Error('Local inference request failed'); }
+    } catch (cause) { throw new Error('Local inference request failed', {cause}); }
     if(!response.ok) throw Error('Local inference HTTP '+response.status);
     const body=await response.json();
     const message=body?.choices?.[0]?.message;
@@ -116,6 +117,7 @@ export async function runStatelessAgent({
           ? call.function.arguments : JSON.parse(call?.function?.arguments||'{}');}
       catch {args={};}
       events.push({type:'tool_use',name:name==='shell'?'terminal':name||'unknown',input:args});
+      trace({stage:'tool_execution',turn});
       try {output=await callTool(name,args,{cwd:request.cwd});}
       catch (error) {output={ok:false,text:'Tool failed: '+error.message};}
       events.push({type:'tool_result',name:name==='shell'?'terminal':name,is_error:!output.ok,output:output.text});
@@ -137,6 +139,7 @@ export async function runStatelessAgent({
     ].join(' ')}];
     const remainingForDecision=(config.budgetSeconds*1000)-(Date.now()-start);
     if(remainingForDecision<1000) throw Error('Local agent budget expired before verification decision');
+    trace({stage:'model_inference',turn,decision:true});
     let finalResponse;
     try {
       finalResponse=await askModel(baseUrl+'/chat/completions',{
@@ -146,7 +149,7 @@ export async function runStatelessAgent({
           response_format:{type:'json_object'},chat_template_kwargs:{enable_thinking:false}}),
         signal:AbortSignal.timeout(Math.min(remainingForDecision,180000)),
       });
-    } catch {throw Error('Local inference decision request failed');}
+    } catch (cause) {throw new Error('Local inference decision request failed', {cause});}
     if(!finalResponse.ok) throw Error('Local inference decision HTTP '+finalResponse.status);
     const decision=(await finalResponse.json())?.choices?.[0]?.message;
     if(!decision || decision.tool_calls?.length) throw Error('Local decision gate returned tools instead of JSON');

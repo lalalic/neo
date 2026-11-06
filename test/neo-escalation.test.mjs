@@ -113,6 +113,8 @@ test('CLI help exposes only file-based content inputs', () => {
   assert.doesNotMatch(output, /--context/);
   assert.doesNotMatch(output, /--handoff TEXT/);
   assert.doesNotMatch(output, /--codex-command/);
+  assert.match(output, /neo escalation challenges/);
+  assert.match(output, /--correlation-id ID/);
 });
 
 

@@ -105,3 +105,12 @@ llama-server --version
 ```
 
 A local backend failure must return a real error; it must never be reported as `resolved`. After a call, verify no **owned** `llama-server` PID remains.
+
+## Inspect all blocked tasks and their retries
+
+```sh
+neo escalation challenges --limit 30
+neo escalation --handoff-file /absolute/handoff.md --correlation-id job/example/task/repair
+```
+
+Each local attempt persists its full, **unredacted** handoff and a start event before inference. Stage checkpoints and the final result/error are appended as separate private 0600 files. `--correlation-id` keeps retries with changing handoffs together. This ledger is separate from the sanitized deduplicated Experience Library (`neo escalation cases`), never stores a full agent transcript, and never changes the existing public-result redaction. See `docs/escalation-experience.md`.

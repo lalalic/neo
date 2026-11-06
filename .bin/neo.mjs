@@ -9,7 +9,8 @@ import { runAgentDiscovery } from './neo-agent-catalog.mjs';
 import { buildXChatBootstrap, renderXChatBootstrap } from './xchat-bootstrap.mjs';
 import { runNeoMcpToken } from './neo-mcp-token.mjs';
 import { runLocalEscalation, localEscalationConfig } from './neo-local-escalation.mjs';
-import { prepareExperience, storeExperience, listExperience } from './neo-escalation-experience.mjs';
+import { prepareExperience, storeExperience, listExperience, toolsObserved } from './neo-escalation-experience.mjs';
+import { beginChallenge, finishChallenge, checkpointChallenge, listChallenges } from './neo-escalation-challenges.mjs';
 import { runEscalationSelfTest } from './neo-escalation-self-test.mjs';
 import {withGlobalEscalationLock, escalationLockConfig} from './neo-escalation-lock.mjs';
 import { runComputerUseCli } from './neo-mcp-local.mjs';
@@ -32,6 +33,7 @@ function usage() {
   neo escalation --handoff-file PATH [options]
   neo escalation test              Run local-agent tool-use and model-cleanup self-test
   neo escalation cases [--search TEXT] [--limit N]  List private deduplicated scenarios
+  neo escalation challenges [--search TEXT] [--limit N]  Inspect durable challenges and attempts
   neo status|doctor
   neo agent list [--project PATH] [--source project|shared|global|agency]\n  neo agent search QUERY [--project PATH] [--source ...] [--limit N]\n  neo project list|resolve NAME|setup-agent NAME
   neo project run (--url HTTPS_URL | --path ABSOLUTE_RUN_DIR) --project NAME [--dry-run]\n  neo project tts (--text TEXT | --text-file PATH) --output ABSOLUTE.m4a [--voice Tingting] [--rate 200] [--node local]
@@ -50,6 +52,7 @@ Options:
   --handoff-file PATH            Required handoff file containing the full escalation request
   --on-needs-user-file PATH      Optional notification-policy override file
   --cwd PATH                     Original working directory for the task (default: current directory)
+  --correlation-id ID            Stable opaque task ID to associate retries
 
 Runtime environment:
   NEO_ESCALATION_ENGINE            llama (default), mlx, external
@@ -58,6 +61,7 @@ Runtime environment:
   NEO_ESCALATION_AGENT_COMMAND     Hermes executable (default hermes)
   NEO_ESCALATION_SERVER_COMMAND    Local inference server executable
   NEO_ESCALATION_BASE_URL          Loopback /v1 URL for external engine
+  NEO_ESCALATION_CHALLENGES_DIR     Private challenge ledger location
   NEO_ESCALATION_LOCK_DIR           Per-host exclusive-lock directory (default ~/.local/state/neo/escalation)
   NEO_ESCALATION_LOCK_WAIT_SECONDS  Queue timeout (default 3600)
 `;
@@ -90,7 +94,7 @@ function fileOption(args, name) {
 }
 
 export function parseEscalationArgs(args, options = {}) {
-  const allowed = new Set(['--handoff-file', '--on-needs-user-file', '--cwd']);
+  const allowed = new Set(['--handoff-file', '--on-needs-user-file', '--cwd', '--correlation-id']);
   for (let index = 0; index < args.length; index += 2) {
     const name = args[index];
     if (!allowed.has(name)) throw new Error(`unknown escalation option: ${name}; use --handoff-file PATH`);
@@ -98,7 +102,8 @@ export function parseEscalationArgs(args, options = {}) {
   const request = {
     handoff: fileOption(args, '--handoff-file'),
     onNeedsUser: fileOption(args, '--on-needs-user-file') ?? readRequiredTextFile(options.defaultNeedsUserPath ?? DEFAULT_NEEDS_USER_PATH, 'default needs-user policy'),
-    cwd: valueFor(args, '--cwd') ?? process.cwd()
+    cwd: valueFor(args, '--cwd') ?? process.cwd(),
+    correlationId: valueFor(args, '--correlation-id')
   };
   if (!request.handoff || !request.handoff.trim()) throw new Error('escalation requires --handoff-file PATH');
   return request;
@@ -178,16 +183,17 @@ async function main(argv) {
     process.stdout.write(JSON.stringify(result, null, 2) + '\n');
     return 0;
   }
-  if (args[0] === 'cases') {
+  if (args[0] === 'cases' || args[0] === 'challenges') {
     const options = args.slice(1);
+    const kind = args[0];
     if (options.length % 2 !== 0 || options.some((arg, i) => i % 2 === 0 && !['--search', '--limit'].includes(arg))) {
-      throw new Error('usage: neo escalation cases [--search TEXT] [--limit N]');
+      throw new Error(`usage: neo escalation ${kind} [--search TEXT] [--limit N]`);
     }
-    const rows = listExperience({
+    const filter = {
       search: valueFor(options, '--search') || '',
       limit: valueFor(options, '--limit') === undefined ? 30 : Number(valueFor(options, '--limit')),
-    });
-    process.stdout.write(JSON.stringify(rows, null, 2) + '\n');
+    };
+    process.stdout.write(JSON.stringify(kind === 'cases' ? listExperience(filter) : listChallenges(filter), null, 2) + '\n');
     return 0;
   }
   if (args.includes('--help') || args.includes('-h')) {
@@ -195,13 +201,22 @@ async function main(argv) {
     return 0;
   }
   const request = parseEscalationArgs(args);
+  // Challenge and start event must be durable BEFORE model initialization.
+  // A killed process then leaves a diagnosable unfinished attempt instead of
+  // an empty/unclassified experience record.
+  const challenge = beginChallenge(request);
   const backend = 'local';
+  let phase = 'preflight';
+  checkpointChallenge(challenge, phase);
   let config;
   let result;
   let captured;
   let executionError;
+  const progress = {tools:new Set(), calls:0, failures:0};
   try {
     config = localEscalationConfig();
+    phase = 'resource_lock';
+    checkpointChallenge(challenge, phase);
     result = validateResult(await withGlobalEscalationLock(
       ({registerOwnedPid})=>runLocalEscalation(request, {
         config,
@@ -210,6 +225,17 @@ async function main(argv) {
         playbookPrompt: readFileSync(resolve(ROOT, 'agents/neo-escalation-playbook.md'), 'utf8'),
         experiencePrompt: readFileSync(resolve(ROOT, 'agents/escalation-experience.md'), 'utf8'),
         onExperience: payload => { captured = payload; },
+        onProgress: entry => {
+          if (entry.stage && entry.stage !== phase) {
+            phase = entry.stage;
+            checkpointChallenge(challenge, phase);
+          }
+          if (entry.tool) {
+            progress.calls++;
+            if (entry.ok === false) progress.failures++;
+            if (['shell','webhelm','computer-use','skills'].includes(entry.tool)) progress.tools.add(entry.tool);
+          }
+        },
       }),
       escalationLockOptions(),
     ));
@@ -218,7 +244,8 @@ async function main(argv) {
   }
   // Model writes its own sanitized case candidate into final JSON. Neo only
   // validates and stores that candidate, or a minimal failure if it crashed.
-  // Never repeat the potentially mutating operation when recording fails.
+  // Never repeat a potentially mutating task when recording fails.
+  let experienceId;
   try {
     const experience = prepareExperience({
       handoff: request.handoff,
@@ -232,8 +259,21 @@ async function main(argv) {
       error: executionError,
     });
     storeExperience(experience);
+    experienceId = experience.id;
   } catch (error) {
     process.stderr.write(`Escalation experience could not be saved (task will not be retried): ${error.message}\n`);
+  }
+  try {
+    finishChallenge(challenge, {
+      result:captured?.rawResult ?? result, error:executionError, phase,
+      observation: captured?.events?.length ? toolsObserved(captured.events) : {
+        tools:[...progress.tools].sort(),calls:progress.calls,failures:progress.failures,
+      },
+      experienceId,
+    });
+  } catch (error) {
+    process.stderr.write('Escalation challenge finish event could not be saved; start event remains for recovery.\n');
+    if (!executionError) executionError = error;
   }
   if (executionError) throw executionError;
   process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);

@@ -278,10 +278,12 @@ export async function runLocalEscalation(request, {
   config = localEscalationConfig(), fetcher = fetch, agentPrompt, playbookPrompt = '',
   experiencePrompt = '', onExperience = () => {},
   spawnServer = spawn, runAgent = null, portFactory = freeTcpPort,
-  onServerStarted = () => {}, redactResult = true,
+  onServerStarted = () => {}, onProgress = () => {}, redactResult = true,
 } = {}) {
   const temp = mkdtempSync(join(tmpdir(), 'neo-local-escalation-'));
   let server = null;
+  let stage = 'setup';
+  const advance = next => {stage=next; onProgress({stage:next});};
   const stopOnSignal = signal => {
     // A cancelled call must not leave a model or transcript-bearing scratch.
     if (server && server.exitCode === null && server.signalCode === null) server.kill('SIGTERM');
@@ -306,6 +308,7 @@ export async function runLocalEscalation(request, {
     const queryFile = join(temp, 'handoff.md');
     writeFileSync(queryFile, query, {mode: 0o600});
     let baseUrl = config.baseUrl;
+    advance(config.engine === 'external' ? 'agent_execution' : 'model_startup');
     if (config.engine !== 'external') {
       const port = await portFactory();
       const logs = join(temp, 'server.log');
@@ -324,6 +327,7 @@ export async function runLocalEscalation(request, {
       });
       baseUrl = `http://127.0.0.1:${port}/v1`;
     }
+    advance('agent_execution');
     const stdout = runAgent
       ? await runAgent(config.hermesCommand, hermesArguments(queryFile, config, baseUrl, temp),
           { cwd:temp, env:{...process.env,HERMES_HOME:hermesHome,HERMES_RUNTIME_DIR:join(hermesHome,'tools')},
@@ -333,10 +337,13 @@ export async function runLocalEscalation(request, {
             'Relevant recovery reference is available in a local file at '+join(temp,'neo-escalation-playbook.md')+
             '. For credential, browser or permission blockers, read it with Shell if needed.'].filter(Boolean).join('\n\n'),
           request,config,
-          trace: process.env.NEO_ESCALATION_TOOL_DIAG === '1'
-            ? entry => process.stderr.write('Local tool status: '+JSON.stringify(entry)+'\n')
-            : () => {},
+          trace: entry => {
+            if (entry.stage) onProgress({stage:entry.stage});
+            if (entry.tool && typeof entry.ok === 'boolean') onProgress({stage:'tool_execution',tool:entry.tool,ok:entry.ok});
+            if (process.env.NEO_ESCALATION_TOOL_DIAG === '1') process.stderr.write('Local tool status: '+JSON.stringify(entry)+'\n');
+          },
         });
+    advance('result_parsing');
     const session = parseLocalSession(stdout);
     const normalized = normalizeLocalResult(session.result);
     const result = redactResult ? redactEscalationResult(normalized, session.events) : normalized;
@@ -346,6 +353,7 @@ export async function runLocalEscalation(request, {
     // experience note, ask the same already-loaded local model to summarize
     // the observed outcome in a short, tool-free post-run pass.
     if ((!experience?.scenario_key || !experience?.strategy_key) && experiencePrompt) {
+      advance('experience_capture');
       try {
         experience = await generateExperience({
           baseUrl, experiencePrompt, handoff: request.handoff, result,
@@ -356,8 +364,12 @@ export async function runLocalEscalation(request, {
         experience = undefined; // recorded honestly as an incomplete fallback
       }
     }
-    onExperience({experience, events: session.events, result, captureMethod});
+    onExperience({experience, events: session.events, result, rawResult:normalized, captureMethod});
+    advance('completed');
     return result;
+  } catch (error) {
+    if (error && typeof error === 'object') error.escalationStage = stage;
+    throw error;
   } finally {
     await terminate(server);
     process.removeListener('SIGINT', onInterrupt);

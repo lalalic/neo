@@ -11,7 +11,7 @@ const out = process.argv[2] ? resolve(process.argv[2]) : mkdtempSync(join(tmpdir
 if (out === root || root.startsWith(out + '/') || out.startsWith(root + '/')) throw Error('Output must be outside the Neo source checkout');
 const allow = [
   '.bin/neo.mjs', '.bin/neo-agent-catalog.mjs', '.bin/neo-control.mjs', '.bin/neo-project-run.mjs', '.bin/neo-project-tts.mjs', '.bin/workspace-config.mjs',
-  '.bin/xchat-bootstrap.mjs', '.bin/neo-mcp-token.mjs', '.bin/neo-mcp-local.mjs', '.bin/neo-local-escalation.mjs', '.bin/neo-stateless-agent.mjs', '.bin/neo-escalation-lock.mjs', '.bin/neo-escalation-self-test.mjs', '.bin/neo-escalation-experience.mjs', 'skills/daemon-service-manage/bin/serviceman.mjs',
+  '.bin/xchat-bootstrap.mjs', '.bin/neo-mcp-token.mjs', '.bin/neo-mcp-local.mjs', '.bin/neo-local-escalation.mjs', '.bin/neo-stateless-agent.mjs', '.bin/neo-escalation-lock.mjs', '.bin/neo-escalation-self-test.mjs', '.bin/neo-escalation-experience.mjs', '.bin/neo-escalation-challenges.mjs', 'skills/daemon-service-manage/bin/serviceman.mjs',
   '.bin/package-web-chatgpt-skill',
   'agents/escalation.agent.md', 'agents/escalation-needs-user.md', 'agents/neo-escalation-playbook.md', 'agents/escalation-experience.md', 'agents/escalation-result.schema.json',
   'docs/local-escalation.md', 'docs/escalation-experience.md',
