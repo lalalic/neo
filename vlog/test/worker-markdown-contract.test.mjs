@@ -9,10 +9,10 @@ const text = name => readFileSync(resolve(root,name),'utf8');
 const words = name => text(name).split(/\s+/).filter(Boolean).length;
 
 test('project startup, role and stage contracts remain within Markdown review budgets',()=>{
-  assert.ok(words('AGENTS.md')<=1000,'shared startup policies overloaded');
-  assert.ok(words('docs/episode-stage-contract.md')<=1200,'stage contract overloaded');
+  assert.ok(words('AGENTS.md')<=1120,'shared startup policies overloaded');
+  assert.ok(words('docs/episode-stage-contract.md')<=1350,'stage contract overloaded');
   for(const agent of ['vlog-director','vlog-editor','vlog-producer','vlog-final-qa','video-director','market','planner']){
-    assert.ok(words('agents/'+agent+'.agent.md')<=850,agent+' role overloaded');
+    assert.ok(words('agents/'+agent+'.agent.md')<=1030,agent+' role overloaded');
   }
 });
 

@@ -56,6 +56,40 @@
           "story_beat_id": {
             "type": "string",
             "minLength": 1
+          },
+          "sourceDuration": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "description": "Original sourceOut - sourceIn, seconds; not presentation time"
+          },
+          "playbackSpeed": {
+            "type": "number",
+            "minimum": 0.1,
+            "maximum": 4,
+            "description": "Source video speed multiplier; 0.5 = half-speed"
+          },
+          "timelineDuration": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "description": "Duration on final video timeline, distinct from source range"
+          },
+          "sourceType": {
+            "enum": [
+              "image",
+              "still",
+              "video"
+            ],
+            "description": "Original media type for interval semantics"
+          },
+          "motion": {
+            "enum": [
+              "slowPush",
+              "zoomOut",
+              "driftLeft",
+              "driftRight",
+              "none"
+            ],
+            "description": "Editorial motion over still photos"
           }
         },
         "additionalProperties": true

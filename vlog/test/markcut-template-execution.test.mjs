@@ -49,7 +49,7 @@ test('only a Markcut MD controls BGM selection, audio volume and hook/body/closi
      .replace('src:{{music.path}} isBackground:true volume:0.18',
               'src:{{music.path}} isBackground:true volume:0.36')
      .replace('## {{scene.id}}\nlayout:parallel','## Hook {{scene.id}}\nlayout:parallel')
-     .replace('\"transform\":\"scale(1.08)\"','\"transform\":\"scale(1.12)\"');
+     .replace('\"end\": \"scale(1.08)\"','\"end\": \"scale(1.12)\"');
    const altered=compileCinematicVlog(input,{templateContent:edited});
    assert.match(altered,/volume:0.36/);
    assert.match(altered,/## Hook opening/);

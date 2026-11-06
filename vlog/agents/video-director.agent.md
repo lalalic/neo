@@ -12,6 +12,7 @@ This is specialist content review, not a Git/PR code review.
 
 - Input: Producer `video.md`, preview revision/content identity, original
   source evidence, the full `personal-story.md` / `personal-story.json`, and `story.md` / `visual-brief.md`.
+- Critically assess **story completeness as watched**, not just a Markdown timeline: does the beginning establish a real desire, setback cause a response, and ending resolve the promise? The Director must not call a compressed scenic summary a complete story. Inspect varied media coverage, visible slow-motion/camera moves and repetitive still holds; a technically playable MP4 is not enough.
 - Verify the personal first-person goal, setback, actions and human payoff survived the edit; scenic-only montage is CHANGE_REQUIRED. Check whether fictionalized incidents are clearly creative, not claimed as recorded source. Validate shot selection, motion,
   cuts/transitions, source accuracy, captions and sound/BGM mix.
 - Use the selected Vlog style preset as the baseline. Verify its concrete

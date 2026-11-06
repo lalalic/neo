@@ -33,6 +33,21 @@ function personalStoryFixture(f){
  return story;
 }
 
+test('Editor validates sourceDuration versus story-paced timelineDuration instead of equating them',()=>{
+ const f=fixture();try{
+  const tool=join(f.vlog,'scripts/validate-stage.mjs');const env={AGENTS_RELAY_CLI:f.cli};
+  write(f.run,'vision-evidence.json',{stage:'visioner',summary:[{source_id:'a'}],sources:[{source_id:'a'}]});
+  personalStoryFixture(f);
+  write(f.run,'shot-selection.json',{schema_version:1,personal_story_id:'human-story-01',shots:[{id:'shotA',source_id:'a',story_beat_id:'b01'}]});
+  const edit={shot_id:'shotA',sceneId:'shotA',source_id:'a',source_hash:'original',story_beat_id:'b01',beat:'setup',sourceType:'video',in_seconds:0,out_seconds:1.55,sourceDuration:1.55,playbackSpeed:.5,timelineDuration:1.55,target_duration_seconds:1.55};
+  const edl={schema_version:1,personal_story_id:'human-story-01',edits:[edit]};
+  write(f.run,'edit-decision-list.json',edl);
+  let result=call(tool,['editor',f.run],env);assert.equal(result.status,1);assert.match(result.stdout,/EDL_TIMELINE_DURATION/);
+  edit.timelineDuration=edit.target_duration_seconds=3.10;write(f.run,'edit-decision-list.json',edl);
+  result=call(tool,['editor',f.run],env);assert.equal(result.status,0,result.stdout);
+ }finally{f.clean();}
+});
+
 test('template preflight resolves declared asset files and HTTPS URLs, fails on missing file',()=>{
  const f=fixture();try{
   const tool=join(f.vlog,'scripts/preflight-template-assets.mjs');

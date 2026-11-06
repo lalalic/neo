@@ -36,6 +36,12 @@
       5
     ]
   },
+  "motions": {
+    "slowPush": {"start": "scale(1.02)", "end": "scale(1.08)"},
+    "zoomOut": {"start": "scale(1.12)", "end": "scale(1.02)"},
+    "driftLeft": {"start": "scale(1.12) translateX(2%)", "end": "scale(1.12) translateX(-2%)"},
+    "driftRight": {"start": "scale(1.12) translateX(-2%)", "end": "scale(1.12) translateX(2%)"}
+  },
   "transitions": {
     "supported": [
       "cut",
@@ -84,7 +90,7 @@ instruction:{{scene.instruction}}
 <!-- VLOG:VIDEO:END -->
 
 <!-- VLOG:IMAGE_MOTION:BEGIN -->
-- image src:{{scene.path}} duration:{{scene.duration}} fit:cover{{scene.background}} effects:[{"animation":"custom","duration":{{scene.duration}},"customKeyframes":{"0":{"transform":"scale(1.02)"},"100":{"transform":"scale(1.08)"}}}]
+- image src:{{scene.path}} duration:{{scene.duration}} fit:cover{{scene.background}} effects:[{"animation":"custom","duration":{{scene.duration}},"customKeyframes":{"0":{"transform":{{scene.motionStart}}},"100":{"transform":{{scene.motionEnd}}}}}]
 <!-- VLOG:IMAGE_MOTION:END -->
 
 <!-- VLOG:IMAGE_STATIC:BEGIN -->

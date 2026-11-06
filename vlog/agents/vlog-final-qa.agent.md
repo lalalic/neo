@@ -24,3 +24,5 @@ Inspect the actual current rendered episode and its source-linked production rec
 - If a required check fails, report concrete findings to the Planner/owning Stage. Never silently edit the Producer's deliverable or claim completion.
 - Publication review belongs to a separate workflow; private archive is the default.
 - Before emitting task.completed run `node <vlog-root>/scripts/validate-stage.mjs final-qa <run>`; repair only this Stage's report/receipt on validation failure, then revalidate. Do not change Producer outputs or perform license/permission audits.
+
+- Confirm that narrative duration drives visual treatment, that any transformed clip actually plays at its intended `playbackSpeed`, and that no long still hold replaces missing beat coverage. Inspect the real final MP4, not just its media recipe; technical QA must not pass a narratively unfinished film.

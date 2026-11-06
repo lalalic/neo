@@ -35,7 +35,7 @@ export function parseCinematicTemplate(template = readFileSync(DEFAULT_TEMPLATE,
     throw Error('Markcut template must define one continuous root BGM');
   if(!config.song?.title || !config.song?.artist || !config.song?.provider)
     throw Error('Markcut template BGM song metadata is required');
-  if(!config.format || !config.pacing || !config.transitions || !Number.isFinite(config.audio?.source_video_volume))
+  if(!config.format || !config.pacing || !config.transitions || !config.motions?.slowPush || !Number.isFinite(config.audio?.source_video_volume))
     throw Error('Markcut template format and pacing are required');
   if(!config.variants?.includes(config.id))throw Error('Markcut template variant mismatch');
   return {config,blocks,body:body.trim()};
@@ -97,7 +97,7 @@ export function compileCinematicVlog({
     try{if(!readable(hashPath))throw Error('empty');}catch{throw Error('Scene '+scene.id+' source media is unreadable');}
     if(scene.override && (!scene.override.description?.trim()||!scene.override.rationale?.trim()||!scene.override.evidenceRef))
       throw Error('Scene '+scene.id+' override lacks description, rationale, or evidence provenance');
-    if(scene.override?.motion && (scene.type!=='image'||!['slowPush','none'].includes(scene.override.motion)))
+    if(scene.override?.motion && (scene.type!=='image'||!['slowPush','zoomOut','driftLeft','driftRight','none'].includes(scene.override.motion)))
       throw Error('Scene '+scene.id+' has an unsupported motion override');
     if(scene.override?.sourceAudioVolume!=null && (scene.type!=='video'||scene.override.sourceAudioVolume<0||scene.override.sourceAudioVolume>1))
       throw Error('Scene '+scene.id+' has an invalid source-audio override');
@@ -114,7 +114,9 @@ export function compileCinematicVlog({
     if(scene.type==='image'){
       const duration=Math.max(scene.duration,scene.audioPath?scene.audioDuration??scene.duration:scene.duration);
       const block=scene.override?.motion==='none'?'IMAGE_STATIC':'IMAGE_MOTION';
-      media=substitute(blocks[block],{...common,'scene.duration':duration,'scene.background':scene.audioPath?' isBackground:true':''});
+      const motion=config.motions[scene.override?.motion||'slowPush'];
+      if(block==='IMAGE_MOTION' && (!motion?.start||!motion?.end))throw Error('Missing template still-motion preset for '+scene.id);
+      media=substitute(blocks[block],{...common,'scene.duration':duration,'scene.background':scene.audioPath?' isBackground:true':'','scene.motionStart':q(motion?.start||''),'scene.motionEnd':q(motion?.end||'')});
       if(scene.audioPath){
         try{if(!readable(scene.audioPath))throw Error('empty');}catch{throw Error('STORY_VOICEOVER_MISSING: '+scene.id+' audio asset is unreadable');}
         media+='\n'+substitute(blocks.VOICE,{'scene.audio.path':local(scene.audioPath),'scene.audio.duration':scene.audioDuration??scene.duration});

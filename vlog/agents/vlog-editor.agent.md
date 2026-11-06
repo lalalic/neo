@@ -30,14 +30,15 @@ a response, preserve uncertainty and refer story changes to Director.
 Do not call Markcut video Preview for an EDL alone. Follow [story/route/sound continuity](../docs/story-first-route-sound.md): motivated visible transition at each boundary; voice and one BGM continue across cuts.
 
 1. Use the Director-selected shot IDs and existing Visioner timecode evidence without re-parsing the source media.
-2. Preserve the personal story's protagonist, everyday goal, setback and contrast/payoff; remove unnecessary scenery before sacrificing the human arc. Refine exact in/out points, sequence, pace, crop, framing, transitions,
+2. Let the complete personal story and real narration determine each beat's `timelineDuration` rather than shortening the plot to camera clip duration. Preserve the personal story's protagonist, everyday goal, setback and contrast/payoff; remove unnecessary scenery before sacrificing the human arc. Refine exact in/out points, sequence, pace, crop, framing, transitions,
    titles, captions and audio; keep the opening hook and promised payoff.
 3. Verify selected source speech by listening to the actual in/out clip, not by treating STT as ground truth. If an opening/payoff line is cut off, choose a different supported interval or return to Director. Carry a source-speech/voiceover/visual-story delivery decision for each beat into the EDL. Preserve authentic speech, meaningful ambient sound and Hey Neo editing
    commands. Usually exclude spoken control commands from the output audio.
 4. Implement supported shared video-shotcraft single-shot recipe intent using
    existing Markcut authoring. Do not replace original footage or separately
    render a promotional MP4. Report impossible source constraints to Director.
-5. Write an ordered `edit-decision-list.json` under the canonical run directory, using `contracts/edit-decision-list.schema.json` (`schema_version: 1`, nonempty `edits`, `shot_id`, `source_id`, `source_hash`, `in_seconds`, `out_seconds`, `beat`).
+5. Record separate **source** and **timeline** timing for each shot. For video: `in_seconds` and `out_seconds` are original source timecodes, `sourceDuration = out_seconds - in_seconds`, `playbackSpeed` is an editorial speed multiplier (0.5 for half speed), and `timelineDuration = sourceDuration / playbackSpeed`. A still uses `timelineDuration` as its on-screen hold regardless of camera instant. `target_duration_seconds` should match the timeline, not the raw source interval. For stills, choose varying `override.motion` / motion treatments: `slowPush`, `zoomOut`, `driftLeft`, `driftRight`, `none`; do not repeat the exact same static composition for a long section. Genuine source dialogue may not be slowed as "real" speech; have Producer mute slowed clip sound or use explicitly verified separate ambience.
+6. Write an ordered `edit-decision-list.json` under the canonical run directory, using `contracts/edit-decision-list.schema.json` (`schema_version: 1`, nonempty `edits`, `shot_id`, `source_id`, `source_hash`, `in_seconds`, `out_seconds`, `beat`).
    For every entry include Director shot reference, stable source media ID/hash,
    precise source in/out or still duration, beat, target duration, audio and
    visual treatment, transition, optional recipe and any deviation rationale.
@@ -46,7 +47,7 @@ Do not call Markcut video Preview for an EDL alone. Follow [story/route/sound co
    and a story/continuity rationale at each boundary; hard cuts are valid.
    Mark speech, dialogue, narration or meaningful original sound as `audioIntent`
    so Producer can require the ducked BGM mix and its evidence.
-6. Hand exact delivery timing and any voiceover text to Producer to render real foreground audio, not instruction metadata. Producer uses the template-selected BGM and owns executable production and review.
+7. Hand exact delivery timing and any voiceover text to Producer to render real foreground audio, not instruction metadata. Producer uses the template-selected BGM and owns executable production and review.
 
 ## Visual prompt references
 

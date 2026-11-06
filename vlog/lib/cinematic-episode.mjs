@@ -9,6 +9,7 @@ import {readGpsMetadata} from './gps-route.mjs';
 import {planGeoStory,geoStoryMarkdown} from './geo-story.mjs';
 import {compileCinematicVlog,lintCinematicVlog} from './cinematic-vlog.mjs';
 import {assertAudiovisualStory} from './story-plan.mjs';
+import {preparePlaybackMedia} from './media-treatment.mjs';
 const run=promisify(execFile);
 const safeName=s=>/^[\w.\-/]+$/.test(s)&&!s.split('/').includes('..');
 const sha=buf=>createHash('sha256').update(buf).digest('hex');
@@ -102,7 +103,7 @@ export async function buildCinematicEpisode(input,{runDir=process.cwd(),markcutR
    previewHash:preview.contentHash,renderSha256:routeHash};
   await writeFile(join(assetsDir,'evidence.json'),JSON.stringify(publication,null,2));
  }
- const expanded=insertGeoRoute(input,route);
+ const expanded=await preparePlaybackMedia(insertGeoRoute(input,route),{runDir:root});
  const originalCwd=process.cwd();
  try{
   process.chdir(root);
@@ -111,7 +112,7 @@ export async function buildCinematicEpisode(input,{runDir=process.cwd(),markcutR
   if(issues.length)throw Error(issues.join('\n'));
   if(route && !markdown.includes('src:assets/route.mp4'))throw Error('REQUIRED_GPS_ROUTE_MISSING');
   const main=resolve(root,'video.md');await writeFile(main,markdown);
-  await writeFile(resolve(root,'episode-production.json'),JSON.stringify({route,sourceSceneCount:input.scenes.length,finalSceneCount:expanded.scenes.length,storyPlan,status:'draft-needs-review'},null,2));
+  await writeFile(resolve(root,'episode-production.json'),JSON.stringify({route,sourceSceneCount:input.scenes.length,finalSceneCount:expanded.scenes.length,storyPlan,mediaTreatments:expanded.scenes.filter(s=>s.mediaTreatment).map(s=>({sceneId:s.id,originalSource:s.sourceEvidencePath,renderedPath:s.path,...s.mediaTreatment})),status:'draft-needs-review'},null,2));
   return {video:main,route,story,finalSceneCount:expanded.scenes.length};
  } finally {process.chdir(originalCwd);}
 }

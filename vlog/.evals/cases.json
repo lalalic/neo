@@ -284,5 +284,80 @@
       "treat scenery as full story",
       "editor invents new story"
     ]
+  },
+  {
+    "id": "director-full-story-before-coverage",
+    "role": "vlog-director",
+    "capability": "complete personal story drives runtime and visual coverage",
+    "references": [
+      "docs/personal-story-first.md",
+      "agents/vlog-director.agent.md"
+    ],
+    "choices": [
+      "complete_goal_setback_action_payoff_then_plan_media_timing",
+      "cut_story_to_one_point_five_second_clip",
+      "write_scenic_timeline_only"
+    ],
+    "task": "You have a compelling 26-second first-person story with goal, setback, trying another approach, and a resolved payoff. The source folder contains only a photo of a path, a creek photo and a 1.55-second creek video. Decide whether to shorten the story to 1.55 seconds, or first preserve the complete human arc and plan varied media coverage.",
+    "expectedDecision": "complete_goal_setback_action_payoff_then_plan_media_timing",
+    "required": [
+      "complete",
+      "timing",
+      "media"
+    ],
+    "forbidden": [
+      "source video limits the story",
+      "invent filmed events"
+    ]
+  },
+  {
+    "id": "editor-distinguish-source-and-timeline",
+    "role": "vlog-editor",
+    "capability": "source bounds distinct from story timeline and playback speed",
+    "references": [
+      "docs/story-first-route-sound.md",
+      "contracts/edit-decision-list.schema.json"
+    ],
+    "choices": [
+      "use_original_1_55_source_with_0_5_speed_for_3_10_timeline",
+      "truncate_payoff_to_1_55",
+      "invent_extra_1_55_source_footage"
+    ],
+    "task": "A story beat needs 3.10 seconds of moving water while the only camera video is 0.00–1.55 seconds. Source is authenticated but source speech unverified. Decide EDL treatment, preserve raw source ID and bounds, and keep the speaking story continuous.",
+    "expectedDecision": "use_original_1_55_source_with_0_5_speed_for_3_10_timeline",
+    "required": [
+      "sourceDuration",
+      "playbackSpeed",
+      "timelineDuration"
+    ],
+    "forbidden": [
+      "repeat was newly filmed",
+      "verified speech"
+    ]
+  },
+  {
+    "id": "producer-avoid-ten-second-frozen-image",
+    "role": "vlog-producer",
+    "capability": "actual media treatment and complete audible arc",
+    "references": [
+      "agents/vlog-producer.agent.md",
+      "templates/cinematic-vlog.md"
+    ],
+    "choices": [
+      "apply_real_slow_motion_photo_movements_and_retime_narration",
+      "leave_one_frozen_still_ten_seconds",
+      "declare_pass_if_mp4_decodes"
+    ],
+    "task": "The canonical run contains a connected goal/setback/action/payoff script. Only 1.55 seconds of original motion and two photos exist. A preliminary 20-second MP4 has a 10-second static closing shot; technical verification passed but story playback feels unfinished. Choose a real executable fix, preserving source provenance and not inventing new footage.",
+    "expectedDecision": "apply_real_slow_motion_photo_movements_and_retime_narration",
+    "required": [
+      "media",
+      "narration",
+      "story"
+    ],
+    "forbidden": [
+      "technical PASS proves story PASS",
+      "fake footage"
+    ]
   }
 ]

@@ -94,12 +94,43 @@ if(stage==='visioner'){
  if(shot)check(shot.source_id===edit.source_id,'EDL_SOURCE_REF','Use Director source_id for shot '+edit.shot_id);
  if(shot)check(shot.story_beat_id===edit.story_beat_id,'EDL_PERSONAL_STORY_BEAT','Preserve Director personal-story beat for shot '+edit.shot_id);
  check(edit.out_seconds>edit.in_seconds,'EDL_TIMECODE','Set a positive source interval for '+edit.shot_id);
+ if(edit.sourceType==='video' && (edit.sourceDuration!=null||edit.playbackSpeed!=null||edit.timelineDuration!=null)){
+  const sourceDuration=edit.out_seconds-edit.in_seconds,speed=edit.playbackSpeed??1,screenTime=edit.timelineDuration??edit.target_duration_seconds;
+  check(Number.isFinite(speed)&&speed>=.1&&speed<=4,'EDL_PLAYBACK_SPEED','Choose a finite 0.1–4× video playbackSpeed for '+edit.shot_id);
+  if(edit.sourceDuration!=null)check(Math.abs(edit.sourceDuration-sourceDuration)<=.02,'EDL_SOURCE_DURATION','sourceDuration must equal source out minus in for '+edit.shot_id);
+  if(screenTime!=null)check(Math.abs(screenTime-sourceDuration/speed)<=.08,'EDL_TIMELINE_DURATION','timelineDuration must equal sourceDuration/playbackSpeed for '+edit.shot_id);
+ }
+ if(edit.timelineDuration!=null&&edit.target_duration_seconds!=null)
+  check(Math.abs(edit.timelineDuration-edit.target_duration_seconds)<=.08,'EDL_TARGET_DURATION','Target and presentation duration must agree for '+edit.shot_id);
  }}
 }else if(stage==='producer'){
  const story=json('personal-story.json');const edl=json('edit-decision-list.json');const input=json('episode-input.json');json('music-plan.json');required('video.md');
  if(story&&input)check(input.story?.personal_story_id===story.story_id,'PRODUCER_PERSONAL_STORY_ID','Carry accepted personal_story_id into episode-input story; do not replace it with a scenic montage');
  check(Array.isArray(edl?.edits)&&edl.edits.length>0,'PRODUCER_EDITOR_INPUT','Use validated Editor EDL');
  check(Array.isArray(input?.scenes)&&input.scenes.length>0,'EPISODE_SCENES','Compile real scenes from accepted EDL');
+ if(Array.isArray(edl?.edits)&&Array.isArray(input?.scenes)){
+  const ordered=edl.edits.map(e=>e.sceneId??e.shot_id);
+  check(ordered.length===input.scenes.length&&ordered.every((id,i)=>id===input.scenes[i]?.id),
+   'PRODUCER_STORY_COVERAGE','Keep every Editor-selected scene in original story beat order; do not remove narrative beats to fit source runtime');
+  const progression=input.story?.progression;
+  if(Array.isArray(progression))check(progression.length===ordered.length&&ordered.every((id,i)=>progression[i]?.sceneId===id),
+   'PRODUCER_NARRATIVE_SEQUENCE','Provide story progression across every actual media scene, in the same order');
+  if(Array.isArray(progression)&&story?.beats?.length){
+   const covered=new Set(edl.edits.map(e=>e.story_beat_id));
+   for(const beat of story.beats)check(covered.has(beat.id),'PRODUCER_STORY_BEAT_MISSING',
+    'Do not drop personal story '+beat.role+' beat '+beat.id+' to shorten media coverage');
+  }
+  for(let i=0;i<edl.edits.length;i++){
+   const e=edl.edits[i],s=input.scenes[i];if(!s)continue;
+   if(e.source_hash)check(s.sourceHash===e.source_hash,'PRODUCER_SOURCE_IDENTITY','Preserve original source hash for '+e.shot_id);
+   if(e.playbackSpeed!=null||e.timelineDuration!=null){
+    const speed=s.playbackSpeed??1,duration=s.timelineDuration??s.duration;
+    if(e.sourceType==='video'&&e.playbackSpeed!=null)
+     check(Math.abs(speed-e.playbackSpeed)<=.001,'PRODUCER_PLAYBACK_SPEED','Copy Editor playbackSpeed to Producer '+e.shot_id);
+    if(e.timelineDuration!=null)check(Math.abs(duration-e.timelineDuration)<=.08,'PRODUCER_TIMELINE_DURATION','Preserve Editor narrative timelineDuration for '+e.shot_id);
+   }
+  }
+ }
  const music=input?.music?.path;
  check(confinedFile(music),'PRODUCER_MUSIC','Build a continuous track from template-declared shared assets; do not require BGM in the initial source run');
  for(const scene of input?.scenes??[])if(scene.audioPath)check(confinedFile(scene.audioPath),'PRODUCER_VOICEOVER','Render the missing stage-local voiceover '+scene.audioPath);
