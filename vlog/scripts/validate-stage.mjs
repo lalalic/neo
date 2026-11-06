@@ -96,6 +96,8 @@ if(stage==='visioner'){
  check(edit.out_seconds>edit.in_seconds,'EDL_TIMECODE','Set a positive source interval for '+edit.shot_id);
  if(edit.sourceType==='video' && (edit.sourceDuration!=null||edit.playbackSpeed!=null||edit.timelineDuration!=null)){
   const sourceDuration=edit.out_seconds-edit.in_seconds,speed=edit.playbackSpeed??1,screenTime=edit.timelineDuration??edit.target_duration_seconds;
+  check([edit.sourceDuration,edit.playbackSpeed,edit.timelineDuration].every(Number.isFinite),
+   'EDL_TREATMENT_FIELDS','Every treated video needs sourceDuration, playbackSpeed and timelineDuration for '+edit.shot_id);
   check(Number.isFinite(speed)&&speed>=.1&&speed<=4,'EDL_PLAYBACK_SPEED','Choose a finite 0.1–4× video playbackSpeed for '+edit.shot_id);
   if(edit.sourceDuration!=null)check(Math.abs(edit.sourceDuration-sourceDuration)<=.02,'EDL_SOURCE_DURATION','sourceDuration must equal source out minus in for '+edit.shot_id);
   if(screenTime!=null)check(Math.abs(screenTime-sourceDuration/speed)<=.08,'EDL_TIMELINE_DURATION','timelineDuration must equal sourceDuration/playbackSpeed for '+edit.shot_id);

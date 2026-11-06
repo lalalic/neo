@@ -43,7 +43,9 @@ test('Editor validates sourceDuration versus story-paced timelineDuration instea
   const edl={schema_version:1,personal_story_id:'human-story-01',edits:[edit]};
   write(f.run,'edit-decision-list.json',edl);
   let result=call(tool,['editor',f.run],env);assert.equal(result.status,1);assert.match(result.stdout,/EDL_TIMELINE_DURATION/);
-  edit.timelineDuration=edit.target_duration_seconds=3.10;write(f.run,'edit-decision-list.json',edl);
+  edit.timelineDuration=edit.target_duration_seconds=3.10;delete edit.sourceDuration;write(f.run,'edit-decision-list.json',edl);
+  result=call(tool,['editor',f.run],env);assert.equal(result.status,1);assert.match(result.stdout,/EDL_TREATMENT_FIELDS/);
+  edit.sourceDuration=1.55;write(f.run,'edit-decision-list.json',edl);
   result=call(tool,['editor',f.run],env);assert.equal(result.status,0,result.stdout);
  }finally{f.clean();}
 });

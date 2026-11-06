@@ -323,7 +323,7 @@
       "truncate_payoff_to_1_55",
       "invent_extra_1_55_source_footage"
     ],
-    "task": "A story beat needs 3.10 seconds of moving water while the only camera video is 0.00–1.55 seconds. Source is authenticated but source speech unverified. Decide EDL treatment, preserve raw source ID and bounds, and keep the speaking story continuous.",
+    "task": "A story beat needs 3.10 seconds of moving water while the only camera video is 0.00–1.55 seconds. Source is authenticated but source speech unverified. Decide EDL treatment, preserve raw source ID and bounds, and keep the speaking story continuous. List all three numeric EDL fields by name: sourceDuration, playbackSpeed and timelineDuration.",
     "expectedDecision": "use_original_1_55_source_with_0_5_speed_for_3_10_timeline",
     "required": [
       "sourceDuration",
@@ -331,8 +331,8 @@
       "timelineDuration"
     ],
     "forbidden": [
-      "repeat was newly filmed",
-      "verified speech"
+      "claim a second source was filmed",
+      "classify source audio as confirmed dialogue"
     ]
   },
   {
