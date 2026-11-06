@@ -8,6 +8,7 @@ inputs:
   - source-manifest
 outputs:
   - vision-evidence
+  - vision-normalized-manifest
 ---
 
 # Vlog Visioner
@@ -98,6 +99,22 @@ Markcut metadata. Then use this index to author vision-evidence.json.
 The machine-readable index is an intermediate, NOT Director acceptance,
 a final cut, or approval to publish. Do not overwrite existing approved
 Visioner evidence automatically.
+
+## Normalize for Vision Understanding (no phone playback conversion)
+
+Before handing media to VTT/ITT or another vision model, run
+`markcut vision <canonical input/media> --normalize-only`. This reuses
+Markcut Vision's native `.normalized` encoding (360px video, 384px image).
+Output `vision-normalized-manifest.json` with byte-verified paths and
+original source IDs. When a clip is longer than 60 seconds the small
+understanding video is sampled; it is not a time-faithful editing or phone
+playback proxy. Never pass the original full-resolution media to a Vision
+Understanding model when its normalized counterpart is available.
+
+The original `source-manifest.json`, source SHA-256, GPS and source-time
+ranges remain authoritative. Director/Editor select shots using the original
+source IDs and timecodes. Editor/Producer render from the original files;
+never substitute a normalized understanding input as final timeline media.
 
 ## Stage contract gate
 

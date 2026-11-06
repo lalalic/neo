@@ -8,7 +8,7 @@ required for an ordinary private MP4.
 | Stage | Output | Acceptance |
 | --- | --- | --- |
 | Source | `source-manifest.json` | Owner-authorized real evidence; `INPUT_NEEDED` blocks |
-| Visioner | `vision-evidence.json`, source index | Real visuals/audio, timestamps and uncertainty |
+| Visioner | `vision-evidence.json`, source index | Real visuals/audio, timestamps and uncertainty; Markcut-normalized small Vision Understanding media mapped in `vision-normalized-manifest.json` |
 | Director | `personal-story.md/json`, `story.md`, `shot-selection.json`, `visual-brief.md`, `post.md`, `route-intent.json` | Complete personal goal → setback → actions → payoff, verified source-linked stops or omit |
 | Editor | `edit-decision-list.json`, assets, `episode-input.json`, `music-plan.json`, `video.md`, `editor-viewer.json` | All Markcut .md verified, real playback checked, audio/captions/transitions/route working |
 | Producer | `output/video.mp4`, `production-receipt.json` | Verify again, render exact Editor revision, probe playable video **and audio**, Preview only on request |

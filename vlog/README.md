@@ -31,7 +31,11 @@ Preview is not publication authorization.
 The chosen [Markcut template](templates/cinematic-vlog.md) is authoritative for
 root BGM, aspect ratio, subtitles and transitions. Do not turn the episode
 into a scenery-only montage, fake filmed locations or silently replace music.
-Private artifacts stay in ignored `runs/<episode>/`.
+Private artifacts stay in ignored `runs/<episode>/`. Visioner uses
+Markcut Vision's existing `.normalized` files (360px video, 384px
+still) for AI Vision Understanding; it records the original-to-normalized
+identity mapping in `vision-normalized-manifest.json`. They are not
+phone streaming files, and Editor/Producer must keep using original media.
 
 Publisher requires `publisher-request.json` bound to the exact MP4,
 account, target platform and authorized action. Otherwise no browser actions

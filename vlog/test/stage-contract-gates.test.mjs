@@ -79,6 +79,16 @@ test('visioner contract fails closed, then passes after agent heals missing evid
   write(f.run,'vision-segment-index.json',{status:'SOURCE_LINKED_UNREVIEWED',sources:[{source_id:'a'}]});
   let r=call(tool,['visioner',f.run]);assert.equal(r.status,1);assert.match(r.stdout,/REQUIRED_ARTIFACT_MISSING/);
   write(f.run,'vision-evidence.json',{stage:'visioner',summary:[{source_id:'a'}]});write(f.run,'input/media/metadata.json',{a:{}});
+  const sourceManifest={media:[{id:'a',path:'a.mov',sha256:'original-hash'}]};
+  write(f.run,'source-manifest.json',sourceManifest);
+  mkdirSync(join(f.run,'input/media/.normalized'));
+  write(f.run,'input/media/.normalized/a_0to1.mp4','tiny understanding bytes');
+  write(f.run,'vision-normalized-manifest.json',{schemaVersion:1,
+   profile:'markcut-vision-normalized-v1',usage:'vision-understanding-only',
+   sourceManifestSha256:hash(JSON.stringify(sourceManifest)),sourceTimeAuthority:'original',
+   sourceGpsAuthority:'original-private-manifest',sources:[{sourceId:'a',sourceSha256:'original-hash',
+    originalPath:'input/media/a.mov',normalizedPath:'input/media/.normalized/a_0to1.mp4',
+    normalizedBytes:Buffer.byteLength('tiny understanding bytes'),maxDimension:360,sampled:false}]});
   r=call(tool,['visioner',f.run]);assert.equal(r.status,0,r.stdout);assert.match(r.stdout,/"status": "PASS"/);
  }finally{f.clean();}
 });

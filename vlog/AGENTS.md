@@ -16,7 +16,13 @@ and Visioner evidence must exist before writing the story.
 ## Stage ownership
 
 - **Visioner** records real source IDs, timecodes and media observations,
-  not creative fiction or repetitive inference.
+  not creative fiction or repetitive inference. It calls native
+  `markcut vision --normalize-only` to produce 360px video / 384px image
+  inputs under `input/media/.normalized` and writes
+  `vision-normalized-manifest.json`. Only these tiny copies should be
+  passed to Vision Understanding; original footage and GPS stay authoritative
+  for shot selection, timecodes and final render. Long clips are sampled
+  for understanding, never reused as timeline footage.
 - **Director** writes a complete first-person goal/setback/actions/payoff
   story, source-linked shot plan and `route-intent.json`. Director chooses
   **if/why** to show the route, which filmed stops it represents, and

@@ -86,6 +86,22 @@ if(stage==='visioner'){
  check(index?.status==='SOURCE_LINKED_UNREVIEWED'&&Array.isArray(index?.sources),'VISION_INDEX_CONTRACT','Regenerate the index using the existing index script');
  if(evidence&&index)check((evidence?.summary?.length??0)<=index.sources.length,'VISION_SOURCE_COUNT','Repair the source/index linkage');
  required('input/media/metadata.json');
+ const raw=json('source-manifest.json'),norm=json('vision-normalized-manifest.json');
+ check(norm?.profile==='markcut-vision-normalized-v1'&&norm?.usage==='vision-understanding-only'&&
+   norm?.sourceTimeAuthority==='original'&&norm?.sourceGpsAuthority==='original-private-manifest'&&
+   !!raw && norm.sourceManifestSha256===fingerprint('source-manifest.json'),
+   'VISION_NORMALIZED_SOURCE','Normalize understanding inputs using original Markcut Vision and preserve source/GPS/time authorities');
+ const media=Array.isArray(raw?.media)?raw.media:[];
+ check(media.length>0&&norm?.sources?.length===media.length,'VISION_NORMALIZED_COUNT','Normalize every source for Vision Understanding');
+ for(const m of media){
+   const item=norm?.sources?.find(x=>x.sourceId===m.id);
+   check(item?.sourceSha256===m.sha256&&item?.originalPath==='input/media/'+m.path&&
+     typeof item?.normalizedPath==='string'&&item.normalizedPath.startsWith('input/media/.normalized/')&&
+     [360,384].includes(item.maxDimension)&&item.normalizedBytes>0&&
+     item.sampled!==undefined&&confinedFile(item.normalizedPath)&&
+     statSync(resolve(run,item.normalizedPath)).size===item.normalizedBytes,
+     'VISION_NORMALIZED_FILE','Missing or invalid lightweight Vision Understanding source: '+String(m.id));
+ }
 }else if(stage==='director'){
  const evidence=json('vision-evidence.json');const story=personalStory(evidence);const shots=json('shot-selection.json');const storyPlan=required('story.md');required('visual-brief.md');required('post.md');
  const route=json('route-intent.json');schema('route-intent.json','route-intent.schema.json');
