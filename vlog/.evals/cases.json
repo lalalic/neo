@@ -412,10 +412,8 @@
     "expectedDecision": "hold_and_inspect_platform_state",
     "required": [
       "uncertain",
-      "no duplicate"
+      "duplicate"
     ],
-    "forbidden": [
-      "blind retry"
-    ]
+    "forbidden": []
   }
 ]
