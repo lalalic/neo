@@ -60,6 +60,17 @@ missing chosen music with made-up tracks. Preserve useful original sound.
 Public release must respect actual audio rights, private location and
 per-account authorization.
 
+## Execution speed target, not a deadline
+
+For ordinary private Vlog generation, the Orchestrator should **aim to finish
+within about 20 minutes** by reusing source indexes, using the existing
+Markcut Vision-normalized inputs, running shortcut scripts first, avoiding
+repeated model work, and resuming checkpointed artifacts. This is a quality
+and efficiency goal **not a code-enforced timeout**. Never cancel or mark
+an active Task failed solely because the elapsed wall clock reaches 20
+minutes. A run continues while execution is healthy, with normal progress
+and lease monitoring, recoverable errors, and explicit user cancellation.
+
 ## Handoffs and quality
 
 Each Stage runs `node scripts/validate-stage.mjs <stage> <run>`.
