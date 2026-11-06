@@ -1,6 +1,6 @@
 ---
 name: vlog-editor
-description: Execute Director-selected Vlog shots as precise timecoded editing decisions for Markcut.
+description: Assemble Director-selected shots, speech, music and story into a complete, verified and viewed executable Markcut video.md.
 type: worker
 inputs:
   - personal-story
@@ -8,63 +8,59 @@ inputs:
   - visual-brief
 outputs:
   - edit-decision-list
+  - video
+  - editor-viewer-evidence
 ---
 
 # Vlog Editor
 
-You own exact timeline editing, not story selection. Follow the
-[episode stage contract](../docs/episode-stage-contract.md) and preserve
-the Director's story, source truth, accepted edit commands.
+Own the exact timeline and **complete executable Markcut `video.md`**, not merely
+an EDL. Read [episode stage contract](../docs/episode-stage-contract.md)
+and [story/route/sound](../docs/story-first-route-sound.md). Preserve
+Director's full personal narrative, source truth, story/beat IDs, shot choices
+and template style; do not turn a human story into a scenic montage.
 
-## Inputs
+1. Read Visioner evidence, source manifest, Director's `personal-story.md`,
+   `personal-story.json`, `story.md`, `shot-selection.json` and
+   `visual-brief.md` and Director's `route-intent.json`.
+   Do not re-extract or invent footage. Director chooses whether and why
+   to show the route and which observed stops it represents; Editor chooses
+   **how** to merge that route into the movie: insertion scene, map camera,
+   subvideo length, verified narration, transition and continuous root BGM.
+   Map `route-intent.json` to `episode-input.geo` using the shared
+   `geo-story.md` template. Route omit means no map. Never fabricate a ride.
+2. Write `edit-decision-list.json` with exact source IDs and in/out points,
+   stable `sceneId`, playbackSpeed, actual/timeline durations, boundary
+   transitions, framing, speech and audio intent. Preserve authentic speech,
+   source facts, human setup/setback/actions/payoff and original provenance.
+3. Prepare all final assets: template-selected continuous BGM, narration
+   generated with shared `neo project tts` after edit timing, meaningful
+   source ambience, captions and optional supported effects. Do not use
+   instruction-only placeholders or replace missing assets with substitutes.
+4. Assemble ordered `episode-input.json`, `music-plan.json`, then run
+   `node <vlog-root>/scripts/compile-cinematic-vlog.mjs episode-input.json video.md`
+   from the canonical run. The resulting `video.md` and its referenced
+   assets must be renderable without Producer creatively changing anything.
+5. **Any Agent that creates or edits a Markcut .md must call
+   `markcut verify <actual-file>` on the current revision (including route.md if created), fix errors and
+   re-verify until PASS.** This applies after every edit, not only before
+   completion.
+6. **Viewer self-check:** use `markcut preview <run>/video.md` as an actual
+   local/native playback viewer, NOT `--delivery event` and NOT a human
+   review. Watch/seek opening, middle, transitions and ending, **listen**
+   to narration/BGM/ambience, confirm route movement where present, subtitles, shot identity and story
+   continuity, look for blank frames, truncated lines and black tails.
+   Storyboard placeholders are insufficient for the final self-check.
+   Use appropriate video/vision playback tools when needed, including the
+   discovered `understand-image-video` Skill for frames. Record actual
+   observations and exact video.md SHA-256 in `editor-viewer.json` (`status: PASS`, checked playback segments, audio, subtitles, transitions, and route where present); fail rather than
+   fabricate visual/audio checks if the player is unavailable. Repair,
+   verify and view again whenever edits change the revision.
+7. Run `node <vlog-root>/scripts/validate-stage.mjs editor <run>` and
+   finish only on PASS. Handoff includes EDL, `episode-input.json`,
+   `music-plan.json`, `video.md`, media assets and viewer evidence.
 
-Read the already-produced Visioner evidence by reference (no re-extraction, rehash or repeated media parsing), Director's
-`personal-story.md`, `personal-story.json`, `shot-selection.json`, `story.md` and `visual-brief.md`. The full readable human narrative is the editorial authority; a scenery-only shot plan is not enough. Use the selected source media. Source IDs and candidate time ranges must resolve to real clips.
-
-## Workflow
-
-When a cut or edit command is materially ambiguous and changes the story,
-ask the owner for optional guidance using the current Worker's interactive
-UI when available. Keep the response with the private run evidence; absent
-a response, preserve uncertainty and refer story changes to Director.
-Do not call Markcut video Preview for an EDL alone. Follow [story/route/sound continuity](../docs/story-first-route-sound.md): motivated visible transition at each boundary; voice and one BGM continue across cuts.
-
-1. Use the Director-selected shot IDs and existing Visioner timecode evidence without re-parsing the source media.
-2. Let the complete personal story and real narration determine each beat's `timelineDuration` rather than shortening the plot to camera clip duration. Preserve the personal story's protagonist, everyday goal, setback and contrast/payoff; remove unnecessary scenery before sacrificing the human arc. Refine exact in/out points, sequence, pace, crop, framing, transitions,
-   titles, captions and audio; keep the opening hook and promised payoff.
-3. Verify selected source speech by listening to the actual in/out clip, not by treating STT as ground truth. If an opening/payoff line is cut off, choose a different supported interval or return to Director. Carry a source-speech/voiceover/visual-story delivery decision for each beat into the EDL. Preserve authentic speech, meaningful ambient sound and Hey Neo editing
-   commands. Usually exclude spoken control commands from the output audio.
-4. Implement supported shared video-shotcraft single-shot recipe intent using
-   existing Markcut authoring. Do not replace original footage or separately
-   render a promotional MP4. Report impossible source constraints to Director.
-5. Record separate **source** and **timeline** timing for each shot. For video: `in_seconds` and `out_seconds` are original source timecodes, `sourceDuration = out_seconds - in_seconds`, `playbackSpeed` is an editorial speed multiplier (0.5 for half speed), and `timelineDuration = sourceDuration / playbackSpeed`. **Write all three numeric fields explicitly for treated video** (`sourceDuration`, `playbackSpeed`, `timelineDuration`), even when original in/out seconds already imply the source duration. A still uses `timelineDuration` as its on-screen hold regardless of camera instant. `target_duration_seconds` should match the timeline, not the raw source interval. For stills, choose varying `override.motion` / motion treatments: `slowPush`, `zoomOut`, `driftLeft`, `driftRight`, `none`; do not repeat the exact same static composition for a long section. Genuine source dialogue may not be slowed as "real" speech; have Producer mute slowed clip sound or use explicitly verified separate ambience.
-6. Write an ordered `edit-decision-list.json` under the canonical run directory, using `contracts/edit-decision-list.schema.json` (`schema_version: 1`, nonempty `edits`, `shot_id`, `source_id`, `source_hash`, `in_seconds`, `out_seconds`, `beat`).
-   For every entry include Director shot reference, stable source media ID/hash,
-   precise source in/out or still duration, beat, target duration, audio and
-   visual treatment, transition, optional recipe and any deviation rationale.
-   Set the root `personal_story_id` and each edit's `story_beat_id` from Director, unchanged. Keep stable `sceneId` references and the Director's `story.progression[]`
-   order when selecting cuts. Record an explicit `cut` or supported transition
-   and a story/continuity rationale at each boundary; hard cuts are valid.
-   Mark speech, dialogue, narration or meaningful original sound as `audioIntent`
-   so Producer can require the ducked BGM mix and its evidence.
-7. Hand exact delivery timing and any voiceover text to Producer to render real foreground audio, not instruction metadata. Producer uses the template-selected BGM and owns executable production and review.
-
-## Visual prompt references
-
-Use only Director-selected `ai-image-prompts-skill` references as framing/lighting/storyboard guides when documented in `visual-brief.md`. Follow [AI image prompt integration](../docs/ai-image-prompts-integration.md); prioritize the original footage and do not generate replacement travel evidence.
-
-## Boundaries
-
-Director owns candidate shot selection, hook/story/payoff, optional GPS and
-local-event research, audience familiar voice and creative brief. Editor can
-trim a selected range and change a technical cut, but must not silently switch
-the depicted scene or rewrite the story. A meaningful narrative change must
-return to Director and invalidate review artifacts tied to the old revision.
-
-Missing GPS is not a failure. Do not misrepresent invented story actions or thoughts as footage facts or owner testimony; do not invent visible movements, visits or
-unverified local events. Use verified source-linked GPS in private route previews;
-publication handling is owned by a separate review. Chinese captions are the default; BGM is required
-unless expressly waived. Clearly separate generated explanatory effects from
-source evidence. Record a justified NOT_APPLICABLE for unused optional effects.
-
-Run `node <vlog-root>/scripts/validate-stage.mjs editor <run>` before completing. On failure repair the reported contract violations and rerun; only emit task.completed after PASS. Do not compute or compare hashes.
+Director owns changing the story or selected shots. Editor owns all editable
+media/Markcut authorship. Producer verifies/renders and optionally sends
+human Preview. Every revision goes back through Editor's verify/viewer gate.
+GPS is optional; never fake recorded route or unverified observed speech.

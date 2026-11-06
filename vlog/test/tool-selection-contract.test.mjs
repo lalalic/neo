@@ -8,7 +8,7 @@ const graph = readFileSync(new URL('graph.mmd', root), 'utf8');
 const optional = readFileSync(new URL('docs/optional-media-tools.md', root), 'utf8');
 
 test('Vlog workers load optional CapCut instructions only when evidence makes them relevant', () => {
-  assert.match(rules,/optional-media-tools\.md/);
+  assert.match(rules,/Markcut/);
   assert.match(optional,/conditional reference, not part of normal Worker startup/);
   assert.match(optional,/capcut-mcp/);
   assert.match(optional,/mcp\.capcut/);

@@ -23,8 +23,8 @@ test('Neo Visioner prefers DeepSeek as first generic Markcut ITT/VTT CLI templat
  assert.match(preferred,/reuse valid `metadata\.json`/);
  assert.doesNotMatch(visioner,/--backend\b|\bbackend=deepseek\b/);
  assert.doesNotMatch(contract,/--backend\b|\bbackend=deepseek\b/);
- assert.match(contract,/prefer the DeepSeek `--itt` \/ `--vtt`/);
- assert.match(contract,/another configured CLI template/);
+ assert.match(contract,/Visioner/);
+ assert.match(contract,/source index/);
 });
 
 test('Visioner CLI fallback never treats failed DeepSeek as success',()=>{

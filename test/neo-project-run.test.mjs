@@ -14,7 +14,7 @@ function fixture() {
   const content = join(neoRoot, 'content-distribution');
   const vlog = join(neoRoot, 'vlog');
   mkdirSync(content, { recursive: true }); mkdirSync(vlog, { recursive: true });
-  for (const [dir, declaration] of [[content, { schemaVersion: 1, input: { type: 'url', schemes: ['https'], resumePath: true } }], [vlog, { schemaVersion: 1, input: { type: 'path', path: { base: 'runs', datedRunDirectory: true } } }]]) {
+  for (const [dir, declaration] of [[content, { schemaVersion: 1, input: { type: 'url', schemes: ['https'], resumePath: true } }], [vlog, { schemaVersion: 1, publicationReview: 'publisher-explicit-authorization', input: { type: 'path', path: { base: 'runs', datedRunDirectory: true } } }]]) {
     writeFileSync(join(dir, 'AGENTS.md'), 'project policy');
     writeFileSync(join(dir, 'README.md'), 'project readme');
     writeFileSync(join(dir, 'graph.mmd'), 'flowchart TD\n  a --> b\n');
@@ -343,4 +343,17 @@ test('private render mode rejects unapproved source or unrelated projects',async
     await assert.rejects(()=>run(['--project','content-distribution','--url','https://example.com/test','--no-review'],f,relay),/only supported/);
     assert.equal(relay.calls.length,0);
   }finally{rmSync(f.base,{recursive:true,force:true});}
+});
+
+test('default Vlog run skips interactive review, routes conditional Publisher, never assumes authorization',async()=>{
+ const f=fixture(),relay=relayStub();
+ try{
+  await run(['--project','vlog','--path',f.runDir],f,relay);
+  const task=readFileSync(join(f.runDir,'neo-project-run.input.md'),'utf8');
+  assert.match(task,/Default: no human interactive review/);
+  assert.match(task,/Editor must verify and inspect playable Markcut media/);
+  assert.match(task,/Publisher.*SKIPPED/);
+  assert.match(task,/Publisher itself has no review/);
+  assert.equal(readdirSync(f.runDir).includes('review-mode.json'),false,'normal no-review must not be private-test policy');
+ }finally{rmSync(f.base,{recursive:true,force:true});}
 });

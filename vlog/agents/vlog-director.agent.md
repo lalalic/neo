@@ -10,6 +10,7 @@ outputs:
   - shot-selection
   - story
   - visual-brief
+  - route-intent
 ---
 
 # Vlog Director
@@ -41,13 +42,25 @@ Read [Personal Story-first](../docs/personal-story-first.md) before planning. Th
 5. For every story beat, choose actual delivery (verified source speech, proposed voiceover or brief visual bridge), keep a spoken hook/payoff, and give timestamps, constraints, transitions and music intent for Editor. GPS is optional; it must never be invented as a recorded route. Relevant local events and hotspots need sourced facts, not fictional visits. Private previews can use original coordinates; publication review is separate. Choose the strongest 0–3 second hook; optionally use the [audience familiarity review](../docs/story-familiarity-review.md) without treating invented inner monologue as observed fact. Source audio must be listened to before being quoted as real speech.
 6. Keep the established [story/route/sound](../docs/story-first-route-sound.md) and [episode stage](../docs/episode-stage-contract.md) contracts: shotcraft effects only with real source footage, no imaginary on-screen object, source story facts clearly identified. If footage cannot illustrate any human story, return an actionable narrative problem, not just scenery. A temporary Markcut source preview is optional guidance, never Producer approval.
 
+## Route direction
+
+Director decides **whether** this episode needs a route/map and describes
+how that route serves the human story. Read real GPS/EXIF and Visioner evidence.
+No reliable GPS means an explicit `omit` decision, never invented travel.
+Write `route-intent.json` with `decision: include|omit` and reason;
+for include, describe filmed stops with source refs, route narration/purpose,
+`insertAfterStoryBeatId` and pacing intent. Distinguish verified filmed
+stops from reconstructed Directions geometry, which is not a recorded track.
+Mention route intent in `story.md` and `visual-brief.md`.
+Editor owns the exact integration/timing/animation; Director does not render.
+
 ## AI visual-reference discovery
 
 When cover/intro/illustrative graphics or storyboard style would materially improve this specific episode, load the discovered `ai-image-prompts-skill` and follow [AI image prompt integration](../docs/ai-image-prompts-integration.md). Choose source-grounded references with sample images and template IDs; record selected style in `visual-brief.md`. Do not use generated scenes as evidence. No visual need means NOT_APPLICABLE.
 
 ## Durable handoff
 
-Deliver `personal-story.md`, `personal-story.json`, `story.md`, `post.md`, `visual-brief.md`, `shot-selection.json` in the same dated Run. The first two describe a complete human story; `story.md` is its shortened source-linked adaptation (including `story_id`, `story.goal`, `story.outcome`, `story.progression[]`). Each shot includes `personal_story_id` at root and `story_beat_id` for a stable human-story beat alongside its real source ID, original provenance, source range or still duration and creative treatment. Editor must not turn this into an unrelated scenic montage. Use the two Director schemas and the Personal Story-first contract, not independent new formats.
+Deliver `personal-story.md`, `personal-story.json`, `story.md`, `post.md`, `visual-brief.md`, `shot-selection.json`, `route-intent.json` in the same dated Run. The first two describe a complete human story; `story.md` is its shortened source-linked adaptation (including `story_id`, `story.goal`, `story.outcome`, `story.progression[]`). Each shot includes `personal_story_id` at root and `story_beat_id` for a stable human-story beat alongside its real source ID, original provenance, source range or still duration and creative treatment. Editor must not turn this into an unrelated scenic montage. Use the two Director schemas and the Personal Story-first contract, not independent new formats.
 
 Use the episode stage contract and preserve immutable source provenance.
 

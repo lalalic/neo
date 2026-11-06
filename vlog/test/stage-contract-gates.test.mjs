@@ -4,20 +4,32 @@ import {mkdtempSync,mkdirSync,writeFileSync,readFileSync,copyFileSync,rmSync} fr
 import {tmpdir} from 'node:os';
 import {join,resolve} from 'node:path';
 import {spawnSync} from 'node:child_process';
+import {createHash} from 'node:crypto';
 const source=resolve(import.meta.dirname,'..');
 function fixture(){
  const root=mkdtempSync(join(tmpdir(),'vlog-contract-'));
  const vlog=join(root,'vlog');mkdirSync(join(vlog,'scripts'),{recursive:true});mkdirSync(join(vlog,'templates'));mkdirSync(join(vlog,'assets/music'),{recursive:true});mkdirSync(join(vlog,'contracts'));
  const run=join(vlog,'runs','2026-11-04-contract');mkdirSync(join(run,'input/media'),{recursive:true});
  for(const f of ['validate-stage.mjs','preflight-template-assets.mjs'])copyFileSync(join(source,'scripts',f),join(vlog,'scripts',f));
- for(const f of ['shot-selection.schema.json','edit-decision-list.schema.json','personal-story.schema.json'])copyFileSync(join(source,'contracts',f),join(vlog,'contracts',f));
+ for(const f of ['shot-selection.schema.json','edit-decision-list.schema.json','personal-story.schema.json','route-intent.schema.json'])copyFileSync(join(source,'contracts',f),join(vlog,'contracts',f));
  copyFileSync(join(source,'templates/cinematic-vlog.md'),join(vlog,'templates/cinematic-vlog.md'));
  const cli=join(root,'fake-relay');writeFileSync(cli,'#!/bin/sh\nexit 0\n',{mode:0o755});
+ writeFileSync(join(run,'route-intent.json'),JSON.stringify({schemaVersion:1,decision:'omit',reason:'No trusted GPS route'}));
  return {root,vlog,run,cli,clean:()=>rmSync(root,{recursive:true,force:true})};
 }
 const write=(dir,name,content)=>{const f=join(dir,name);writeFileSync(f,typeof content==='string'?content:JSON.stringify(content));};
 const call=(f,args,env={})=>spawnSync(process.execPath,[f,...args],{encoding:'utf8',env:{...process.env,...env}});
 
+const hash=value=>createHash('sha256').update(value).digest('hex');
+function editorReady(f){
+ mkdirSync(join(f.run,'assets'),{recursive:true});
+ write(f.run,'assets/music.m4a','audio bytes');
+ write(f.run,'episode-input.json',{geo:{required:false},music:{path:'assets/music.m4a'},scenes:[]});
+ write(f.run,'music-plan.json',{track:'assets/music.m4a'});
+ const md='# video\nwidth:1080 height:1920 fps:30 layout:series\n';
+ write(f.run,'video.md',md);
+ write(f.run,'editor-viewer.json',{status:'PASS',videoSha256:hash(md),checks:['opening','middle','ending','transitions','subtitles','audio']});
+}
 const personalNarrative='我今天原本想着出门多运动一会儿，别老坐在家里。走到小路附近，看到一条小溪，结果忍不住停下来拍照。刚觉得自己今天挺积极，手机却先把我带进了拍视频模式。拍完才发现视频才一秒多，真正的运动时间倒没多少。回头如果有人问我今天练得怎么样，我也只能说：给手机找素材这件事，我确实很努力。';
 function personalStoryFixture(f){
  const story={schema_version:1,story_id:'human-story-01',title:'说好出来运动的',perspective:'first_person',narrative:personalNarrative,
@@ -35,9 +47,9 @@ function personalStoryFixture(f){
 
 test('Editor validates sourceDuration versus story-paced timelineDuration instead of equating them',()=>{
  const f=fixture();try{
-  const tool=join(f.vlog,'scripts/validate-stage.mjs');const env={AGENTS_RELAY_CLI:f.cli};
+  const tool=join(f.vlog,'scripts/validate-stage.mjs');const env={AGENTS_RELAY_CLI:f.cli,MARKCUT_CLI:f.cli};
   write(f.run,'vision-evidence.json',{stage:'visioner',summary:[{source_id:'a'}],sources:[{source_id:'a'}]});
-  personalStoryFixture(f);
+  personalStoryFixture(f);editorReady(f);
   write(f.run,'shot-selection.json',{schema_version:1,personal_story_id:'human-story-01',shots:[{id:'shotA',source_id:'a',story_beat_id:'b01'}]});
   const edit={shot_id:'shotA',sceneId:'shotA',source_id:'a',source_hash:'original',story_beat_id:'b01',beat:'setup',sourceType:'video',in_seconds:0,out_seconds:1.55,sourceDuration:1.55,playbackSpeed:.5,timelineDuration:1.55,target_duration_seconds:1.55};
   const edl={schema_version:1,personal_story_id:'human-story-01',edits:[edit]};
@@ -72,7 +84,7 @@ test('visioner contract fails closed, then passes after agent heals missing evid
 });
 test('personal story must exist before shot planning; director/editor self-heal handoff IDs',()=>{
  const f=fixture();try{
-  const tool=join(f.vlog,'scripts/validate-stage.mjs');const env={AGENTS_RELAY_CLI:f.cli};
+  const tool=join(f.vlog,'scripts/validate-stage.mjs');const env={AGENTS_RELAY_CLI:f.cli,MARKCUT_CLI:f.cli};
   write(f.run,'vision-evidence.json',{stage:'visioner',summary:[{source_id:'a'}],sources:[{source_id:'a'}]});
   for(const file of ['story.md','visual-brief.md','post.md'])write(f.run,file,'test');
   write(f.run,'shot-selection.json',{schema_version:1,shots:[{id:'shotA',source_id:'missing'}]});
@@ -85,7 +97,7 @@ test('personal story must exist before shot planning; director/editor self-heal 
   write(f.run,'edit-decision-list.json',{schema_version:1,personal_story_id:'wrong',edits:[{shot_id:'shotA',source_id:'a',story_beat_id:'b02',in_seconds:0,out_seconds:1}]});
   r=call(tool,['editor',f.run],env);assert.equal(r.status,1);assert.match(r.stdout,/EDL_PERSONAL_STORY_ID/);assert.match(r.stdout,/EDL_PERSONAL_STORY_BEAT/);
   write(f.run,'edit-decision-list.json',{schema_version:1,personal_story_id:'human-story-01',edits:[{shot_id:'shotA',source_id:'a',story_beat_id:'b01',in_seconds:0,out_seconds:1}]});
-  r=call(tool,['editor',f.run],env);assert.equal(r.status,0,r.stdout);
+  editorReady(f);r=call(tool,['editor',f.run],env);assert.equal(r.status,0,r.stdout);
  }finally{f.clean();}
 });
 test('scenic-only notes and fake persona references fail; creative everyday fiction is allowed',()=>{
@@ -122,22 +134,21 @@ test('malformed personal-story fields yield actionable FAIL instead of crashing'
    assert.ok(output.errors.some(e=>e.code===code),code+' should be actionable');
  }finally{f.clean();}
 });
-test('Producer cannot replace accepted personal story ID with a scenic-only identity',()=>{
+test('Producer refuses incomplete render receipt; Editor owns story decisions',()=>{
  const f=fixture();try{
-  personalStoryFixture(f);write(f.run,'edit-decision-list.json',{edits:[{shot_id:'shotA'}]});
-  write(f.run,'episode-input.json',{story:{personal_story_id:'scenic-montage'},scenes:[{id:'sceneA'}]});
-  const r=call(join(f.vlog,'scripts/validate-stage.mjs'),['producer',f.run]);
-  assert.equal(r.status,1);assert.match(r.stdout,/PRODUCER_PERSONAL_STORY_ID/);
+  write(f.run,'video.md','# video\n');
+  const r=call(join(f.vlog,'scripts/validate-stage.mjs'),['producer',f.run],{MARKCUT_CLI:f.cli});
+  assert.equal(r.status,1);assert.match(r.stdout,/production-receipt.json/);
+  assert.match(r.stdout,/REQUIRED_ARTIFACT_MISSING/);
  }finally{f.clean();}
 });
-
-test('Producer TTS and render are Stage-local, never initial template preflight prerequisites',()=>{
+test('Editor audio assets and Producer render are not initial preflight dependencies',()=>{
  const f=fixture();try{
   write(f.vlog,'assets/music/good-times-rynn-vocal.mp3','audio');write(f.vlog,'assets/music/good-times-rynn-instrumental.mp3','audio');
   const preflight=call(join(f.vlog,'scripts/preflight-template-assets.mjs'),[]);assert.equal(preflight.status,0,preflight.stdout);
   const result=call(join(f.vlog,'scripts/validate-stage.mjs'),['producer',f.run]);
   assert.equal(result.status,1);assert.match(result.stdout,/REQUIRED_ARTIFACT_MISSING/);
-  assert.match(result.stdout,/EPISODE_SCENES/);
+  assert.match(result.stdout,/output\/video.mp4/);
  }finally{f.clean();}
 });
 test('specialist review validates its own verdict and revision, repairs in same Stage',()=>{

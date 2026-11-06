@@ -22,7 +22,7 @@ Reject a missing source manifest or an `INPUT_NEEDED` manifest; rights and licen
 1. Parse/read the current normal Graph and resolve each named Agent from the
    actual visible project/shared catalog. Do not invent or silently substitute
    a mandatory role. In particular, use project-local `vlog-visioner` and project-specific
-   Director, Editor, Producer and Final QA roles when the catalog exposes them.
+   Director, Editor, Producer and Publisher roles when the catalog exposes them.
 2. Assign meaningful durable Stage Tasks to the Graph nodes and give each
    Task its declared output under the canonical run directory. Use stable
    `vlog-<node-id>-<submission_id>` identities for normal stages.
@@ -49,44 +49,42 @@ Reject a missing source manifest or an `INPUT_NEEDED` manifest; rights and licen
 
 ### Mandatory domain handoffs
 
-- Visioner reuses existing Markcut `input/media/metadata.json` and only
-  infers missing understanding. Output: `vision-evidence.json`.
-- Director uses Visioner evidence, source footage and optional documented
-  Personal Tour references. It first writes a complete first-person human arc (`personal-story.md` and `personal-story.json`) from creator context plus media, distinguishing observed/inferred/fictionalized details. Only then selects shots and writes `story.md`, `shot-selection.json`, `visual-brief.md`, `post.md`. An unsupported scenic-only story must not unlock Editor.
-- Editor requires accepted personal-story artifacts and preserves personal-story beat IDs as it refines exact in/out,
-  rhythm, captions and treatment. Output: `edit-decision-list.json`.
-- Producer consumes Director + Editor outputs, writes canonical `video.md`,
-  sources template-selected audio, builds/render-checks the preview, then calls
-  `agents-relay review run --prompt-file <run>/reviews/review-request.md --agents video-director,market --project-path <vlog-root> --output <run>/reviews/review.json`.
-  The generic Outcome Reviewer is implicit. Repair and re-review until
-  current preview PASS; specialist review is not a separate Stage Task.
-- Producer also requires human approval of the latest Markcut `video.md`
-  preview inside the same Stage Worker. Select a Worker with interactive
-  preview capability (currently ChatGPT); do not knowingly dispatch this
-  required gate to a noninteractive Worker or invent approval evidence.
-  Express interactive preview as a Task worker requirement using capabilities
-  actually advertised by Worker Router; if no eligible Worker exists, fail
-  closed. Feedback/fix/re-preview stays in the Worker rather than extra Tasks.
-- Final QA independently observes playback, sound, captions, source truth
-  and the private archive receipt. All publication decisions belong to a separate review.
+- Visioner produces source-linked `vision-evidence.json` using Markcut media metadata.
+- Director writes complete personal-story and source-linked shots, plus
+  `route-intent.json` describing if/why to include verified route scenes.
+- Editor owns exact EDL, complete executable `video.md`, narration/BGM
+  assets and how the optional route is merged into the timeline. Every
+  Markcut author calls `markcut verify` after changing any .md.
+  Editor uses actual Markcut viewer to inspect visual/audio, then records
+  `editor-viewer.json` for that exact revision before handoff.
+- Producer Agent runs its Shortcut for Markcut verify, MP4 render and media
+  probing; human Preview is on demand only. No mandatory review or Final QA.
+  When the user explicitly requests interactive approval, route the optional
+  human-decision continuation through an eligible interactive Producer Worker
+  and Relay hostInvocation, not the Shortcut WAITING_EVENT mechanism (which
+  only supports non-human completions). Sending an Event is not approval.
+- Publisher Agent is a conditional last stage: without a valid per-video,
+  per-platform, per-account publication request its shortcut completes with an output marked SKIPPED and no
+  uploads. Its Shortcut reuses WebHelm `wechat-channels` and `xhs`
+  actions and verifies receipts. No speculative or duplicate posting.
 
 Before declaring completion, the Planner validates its Task Plan against the inherited Relay Plan contract and repairs contract errors in the same Planner turn. For Stage JSON outputs, the owning Agent calls
 `agents-relay artifact validate --artifact PATH --schema PATH`. The
 read-only Action does not automatically block Task completion; the Agent
 must repair failures before reporting accepted output. Other media/QA checks remain domain-specific.
 
-### Revisions and reviews
+### Revisions and optional interaction
 
-Producer-local Review/Fix stays within Producer. A final Job reviewer is a
-**parentless Relay Task**, bound to the immutable current Job result. If it
-returns `CHANGE_REQUIRED`, analyze the findings against Graph dependencies
-and actual artifact I/O versions. Create only impacted revision Tasks, reuse
-the original Stage Agent, attach each to the original owning Task when
-appropriate, and chain actual revised handoffs. Never require revisions to
-match the original stage-only DAG or let an arbitrary revision worker rewrite
-all outputs. Re-review the current complete result after fixes.
+The default DAG has **no independent Final Review Task** and no mandatory
+Producer/Publisher interactive approval. Producer may request an interactive
+Preview only when specifically requested; its delivery receipt alone is
+not approval. If feedback changes the story, source selection or Markcut
+`video.md`, return to Director/Editor as appropriate. Editor edits,
+re-verifies and re-views; Producer re-renders the revised video. Publisher
+has no review step and can post only with its own explicit exact-MP4,
+account-bound per-platform authorization.
 
-Optional Visioner source Human Review needs owner input only for genuine
-missing critical evidence. Do not fake human approval or launch a synthetic
-human-agent Task. Archive privately by default. Follow Relay's independent
-completion, failure, recovery and Final Review authority.
+Optional Visioner source clarification is not an Episode Task. Relay
+owns normal Task failure/recovery. The shortcut path executes Graph
+nodes inside one Task; the legacy Planner-backed watcher may map Graph
+nodes to durable Stage Tasks. Do not confuse those runtime modes.

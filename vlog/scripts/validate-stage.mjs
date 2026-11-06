@@ -3,12 +3,13 @@
  * Uses existing Relay artifact validator for JSON schemas, not a second schema implementation.
  * Deliberately does NOT inspect license, media permissions or compare hashes. */
 import {readFileSync,existsSync,statSync,realpathSync,readdirSync} from 'node:fs';
+import {createHash} from 'node:crypto';
 import {spawnSync} from 'node:child_process';
 import {resolve,dirname,relative,isAbsolute,sep} from 'node:path';
 import {fileURLToPath} from 'node:url';
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
 const [stage,runArg]=process.argv.slice(2);
-const stages=['visioner','director','editor','producer','final-qa','video-director','market'];
+const stages=['visioner','director','editor','producer','publisher','final-qa','video-director','market'];
 if(!stages.includes(stage)||!runArg){console.error('Usage: node scripts/validate-stage.mjs <'+stages.join('|')+'> <run>');process.exit(2);}
 const run=realpathSync(resolve(runArg));const runs=realpathSync(resolve(root,'runs'));
 const rel=relative(runs,run);
@@ -24,6 +25,14 @@ if(existsSync(policyFile)){
  }catch{errors.push({code:'INVALID_TEST_REVIEW_POLICY',heal:'Valid private-render-test policy required'});}
 }
 function checkPolicy(){if(!noReview)errors.push({code:'INVALID_TEST_REVIEW_POLICY',heal:'A review mode cannot bypass human approval without an explicit valid render-only policy'});}
+const fingerprint=name=>createHash('sha256').update(readFileSync(resolve(run,name))).digest('hex');
+function markcutVerify(name){
+ const path=valid[name];
+ if(!path)return;
+ const command=process.env.MARKCUT_CLI||'markcut';
+ const result=spawnSync(command,['verify',path],{cwd:run,encoding:'utf8',timeout:120000});
+ if(result.status!==0)errors.push({code:'MARKCUT_VERIFY',path:name,heal:(result.stderr||result.stdout||result.error?.message||'Run markcut verify on the exact file').slice(0,1800)});
+}
 function required(name){const path=resolve(run,name);try{const full=realpathSync(path);const rel=relative(run,full);if(rel==='..'||rel.startsWith('..'+sep)||isAbsolute(rel)||!statSync(full).isFile()||!statSync(full).size)throw Error('not a nonempty confined file');valid[name]=full;return full;}catch{errors.push({code:'REQUIRED_ARTIFACT_MISSING',path:name,heal:'Produce a real non-empty file in the canonical run'});return null;}}
 function confinedFile(relativeName){
  if(typeof relativeName!=='string'||!relativeName||relativeName.includes('\\0'))return false;
@@ -79,6 +88,14 @@ if(stage==='visioner'){
  required('input/media/metadata.json');
 }else if(stage==='director'){
  const evidence=json('vision-evidence.json');const story=personalStory(evidence);const shots=json('shot-selection.json');const storyPlan=required('story.md');required('visual-brief.md');required('post.md');
+ const route=json('route-intent.json');schema('route-intent.json','route-intent.schema.json');
+ check(['include','omit'].includes(route?.decision)&&!!route?.reason,'DIRECTOR_ROUTE_DECISION','Describe why real GPS route helps or omit when unsupported');
+ if(route?.decision==='include'){
+  const sourceIds=new Set((evidence?.sources||evidence?.summary||[]).map(x=>x.source_id));
+  const beatIds=new Set((story?.beats||[]).map(x=>x.id));
+  check(beatIds.has(route?.insertAfterStoryBeatId)&&typeof route?.narration==='string'&&route.narration.trim().length>0,'DIRECTOR_ROUTE_STORY_BEAT','Describe route narration and bind it to real story beat');
+  check(Array.isArray(route.observedStops)&&route.observedStops.length>0&&route.observedStops.every(x=>sourceIds.has(x.sourceId)&&!!x.evidenceRef),'DIRECTOR_ROUTE_STOP_EVIDENCE','Cite real observed source IDs for every route stop');
+ };
  check(Array.isArray(evidence?.summary),'VISIONER_HANDOFF_MISSING','Use the completed Visioner artifact without re-extraction');
  schema('shot-selection.json','shot-selection.schema.json');
  if(story&&shots){check(shots.personal_story_id===story.story_id,'SHOT_PERSONAL_STORY_ID','Bind shot-selection.json to the completed personal-story.json ID');
@@ -105,43 +122,65 @@ if(stage==='visioner'){
  if(edit.timelineDuration!=null&&edit.target_duration_seconds!=null)
   check(Math.abs(edit.timelineDuration-edit.target_duration_seconds)<=.08,'EDL_TARGET_DURATION','Target and presentation duration must agree for '+edit.shot_id);
  }}
-}else if(stage==='producer'){
- const story=json('personal-story.json');const edl=json('edit-decision-list.json');const input=json('episode-input.json');json('music-plan.json');required('video.md');
- if(story&&input)check(input.story?.personal_story_id===story.story_id,'PRODUCER_PERSONAL_STORY_ID','Carry accepted personal_story_id into episode-input story; do not replace it with a scenic montage');
- check(Array.isArray(edl?.edits)&&edl.edits.length>0,'PRODUCER_EDITOR_INPUT','Use validated Editor EDL');
- check(Array.isArray(input?.scenes)&&input.scenes.length>0,'EPISODE_SCENES','Compile real scenes from accepted EDL');
- if(Array.isArray(edl?.edits)&&Array.isArray(input?.scenes)){
-  const ordered=edl.edits.map(e=>e.sceneId??e.shot_id);
-  check(ordered.length===input.scenes.length&&ordered.every((id,i)=>id===input.scenes[i]?.id),
-   'PRODUCER_STORY_COVERAGE','Keep every Editor-selected scene in original story beat order; do not remove narrative beats to fit source runtime');
-  const progression=input.story?.progression;
-  if(Array.isArray(progression))check(progression.length===ordered.length&&ordered.every((id,i)=>progression[i]?.sceneId===id),
-   'PRODUCER_NARRATIVE_SEQUENCE','Provide story progression across every actual media scene, in the same order');
-  if(Array.isArray(progression)&&story?.beats?.length){
-   const covered=new Set(edl.edits.map(e=>e.story_beat_id));
-   for(const beat of story.beats)check(covered.has(beat.id),'PRODUCER_STORY_BEAT_MISSING',
-    'Do not drop personal story '+beat.role+' beat '+beat.id+' to shorten media coverage');
-  }
-  for(let i=0;i<edl.edits.length;i++){
-   const e=edl.edits[i],s=input.scenes[i];if(!s)continue;
-   if(e.source_hash)check(s.sourceHash===e.source_hash,'PRODUCER_SOURCE_IDENTITY','Preserve original source hash for '+e.shot_id);
-   if(e.playbackSpeed!=null||e.timelineDuration!=null){
-    const speed=s.playbackSpeed??1,duration=s.timelineDuration??s.duration;
-    if(e.sourceType==='video'&&e.playbackSpeed!=null)
-     check(Math.abs(speed-e.playbackSpeed)<=.001,'PRODUCER_PLAYBACK_SPEED','Copy Editor playbackSpeed to Producer '+e.shot_id);
-    if(e.timelineDuration!=null)check(Math.abs(duration-e.timelineDuration)<=.08,'PRODUCER_TIMELINE_DURATION','Preserve Editor narrative timelineDuration for '+e.shot_id);
-   }
-  }
+ // Editor owns complete Markcut video.md and actual viewer evidence.
+ const input=json('episode-input.json');json('music-plan.json');required('video.md');
+ const viewer=json('editor-viewer.json');
+ if(valid['video.md']){
+  check(viewer?.status==='PASS'&&viewer.videoSha256===fingerprint('video.md'),
+   'EDITOR_VIEWER_REVISION','Inspect current Markcut player with image/audio and record the exact video.md fingerprint');
+  const checkpoints=['opening','middle','ending','transitions','subtitles','audio'];
+  check(checkpoints.every(x=>viewer?.checks?.includes(x)),
+   'EDITOR_VIEWER_CHECKPOINTS','Actually play/seek/check opening, middle, ending, transitions, captions, audio');
+  markcutVerify('video.md');
  }
- const music=input?.music?.path;
- check(confinedFile(music),'PRODUCER_MUSIC','Build a continuous track from template-declared shared assets; do not require BGM in the initial source run');
- for(const scene of input?.scenes??[])if(scene.audioPath)check(confinedFile(scene.audioPath),'PRODUCER_VOICEOVER','Render the missing stage-local voiceover '+scene.audioPath);
- const draft=valid['video.md'];if(draft){const result=spawnSync('markcut',['verify',draft],{cwd:run,encoding:'utf8',timeout:120000});if(result.status!==0)errors.push({code:'MARKCUT_VERIFY',heal:(result.stderr||result.stdout||result.error?.message||'Fix executable Markcut DSL').slice(0,1600)});}
- // Revisions/feedback are still bound to real human interaction and review receipts; do not fabricate them here.
- check(renderedVideo(),'PRODUCER_RENDER','Render a decodable MP4/MOV into output/ before completing');
- const review=json('reviews/review.json');
- if(noReview)check(review?.status==='NOT_RUN'&&review?.humanReview==='NOT_RUN'&&review?.specialistReview==='NOT_RUN'&&review?.publicationAllowed===false,
-   'UNREVIEWED_TEST_RECEIPT','Do not fabricate approvals; mark all skipped reviews NOT_RUN');
+ if(existsSync(resolve(run,'route.md'))){required('route.md');markcutVerify('route.md');}
+ const route=json('route-intent.json');
+ if(route?.decision==='include'){
+   check(input?.geo?.required!==false&&typeof input?.geo?.insertAfterSceneId==='string',
+    'EDITOR_ROUTE_INTEGRATION','Merge Director route plan into episode-input.geo and Markcut timeline');
+   check(viewer?.checks?.includes('route'),'EDITOR_ROUTE_VIEWER','View route camera, sound and transitions');
+ }else if(route?.decision==='omit'){
+   check(!input?.geo||input.geo.required===false,
+    'EDITOR_ROUTE_OMISSION','Do not create a route when Director explicitly omitted it');
+ }
+ if(input?.music?.path)check(confinedFile(input.music.path),'EDITOR_MUSIC_ASSET','Prepare the actual selected BGM before completing Editor');
+ for(const scene of input?.scenes||[])if(scene.audioPath)check(confinedFile(scene.audioPath),'EDITOR_VOICEOVER_ASSET','Prepare real audio '+scene.audioPath);
+ }else if(stage==='producer'){
+ required('video.md');required('editor-viewer.json');
+ const receipt=json('production-receipt.json');
+ const mp4=required('output/video.mp4');
+ if(valid['video.md'])markcutVerify('video.md');
+ if(mp4){
+   check(receipt?.status==='RENDERED'&&receipt?.videoSha256===fingerprint('output/video.mp4')&&
+     receipt?.videoMdSha256===fingerprint('video.md'),
+     'PRODUCER_RENDER_IDENTITY','Render and probe exact verified Editor revision; preserve fingerprints');
+   const probe=spawnSync('ffprobe',['-v','error','-show_entries','stream=codec_type','-show_entries','format=duration','-of','json',mp4],{encoding:'utf8',timeout:30000});
+   let meta;try{meta=JSON.parse(probe.stdout)}catch{}
+   check(probe.status===0&&Number(meta?.format?.duration)>0&&
+     meta?.streams?.some(x=>x.codec_type==='video')&&meta?.streams?.some(x=>x.codec_type==='audio'),
+     'PRODUCER_DECODABLE_MP4','Require real decodable video AND audio streams');
+ }
+}else if(stage==='publisher'){
+ const requestPath=resolve(run,'publisher-request.json');
+ if(!noReview && existsSync(requestPath)){
+   const request=json('publisher-request.json');const receipt=json('production-receipt.json');required('output/video.mp4');
+   check(receipt?.status==='RENDERED'&&receipt.videoSha256===request?.videoSha256,
+     'PUBLISHER_VIDEO_IDENTITY','Publication request must authorize exact rendered Producer MP4');
+   if(Array.isArray(request?.targets)){
+     for(const target of request.targets){
+       const name=target?.platform;
+       check(['wechat-channels','xhs'].includes(name)&&['draft','publish'].includes(target.action)&&target.authorized===true,
+         'PUBLISHER_AUTHORIZATION','Target must be permitted platform and explicitly authorized action');
+       if(!['wechat-channels','xhs'].includes(name))continue;
+       const p=json('publish/'+name+'-receipt.json');
+       check(p?.videoSha256===request.videoSha256&&p?.account===target.account&&p?.action===target.action,
+         'PUBLISHER_RECEIPT_IDENTITY','Verify independent platform receipt bound to video/account/action');
+       check(target.action==='draft'?p?.status==='draft':
+         ['published','reviewing'].includes(p?.status)&&p?.verified===true&&!!p?.identifier,
+         'PUBLISHER_PLATFORM_STATUS','Do not claim success from a click, draft, uncertain upload or missing stable ID');
+     }
+   }else check(false,'PUBLISHER_TARGETS','Provide explicit per-platform targets');
+ }
 }else if(stage==='final-qa'){
  const qa=required('qa.md');const receipt=json('archive-receipt.json');
  if(noReview){

@@ -1,185 +1,43 @@
 # Vlog
 
-For an explicit run against an existing canonical dated run directory, use `neo project run --path=/absolute/neo/vlog/runs/YYYY-MM-DD-episode --project=vlog`. The path must be inside the configured canonical Vlog `runs/`, and media must be owner-approved for private production. This is separate from the legacy iCloud inbox watcher and its Planner-backed Jobs, which remain available as documented below. See the [Neo Project Run Contract](../docs/neo-project-run-contract.md).
+Produces a personal story from real, source-linked media and can post its
+finished MP4 when explicitly authorized. Use `neo project run --path=/absolute/neo/vlog/runs/YYYY-MM-DD-episode --project=vlog`.
+The canonical topology is [graph.mmd](graph.mmd). See the
+[stage contract](docs/episode-stage-contract.md) and
+[publisher contract](docs/vlog-publication.md).
 
-Vlog turns real daily media and evidence into one coherent short-form story and verified publication outcome. It is a thin Neo content project: Vlog owns the editorial/production contract; Agents Relay owns orchestration; shared Neo capabilities own reusable media, vision, rendering, and publishing implementation.
-
-See [the reusable stage input/output and review contract](docs/episode-stage-contract.md) for Source → optional Research → Story → Production → immutable Preview Review → technical QA → archive/explicit Publish Authorization. GPS is optional; owner-approved real media is required before creating an actual Episode Task.
-
-The **only authoritative Episode Graph** is [graph.mmd](graph.mmd). Every episode starts internally with Visioner (shared media understanding and metadata extraction), followed by an optional human evidence review, then Director shot/story selection, Editor cut decisions, Producer-owned professional reviews, render/QA and private archive. Publication remains separately authorized. Watcher/ingress is outside the Episode Graph. The simplified flow below is explanatory only; Planner must use the canonical Graph and acceptance gates.
-
-For **Personal Story-first**, Director must first write a complete first-person person-centered `personal-story.md` and structured `personal-story.json`: everyday goal, setback, actions, human payoff/contrast, observed/inferred/fictionalized distinctions and optional creator-profile context. Only then may Editor select/trim shots; see [the required personal-story contract](docs/personal-story-first.md). The Story editor can also use an optional [five-question audience familiarity review](docs/story-familiarity-review.md) (real situation, inner thoughts, familiar voice, audience takeaway, information density). It must cite source evidence or owner confirmation and never fabricate internal experiences.
-
-## Human mental model
+## Workflow
 
 ```text
-Watcher -> Visioner -> Director -> Editor -> Producer -> Final QA -> Private archive
-             |          |          |
-         evidence     story       timeline    Markcut CLI + Relay review run
-                                   | generic Outcome Reviewer
-                                   + Video Director
-                                   + Market
-                                   + Producer repairs and re-reviews
+Visioner (source video/audio evidence)
+  → Director (complete personal story, selected footage, route decision and description)
+  → Editor (EDL, full video.md, audio/assets, route integration, markcut verify, real Viewer)
+  → Producer Agent + Shortcut (verify, render MP4, probe, Preview on demand)
+  → Publisher Agent + Shortcut (conditional authorized WeChat Channels/XHS publication)
 ```
 
-One Episode Job owns the objective. The first Plan creates all normal Graph
-Stage Tasks; dependencies hold downstream work until prerequisites pass.
-Validation, professional review and self-repair stay inside the owning Agent's Worker. The final published state still requires an
-independent owner authorization.
+Director writes the human goal/setback/actions/payoff before selecting shots.
+Director decides **if/why** the route serves the narrative and which filmed
+stops are verified. Editor decides **how** that route appears on the movie
+(timeline, map animation, transition, sound) and checks it in the viewer.
+A route is optional. A navigational route is not evidence of travelled track.
 
-## Ownership map
+**Any Agent writing/revising a Markcut .md calls `markcut verify`.**
+Editor must also inspect real native Markcut playback and retain revision-bound
+`editor-viewer.json`. Producer re-verifies/renders without editorial changes.
+There is no independent Final QA or mandatory final review. Optional owner
+Preview is not publication authorization.
 
-```text
-┌──────────────────────────────┐
-│ vlog                         │
-│                              │
-│ real-media story contract    │
-│ episode hook / arc / quality │
-│ Director / Editor / Producer │
-└──────────────┬───────────────┘
-               │
-               v
-┌──────────────────────────────┐
-│ Agents Relay                 │
-│                              │
-│ Job / Task / agentGraph      │
-│ retry / routing / events     │
-│ leases / reconcile / recover │
-└──────────────┬───────────────┘
-               │
-               v
-┌──────────────────────────────┐
-│ Shared Neo capabilities      │
-│                              │
-│ phone media / vision         │
-│ Video + Execution Director   │
-│ image/video/audio / Markcut  │
-│ Market / post / QA           │
-└──────────────────────────────┘
-```
+The chosen [Markcut template](templates/cinematic-vlog.md) is authoritative for
+root BGM, aspect ratio, subtitles and transitions. Do not turn the episode
+into a scenery-only montage, fake filmed locations or silently replace music.
+Private artifacts stay in ignored `runs/<episode>/`.
 
-Vlog does not own a scheduler, database, worker launcher, routing policy, model policy, browser publisher, media engine, or lifecycle state machine.
-
-## Optional location enrichment
-
-```text
-Authorized photos/video/audio -> story (hook / development / payoff) -> visual brief
-              |
-              +-> optional EXIF/QuickTime GPS check
-                         | no trusted GPS -> no map scene (normal complete Vlog)
-                         | partial GPS -> only verified stops, no guessed movements
-                         + two+ verified points -> story-led short map/scenic insert
-```
-
-GPS must never gate an episode. Private production may preserve source GPS precision without a second production gate; public release needs authorization covering precise/sensitive places shown. Route maps distinguish observed stops from inferred road navigation, not a recorded travel track. Follow [story-first route and sound](docs/story-first-route-sound.md). A single root BGM carries the whole episode. Mandatory authorized BGM, original sound, Chinese defaults, revision-specific preview, both reviews and the no-publication-unless-authorized rule remain unchanged.
-
-## Episode artifact flow
-
-`visual-brief.md` is the primary creative handoff for downstream production. `video.md` is the canonical executable Markcut source.
-
-```text
-real phone/media evidence
-        │
-        v
-source-manifest.json
-        │
-        v
-vision-evidence.json
-        │
-        v
-personal-story.md + personal-story.json
-        │
-        v
-shot-selection.json + story.md
-        │
-        v
-visual-brief.md        <-- Director creative direction
-        │
-        ├── hook / story beats
-        ├── selected source media
-        ├── visual treatment
-        ├── motion / transitions
-        └── sound / narration intent
-        │
-        v
-edit-decision-list.json <-- Editor exact cuts
-        │
-        v
-video.md               <-- Producer canonical Markcut source
-        │
-        v
-execution/ + assets/
-        │
-        v
-reviews/
-        │
-        v
-final video + QA
-        │
-        v
-publish receipt
-```
-
-Normal run layout:
-
-```text
-runs/<YYYY-MM-DD[-slug]>/
-├── vision-evidence.json
-├── vision-human-review.json    # optional; records skip/request/response and provenance
-├── source-manifest.json
-├── personal-story.md
-├── personal-story.json
-├── story.md
-├── shot-selection.json
-├── edit-decision-list.json
-├── post.md
-├── visual-brief.md
-├── video.md
-├── execution/
-├── assets/
-├── reviews/
-│   ├── video-director.md
-│   └── market.md
-├── output/
-├── qa.md
-└── publish/
-```
-
-A genuine named series may use `runs/<series-name>/<YYYY-MM-DD[-slug]>/`. `runs/` is ignored by Git.
-
-## Story standard
-
-A Vlog is not a chronological media dump or a scenic observation. First write a coherent **person-centered** story (minor everyday fictionalized mishaps are allowed when tagged), then choose real footage that can illustrate its beats:
-
-```text
-Person + everyday goal
-  ↓
-Minor problem or embarrassing setback
-  ↓
-What the person tries or does
-  ↓
-Real visual evidence illustrating the experience
-  ↓
-Human contrast, result or self-deprecating punchline
-```
-
-Do not widen the source window, invent real footage/route, or present fictionalized personal incidents as camera-proven facts.
-
-## Production quality
-
-Original footage and useful original sound are first-class assets. Narration is optional; when narration is used, use the user's approved voice identity rather than silently substituting generic TTS. BGM is mandatory by default and must support rather than cover dialogue, narration, and meaningful original sound; SFX remain intentional.
-
-Use strong visual composition, purposeful cuts, charts/diagrams/images when they genuinely explain something, kinetic typography when useful, and deliberate motion/transitions/effects. Do not turn real-life footage into a static slideshow unless the story calls for it.
-
-Producer calls `agents-relay review run` with an outcome Prompt; generic, Video Director and Market reviews must all PASS before Producer can complete. Observable QA must check the actual video, not only render exit status.
-
-The executable production default is [`templates/cinematic-vlog.md`](templates/cinematic-vlog.md), instantiated with source-bound scene data by [`lib/cinematic-vlog.mjs`](lib/cinematic-vlog.mjs). The template owns root BGM identity and layout, scene blocks, caption styling, and supported transitions; Director/Editor own evidence and timing, not a competing style file. From the dated run directory, run `node <vlog-root>/scripts/compile-cinematic-vlog.mjs episode-input.json video.md`, then `markcut verify video.md`. It emits only supported Markcut Markdown constructs and lints source evidence, every motivated boundary, BGM continuity, hook/payoff, pacing and preset caption style. Read [`templates/CINEMATIC-PREVIEW.md`](templates/CINEMATIC-PREVIEW.md) for variant, override, and renderer limits. Mixed transition types are rejected because Markcut's current Markdown DSL exposes one transition per series; choose reasoned hard cuts or one consistent transition.
-
-## Publication
-
-Publication platform and authorization belong to the active Agents Relay Job/Task. Vlog uses the shared `post-agent` and persists platform-side receipt/status. The project itself does not hard-code a platform.
-
-See `AGENTS.md` for the enforceable Planner/execution contract.
+Publisher requires `publisher-request.json` bound to the exact MP4,
+account, target platform and authorized action. Otherwise no browser actions
+occur. Reuse existing WebHelm `wechat-channels` and `xhs` Actions
+rather than duplicating browser automation. Distinguish drafts, submitted
+for review, published, and unknown outcomes, and do not retry uncertain posts.
 
 ## iCloud inbox watcher
 

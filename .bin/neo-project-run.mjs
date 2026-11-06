@@ -144,9 +144,13 @@ function initializeRun(runDir, projectName, input, sourceUrl, publicationReview 
   const data = { schemaVersion: 1, project: projectName, kind: sourceUrl ? 'url-reference' : 'canonical-run', ...(sourceUrl ? { sourceUrl } : { sourceRunPath: input }) };
   writePrivate(evidence, `${JSON.stringify(data, null, 2)}\n`);
   const creativeOnly = publicationReview === 'separate';
-  const objectiveText = `Run the ${projectName} project workflow for the selected private canonical run.\n\nRead the run input at ${taskInput} and its source evidence at ${evidence}. ${creativeOnly ? 'Perform Stage contract validation/self-heal; a separate workflow owns all publication/license/use audits. Do not publish.' : 'Apply project source-use, review and publication gates. Do not infer permission or publish.'}\n`;
-  const taskText = `Process this selected Neo Project run.\n\n- Project: ${projectName}\n- Canonical run: ${runDir}\n- Private input evidence: ${evidence}\n\nUse the project contract and existing Agent Graph. Preserve existing run files. ${creativeOnly ? 'Do not perform licensing or rights checks in creative Stages; publication review is separate.' : 'Source references do not establish rights or publication permission.'}\n`;
-  const instruction = noReview ? '\nPRIVATE RENDER TEST ONLY: honor review-mode.json. SKIP human Preview and specialist review entirely, never call review/notify, render a real MP4, perform technical playback QA, mark review UNREVIEWED/NOT_RUN, prohibit publication.\n' : '';
+  const vlogPublisher = projectName === 'vlog' && publicationReview === 'publisher-explicit-authorization';
+  const publishingPolicy = vlogPublisher
+    ? 'Default: no human interactive review, no specialist Final Review or separate Final QA Task. Editor must verify and inspect playable Markcut media; Producer verifies and renders, with human Preview only on explicit request. Publisher uses WeChat Channels/XHS only with explicit per-video, per-platform and signed-in account authorization; otherwise SKIPPED, and Publisher itself has no review.'
+    : null;
+  const objectiveText = `Run the ${projectName} project workflow for the selected private canonical run.\n\nRead the run input at ${taskInput} and its source evidence at ${evidence}. ${publishingPolicy || (creativeOnly ? 'Perform Stage contract validation/self-heal; a separate workflow owns all publication/license/use audits. Do not publish.' : 'Apply project source-use, review and publication gates. Do not infer permission or publish.')}\n`;
+  const taskText = `Process this selected Neo Project run.\n\n- Project: ${projectName}\n- Canonical run: ${runDir}\n- Private input evidence: ${evidence}\n\nUse the project contract and existing Agent Graph. Preserve existing run files. ${publishingPolicy || (creativeOnly ? 'Do not perform licensing or rights checks in creative Stages; publication review is separate.' : 'Source references do not establish rights or publication permission.')}\n`;
+  const instruction = noReview ? '\nPRIVATE RENDER TEST ONLY: honor review-mode.json. SKIP human Preview and specialist review entirely, never call review/notify, render a real MP4, check playback, mark review UNREVIEWED/NOT_RUN, force Publisher SKIPPED, prohibit publication.\n' : '';
   writePrivate(objective, objectiveText + instruction);
   writePrivate(taskInput, taskText + instruction);
   return { evidence, objective, taskInput, output, binding, saved: null };
@@ -329,4 +333,4 @@ export function runProject(args, options = {}) {
 }
 
 export const projectRunHelp = `Usage: neo project run (--url HTTPS_URL | --path ABSOLUTE_RUN_DIR) --project NAME [--dry-run] [--no-review]\n\nOptions accept --name value or --name=value in any order.\n--url       HTTPS source reference for a project that declares URL input\n--path      Existing canonical dated run directory (URL projects may use it to resume a bound Run)\n--project   Project directory beneath the configured Neo workspace\n--dry-run   Validate and preview without writing files or invoking Agents Relay
---no-review Only for owner-authorized private Vlog render tests; does NOT approve or publish\n`;
+--no-review Legacy explicit private-render test policy for Vlog; normal Vlog already skips interactive review by default. Does NOT authorize publication\n`;

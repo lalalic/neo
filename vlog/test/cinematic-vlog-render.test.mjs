@@ -4,17 +4,18 @@ import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { tmpdir } from 'node:os';
 import { compileCinematicVlog, lintCinematicVlog } from '../lib/cinematic-vlog.mjs';
 
 const run = (...args) => execFileSync(args[0], args.slice(1), { stdio: 'pipe', maxBuffer: 64 * 1024 * 1024 });
 
 test('cinematic preset renders three source shots with no black boundary spans and continuous audio', { timeout: 180_000 }, () => {
-  const cwd = process.cwd();
+  const cwd = new URL('../', import.meta.url).pathname;
   const day = new Date().toISOString().slice(0, 10);
-  mkdirSync('runs', { recursive: true });
+  mkdirSync(resolve(cwd, 'runs'), { recursive: true });
   const dir = process.env.VLOG_CINEMATIC_EVIDENCE_DIR
     ? resolve(process.env.VLOG_CINEMATIC_EVIDENCE_DIR)
-    : mkdtempSync(join(cwd, 'runs', `${day}-cinematic-continuity-test-`));
+    : mkdtempSync(join(tmpdir(), `neo-vlog-${day}-cinematic-continuity-test-`));
   mkdirSync(dir, { recursive: true });
   try {
     process.chdir(dir);
