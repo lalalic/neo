@@ -52,6 +52,25 @@ suggestions**. The agent must verify them in the current situation and obey all
 authorization and safety rules. Unrelated lessons are not injected. Learned
 content is separate from automatic Escalation outcome records.
 
+### Apple App Store Connect browser login
+
+The Apple site has no installed WebHelm Platform Action. Reuse an authorized WebHelm
+browser Session and use `session exec` with a separate JavaScript `code` input.
+Apple's username and password form is in an `idmsa.apple.com` iframe, which
+may not appear in a top-level DOM snapshot. Inspect the frame tree and use CDP
+to interact with the actual embedded sign-in form.
+
+The `credential_fill` Learn/Escalation tool accepts only the existing
+`session_id`. It selects the unique email-shaped candidate from the
+comma-aligned `USER_ACCOUNTS`/`USER_PASSWORDS` login-shell variables, fills
+the Apple sign-in form without returning the credentials, and does **not**
+submit a login. Shell dumping these credential variables is blocked.
+Inspect the form before clicking Continue and then Sign In once. Observe the
+actual redirect, handle required human verification normally, and verify
+authentication by loading `/apps` with an app listing. Do not retry
+password guesses or assume a transient redirect proves authentication
+success/failure. Preserve the authenticated browser profile.
+
 Records are stored locally in `~/.local/share/neo/escalation/cases/*.json` by default. The leaf directory is mode 0700 and records are 0600. `NEO_ESCALATION_CASES_DIR` overrides the destination with an absolute private directory, particularly useful for tests.
 
 ## Deduplication and outcomes

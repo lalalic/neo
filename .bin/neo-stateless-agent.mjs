@@ -8,9 +8,18 @@ const ALLOWED_COMPUTER = new Set([
   'scroll','select_text','set_value','type',
 ]);
 const LIMIT = 12000;
+let protectedCredentialValues=[];
+function protectToolText(text) {
+  let value=String(text||'').replace(/\bUSER_(?:ACCOUNTS|PASSWORDS)\s*=\s*[^\r\n]+/gi,'USER_CREDENTIALS=[redacted]');
+  for(const secret of protectedCredentialValues) {
+    if(secret.length>=4) value=value.replaceAll(secret,'[credential]');
+  }
+  return value;
+}
 const TOOLS = [
   {type:'function',function:{name:'shell',description:'Execute an authorized local Shell command, including WebHelm CLI or Neo Computer Use CLI. Output stays inside this ephemeral agent turn.',parameters:{type:'object',properties:{command:{type:'string'}},required:['command']}}},
-  {type:'function',function:{name:'webhelm',description:'Run WebHelm CLI with an argv array in an existing authorized browser session.',parameters:{type:'object',properties:{args:{type:'array',items:{type:'string'}}},required:['args']}}},
+  {type:'function',function:{name:'webhelm',description:'Run WebHelm CLI with argv. For session exec ID pass JavaScript in separate code field, e.g. {args:["session","exec","SESSION_ID"],code:"console.log(await snapshot());"}. Platform Actions only exist for names in platform list.',parameters:{type:'object',properties:{args:{type:'array',items:{type:'string'}},code:{type:'string',description:'JavaScript for session exec, sent via stdin'}},required:['args']}}},
+  {type:'function',function:{name:'credential_fill',description:'Fill Apple App Store Connect login fields inside a WebHelm session using local USER_ACCOUNTS and USER_PASSWORDS. Does NOT submit. Keeps credentials out of model outputs. Use only for the owner-authorized Apple login.',parameters:{type:'object',properties:{session_id:{type:'string',description:'Exact WebHelm session_id from session start/list'}},required:['session_id']}}},
   {type:'function',function:{name:'computer_use',description:'Call the allowlisted Neo Computer Use CLI on a native macOS app.',parameters:{type:'object',properties:{command:{type:'string'},args:{type:'object'}},required:['command']}}},
 ];
 
@@ -34,15 +43,91 @@ function executable(command, args, {cwd,timeoutMs = 90000,input} = {}) {
   });
 }
 
+async function fillAppleLoginFromEnvironment(sessionId,{cwd}={}) {
+  if(typeof sessionId!=='string' || !/^[0-9a-f]{16}$/i.test(sessionId))
+    throw Error('Expected an existing WebHelm session ID');
+  // The Neo Terminal process may not inherit USER_* variables. The user's
+  // login shell loads them; capture values only inside this trusted tool and
+  // never pass them to the model or print them to a terminal.
+  let source={accounts:process.env.USER_ACCOUNTS||'',
+    passwords:process.env.USER_PASSWORDS||''};
+  if(!source.accounts || !source.passwords){
+    const probe=await executable('/bin/zsh',['-lc',
+      'node -e \'process.stdout.write(JSON.stringify({accounts:process.env.USER_ACCOUNTS||"",passwords:process.env.USER_PASSWORDS||""}))\'',
+    ],{cwd});
+    if(probe.ok){
+      try {source=JSON.parse(probe.text);}
+      catch {return {ok:false,text:'Unable to parse credentials from the local login shell'};}
+    }
+  }
+  const accounts=String(source.accounts||'').split(',').map(v=>v.trim()).filter(Boolean);
+  const passwords=String(source.passwords||'').split(',').map(v=>v.trim());
+  const matches=accounts.map((account,index)=>({account,password:passwords[index]}))
+    .filter(x=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x.account)&&x.password);
+  if(matches.length!==1)
+    return {ok:false,text:matches.length===0?
+      'No paired Apple Account email and password found in local USER_ACCOUNTS / USER_PASSWORDS':
+      'Multiple possible Apple Accounts found; ask owner to select before trying any'};
+  const {account,password}=matches[0];
+  protectedCredentialValues=[account,password];
+
+  // Do not pass secrets in argv, model-visible arguments, result messages, or files.
+  // Only write them into the single trusted WebHelm subprocess via stdin.
+  const expression='(()=>{'+
+    'const account='+JSON.stringify(account)+';'+
+    'const password='+JSON.stringify(password)+';'+
+    'const u=document.getElementById("account_name_text_field");'+
+    'const p=document.getElementById("password_text_field");'+
+    'if(!u||!p)return {ok:false,reason:"Apple login inputs not found"};'+
+    'const set=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value").set;'+
+    'set.call(u,account);u.dispatchEvent(new Event("input",{bubbles:true}));'+
+    'u.dispatchEvent(new Event("change",{bubbles:true}));'+
+    'set.call(p,password);p.dispatchEvent(new Event("input",{bubbles:true}));'+
+    'p.dispatchEvent(new Event("change",{bubbles:true}));'+
+    'return {ok:u.value===account && p.value===password};'+
+  '})()';
+  const script=[
+    "const tree=(await cdp('Page.getFrameTree')).frameTree;",
+    "const child=tree.childFrames?.find(x=>x.frame.url.startsWith('https://idmsa.apple.com/'))?.frame;",
+    "if(!tree.frame.url.startsWith('https://appstoreconnect.apple.com/') || !child) throw Error('Refusing to fill credentials outside Apple App Store Connect sign-in');",
+    "const context=await cdp('Page.createIsolatedWorld',{frameId:child.id,worldName:'neo_secure_apple_fill'});",
+    'const r=await cdp("Runtime.evaluate",{expression:'+JSON.stringify(expression)+',contextId:context.executionContextId,returnByValue:true});',
+    "if(!r.result?.value?.ok) throw Error('Unable to locate or fill Apple sign-in fields');",
+    "console.log('Apple sign-in fields filled from authorized local environment. No credentials disclosed.');",
+  ].join('\n');
+  const result=await executable('webhelm',['session','exec',sessionId],{
+    cwd,input:script,timeoutMs:90000,
+  });
+  // Defense-in-depth against unforeseen CLI diagnostic echoes.
+  const clean=String(result.text||'')
+    .replaceAll(account,'[credential]').replaceAll(password,'[credential]');
+  return {ok:result.ok,text:result.ok?
+    'Apple sign-in fields were filled securely from USER_ACCOUNTS and USER_PASSWORDS. No submission was performed.'
+    :('Apple secure fill failed: '+clean.slice(-1400)),exitCode:result.exitCode};
+}
+
 export async function executeStatelessTool(name, args, {cwd}) {
+  if(name==='credential_fill') return fillAppleLoginFromEnvironment(args?.session_id,{cwd});
   if(name==='shell') {
     if(typeof args?.command !== 'string' || !args.command.trim()) throw Error('Shell command missing');
-    return executable('/bin/zsh',['-lc',args.command],{cwd});
+    // The local learning model cannot read or echo owner credential variables.
+    // credential_fill is the sole supported path to inject them into Apple login.
+    if(/USER_(?:ACCOUNTS|PASSWORDS)/i.test(args.command) ||
+      /(?:^|[;|&\\s])(?:printenv|env|set)(?=\s|[;|&]|$)/i.test(args.command))
+      return {ok:false,text:'Reading or printing environment credentials through Shell is blocked. Use credential_fill with the existing WebHelm session_id.'};
+    const output=await executable('/bin/zsh',['-lc',args.command],{cwd});
+    return {...output,text:protectToolText(output.text)};
   }
   if(name==='webhelm') {
     if(!Array.isArray(args?.args) || !args.args.every(x=>typeof x==='string') || args.args.length>25)
       throw Error('Invalid WebHelm args');
-    return executable('webhelm',args.args,{cwd});
+    const isSessionExec=args.args[0]==='session' && args.args[1]==='exec';
+    if(args.code!==undefined && (!isSessionExec || typeof args.code!=='string' || args.code.length>30000))
+      throw Error('WebHelm code is only supported for session exec ID (max 30000 characters)');
+    if(isSessionExec && !args.code?.trim())
+      return {ok:false,text:'session exec requires JavaScript code. Pass the code property, for example: {args:["session","exec","SESSION_ID"],code:"console.log(await snapshot());"}. Do not call an empty session exec.'};
+    const output=await executable('webhelm',args.args,{cwd,input:args.code});
+    return {...output,text:protectToolText(output.text)};
   }
   if(name==='computer_use') {
     if(!ALLOWED_COMPUTER.has(args?.command)) throw Error('Unapproved Computer Use command');
@@ -50,7 +135,8 @@ export async function executeStatelessTool(name, args, {cwd}) {
     try {
       const path=join(dir,'args.json');
       writeFileSync(path,JSON.stringify(args.args||{}),{mode:0o600});
-      return await executable('neo',['computer-use','call',args.command,'--args-file',path],{cwd});
+      const output=await executable('neo',['computer-use','call',args.command,'--args-file',path],{cwd});
+      return {...output,text:protectToolText(output.text)};
     } finally {rmSync(dir,{recursive:true,force:true});}
   }
   throw Error('Unknown agent tool');

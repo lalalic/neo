@@ -23,15 +23,30 @@ Never claim success without evidence or save anything yourself.
 Operate only within authorized scope; respect consent and safety boundaries.
 When using WebHelm, read webhelm help and the relevant subcommand help
 before acting; webhelm connector is not a supported command.
-For sites without installed platform actions, use an owned browser session:
-webhelm session start --url URL, webhelm session exec ID, then
-webhelm session stop ID. Never guess a command or use a blank tab to
-replace an existing site. Keep replies short and in the owner's language.`;
+WebHelm platform actions ONLY exist for names returned by webhelm platform list.
+If the site is not in that list, never call webhelm platform profile, source or run
+for it. Use a browser Session instead: start with --url only when needed; reuse
+your previous session_id for session exec, passing JavaScript using the code field.
+Begin with console.log(await page_info()) and console.log(await snapshot()).
+If the login form is a cross-origin iframe omitted from snapshot, inspect the
+iframe and switch to Neo Computer Use as needed. Reuse the same authenticated
+Chrome, and never stop sessions you did not create.
+Do not repeat a failed identical tool call. Inspect the error and change approach.
+For the owner's Apple App Store Connect login, USER_ACCOUNTS and USER_PASSWORDS
+are available in the local environment. Use credential_fill with the authorized
+WebHelm session ID to fill both fields securely. Do not print, log, or paste
+the values into chat, model messages, or browser JavaScript yourself.
+Then inspect the Apple iframe with CDP via WebHelm session exec, submit the
+observed Continue control, and verify the resulting page. If Apple requires
+two-factor verification or another owner-only step, explain it and wait
+without attempting to bypass it.
+Never guess a command or use a blank tab to replace an existing site.
+Keep replies short and in the owner's language.`;
 
 const SUMMARY_INSTRUCTIONS = `Extract one reusable escalation troubleshooting lesson from this owner-led teaching conversation.
 Respond with exactly ONE JSON object (no markdown or explanatory text) with:
 {"scenario_key":"short.stable_key","category":"authentication|permissions|browser|desktop|shell|network|tooling|human|runtime|other","symptom":"generalized symptom","strategy_key":"short.stable_key","steps":["ordered reproducible instruction"],"verification":"how to verify it, or 'Not verified; owner described procedure'","failure_reason":"","lesson":"key principle"}.
-Do not invent steps, evidence, verification or technical details. Distinguish owner
+Record the COMPLETE successful login process the owner taught, not just the final read-only verification. Include the secure credential_fill tool and cross-origin iframe steps when actually observed or owner-confirmed; omit ephemeral session IDs and the [VERIFIED] marker as instructions. Do not invent steps, evidence, verification or technical details. Distinguish owner
 instruction from observed tool evidence. Avoid secrets, raw credentials, account IDs,
 private paths, raw URLs and ephemeral values. Summarize a single scenario, not unrelated topics.
 If there is insufficient detail, use empty steps, not guesses.`;
@@ -67,11 +82,13 @@ export function createLearningConversation({cwd=process.cwd(), askModel=fetch, c
   const messages=[{role:'system',content:CHAT_INSTRUCTIONS}];
   let toolsEnabled=true;
   const observations=[];
+  const failedCalls=new Set();
   const toolSpecs=[
     {type:'function',function:{name:'shell',description:'Execute an authorized local shell inspection or action',
       parameters:{type:'object',properties:{command:{type:'string'}},required:['command']}}},
-    {type:'function',function:{name:'webhelm',description:'Use WebHelm CLI with argv',
-      parameters:{type:'object',properties:{args:{type:'array',items:{type:'string'}}},required:['args']}}},
+    {type:'function',function:{name:'webhelm',description:'WebHelm browser CLI. For an existing browser session use args ["session","exec","SESSION_ID"] with code "console.log(await snapshot());" or "console.log(await page_info());". JavaScript code MUST be passed in the separate code parameter. Never use platform actions for sites absent from "webhelm platform list". To inspect a cross-origin iframe, consider Neo Computer Use if WebHelm snapshot omits its contents.',
+      parameters:{type:'object',properties:{args:{type:'array',items:{type:'string'}},code:{type:'string',description:'JavaScript for session exec ID, sent to WebHelm through stdin'}},required:['args']}}},
+    {type:'function',function:{name:'credential_fill',description:'For owner-authorized App Store Connect login, securely fill account and password from local USER_ACCOUNTS and USER_PASSWORDS in an existing WebHelm session. Call with {session_id}. Never print or request plaintext secrets. This tool fills only; you must inspect and submit the login separately.',parameters:{type:'object',properties:{session_id:{type:'string'}},required:['session_id']}}},
     {type:'function',function:{name:'computer_use',description:'Use Neo Computer Use CLI',
       parameters:{type:'object',properties:{command:{type:'string'},args:{type:'object'}},required:['command']}}},
   ];
@@ -102,9 +119,15 @@ export function createLearningConversation({cwd=process.cwd(), askModel=fetch, c
           catch {throw Error('Malformed local agent tool arguments');}
           write('  [tool] '+String(call.function.name).slice(0,40));
           let result;
-          try {result=await callTool(call.function.name,args,{cwd});}
-          catch(error) {result={ok:false,text:error.message};}
-          const observation={ok:Boolean(result.ok),text:String(result.text||''),
+          const key=JSON.stringify({name:call.function.name,args});
+          if(failedCalls.has(key)){
+            result={ok:false,text:'This exact command already failed. Do not retry it. Inspect the previous error and choose another supported tool or browser Session action.'};
+          } else {
+            try {result=await callTool(call.function.name,args,{cwd});}
+            catch(error) {result={ok:false,text:error.message};}
+            if(!result.ok) failedCalls.add(key);
+          }
+          const observation={name:call.function.name,ok:Boolean(result.ok),text:String(result.text||''),
             action:sanitizeLesson(JSON.stringify({name:call.function.name,args}),250)};
           observations.push(observation);
           write('    '+(observation.ok?'ok':'failed')+
@@ -260,7 +283,13 @@ export async function runLearningSession({
                 model:config.model,engine:config.engine,
               });
               record.tool_verified=true;
-              const fresh=conversation.observations.slice(start).find(o=>o.ok);
+              const actual=conversation.observations;
+              record.observation={
+                tools:[...new Set(actual.map(o=>o.name))],
+                calls:actual.length,
+                failures:actual.filter(o=>!o.ok).length,
+              };
+              const fresh=actual.slice(start).find(o=>o.ok);
               record.verification_evidence=sanitizeLesson(fresh?.text,240);
               storeTaughtExperience(record);
               say('Verified and recorded: '+record.scenario.key);

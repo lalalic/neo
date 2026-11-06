@@ -45,7 +45,9 @@ export function sanitizeLesson(input, max = 210) {
     .replace(/\b(?:[a-f0-9]{8}-){1,}[a-f0-9]{12}\b/gi, '[identifier]')
     .replace(/\b(?:otp|one[- ]time[- ]code|verification[- ]code|passcode)\s*(?:[:=]|is)?\s*\d{4,8}\b/gi, '[one-time-code]')
     .replace(/\b\d{6,}\b/g, '[identifier]')
-    .replace(/\b[a-zA-Z0-9_-]{18,}\b/g, '[identifier]')
+    .replace(/\b[a-zA-Z0-9_-]{18,}\b/g, token =>
+      new Set(['createIsolatedWorld','account_name_text_field','password_text_field']).has(token) ?
+        token : '[identifier]')
     .replace(/[\r\n\t]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
