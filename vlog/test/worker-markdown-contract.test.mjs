@@ -46,6 +46,9 @@ test('worker prompt can resolve one authoritative story/production path and life
  assert.match(producer,/episode-input\.json/);
  assert.match(producer,/STORY_FIRST_REQUIRED/);
  assert.match(producer,/neo\.markcut_preview/);
+ assert.match(producer,/markcut preview/);
+ assert.match(producer,/--delivery event --event-template/);
+ assert.match(text('docs/producer-preview-review.md'),/review_requested/);
  assert.match(producer,/task\.interactive_decision/);
  assert.match(producer,/eventTemplate/);
  assert.match(text('docs/producer-preview-review.md'),/transport receipt alone does not mean/);
