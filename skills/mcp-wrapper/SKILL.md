@@ -20,10 +20,8 @@ original Markcut Server. For managed Relay Tasks it calls
 `agents-relay review interactive ...` through **CLI**, not direct HTTP, to bind
 an Invocation, put the Task in `AWAITING_DECISION`, bind immutable revision,
 and recover from a failed render or notification. For standalone preview,
-Relay is not called. It imports the Neo-owned private APNs module from
-`../mobile-notification/apns.mjs` and persists a notification intent until
-confirmed by the Neo Master durable Inbox. There is **no public
-`neo.phone.notify` or `review.push.notify` Tool**.
+Relay is not called. It invokes Neo.app Core's local-only `review.mjs notify` CLI and persists a notification intent until
+confirmed by the Core durable Inbox. There is **no public notification-sending MCP Tool**.
 
 Generate a machine-specific stdio Federation entry with:
 
