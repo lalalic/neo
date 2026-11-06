@@ -21,7 +21,12 @@ Only end your answer with [VERIFIED] if a real tool confirmed success.
 Otherwise state the blocker briefly and wait for the owner's correction.
 Never claim success without evidence or save anything yourself.
 Operate only within authorized scope; respect consent and safety boundaries.
-Keep replies short and in the owner's language.`;
+When using WebHelm, read webhelm help and the relevant subcommand help
+before acting; webhelm connector is not a supported command.
+For sites without installed platform actions, use an owned browser session:
+webhelm session start --url URL, webhelm session exec ID, then
+webhelm session stop ID. Never guess a command or use a blank tab to
+replace an existing site. Keep replies short and in the owner's language.`;
 
 const SUMMARY_INSTRUCTIONS = `Extract one reusable escalation troubleshooting lesson from this owner-led teaching conversation.
 Respond with exactly ONE JSON object (no markdown or explanatory text) with:
@@ -30,9 +35,6 @@ Do not invent steps, evidence, verification or technical details. Distinguish ow
 instruction from observed tool evidence. Avoid secrets, raw credentials, account IDs,
 private paths, raw URLs and ephemeral values. Summarize a single scenario, not unrelated topics.
 If there is insufficient detail, use empty steps, not guesses.`;
-
-const MAX_TURNS = 160;
-const MAX_TOOL_CALLS = 5;
 
 function jsonAnswer(payload) {
   const message=payload?.choices?.[0]?.message;
@@ -65,7 +67,6 @@ export function createLearningConversation({cwd=process.cwd(), askModel=fetch, c
   const messages=[{role:'system',content:CHAT_INSTRUCTIONS}];
   let toolsEnabled=true;
   const observations=[];
-  let turnCount=0;
   const toolSpecs=[
     {type:'function',function:{name:'shell',description:'Execute an authorized local shell inspection or action',
       parameters:{type:'object',properties:{command:{type:'string'}},required:['command']}}},
@@ -80,10 +81,8 @@ export function createLearningConversation({cwd=process.cwd(), askModel=fetch, c
     get toolsEnabled() {return toolsEnabled;},
     async say(baseUrl,text,write=()=>{}) {
       if(!text.trim()) return '';
-      if(turnCount>=MAX_TURNS) throw Error('Learning turn limit reached; /remember or /quit');
       messages.push({role:'user',content:text});
-      turnCount++;
-      for(let batchNo=0;batchNo<MAX_TOOL_CALLS;batchNo++){
+      while(true){
         const message=await callLocalModel(baseUrl,messages,{
           askModel,tools:toolsEnabled?toolSpecs:[],
         });
@@ -94,9 +93,7 @@ export function createLearningConversation({cwd=process.cwd(), askModel=fetch, c
           return answer;
         }
         if(!toolsEnabled) throw Error('The local model attempted tools without /tools on');
-        // Each declared call needs a matching tool result. Reject excess rather than
-        // silently dropping calls and corrupting the conversation.
-        if(calls.length>4) throw Error('Local model requested too many tools in one batch');
+        // Respond to every model tool call; do not truncate batches or interrupt exploration.
         messages.push({role:'assistant',content:message.content||null,tool_calls:calls});
         for(const call of calls) {
           let args={};
@@ -116,7 +113,6 @@ export function createLearningConversation({cwd=process.cwd(), askModel=fetch, c
             content:JSON.stringify({ok:observation.ok,output:observation.text.slice(-12000)})});
         }
       }
-      throw Error('Local agent tool loop limit reached');
     },
     async draft(baseUrl) {
       if(messages.length<=1) throw Error('Teach a scenario before /remember');

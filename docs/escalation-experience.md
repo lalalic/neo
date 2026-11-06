@@ -22,17 +22,22 @@ The CLI loads the same local Qwen/llama (or configured local inference endpoint)
 It holds the exclusive inference lock for the interactive session. Conversations are kept
 in process memory only. It does not create a Hermes thread, Relay Job, or persistent transcript.
 
-Explain a scenario and its solution conversationally. The agent can ask for missing
-steps, prerequisites, checks, and exceptions. Available commands:
+Describe the scenario and the steps. Learn mode enables Shell, WebHelm and Neo
+Computer Use by default and continues calling tools until the agent finishes
+its current turn. There is no fixed Learn-mode limit on dialogue turns,
+tool-call rounds, or tool calls in a model batch. You can give corrections
+between turns. Model context and individual inference requests still have
+technical limits. The WebHelm CLI's `help` output is authoritative.
 
-- `/remember`: produce a structured scenario/strategy lesson, show the **sanitized**
-  version that will be saved, and ask for explicit `y` confirmation. Use a normal
-  conversational turn to correct the lesson, then repeat `/remember` as needed.
-- `/tools on` / `/tools off`: opt into/out of local Shell, WebHelm and Neo Computer
-  Use actions during teaching. Tools are **off** by default. They remain limited
-  to your authorized scope. No action is automatically trusted as verification.
-- `/help`: show available commands.
-- `/quit`: discard the unsaved conversation, release the model, and exit.
+Commands:
+
+- `/quit`: end the learning conversation and unload the model.
+- `/tools off` / `/tools on`: disable or re-enable tool execution.
+- `/remember`: optionally review and manually save a proposed lesson.
+
+When tool evidence confirms completion, Neo requests a fresh verification
+check and then automatically saves the reusable lesson. A manual save still
+requires confirmation.
 
 Confirmed lessons have `outcome: "taught"`, `source: "owner_taught"`,
 `owner_confirmed: true`, and `training_reviewed: false`. A taught procedure is
