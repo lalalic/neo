@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import {
   mkdirSync, writeFileSync, linkSync, unlinkSync, openSync, closeSync, fsyncSync,
-  readdirSync, readFileSync, lstatSync, existsSync,
+  readdirSync, readFileSync, lstatSync, existsSync, renameSync,
 } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -13,6 +13,7 @@ const CATEGORIES = new Set([
 ]);
 const TOOLS = new Set(['shell', 'webhelm', 'computer-use', 'wechat-bro', 'imessage', 'skills']);
 const STATUSES = new Set(['resolved', 'failed', 'needs_user']);
+const LIBRARY_STATUSES = new Set([...STATUSES, 'taught']);
 
 function sha(value) {
   return createHash('sha256').update(value).digest('hex');
@@ -176,7 +177,7 @@ export function listExperience({dir = experienceDirectory(), limit = 30, search 
   const matches = [];
   for (const entry of readdirSync(dir).filter(name => /^[a-f0-9]{64}\.json$/.test(name))) {
     const data = JSON.parse(readFileSync(join(dir, entry), 'utf8'));
-    if (!data || data.version !== 1 || !STATUSES.has(data.outcome)) continue;
+    if (!data || data.version !== 1 || !LIBRARY_STATUSES.has(data.outcome)) continue;
     const searchable = JSON.stringify([
       data.scenario, data.strategy, data.outcome, data.observation?.tools,
     ]).toLowerCase();
@@ -230,4 +231,99 @@ export async function generateExperience({
   catch { throw new Error('Local experience recorder returned malformed JSON'); }
   if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) throw new Error('Local experience candidate is not an object');
   return candidate;
+}
+
+
+/** Owner-confirmed teaching is not evidence of an executed task. */
+export function prepareTaughtExperience(candidate, {engine='llama', model='unknown'}={}) {
+  if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) {
+    throw Error('Invalid taught lesson');
+  }
+  const scenario=categoryKey(candidate.scenario_key,'');
+  const strategy=categoryKey(candidate.strategy_key,'');
+  if(!scenario || !strategy) throw Error('Teaching requires safe stable scenario and strategy keys');
+  const record=prepareExperience({
+    handoff:'owner-taught lesson',result:{status:'resolved'},experience:candidate,
+    engine,model,backend:'local',
+  });
+  if (!record.strategy.steps.length || !record.strategy.lesson || !record.scenario.symptom) {
+    throw Error('Teaching requires symptom, at least one step, and principle');
+  }
+  // Preserve more of the owner's detailed teaching than the compact auto-captured case.
+  record.scenario.symptom=sanitizeLesson(candidate.symptom,400);
+  record.strategy.steps=candidate.steps.slice(0,12).map(step=>sanitizeLesson(step,450)).filter(Boolean);
+  record.strategy.verification=sanitizeLesson(candidate.verification || 'Not verified; owner described procedure',400);
+  record.strategy.lesson=sanitizeLesson(candidate.lesson,550);
+  record.id=sha(JSON.stringify([scenario,'taught',strategy]));
+  record.source='owner_taught';
+  record.outcome='taught';
+  record.owner_confirmed=true;
+  record.observation={tools:[],calls:0,failures:0};
+  record.training_reviewed=false;
+  return record;
+}
+
+/** Allow revisions to owner-taught lessons, never overwrite execution evidence. */
+export function storeTaughtExperience(record, {dir=experienceDirectory()}={}) {
+  if(!record || record.source!=='owner_taught' || record.outcome!=='taught' ||
+      !record.owner_confirmed || !/^[a-f0-9]{64}$/.test(record.id)) {
+    throw Error('Only confirmed owner-taught lessons can be saved');
+  }
+  ensurePrivateDirectory(dir);
+  const destination=join(dir,record.id+'.json');
+  if(existsSync(destination)) {
+    if(lstatSync(destination).isSymbolicLink()) throw Error('Unsafe existing lesson path');
+    const current=JSON.parse(readFileSync(destination,'utf8'));
+    if(current.source!=='owner_taught' || current.outcome!=='taught') {
+      throw Error('Cannot overwrite observed Escalation evidence');
+    }
+    const scratch=join(dir,'.'+record.id+'.'+randomBytes(8).toString('hex')+'.tmp');
+    const fd=openSync(scratch,'wx',0o600);
+    try {writeFileSync(fd,JSON.stringify(record,null,2)+'\n');fsyncSync(fd);}
+    finally {closeSync(fd);}
+    try {renameSync(scratch,destination);} finally {if(existsSync(scratch)) unlinkSync(scratch);}
+    return {stored:true,updated:true,id:record.id};
+  }
+  return {...storeExperience(record,{dir}),updated:false};
+}
+
+function tokens(text) {
+  const stop=new Set(['with','from','have','that','this','when','after','before','should',
+    'error','failed','using','into','need','your','user','then','what','can',
+    '怎么','什么','这个','那个','需要','失败','完成','进行','可以','如何']);
+  const found=new Set();
+  for(const word of String(text||'').toLowerCase().match(/[a-z][a-z0-9_-]{2,}|[\p{Script=Han}]{2,}/gu)||[]) {
+    if(/^[\p{Script=Han}]+$/u.test(word)){
+      for(let i=0;i<word.length-1;i++){
+        const pair=word.slice(i,i+2);
+        if(!stop.has(pair)) found.add(pair);
+      }
+    } else if(!stop.has(word)) found.add(word);
+  }
+  return found;
+}
+
+export function relevantTaughtExperience(handoff,{dir=experienceDirectory(),limit=4}={}) {
+  const terms=tokens(handoff);
+  if(!terms.size) return [];
+  return listExperience({dir,limit:200}).filter(item=>item.source==='owner_taught' && item.owner_confirmed)
+    .map(item=>{
+      const surface=tokens([item.scenario.key.replace(/[._]/g,' '),item.scenario.symptom,
+        item.strategy.key.replace(/[._]/g,' '),item.strategy.lesson,...item.strategy.steps].join(' '));
+      return {item,score:[...terms].filter(word=>surface.has(word)).length};
+    }).filter(row=>row.score>=2)
+    .sort((a,b)=>b.score-a.score || b.item.captured_at.localeCompare(a.item.captured_at))
+    .slice(0,limit).map(row=>row.item);
+}
+
+export function renderTaughtExperience(handoff,options={}) {
+  const items=relevantTaughtExperience(handoff,options);
+  if(!items.length) return '';
+  return items.map(item=>[
+    'Scenario: '+item.scenario.symptom,
+    'Strategy: '+item.strategy.key,
+    ...item.strategy.steps.map((step,i)=>String(i+1)+'. '+step),
+    'Verify: '+item.strategy.verification,
+    'Lesson: '+item.strategy.lesson,
+  ].join('\n')).join('\n\n').slice(0,4500);
 }

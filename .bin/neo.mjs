@@ -9,7 +9,8 @@ import { runAgentDiscovery } from './neo-agent-catalog.mjs';
 import { buildXChatBootstrap, renderXChatBootstrap } from './xchat-bootstrap.mjs';
 import { runNeoMcpToken } from './neo-mcp-token.mjs';
 import { runLocalEscalation, localEscalationConfig } from './neo-local-escalation.mjs';
-import { prepareExperience, storeExperience, listExperience, toolsObserved } from './neo-escalation-experience.mjs';
+import { prepareExperience, storeExperience, listExperience, toolsObserved, renderTaughtExperience } from './neo-escalation-experience.mjs';
+import { runLearningSession } from './neo-escalation-learn.mjs';
 import { beginChallenge, finishChallenge, checkpointChallenge, listChallenges } from './neo-escalation-challenges.mjs';
 import { runEscalationSelfTest } from './neo-escalation-self-test.mjs';
 import {withGlobalEscalationLock, escalationLockConfig} from './neo-escalation-lock.mjs';
@@ -32,6 +33,7 @@ function usage() {
   return `Usage:
   neo escalation --handoff-file PATH [options]
   neo escalation test              Run local-agent tool-use and model-cleanup self-test
+  neo escalation learn             Teach the local agent interactively, review and remember a lesson
   neo escalation cases [--search TEXT] [--limit N]  List private deduplicated scenarios
   neo escalation challenges [--search TEXT] [--limit N]  Inspect durable challenges and attempts
   neo status|doctor
@@ -172,6 +174,16 @@ async function main(argv) {
   }
   if (['status', 'doctor', 'project', 'workspace', 'skill', 'service'].includes(command)) return executeControl([command, ...args]);
   if (command !== 'escalation') throw new Error(`unknown neo command: ${command}`);
+  if (args[0] === 'learn') {
+    if (args.length !== 1) throw new Error('usage: neo escalation learn');
+    if (!process.stdin.isTTY) throw new Error('neo escalation learn requires an interactive terminal (TTY)');
+    const config = localEscalationConfig();
+    await withGlobalEscalationLock(
+      ({registerOwnedPid})=>runLearningSession({config,onServerStarted:registerOwnedPid}),
+      escalationLockOptions(),
+    );
+    return 0;
+  }
   if (args[0] === 'test') {
     if (args.length !== 1) throw new Error('usage: neo escalation test');
     const result = await withGlobalEscalationLock(
@@ -201,6 +213,7 @@ async function main(argv) {
     return 0;
   }
   const request = parseEscalationArgs(args);
+  request.learnedLessons = renderTaughtExperience(request.handoff);
   // Challenge and start event must be durable BEFORE model initialization.
   // A killed process then leaves a diagnosable unfinished attempt instead of
   // an empty/unclassified experience record.

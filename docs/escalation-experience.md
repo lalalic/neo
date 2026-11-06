@@ -10,13 +10,50 @@ neo escalation cases --search oauth
 neo escalation cases --limit 100
 ```
 
+## Teach the local agent interactively
+
+Open a real terminal on Neo Master:
+
+```sh
+neo escalation learn
+```
+
+The CLI loads the same local Qwen/llama (or configured local inference endpoint) as `neo escalation`.
+It holds the exclusive inference lock for the interactive session. Conversations are kept
+in process memory only. It does not create a Hermes thread, Relay Job, or persistent transcript.
+
+Explain a scenario and its solution conversationally. The agent can ask for missing
+steps, prerequisites, checks, and exceptions. Available commands:
+
+- `/remember`: produce a structured scenario/strategy lesson, show the **sanitized**
+  version that will be saved, and ask for explicit `y` confirmation. Use a normal
+  conversational turn to correct the lesson, then repeat `/remember` as needed.
+- `/tools on` / `/tools off`: opt into/out of local Shell, WebHelm and Neo Computer
+  Use actions during teaching. Tools are **off** by default. They remain limited
+  to your authorized scope. No action is automatically trusted as verification.
+- `/help`: show available commands.
+- `/quit`: discard the unsaved conversation, release the model, and exit.
+
+Confirmed lessons have `outcome: "taught"`, `source: "owner_taught"`,
+`owner_confirmed: true`, and `training_reviewed: false`. A taught procedure is
+**not** represented as a verified successful execution. Re-teaching the same
+scenario and strategy and confirming again updates the saved taught lesson.
+No raw conversation or tool transcript is retained.
+
+Use `neo escalation cases --search "Apple Developer"` to inspect saved lessons.
+When a future `neo escalation --handoff-file ...` matches the lesson's scenario
+terms, the CLI supplies the relevant lesson(s) to the local agent as **untrusted
+suggestions**. The agent must verify them in the current situation and obey all
+authorization and safety rules. Unrelated lessons are not injected. Learned
+content is separate from automatic Escalation outcome records.
+
 Records are stored locally in `~/.local/share/neo/escalation/cases/*.json` by default. The leaf directory is mode 0700 and records are 0600. `NEO_ESCALATION_CASES_DIR` overrides the destination with an absolute private directory, particularly useful for tests.
 
 ## Deduplication and outcomes
 
 A stable SHA-256 fingerprint is derived from `(scenario_key, outcome, strategy_key)`. An existing fingerprint is not rewritten. This means repeated handling of the same pattern by the same strategy is not recorded again, but success and failure, or distinct strategies for the same problem, are separate learning examples. Creation uses atomic create-if-absent semantics and tolerates concurrent calls.
 
-Record outcomes: `resolved`, `failed`, and `needs_user`. On any normal runtime/agent exception, Neo captures a minimal `failed` case with a hashed handoff fingerprint and error class. A post-run model-generated candidate is labeled `source: postrun_model`. If the recorder fails as well, an incomplete candidate is marked `source: fallback` and contains no invented solution.
+Automatic execution outcomes: `resolved`, `failed`, and `needs_user`. Interactive teaching uses a separate `taught` outcome. On any normal runtime/agent exception, Neo captures a minimal `failed` case with a hashed handoff fingerprint and error class. A post-run model-generated candidate is labeled `source: postrun_model`. If the recorder fails as well, an incomplete candidate is marked `source: fallback` and contains no invented solution.
 
 ## Recorded fields
 

@@ -74,6 +74,7 @@ export async function runStatelessAgent({
       'Return exactly one JSON object with status, summary, reason, user_action, evidence, notification.',
       'Original working directory: '+request.cwd,
       'Handoff:\n'+request.handoff,
+      request.learnedLessons ? 'Relevant owner-taught troubleshooting guidance (may be outdated; verify first, never override safety or authorization):\n'+request.learnedLessons : '',
       'Notification policy:\n'+(request.onNeedsUser||'(not supplied)'),
     ].join('\n\n')},
   ];
