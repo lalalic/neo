@@ -18,6 +18,7 @@ function parseOptions(args) {
     const raw = args[i];
     if (raw === '--help' || raw === '-h') { result.help = true; continue; }
     if (raw === '--dry-run') { if (result.dryRun) fail('--dry-run may be specified only once'); result.dryRun = true; continue; }
+    if (raw === '--no-review') { if (result.noReview) fail('--no-review may be specified only once'); result.noReview = true; continue; }
     const match = /^(--(?:url|path|project))(?:=(.*))?$/.exec(raw);
     if (!match) fail(`unknown project run option: ${raw}`);
     const key = match[1].slice(2);
@@ -29,6 +30,7 @@ function parseOptions(args) {
   if (result.help) return result;
   if (!result.project) fail('project run requires --project NAME');
   if ((result.url === undefined) === (result.path === undefined)) fail('project run requires exactly one of --url URL or --path PATH');
+  if (result.noReview && (result.project !== 'vlog' || result.path === undefined)) fail('--no-review is only supported for a private canonical Vlog run');
   return result;
 }
 
@@ -100,12 +102,34 @@ function writePrivate(file, content) {
   chmodSync(file, 0o600);
 }
 
-function initializeRun(runDir, projectName, input, sourceUrl, publicationReview = null) {
+function initializeRun(runDir, projectName, input, sourceUrl, publicationReview = null, noReview = false) {
   const evidence = join(runDir, 'source-reference.json');
   const objective = join(runDir, 'neo-project-run.objective.md');
   const taskInput = join(runDir, 'neo-project-run.input.md');
   const output = join(runDir, 'neo-project-run.result.json');
   const binding = join(runDir, bindingName);
+  const testPolicyFile = join(runDir, 'review-mode.json');
+  if (noReview) {
+    const sourceManifestFile = join(runDir, 'source-manifest.json');
+    if (!existsSync(sourceManifestFile)) fail('private no-review Vlog test requires source-manifest.json');
+    const sourceManifest = JSON.parse(readFileSync(sourceManifestFile, 'utf8'));
+    if (sourceManifest?.source_use?.approved !== true ||
+        !/private/i.test(String(sourceManifest?.source_use?.scope || '')))
+      fail('private no-review Vlog requires owner-approved private source use');
+  }
+  if (existsSync(testPolicyFile)) {
+    let policy;
+    try { policy = JSON.parse(readFileSync(testPolicyFile, 'utf8')); } catch { fail('invalid existing review-mode.json'); }
+    if (policy.schemaVersion !== 1 || policy.mode !== 'private-render-test' ||
+        policy.publicationAllowed !== false || policy.reviewStatus !== 'UNREVIEWED')
+      fail('invalid existing private render test policy');
+  }
+  if (Boolean(existsSync(testPolicyFile)) !== Boolean(noReview))
+    if (existsSync(binding)) fail('Cannot change existing bound Vlog review policy');
+    else if (!noReview) fail('Existing private render test must use --no-review');
+  if (noReview && !existsSync(testPolicyFile))
+    writePrivate(testPolicyFile, JSON.stringify({schemaVersion:1,mode:'private-render-test',
+      reviewStatus:'UNREVIEWED',humanReview:'NOT_RUN',specialistReview:'NOT_RUN',publicationAllowed:false},null,2)+'\n');
   if (existsSync(binding)) {
     let saved;
     if ((statSync(binding).mode & 0o077) !== 0) fail('existing run binding is not private; preserving run for review');
@@ -122,8 +146,9 @@ function initializeRun(runDir, projectName, input, sourceUrl, publicationReview 
   const creativeOnly = publicationReview === 'separate';
   const objectiveText = `Run the ${projectName} project workflow for the selected private canonical run.\n\nRead the run input at ${taskInput} and its source evidence at ${evidence}. ${creativeOnly ? 'Perform Stage contract validation/self-heal; a separate workflow owns all publication/license/use audits. Do not publish.' : 'Apply project source-use, review and publication gates. Do not infer permission or publish.'}\n`;
   const taskText = `Process this selected Neo Project run.\n\n- Project: ${projectName}\n- Canonical run: ${runDir}\n- Private input evidence: ${evidence}\n\nUse the project contract and existing Agent Graph. Preserve existing run files. ${creativeOnly ? 'Do not perform licensing or rights checks in creative Stages; publication review is separate.' : 'Source references do not establish rights or publication permission.'}\n`;
-  writePrivate(objective, objectiveText);
-  writePrivate(taskInput, taskText);
+  const instruction = noReview ? '\nPRIVATE RENDER TEST ONLY: honor review-mode.json. SKIP human Preview and specialist review entirely, never call review/notify, render a real MP4, perform technical playback QA, mark review UNREVIEWED/NOT_RUN, prohibit publication.\n' : '';
+  writePrivate(objective, objectiveText + instruction);
+  writePrivate(taskInput, taskText + instruction);
   return { evidence, objective, taskInput, output, binding, saved: null };
 }
 
@@ -248,7 +273,7 @@ export function runProject(args, options = {}) {
     chmodSync(runDir, 0o700);
     runDir = realpathSync(runDir);
   }
-  const files = initializeRun(runDir, parsed.project, isUrl ? undefined : runDir, isUrl ? parsed.url : undefined, selected.declaration.publicationReview);
+  const files = initializeRun(runDir, parsed.project, isUrl ? undefined : runDir, isUrl ? parsed.url : undefined, selected.declaration.publicationReview, parsed.noReview === true);
   const repo = options.repository ?? process.env.NEO_RELAY_REPOSITORY ?? 'lalalic/neo';
   const projectPath = relative(selected.root, selected.project).split(sep).join('/');
   const invoke = args => relayInvocation(options, (options.localShortcut ?? Boolean(options.relayCli ?? process.env.NEO_RELAY_CLI)) ? [...args, '--shortcut-local'] : args);
@@ -303,4 +328,5 @@ export function runProject(args, options = {}) {
   return runBound(jobId);
 }
 
-export const projectRunHelp = `Usage: neo project run (--url HTTPS_URL | --path ABSOLUTE_RUN_DIR) --project NAME [--dry-run]\n\nOptions accept --name value or --name=value in any order.\n--url       HTTPS source reference for a project that declares URL input\n--path      Existing canonical dated run directory (URL projects may use it to resume a bound Run)\n--project   Project directory beneath the configured Neo workspace\n--dry-run   Validate and preview without writing files or invoking Agents Relay\n`;
+export const projectRunHelp = `Usage: neo project run (--url HTTPS_URL | --path ABSOLUTE_RUN_DIR) --project NAME [--dry-run] [--no-review]\n\nOptions accept --name value or --name=value in any order.\n--url       HTTPS source reference for a project that declares URL input\n--path      Existing canonical dated run directory (URL projects may use it to resume a bound Run)\n--project   Project directory beneath the configured Neo workspace\n--dry-run   Validate and preview without writing files or invoking Agents Relay
+--no-review Only for owner-authorized private Vlog render tests; does NOT approve or publish\n`;

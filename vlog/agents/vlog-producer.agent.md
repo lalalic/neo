@@ -32,7 +32,11 @@ Produce one authentic episode from the canonical dated run. Read the [Stage cont
 
 6. From the dated run, execute `node <vlog-root>/scripts/compile-cinematic-vlog.mjs episode-input.json video.md`, then `markcut verify video.md`. Resolve `markcut` and media tooling through installed Skills. Confirm BGM continuity, seam, intelligible original sound and ducking through **real playback**, not only parser success. Verify actual audible storytelling against story.goal, scene purposes and payoff. An instruction node is not narration; a missing voiceover audio file must fail before preview. Use shared image/shotcraft/CapCut tools only where requested by the visual brief; never present generated travel footage as observed reality.
 
-## Required review and repair
+## Explicit private render test exception
+
+For a canonical run with a valid `review-mode.json` containing `{mode:"private-render-test",reviewStatus:"UNREVIEWED",publicationAllowed:false}`, the owner explicitly requests a **render-only production test**. Do not invoke any human Preview, APNs notification, `agents-relay review run`, or specialist review. Produce all real source-linked media, TTS, music, video.md, and a playable MP4 in `output/`. Write `reviews/review.json` as `{"status":"NOT_RUN","reason":"private-render-test","humanReview":"NOT_RUN","specialistReview":"NOT_RUN","publicationAllowed":false}` (not a PASS or fake approval). Perform actual local playback/seek/audio checks and report technical failures. Do not publish or label the video approved. Proceed directly to Final QA after rendering. If the policy is absent, all usual review requirements below remain binding.
+
+## Required review and repair (standard runs only; exclude explicit private-render-test)
 
 Before rendering the accepted final, write `reviews/review-request.md` describing the actual **current revision**, source references, first 0–3 second hook, payoff, transitions, GPS treatment, captions, audio/mix and preview evidence. Then run:
 

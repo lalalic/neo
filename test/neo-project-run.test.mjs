@@ -313,3 +313,34 @@ test('a completed bound Run is idempotent and does not relaunch Relay', async ()
     assert.equal(relay.calls.filter(x => x[0] === 'job' && x[1] === 'run').length, 1);
   } finally { rmSync(f.base, { recursive: true, force: true }); }
 });
+
+
+test('private Vlog --no-review renders only with source approval, preserves policy across resume',async()=>{
+  const f=fixture(),relay=relayStub();
+  try{
+    const source={schema_version:1,source_use:{approved:true,scope:'private test only'},media:[{id:'a'}]};
+    writeFileSync(join(f.runDir,'source-manifest.json'),JSON.stringify(source));
+    const args=['--project','vlog','--path',f.runDir,'--no-review'];
+    const runId=JSON.parse(await run(args,f,relay));
+    assert.equal(runId.taskId,'content-run');
+    const mode=JSON.parse(readFileSync(join(f.runDir,'review-mode.json'),'utf8'));
+    assert.deepEqual(mode,{schemaVersion:1,mode:'private-render-test',reviewStatus:'UNREVIEWED',
+      humanReview:'NOT_RUN',specialistReview:'NOT_RUN',publicationAllowed:false});
+    assert.equal(statSync(join(f.runDir,'review-mode.json')).mode&0o777,0o600);
+    assert.match(readFileSync(join(f.runDir,'neo-project-run.input.md'),'utf8'),/SKIP human Preview and specialist review/);
+    assert.equal(JSON.parse(await run(args,f,relay)).jobId,runId.jobId);
+    await assert.rejects(()=>run(['--project','vlog','--path',f.runDir],f,relay),/Cannot change existing bound Vlog review policy/);
+    assert.equal(relay.calls.filter(x=>x[0]==='job'&&x[1]==='create').length,1);
+  }finally{rmSync(f.base,{recursive:true,force:true});}
+});
+
+test('private render mode rejects unapproved source or unrelated projects',async()=>{
+  const f=fixture(),relay=relayStub();
+  try{
+    await assert.rejects(()=>run(['--project','vlog','--path',f.runDir,'--no-review'],f,relay),/source-manifest/);
+    writeFileSync(join(f.runDir,'source-manifest.json'),JSON.stringify({source_use:{approved:false,scope:'private test'}}));
+    await assert.rejects(()=>run(['--project','vlog','--path',f.runDir,'--no-review'],f,relay),/owner-approved/);
+    await assert.rejects(()=>run(['--project','content-distribution','--url','https://example.com/test','--no-review'],f,relay),/only supported/);
+    assert.equal(relay.calls.length,0);
+  }finally{rmSync(f.base,{recursive:true,force:true});}
+});

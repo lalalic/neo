@@ -14,6 +14,16 @@ const run=realpathSync(resolve(runArg));const runs=realpathSync(resolve(root,'ru
 const rel=relative(runs,run);
 if(!rel||rel==='..'||rel.startsWith('..'+sep)||isAbsolute(rel))throw Error('STAGE_RUN_OUTSIDE_PROJECT');
 const errors=[];const valid={};
+const policyFile=resolve(run,'review-mode.json');
+let noReview=false;
+if(existsSync(policyFile)){
+ try{
+  const policy=JSON.parse(readFileSync(policyFile,'utf8'));
+  noReview=policy.schemaVersion===1&&policy.mode==='private-render-test'&&policy.reviewStatus==='UNREVIEWED'&&policy.publicationAllowed===false;
+  checkPolicy();
+ }catch{errors.push({code:'INVALID_TEST_REVIEW_POLICY',heal:'Valid private-render-test policy required'});}
+}
+function checkPolicy(){if(!noReview)errors.push({code:'INVALID_TEST_REVIEW_POLICY',heal:'A review mode cannot bypass human approval without an explicit valid render-only policy'});}
 function required(name){const path=resolve(run,name);try{const full=realpathSync(path);const rel=relative(run,full);if(rel==='..'||rel.startsWith('..'+sep)||isAbsolute(rel)||!statSync(full).isFile()||!statSync(full).size)throw Error('not a nonempty confined file');valid[name]=full;return full;}catch{errors.push({code:'REQUIRED_ARTIFACT_MISSING',path:name,heal:'Produce a real non-empty file in the canonical run'});return null;}}
 function confinedFile(relativeName){
  if(typeof relativeName!=='string'||!relativeName||relativeName.includes('\\0'))return false;
@@ -96,9 +106,15 @@ if(stage==='visioner'){
  const draft=valid['video.md'];if(draft){const result=spawnSync('markcut',['verify',draft],{cwd:run,encoding:'utf8',timeout:120000});if(result.status!==0)errors.push({code:'MARKCUT_VERIFY',heal:(result.stderr||result.stdout||result.error?.message||'Fix executable Markcut DSL').slice(0,1600)});}
  // Revisions/feedback are still bound to real human interaction and review receipts; do not fabricate them here.
  check(renderedVideo(),'PRODUCER_RENDER','Render a decodable MP4/MOV into output/ before completing');
- required('reviews/review.json');
+ const review=json('reviews/review.json');
+ if(noReview)check(review?.status==='NOT_RUN'&&review?.humanReview==='NOT_RUN'&&review?.specialistReview==='NOT_RUN'&&review?.publicationAllowed===false,
+   'UNREVIEWED_TEST_RECEIPT','Do not fabricate approvals; mark all skipped reviews NOT_RUN');
 }else if(stage==='final-qa'){
- required('qa.md');required('archive-receipt.json');
+ const qa=required('qa.md');const receipt=json('archive-receipt.json');
+ if(noReview){
+  check(!!qa && readFileSync(qa,'utf8').includes('UNREVIEWED'),'QA_UNREVIEWED_REQUIRED','Declare missing human review UNREVIEWED');
+  check(receipt?.publicationAllowed===false,'QA_PRIVATE_ONLY','Final artifact must remain private and cannot be published');
+ }
  check(renderedVideo(),'FINAL_QA_VIDEO','Inspect actual Producer video and report missing output as FAIL');
 }else{
  const name=stage==='market'?'reviews/market.md':'reviews/video-director.md';const report=required(name);

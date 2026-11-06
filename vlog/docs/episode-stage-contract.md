@@ -5,10 +5,26 @@ watcher/ingress, clarification, independent Relay Final Review and
 publishing are not Graph nodes. `INPUT_NEEDED` source input prevents Episode Tasks.
 Visioner observations and owner testimony remain separate from explicitly fictionalized personal storytelling.
 
+## Private render-only verification (explicit test exception)
+
+Only for a Run that contains `review-mode.json` with `schemaVersion: 1`,
+`mode: private-render-test`, `reviewStatus: UNREVIEWED`, and
+`publicationAllowed: false` (created through authorized `neo project run
+--no-review`), skip **both** the owner Preview and the specialist review.
+This exception exists solely to test whether the Vlog pipeline produces a
+complete playable private MP4. Producer must still compile and render a real
+video, save `reviews/review.json` with `status: NOT_RUN`, `humanReview:
+NOT_RUN`, `specialistReview: NOT_RUN`, and `publicationAllowed: false`. Final QA
+must inspect actual playback, frame/audio quality and write `qa.md` marked
+`UNREVIEWED` plus a private archive receipt with `publicationAllowed: false`.
+The run is **not approved** and cannot be published. Never create fake PASS
+receipts or call Preview, APNs, Relay specialist review, or human decision for
+this exact test mode. All other run modes retain the standard gates below.
+
 ## Stage-local human interaction
 
 Human review is not a Graph node. Visioner, Director and Editor may request optional clarification, separating owner testimony from footage. A temporary Markcut source preview is guidance, not Producer approval.
-Producer must obtain **interactive owner approval of the latest canonical
+Except for the explicit private render-only test above, Producer must obtain **interactive owner approval of the latest canonical
 `video.md`** in the same ChatGPT Worker; on a change request, revise, preview
 again and store the current revision ID/hash and decision. If UI is unavailable, report a blocker, never infer approval. Final QA checks evidence. Preview approval is not publishing consent.
 
