@@ -1,7 +1,7 @@
 import {createHash, randomUUID, randomBytes} from 'node:crypto';
 import {
   mkdirSync, openSync, closeSync, writeFileSync, fsyncSync,
-  linkSync, unlinkSync, readFileSync, readdirSync, lstatSync, existsSync,
+  linkSync, unlinkSync, renameSync, readFileSync, readdirSync, lstatSync, existsSync,
 } from 'node:fs';
 import {homedir} from 'node:os';
 import {join, resolve} from 'node:path';
@@ -63,6 +63,18 @@ function immutableJson(path, value) {
   } finally { unlinkSync(scratch); }
 }
 
+/** Keep only the latest crash-recovery checkpoint; don't accumulate stage logs. */
+function replaceCheckpoint(path, value) {
+  const folder = resolve(path, '..');
+  privateDir(folder);
+  const scratch = join(folder, '.' + randomBytes(12).toString('hex') + '.tmp');
+  const fd = openSync(scratch, 'wx', 0o600);
+  try { writeFileSync(fd, JSON.stringify(value) + '\n'); fsyncSync(fd); }
+  finally { closeSync(fd); }
+  try { renameSync(scratch, path); }
+  finally { if (existsSync(scratch)) unlinkSync(scratch); }
+}
+
 export function beginChallenge(request, {dir = challengeDirectory(), now = () => new Date().toISOString(), idFactory = randomUUID} = {}) {
   const handoff = request?.handoff;
   if (typeof handoff !== 'string' || !handoff.trim()) throw new Error('Challenge requires a handoff');
@@ -81,20 +93,22 @@ export function beginChallenge(request, {dir = challengeDirectory(), now = () =>
   const createdAt = now();
   const challenge = {
     version:1, id:challengeId, created_at:createdAt,
-    handoff_fingerprint:handoffFingerprint,
-    correlation: request.correlationId ? 'explicit' : 'handoff_fingerprint',
-    correlation_id: request.correlationId ?? null,
+    ...(request.correlationId ? {correlation_id:request.correlationId} : {}),
     cwd: request.cwd ?? null,
     handoff,
     ...challengeSummary(handoff),
   };
-  immutableJson(join(folder, 'challenge.json'), challenge);
+  const created = immutableJson(join(folder, 'challenge.json'), challenge);
+  const originalHandoff = created ? handoff : JSON.parse(readFileSync(join(folder, 'challenge.json'), 'utf8')).handoff;
   const attemptId = idFactory();
   if (!/^[a-f0-9-]{36}$/i.test(attemptId)) throw new Error('Invalid attempt ID');
   const attempt = {version:1, challenge_id:challengeId, attempt_id:attemptId,
-    event:'started', sequence:0, at:createdAt, backend:'local', cwd:request.cwd ?? null, handoff};
+    event:'started', at:createdAt,
+    // The challenge owns the initial handoff; only changed retry handoffs need a copy.
+    ...(originalHandoff !== handoff ? {handoff} : {}),
+  };
   immutableJson(join(folder, `${attemptId}.started.json`), attempt);
-  return {challengeId, attemptId, dir, sequence:0};
+  return {challengeId, attemptId, dir};
 }
 
 export function failureInfo(error, phase = 'agent_execution') {
@@ -114,20 +128,18 @@ export function failureInfo(error, phase = 'agent_execution') {
   const hit = patterns.find(([re]) => re.test(msg));
   const stage = hit?.[1] || (STAGES.has(error.escalationStage) ? error.escalationStage : STAGES.has(phase) ? phase : 'agent_execution');
   const causes = [];
-  const visited = new Set();
-  let current = error;
-  while (current && typeof current === 'object' && !visited.has(current) && causes.length < 5) {
+  const visited = new Set([error]);
+  let current = error.cause;
+  while (current && typeof current === 'object' && !visited.has(current) && causes.length < 4) {
     visited.add(current);
-    causes.push({
-      name: String(current.name || 'Error'),
-      message: String(current.message || ''),
-      stack: typeof current.stack === 'string' ? current.stack : null,
-    });
+    causes.push({name:String(current.name || 'Error'), message:String(current.message || '')});
     current = current.cause;
   }
-  return {stage, code:hit?.[2] || 'unclassified_runtime_error',
+  return {
+    stage, code:hit?.[2] || 'unclassified_runtime_error',
     error_class:String(error.name || 'Error'), message:msg,
-    stack:typeof error.stack === 'string' ? error.stack : null, causes};
+    ...(causes.length ? {causes} : {}),
+  };
 }
 
 export function checkpointChallenge(token, stage, {now = () => new Date().toISOString()} = {}) {
@@ -136,11 +148,10 @@ export function checkpointChallenge(token, stage, {now = () => new Date().toISOS
   }
   if (!STAGES.has(stage)) throw new Error('Invalid challenge stage');
   const folder = join(token.dir, token.challengeId);
-  const sequence = (token.sequence ?? 0) + 1;
-  const event = {version:1, challenge_id:token.challengeId, attempt_id:token.attemptId,
-    event:'stage', sequence, at:now(), stage};
-  immutableJson(join(folder, `${token.attemptId}.stage.${String(sequence).padStart(4,'0')}.${stage}.json`), event);
-  token.sequence = sequence;
+  if (!existsSync(join(folder, `${token.attemptId}.started.json`))) throw new Error('Missing challenge attempt start event');
+  if (existsSync(join(folder, `${token.attemptId}.finished.json`))) throw new Error('Completed attempt cannot be checkpointed');
+  const event = {event:'checkpoint', at:now(), stage, challenge_id:token.challengeId, attempt_id:token.attemptId};
+  replaceCheckpoint(join(folder, `${token.attemptId}.checkpoint.json`), event);
   return event;
 }
 
@@ -150,22 +161,27 @@ export function finishChallenge(token, {result, error, phase, observation, exper
   if (!existsSync(join(folder, `${token.attemptId}.started.json`))) throw new Error('Missing challenge attempt start event');
   const outcome = error ? 'failed' : result?.status;
   if (!STATUSES.has(outcome)) throw new Error('Invalid challenge outcome');
+  // Completed attempts need a concise result, not all intermediate stages,
+  // empty fields, duplicated handoffs, or exception stack traces.
+  const failure = error ? failureInfo(error, phase) : (outcome === 'failed' ? {
+    stage:STAGES.has(phase) ? phase : 'completed', code:'agent_reported_failure',
+  } : null);
   const finish = {
     version:1, challenge_id:token.challengeId, attempt_id:token.attemptId,
-    event:'finished', sequence:(token.sequence ?? 0)+1, at:now(), outcome,
-    summary:result?.summary ?? '',
-    reason:result?.reason ?? null,
-    verification:result?.evidence ?? [],
-    user_action: outcome === 'needs_user' ? (result?.user_action ?? '') : '',
-    notification:result?.notification ?? null,
-    failure:error ? failureInfo(error, phase) : (outcome === 'failed' ? {
-      stage:STAGES.has(phase) ? phase : 'completed', code:'agent_reported_failure',
-      message:result?.reason ?? result?.summary ?? '',
-    } : null),
-    observed:observation || {tools:[],calls:0,failures:0},
-    experience_id: experienceId && HEX_ID.test(experienceId) ? experienceId : null,
+    event:'finished', at:now(), outcome,
+    ...(result?.summary ? {summary:result.summary} : {}),
+    ...(result?.reason ? {reason:result.reason} : {}),
+    ...(Array.isArray(result?.evidence) && result.evidence.length ? {verification:result.evidence} : {}),
+    ...(outcome === 'needs_user' && result?.user_action ? {user_action:result.user_action} : {}),
+    ...(outcome === 'needs_user' && result?.notification ? {notification:result.notification} : {}),
+    ...(failure ? {failure} : {}),
+    ...(observation && (observation.calls || observation.failures || observation.tools?.length) ? {observed:observation} : {}),
+    ...(experienceId && HEX_ID.test(experienceId) ? {experience_id:experienceId} : {}),
   };
   immutableJson(join(folder, `${token.attemptId}.finished.json`), finish);
+  // Only an unfinished attempt needs the latest stage checkpoint.
+  const checkpoint = join(folder, `${token.attemptId}.checkpoint.json`);
+  if (existsSync(checkpoint)) unlinkSync(checkpoint);
   return finish;
 }
 
@@ -182,14 +198,20 @@ export function listChallenges({dir = challengeDirectory(), limit = 30, search =
     const challenge = JSON.parse(readFileSync(file,'utf8'));
     if (challenge.version !== 1 || challenge.id !== id) continue;
     const attempts = [];
-    for (const name of readdirSync(folder).filter(name => /^[a-f0-9-]{36}\.(?:started|finished|stage\.\d{4}\.[a-z_]+)\.json$/i.test(name))) {
+    const names = readdirSync(folder);
+    for (const name of names.filter(name => /^[a-f0-9-]{36}\.(?:started|finished|checkpoint)\.json$/i.test(name))) {
       const path = join(folder,name);
       if (lstatSync(path).isSymbolicLink()) continue;
       const event = JSON.parse(readFileSync(path,'utf8'));
-      if (event.challenge_id === id) attempts.push(event);
+      if (event.challenge_id === id) {
+        // A checkpoint is useful only when the attempt did not finish.
+        if (event.event === 'checkpoint' && names.includes(`${event.attempt_id}.finished.json`)) continue;
+        attempts.push(event);
+      }
     }
     attempts.sort((a,b)=>a.at.localeCompare(b.at) ||
-      a.attempt_id.localeCompare(b.attempt_id) || (a.sequence ?? 0) - (b.sequence ?? 0));
+      a.attempt_id.localeCompare(b.attempt_id) ||
+      ({started:0,checkpoint:1,finished:2}[a.event] - {started:0,checkpoint:1,finished:2}[b.event]));
     const lastEventAt = attempts.at(-1)?.at || challenge.created_at;
     const item = {...challenge, last_event_at:lastEventAt, attempts};
     if (!search || JSON.stringify(item).toLowerCase().includes(String(search).toLowerCase())) entries.push(item);
