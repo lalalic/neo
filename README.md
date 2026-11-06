@@ -9,6 +9,8 @@ This repository is the public Neo monorepo: root orchestration rules, reusable a
 - `MISSION.md` — canonical Neo identity and mission context for agents and projects.
 - `AGENTS.md` — workspace-wide agent operating rules.
 - `skills/` — canonical editable Neo skills, including orchestration, events, model routing, social posting, and skill authoring.
+- `skills/mobile-notification/` — Neo-owned APNs device registry, durable mobile review Inbox, and mobile-only authenticated MCP protocol; no public notification-sending MCP Tool.
+- `skills/mcp-wrapper/` — small Node.js stdio MCP wrappers and Federation configuration, beginning with a one-call Markcut Preview/Relay integration.
 - `.bin/` — compatibility and packaging helpers; canonical XChat discovery/resolution scripts live under `skills/xchat-orchestrator/scripts/`.
 - `neo agent list [--project PATH]` and `neo agent search QUERY [--project PATH]` — discover context-visible project and shared Agent definitions plus Agency Agents specialist templates; templates require a project manifest before Relay dispatch.
 - `neo mcp token issue --stdout` (direct interactive copy) or `--output` (private file), plus `revoke` — provider-neutral, one-hour OAuth PKCE credentials; see `docs/interactive-mcp-access.md`.
