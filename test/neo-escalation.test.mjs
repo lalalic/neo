@@ -1,10 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, symlinkSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { buildEscalationPrompt, codexArgs, parseEscalationArgs, readRequiredTextFile, runEscalation } from '../.bin/neo.mjs';
+import { fileURLToPath } from 'node:url';
+import { parseEscalationArgs, readRequiredTextFile } from '../.bin/neo.mjs';
+
+const agentPrompt = readFileSync(fileURLToPath(new URL('../agents/escalation.agent.md', import.meta.url)), 'utf8');
 
 function tempFile(name, content) {
   const dir = mkdtempSync(join(tmpdir(), 'neo-escalation-'));
@@ -58,55 +61,13 @@ test('requires a non-empty handoff file', () => {
   assert.throws(() => parseEscalationArgs(['--handoff-file', empty]), /--handoff-file is empty/);
 });
 
-test('prompt carries one handoff payload plus notification policy', () => {
-  const prompt = buildEscalationPrompt({
-    handoff: 'Finish the release. Current blocker is a verification prompt. Completion means registry is updated.',
-    onNeedsUser: 'Send iMessage to the user with the exact action.'
-  }, 'First solve the blocker. Only use needs_user for genuinely non-delegable actions.');
-  assert.match(prompt, /First solve the blocker/);
-  assert.match(prompt, /Finish the release/);
-  assert.match(prompt, /"handoff"/);
-  assert.match(prompt, /"on_needs_user"/);
-  assert.doesNotMatch(prompt, /"intent"/);
-  assert.doesNotMatch(prompt, /"blocked_on"/);
-  assert.doesNotMatch(prompt, /"context"/);
-});
-
-test('Codex fallback preserves synchronous local shell execution without Neo MCP injection', () => {
-  const args = codexArgs({ cwd: '/tmp/example' });
-  assert.deepEqual(args.slice(0, 5), ['--sandbox', 'danger-full-access', '--ask-for-approval', 'never', 'exec']);
-  assert.ok(args.includes('--output-schema'));
-  assert.deepEqual(args.slice(-3), ['-C', '/tmp/example', '-']);
-  assert.doesNotMatch(args.join(' '), /mcp_servers|127\.0\.0\.1|neoy/);
-});
-
-test('runEscalation parses resolved structured output', () => {
-  let observed;
-  const result = runEscalation({
-    handoff: 'Push the branch after resolving the caller permission issue.', cwd: '/tmp', codexCommand: 'codex'
-  }, {
-    agentContract: 'Resolve it and return JSON.',
-    spawnSyncImpl(command, args, options) {
-      observed = { command, args, options };
-      return { status: 0, stdout: JSON.stringify({ status: 'resolved', summary: 'pushed', evidence: ['remote ref exists'] }), stderr: '' };
-    }
-  });
-  assert.equal(observed.command, 'codex');
-  assert.match(observed.options.input, /Push the branch/);
-  assert.equal(result.status, 'resolved');
-});
-
-test('needs_user requires a concrete human action', () => {
-  assert.throws(() => runEscalation({ handoff: 'Complete the flow.', cwd: '/tmp' }, {
-    agentContract: 'Return JSON.',
-    spawnSyncImpl() {
-      return { status: 0, stdout: JSON.stringify({ status: 'needs_user', summary: 'MFA remains' }), stderr: '' };
-    }
-  }), /requires user_action/);
+test('deprecated backend selector and Codex CLI option are not accepted', () => {
+  const handoff = tempFile('handoff.md', 'Complete the authorized local task.');
+  assert.throws(() => parseEscalationArgs(['--handoff-file', handoff, '--codex-command', 'codex']), /unknown escalation option/);
 });
 
 test('local escalation prompt selects WebHelm, Neo Computer Use CLI, and Shell', () => {
-  const prompt = buildEscalationPrompt({ handoff: 'Enable an existing permission and verify it.', cwd: '/tmp' });
+  const prompt = agentPrompt;
   assert.match(prompt, /Execution path: WebHelm, Neo Computer Use, Shell/);
   assert.match(prompt, /\*\*WebHelm\*\*/);
   assert.match(prompt, /installed `webhelm` Skill on demand/);
@@ -121,7 +82,7 @@ test('local escalation prompt selects WebHelm, Neo Computer Use CLI, and Shell',
 });
 
 test('native UI evidence and interactive authorization avoid premature human escalation', () => {
-  const prompt = buildEscalationPrompt({ handoff: 'Open a browser publisher console and handle any verification surface.', cwd: '/tmp' });
+  const prompt = agentPrompt;
   assert.match(prompt, /obtain `list_apps` and a fresh `get_app_state`/);
   assert.match(prompt, /background\/PTY process with observable output/);
   assert.match(prompt, /rejoin it and verify its outcome/);
@@ -130,7 +91,7 @@ test('native UI evidence and interactive authorization avoid premature human esc
 });
 
 test('human fallback is only for irreducible steps and uses File Helper then iMessage', () => {
-  const prompt = buildEscalationPrompt({ handoff: 'Complete authorization; only an OTP may remain.', cwd: '/tmp' });
+  const prompt = agentPrompt;
   assert.match(prompt, /genuinely requires the account owner's presence or decision/);
   assert.match(prompt, /wechat-bro → File Helper/);
   assert.match(prompt, /\*\*iMessage\*\*/);
@@ -151,11 +112,12 @@ test('CLI help exposes only file-based content inputs', () => {
   assert.doesNotMatch(output, /--blocked-on/);
   assert.doesNotMatch(output, /--context/);
   assert.doesNotMatch(output, /--handoff TEXT/);
+  assert.doesNotMatch(output, /--codex-command/);
 });
 
 
 test('default needs-user policy is a human fallback, not a primary execution path', () => {
-  const prompt = buildEscalationPrompt({ handoff: 'Confirm a desktop setting first.', cwd: '/tmp' });
+  const prompt = agentPrompt;
   assert.match(prompt, /Never notify before attempting authorized recovery/);
   assert.match(prompt, /\`on_needs_user\`/);
   assert.match(prompt, /If WeChat\/File Helper cannot deliver/);

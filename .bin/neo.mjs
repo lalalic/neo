@@ -18,7 +18,6 @@ import { loadWorkspaceConfig } from './workspace-config.mjs';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '..');
 const AGENT_PATH = resolve(ROOT, 'agents/escalation.agent.md');
-const SCHEMA_PATH = resolve(ROOT, 'agents/escalation-result.schema.json');
 const DEFAULT_NEEDS_USER_PATH = resolve(ROOT, 'agents/escalation-needs-user.md');
 
 function escalationLockOptions() {
@@ -51,10 +50,8 @@ Options:
   --handoff-file PATH            Required handoff file containing the full escalation request
   --on-needs-user-file PATH      Optional notification-policy override file
   --cwd PATH                     Original working directory for the task (default: current directory)
-  --codex-command PATH           Override Codex executable when NEO_ESCALATION_BACKEND=codex
 
 Runtime environment:
-  NEO_ESCALATION_BACKEND           local (default) or codex
   NEO_ESCALATION_ENGINE            llama (default), mlx, external
   NEO_ESCALATION_MODEL             Model repo or local model file path
   NEO_ESCALATION_CONTEXT           Context tokens (default 65536)
@@ -93,7 +90,7 @@ function fileOption(args, name) {
 }
 
 export function parseEscalationArgs(args, options = {}) {
-  const allowed = new Set(['--handoff-file', '--on-needs-user-file', '--cwd', '--codex-command']);
+  const allowed = new Set(['--handoff-file', '--on-needs-user-file', '--cwd']);
   for (let index = 0; index < args.length; index += 2) {
     const name = args[index];
     if (!allowed.has(name)) throw new Error(`unknown escalation option: ${name}; use --handoff-file PATH`);
@@ -101,67 +98,20 @@ export function parseEscalationArgs(args, options = {}) {
   const request = {
     handoff: fileOption(args, '--handoff-file'),
     onNeedsUser: fileOption(args, '--on-needs-user-file') ?? readRequiredTextFile(options.defaultNeedsUserPath ?? DEFAULT_NEEDS_USER_PATH, 'default needs-user policy'),
-    cwd: valueFor(args, '--cwd') ?? process.cwd(),
-    codexCommand: valueFor(args, '--codex-command') ?? 'codex'
+    cwd: valueFor(args, '--cwd') ?? process.cwd()
   };
   if (!request.handoff || !request.handoff.trim()) throw new Error('escalation requires --handoff-file PATH');
   return request;
 }
 
-export function buildEscalationPrompt(request, agentContract = readFileSync(AGENT_PATH, 'utf8')) {
-  return `${agentContract.trim()}
-
-# Escalation request
-
-${JSON.stringify({
-    handoff: request.handoff,
-    on_needs_user: request.onNeedsUser ?? null
-  }, null, 2)}
-`;
-}
-
-export function codexArgs(request) {
-  return [
-    '--sandbox', 'danger-full-access',
-    '--ask-for-approval', 'never',
-    'exec',
-    '--skip-git-repo-check',
-    '--output-schema', SCHEMA_PATH,
-    '-C', request.cwd,
-    '-'
-  ];
-}
-
 function validateResult(result) {
-  if (!result || typeof result !== 'object') throw new Error('Codex did not return a JSON object');
+  if (!result || typeof result !== 'object') throw new Error('Escalation did not return a JSON object');
   if (!['resolved', 'needs_user', 'failed'].includes(result.status)) throw new Error(`invalid escalation status: ${result.status}`);
   if (typeof result.summary !== 'string' || !result.summary.trim()) throw new Error('escalation result requires summary');
   if (result.status === 'needs_user' && (typeof result.user_action !== 'string' || !result.user_action.trim())) {
     throw new Error('needs_user result requires user_action');
   }
   return result;
-}
-
-export function runEscalation(request, options = {}) {
-  const spawn = options.spawnSyncImpl ?? spawnSync;
-  const result = spawn(request.codexCommand ?? 'codex', codexArgs(request), {
-    cwd: request.cwd,
-    input: buildEscalationPrompt(request, options.agentContract),
-    encoding: 'utf8',
-    maxBuffer: 16 * 1024 * 1024
-  });
-  if (result.error) throw result.error;
-  if (result.status !== 0) {
-    const detail = String(result.stderr || result.stdout || '').trim();
-    throw new Error(`local Codex escalation failed (${result.status})${detail ? `: ${detail}` : ''}`);
-  }
-  let parsed;
-  try {
-    parsed = JSON.parse(String(result.stdout).trim());
-  } catch {
-    throw new Error(`local Codex escalation returned invalid JSON: ${String(result.stdout).trim()}`);
-  }
-  return validateResult(parsed);
 }
 
 async function main(argv) {
@@ -245,30 +195,24 @@ async function main(argv) {
     return 0;
   }
   const request = parseEscalationArgs(args);
-  const backend = process.env.NEO_ESCALATION_BACKEND || 'local';
+  const backend = 'local';
   let config;
   let result;
   let captured;
   let executionError;
   try {
-    if (backend === 'local') {
-      config = localEscalationConfig();
-      result = validateResult(await withGlobalEscalationLock(
-        ({registerOwnedPid})=>runLocalEscalation(request, {
-          config,
-          onServerStarted: registerOwnedPid,
-          agentPrompt: readFileSync(AGENT_PATH, 'utf8'),
-          playbookPrompt: readFileSync(resolve(ROOT, 'agents/neo-escalation-playbook.md'), 'utf8'),
-          experiencePrompt: readFileSync(resolve(ROOT, 'agents/escalation-experience.md'), 'utf8'),
-          onExperience: payload => { captured = payload; },
-        }),
-        escalationLockOptions(),
-      ));
-    } else if (backend === 'codex') {
-      result = await withGlobalEscalationLock(()=>runEscalation(request), escalationLockOptions());
-    } else {
-      throw new Error('NEO_ESCALATION_BACKEND must be local or codex');
-    }
+    config = localEscalationConfig();
+    result = validateResult(await withGlobalEscalationLock(
+      ({registerOwnedPid})=>runLocalEscalation(request, {
+        config,
+        onServerStarted: registerOwnedPid,
+        agentPrompt: readFileSync(AGENT_PATH, 'utf8'),
+        playbookPrompt: readFileSync(resolve(ROOT, 'agents/neo-escalation-playbook.md'), 'utf8'),
+        experiencePrompt: readFileSync(resolve(ROOT, 'agents/escalation-experience.md'), 'utf8'),
+        onExperience: payload => { captured = payload; },
+      }),
+      escalationLockOptions(),
+    ));
   } catch (error) {
     executionError = error;
   }

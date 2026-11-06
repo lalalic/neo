@@ -1,6 +1,6 @@
 # Neo Local Escalation (Neo Master)
 
-`neo escalation --handoff-file PATH` runs one synchronous local Agent task.
+`neo escalation --handoff-file PATH` always runs one synchronous local Agent task. There is no backend selector and no Codex fallback.
 
 ## Default on Apple Silicon
 
@@ -15,7 +15,7 @@ There is no dedicated forever-running model service or dependency on Worknode. L
 
 ## Per-host global inference lock
 
-Every `neo escalation` invocation (including `neo escalation test` and explicit Codex fallback) acquires a shared **Neo Master exclusive lock** *before starting its inference runtime*. If another escalation is active, the later caller waits and emits a brief queued status to stderr after 1.2 seconds; the task does not start a second model. The lock covers startup, execution, model shutdown and temporary-data cleanup, and is released automatically on completion, exceptions, cancellation or caller death.
+Every `neo escalation` invocation (including `neo escalation test`) acquires a shared **Neo Master exclusive lock** *before starting its inference runtime*. If another escalation is active, the later caller waits and emits a brief queued status to stderr after 1.2 seconds; the task does not start a second model. The lock covers startup, execution, model shutdown and temporary-data cleanup, and is released automatically on completion, exceptions, cancellation or caller death.
 
 - Default file: `~/.local/state/neo/escalation/inference.lock`. Private 0700 directory and 0600 file. It is kept on disk; never delete it while another Escalation may be running.
 - Queue timeout: `NEO_ESCALATION_LOCK_WAIT_SECONDS` (default 3600, allowed 1–14400).
@@ -29,7 +29,6 @@ This is a **per-machine** advisory lock, not a multi-node distributed lock or gu
 Set environment variables in the `neo` caller's environment, including the shell launched by Neo MCP:
 
 ```sh
-export NEO_ESCALATION_BACKEND=local  # default: local; use codex explicitly for legacy behavior
 export NEO_ESCALATION_ENGINE=llama    # llama (default), mlx, external
 export NEO_ESCALATION_MODEL=unsloth/Qwen3.5-4B-GGUF:Q4_K_M
 export NEO_ESCALATION_CONTEXT=65536
@@ -43,7 +42,6 @@ Optional:
 - `NEO_ESCALATION_STARTUP_MS`: cold start and first-time download wait (default 900000).
 - `NEO_ESCALATION_ENGINE=mlx` plus `NEO_ESCALATION_MODEL=mlx-community/Qwen3.5-4B-MLX-4bit`: use an installed compatible MLX-LM server. MLX is optional and must be tested before use in production.
 - `NEO_ESCALATION_ENGINE=external` plus `NEO_ESCALATION_BASE_URL=http://127.0.0.1:PORT/v1`: use an existing local OpenAI-compatible endpoint. Neo does **not** own or unload that endpoint.
-- `NEO_ESCALATION_BACKEND=codex`: previous synchronous Codex runner. No silent model/provider fallback is performed by the Neo CLI.
 
 To change model, update the env variable; no edits to Agent instructions or CLI code. Hugging Face GGUF references or absolute `.gguf` file paths are accepted for llama.cpp. Ensure the selected model supports the local stateless function-calling schema.
 
