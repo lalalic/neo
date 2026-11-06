@@ -9,34 +9,40 @@ import {join,basename,resolve} from 'node:path';
 import {homedir} from 'node:os';
 import {fileURLToPath} from 'node:url';
 import {startStdioProxy} from './stdio-proxy.mjs';
-// Neo owns orchestration; Neo.app Core owns notification and the durable Inbox.
-// The Core service has a local-only `notify` CLI, not a notification MCP Tool.
-function coreReviewProgram(){
-  const candidates=[process.env.NEO_CORE_REVIEW_MODULE,
-    join(homedir(),'Library','Application Support','NeoY','runtimes','core','current',
-      'src','core','tools','review.mjs')];
-  const found=candidates.find(path=>path&&existsSync(path));
-  if(!found)throw Error('Neo.app Core review service not installed; set NEO_CORE_REVIEW_MODULE');
-  return found;
+// Neo owns orchestration; Neo.app owns the durable Review REST service.
+// All review operations use HTTP REST, never the Agent MCP Tool surface.
+export function reviewNotifyURL({portFile=join(homedir(),'Library','Application Support','NeoY','deployment.json'),
+  override=process.env.NEO_REVIEW_NOTIFY_URL}={}){
+  if(override){
+    const url=new URL(override);
+    if(url.protocol!=='http:'||!['127.0.0.1','localhost'].includes(url.hostname)||
+       url.pathname!=='/mobile/review/notify'||url.username||url.password||url.search||url.hash)
+      throw Error('Neo Review notify URL must be a loopback HTTP REST endpoint');
+    return url.href;
+  }
+  let port=6767;
+  if(existsSync(portFile)){
+    const settings=JSON.parse(readFileSync(portFile,'utf8'));
+    if(Number.isInteger(settings.mcpPort)&&settings.mcpPort>=1&&settings.mcpPort<=65535)
+      port=settings.mcpPort;
+  }
+  return `http://127.0.0.1:${port}/mobile/review/notify`;
 }
-export async function notifyReview(request){
-  const program=coreReviewProgram();
-  return await new Promise((resolve,reject)=>{
-    const child=spawn(process.execPath,[program,'notify'],{stdio:['pipe','pipe','pipe']});
-    let output='',errors='',done=false;
-    const timer=setTimeout(()=>{child.kill('SIGTERM');finish(Error('Neo.app Core notify timed out'));},22000);
-    const finish=(error,value)=>{if(done)return;done=true;clearTimeout(timer);if(error)reject(error);else resolve(value);};
-    child.on('error',finish);
-    child.stdout.on('data',part=>{output+=part;if(output.length>100000)child.kill('SIGTERM');});
-    child.stderr.on('data',part=>{if(errors.length<2000)errors+=part;});
-    child.on('exit',code=>{
-      if(code!==0)return finish(Error('Neo.app Core notify failed: '+errors.slice(0,500)));
-      let receipt;try{receipt=JSON.parse(output)}catch{return finish(Error('Invalid Core notification receipt'))}
-      if(receipt.stored!==true||receipt.requestId!==request.id)return finish(Error('Core did not store review request'));
-      finish(null,receipt);
-    });
-    child.stdin.end(JSON.stringify(request));
+export async function notifyReview(request,{fetchImpl=fetch,url=reviewNotifyURL()}={}){
+  const destination=new URL(url);
+  if(destination.protocol!=='http:'||!['127.0.0.1','localhost'].includes(destination.hostname)||
+     destination.pathname!=='/mobile/review/notify'||destination.search||destination.hash||
+     destination.username||destination.password)
+    throw Error('Neo Core notify only accepts localhost REST');
+  const response=await fetchImpl(destination.href,{
+    method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},
+    body:JSON.stringify(request),signal:AbortSignal.timeout(55000),redirect:'error'
   });
+  if(!response.ok)throw Error(`Neo.app Review REST notify failed: HTTP ${response.status}`);
+  const receipt=await response.json();
+  if(receipt?.stored!==true||receipt?.requestId!==request.id)
+    throw Error('Neo.app Review REST did not confirm durable Inbox storage');
+  return receipt;
 }
 
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

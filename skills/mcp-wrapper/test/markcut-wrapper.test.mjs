@@ -1,12 +1,13 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
+import {createServer} from 'node:http';
 import {mkdtempSync,writeFileSync,rmSync} from 'node:fs';
 import {spawn} from 'node:child_process';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {fileURLToPath} from 'node:url';
-import {federationConfiguration,operationIdFromResult,previewCall,relayControl,relayInteractiveArgs,notifyReview} from '../markcut.mjs';
+import {federationConfiguration,operationIdFromResult,previewCall,relayControl,relayInteractiveArgs,notifyReview,reviewNotifyURL} from '../markcut.mjs';
 const id=randomUUID();
 const relay={jobId:'j1',taskId:'producer',executionId:'exec-1'};
 const eventTemplate={type:'task.interactive_decision',source:'job/j1/task/producer/execution/exec-1',
@@ -105,35 +106,35 @@ test('Neo wrapper invokes Relay CLI with exact interactive identities; no direct
  assert.throws(()=>relayInteractiveArgs('job.delete',{jobId:'556'}),/Unsupported/);
 });
 
-test('Neo integration invokes Neo.app Core local review service for durable notification',async()=>{
- const dir=mkdtempSync(join(tmpdir(),'neo-core-notify-integration-'));
- const oldModule=process.env.NEO_CORE_REVIEW_MODULE;
- const oldHome=process.env.NEO_APNS_HOME;
- // Run against the real Core service when explicitly supplied; otherwise
- // use a small portable CLI contract fixture in this isolated repository.
- const fixture=join(dir,'review-service-fixture.mjs');
- writeFileSync(fixture,`import fs from 'node:fs';import path from 'node:path';
- const req=JSON.parse(fs.readFileSync(0,'utf8'));
- const root=process.env.NEO_APNS_HOME;
- fs.mkdirSync(root,{recursive:true});
- fs.writeFileSync(path.join(root,'reviews.json'),JSON.stringify({version:1,
-   requests:{[req.id]:{createdAt:new Date().toISOString(),review:req}},completed:{}}));
- process.stdout.write(JSON.stringify({stored:true,accepted:false,requestId:req.id})+'\\n');`);
- process.env.NEO_CORE_REVIEW_MODULE=process.env.NEO_CORE_REVIEW_TEST_MODULE||fixture;
- process.env.NEO_APNS_HOME=dir;
- const requestId=randomUUID();
+test('Neo integration calls private localhost REST notify without MCP or CLI',async()=>{
+ const received=[];
+ const server=createServer(async(req,res)=>{
+  let body='';for await(const part of req)body+=part;
+  const payload=JSON.parse(body);received.push({path:req.url,method:req.method,
+    contentType:req.headers['content-type'],payload});
+  res.writeHead(200,{'content-type':'application/json'});
+  res.end(JSON.stringify({stored:true,accepted:false,requestId:payload.id}));
+ });
+ await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+ const url=`http://127.0.0.1:${server.address().port}/mobile/review/notify`;
+ const request={id:randomUUID(),title:'Preview',contentHash:'a'.repeat(64),revisionId:'r1'};
  try{
-  const request={id:requestId,title:'Durable preview handoff',contentHash:'a'.repeat(64),
-    revisionId:'a'.repeat(64),delivery:'text'};
-  const receipt=await notifyReview(request);
-  assert.equal(receipt.stored,true);
-  assert.equal(receipt.requestId,requestId);
-  assert.equal(receipt.accepted,false); // No enrolled iPhone in isolated test.
-  const saved=JSON.parse((await import('node:fs')).readFileSync(join(dir,'reviews.json'),'utf8'));
-  assert.equal(saved.requests[requestId].review.id,requestId);
- }finally{
-  if(oldModule===undefined)delete process.env.NEO_CORE_REVIEW_MODULE;else process.env.NEO_CORE_REVIEW_MODULE=oldModule;
-  if(oldHome===undefined)delete process.env.NEO_APNS_HOME;else process.env.NEO_APNS_HOME=oldHome;
-  rmSync(dir,{recursive:true,force:true});
- }
+  assert.equal((await notifyReview(request,{url})).requestId,request.id);
+  assert.equal(received.length,1);
+  assert.equal(received[0].path,'/mobile/review/notify');
+  assert.equal(received[0].method,'POST');
+  assert.equal(received[0].contentType,'application/json');
+  assert.deepEqual(received[0].payload,request);
+  await assert.rejects(()=>notifyReview(request,{url:'https://neo.example.com/mobile/review/notify'}),/localhost/);
+  await assert.rejects(()=>notifyReview(request,{url:'http://127.0.0.1:6767/mcp'}),/localhost/);
+ }finally{await new Promise(resolve=>server.close(resolve));}
+});
+test('notify URL reads deployed Neo.app port and rejects remote overrides',()=>{
+ const dir=mkdtempSync(join(tmpdir(),'neo-review-port-'));
+ try{
+  const file=join(dir,'deployment.json');writeFileSync(file,JSON.stringify({mcpPort:6808}));
+  assert.equal(reviewNotifyURL({portFile:file,override:null}),
+    'http://127.0.0.1:6808/mobile/review/notify');
+  assert.throws(()=>reviewNotifyURL({portFile:file,override:'https://example.org/mobile/review/notify'}),/loopback/);
+ }finally{rmSync(dir,{recursive:true,force:true})}
 });
