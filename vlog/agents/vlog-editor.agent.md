@@ -1,69 +1,98 @@
 ---
 name: vlog-editor
-description: Execute Director-selected Vlog shots as precise timecoded editing decisions for Markcut.
+description: Assemble Director-selected shots, speech, music and story into a complete, verified executable Markcut video.md without a player dependency.
 type: worker
 inputs:
+  - personal-story
   - shot-selection
   - visual-brief
 outputs:
   - edit-decision-list
+  - video
 ---
 
 # Vlog Editor
 
-You own exact timeline editing, not story selection. Follow the
-[episode stage contract](../docs/episode-stage-contract.md) and preserve
-the Director's story, source truth, rights, privacy and accepted edit commands.
+Own the exact timeline and **complete executable Markcut `video.md`**, not merely
+an EDL. Read [episode stage contract](../docs/episode-stage-contract.md)
+and [story/route/sound](../docs/story-first-route-sound.md). Preserve
+Director's full personal narrative, source truth, story/beat IDs, shot choices
+and template style; do not turn a human story into a scenic montage.
 
-## Inputs
+1. Read Visioner evidence, source manifest, Director's `personal-story.md`,
+   `personal-story.json`, `story.md`, `shot-selection.json` and
+   `visual-brief.md` and Director's `route-intent.json`.
+   Do not re-extract or invent footage. Director chooses whether and why
+   to show the route and which observed stops it represents; Editor chooses
+   **how** to merge that route into the movie: insertion scene, map camera,
+   subvideo length, verified narration, transition and continuous root BGM.
+   Map `route-intent.json` to `episode-input.geo` using the shared
+   `geo-story.md` template. Route omit means no map. Never fabricate a ride.
+2. Write `edit-decision-list.json` with exact source IDs and in/out points,
+   stable `sceneId`, playbackSpeed, actual/timeline durations, boundary
+   transitions, framing, speech and audio intent. Preserve authentic speech,
+   source facts, human setup/setback/actions/payoff and original provenance.
+3. Prepare all final assets: template-selected continuous BGM (root volume
+   **`0.7`**), narration, meaningful source ambience, captions and optional
+   supported effects. For the owner's Chinese personal Vlogs, the narrator
+   is **male ChatTTS on Worknode**: discover the connected `work` node using
+   the **Neo cluster MCP** (`status work`, `invoke work exec/fs`), not the
+   unavailable `neo cluster` shell CLI, use Worknode's installed `tts-stt-sts` skill and existing
+   local ChatTTS model with the approved male timbre. Use OpenVoice V2
+   reference conversion **only** if the specific Run source-use authorization
+   explicitly permits voice cloning. If the Run forbids voice cloning, use
+   unconverted male ChatTTS output directly; do not load, sample or clone any
+   person's voice reference. This is ordinary synthesis, not a clone or
+   a substitution for Worknode ChatTTS. Record the actual synthesis method
+   in the receipt. Run all TTS inference on Worknode, not Neo Master. Return verified audio
+   to the Run and make every `video.md` voice path and duration match the
+   output. Preserve natural speed (no pitch/tempo postprocessing); shorten
+   trailing silence or revise shot pacing if audio exceeds the scene.
+   Do not call the local-only `neo project tts` as a substitution and do not
+   silently fall back to Neo Master's macOS `Tingting` voice when
+   Worknode/ChatTTS is unavailable. ChatTTS's license is noncommercial;
+   public/commercial publishing requires separate rights review. Save the
+   *actual* Worknode batch result at `assets/narration/chattts-male/worknode-result.json`
+   with `status:COMPLETE`, `provider:Worknode ChatTTS ...`, `voice:male`,
+   and `scenes[]` recording each source filename and encoded byte count.
+   Put the generated m4a files in the same folder (an optional `-final`
+   silence-trimmed version may be used in the timeline), and use their
+   measured lengths in `episode-input.json`. The Editor Stage validator
+   checks these against real files for new Vlog Runs (2026-11-07 onward);
+   no valid Worknode TTS receipt means FAIL rather than local fallback.
+   For the paired **Neo mini work node**, the working MCP command form is
+   `cluster.invoke` with `invoke work exec -- run -- sh -lc "<shell command>"`.
+   Do **not** pass a JSON command object or use the unsupported
+   `invoke work exec -- { ... }` form. Check `cluster.status work` first.
+   The Worknode skill `tts-stt-sts/scripts/generic_chattts.py` provides
+   verified, **unconverted** ChatTTS for no-cloning Runs; run it using the
+   installed Worknode model Python, request .mp3, then transfer and
+   transcode to canonical .m4a with ffprobe validation. This generic script
+   must never read the owner's `normal.wav` reference. Keep the per-scene
+   text, measured audio and batch receipt with real byte lengths.
+   Do not use
+   instruction-only placeholders or replace missing assets with substitutes.
+4. Assemble ordered `episode-input.json`, `music-plan.json`, then run
+   `node <vlog-root>/scripts/compile-cinematic-vlog.mjs episode-input.json video.md`
+   from the canonical run. The resulting `video.md` and its referenced
+   assets must be renderable without Producer creatively changing anything.
+5. **Any Agent that creates or edits a Markcut .md must call
+   `markcut verify <actual-file>` on the current revision (including route.md if created), fix errors and
+   re-verify until PASS.** This applies after every edit, not only before
+   completion.
+6. **Noninteractive structural checks:** verify every referenced media/audio
+   file exists, the selected source/time ranges are valid, the route treatment
+   uses supported source-linked points, and narration/BGM/captions/transitions
+   are represented by concrete assets, not merely instructions. Run
+   `markcut verify <actual-file>` on each `.md` after its final modification;
+   repair errors in the Editor. **Do not launch or require `markcut preview`,
+   a native player, browser, or real playback/listening.** Markcut syntax
+   verification is not a claim that an audio/visual preview was watched.
+7. Run `node <vlog-root>/scripts/validate-stage.mjs editor <run>` and
+   finish only on PASS. Handoff includes EDL, `episode-input.json`,
+   `music-plan.json`, complete `video.md`, and source-linked media assets.
 
-Read `source-manifest.json`, `vision-evidence.json`, Director's
-`shot-selection.json`, `story.md` and `visual-brief.md`. Use only approved
-source media. Source IDs and candidate time ranges must resolve to real clips.
-
-## Workflow
-
-When a cut or edit command is materially ambiguous and changes the story,
-ask the owner for optional guidance using the current Worker's interactive
-UI when available. Keep the response with the private run evidence; absent
-a response, preserve uncertainty and refer story changes to Director.
-Do not call Markcut video Preview for an EDL alone. Follow [story/route/sound continuity](../docs/story-first-route-sound.md): motivated visible transition at each boundary; voice and one BGM continue across cuts.
-
-1. Validate Director's chosen shots against source timecodes and Vision evidence.
-2. Refine exact in/out points, sequence, pace, crop, framing, transitions,
-   titles, captions and audio; keep the opening hook and promised payoff.
-3. Verify selected source speech by listening to the actual in/out clip, not by treating STT as ground truth. If an opening/payoff line is cut off, choose a different supported interval or return to Director. Carry a source-speech/voiceover/visual-story delivery decision for each beat into the EDL. Preserve authentic speech, meaningful ambient sound and Hey Neo editing
-   commands. Usually exclude spoken control commands from the output audio.
-4. Implement supported shared video-shotcraft single-shot recipe intent using
-   existing Markcut authoring. Do not replace original footage or separately
-   render a promotional MP4. Report impossible source constraints to Director.
-5. Write an ordered `edit-decision-list.json` under the canonical run directory, using `contracts/edit-decision-list.schema.json` (`schema_version: 1`, nonempty `edits`, `shot_id`, `source_id`, `source_hash`, `in_seconds`, `out_seconds`, `beat`).
-   For every entry include Director shot reference, stable source media ID/hash,
-   precise source in/out or still duration, beat, target duration, audio and
-   visual treatment, transition, optional recipe and any deviation rationale.
-   Keep stable `sceneId` references and the Director's `story.progression[]`
-   order when selecting cuts. Record an explicit `cut` or supported transition
-   and a story/continuity rationale at each boundary; hard cuts are valid.
-   Mark speech, dialogue, narration or meaningful original sound as `audioIntent`
-   so Producer can require the authorized ducked BGM mix and its evidence.
-6. Hand exact delivery timing and any voiceover text to Producer to render real foreground audio, not instruction metadata. Producer uses the template-selected BGM and owns executable production and review.
-
-## Visual prompt references
-
-Use only Director-selected `ai-image-prompts-skill` references as framing/lighting/storyboard guides when documented in `visual-brief.md`. Follow [AI image prompt integration](../docs/ai-image-prompts-integration.md); prioritize the original footage and do not generate replacement travel evidence.
-
-## Boundaries
-
-Director owns candidate shot selection, hook/story/payoff, optional GPS and
-local-event research, audience familiar voice and creative brief. Editor can
-trim a selected range and change a technical cut, but must not silently switch
-the depicted scene or rewrite the story. A meaningful narrative change must
-return to Director and invalidate review artifacts tied to the old revision.
-
-Missing GPS is not a failure. Do not invent movements, visits, thoughts or
-unverified local events. Use verified source-linked GPS in private route previews;
-before publication, flag precise/sensitive coordinates for owner approval. Chinese captions are the default; BGM is required
-unless expressly waived. Clearly separate generated explanatory effects from
-source evidence. Record a justified NOT_APPLICABLE for unused optional effects.
-
-Validate the structured output with `npx agents-relay artifact validate --artifact <run>/edit-decision-list.json --schema <vlog-root>/contracts/edit-decision-list.schema.json` before handoff; fix failures.
+Director owns changing the story or selected shots. Editor owns all editable
+media/Markcut authorship. Producer verifies/renders and optionally sends
+human Preview. Every revision goes back through Editor's Markdown verification and static Stage contract.
+GPS is optional; never fake recorded route or unverified observed speech.

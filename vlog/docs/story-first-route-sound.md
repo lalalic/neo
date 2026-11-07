@@ -1,6 +1,6 @@
 # Vlog production style: one story, real route, one continuous soundtrack
 
-The Director defines an evidence-backed goal, progression and outcome **before** selecting scenes; an obstacle is optional. A truthful calm day may have no manufactured conflict. The accepted `episode-input.json` includes `story.goal`, `story.outcome`, `story.evidenceRef` and `story.progression[]` in the **exact source-scene order** with `sceneId`, `purpose` and `delivery`. Delivery is `source-speech` (real listening verified), `voiceover` (text and actual foreground audio file), or `visual-story` (short bridge). The first and final beats must be audible and no more than two consecutive beats may be visual-only. A recorded speech transcript marked unreviewed does not qualify as verified speech. Producer rejects a media-only compilation instead of constructing a slideshow.
+The Director writes a **complete, first-person human story** before selecting scenes; see [Personal Story-first](personal-story-first.md). It needs a protagonist, ordinary goal, relatable setback, actions and an outcome/contrast—even a calm day can have a minor frustrating or humorous setback. Profile-informed or fictionalized details are allowed when labeled as creative, not observed evidence; do not falsify real source media or GPS. The accepted `episode-input.json` includes `story.personal_story_id`, `story.goal`, `story.outcome`, `story.evidenceRef` and `story.progression[]` in the **exact source-scene order** with `sceneId`, `purpose` and `delivery`. Delivery is `source-speech` (real listening verified), `voiceover` (text and actual foreground audio file), or `visual-story` (short bridge). The first and final beats must be audible and no more than two consecutive beats may be visual-only. A recorded speech transcript marked unreviewed does not qualify as verified speech. Producer rejects a media-only compilation instead of constructing a slideshow.
 
 ## Geographic storytelling
 
@@ -9,12 +9,24 @@ Use verified EXIF/QuickTime GPS at source precision in private production withou
 ## Transitions and soundtrack
 
 - Every adjacent scene requires a continuity rationale and a supported, **actually rendered** boundary transition. For the cinematic default use a short `fade`; direct `cut` is valid for justified match/action cuts and in the explicit cuts variant. Markcut currently applies one transition type and duration per series; never silently promise mixed effects that this DSL cannot render.
-- The executable [Markcut template](../templates/cinematic-vlog.md) owns the BGM selection and continuous root audio leaf. A pre-mixed continuous asset matching the **exact template song** is required for vocal/bed/ending changes; the template selection itself does not grant licensing. The root `audio isBackground:true` is a global Markcut stream and loops to the full episode duration. Verify loop seams in real playback; prepare a seamless loop / crossfade in an authorized source asset where needed.
+- The executable [Markcut template](../templates/cinematic-vlog.md) owns the BGM selection and continuous root audio leaf. A pre-mixed continuous asset matching the **exact template song** is required for vocal/bed/ending changes; the template selection itself does not grant licensing. The root `audio isBackground:true` is a global Markcut stream and loops to the full episode duration. **Avoid double ducking:** set root BGM playback volume to `0.7` for both pre-ducked and unprocessed tracks; do not reduce a pre-ducked mix again to the old `0.18` level. Validate voice/music balance on the final audio stream. Preserve narrator intelligibility and verify actual output levels.
+  Producer checks source mean dBFS from FFmpeg against the root gain before
+  rendering, with a -30 dBFS minimum audibility guard; this is a failure
+  detector, not permission to overpower narration or a substitute for
+  listening to a representative finished-video segment. Use an authorized seamless loop / crossfade source where needed; Producer verifies the rendered output technically.
 - Maintain natural creator narration and meaningful original ambience above the music. Duck BGM under speech and source sound using a verified pre-mixed track when the current DSL can't sidechain automatically. The same root BGM continues through route clips, stills and video. Route narration is foreground; it is not a new theme song. One-off SFX accents may be layered; a second BGM requires an evidence-based major story/emotional change approved by Director.
 - No forced multi-song montage, blanket dissolve on every match cut, abrupt silence at scene boundaries or unrelated 20-30-second GPS insertion.
 
-## Review as an actual viewer
+## Noninteractive Editor verification
 
-1. Listen with the screen hidden: does a single narrated story progress from a clear premise to a truthful payoff? Do ambience and BGM continue at shot changes and loop points, without unwanted silences or jumps?
-2. Watch with normal audio: check each visible boundary (including route entry/exit), intelligible narration, motivation and pace. A valid render is not a quality PASS.
-3. Verify the actual route map tiles, coordinate order, geographic fact sources and labels, source identity, BGM authorization, current preview revision and final playback. Any unsupported claim or distracting transition is CHANGE_REQUIRED.
+Editor verifies each authored Markcut `.md`, scene order, real source
+intervals, declared foreground narration, continuous BGM and route references.
+It does not need a native viewer or to listen/watch the output. Producer renders
+and verifies real video/audio streams. Optional human Preview remains on demand,
+and cannot be implied by Markcut parser or render success.
+
+## Story-paced media coverage (source evidence vs screen time)
+
+- **Narrative beats set the intended timeline time.** A source clip `sourceInSeconds..sourceOutSeconds` is only the original media interval. Its `sourceDuration = sourceOutSeconds - sourceInSeconds` is not a cap on the presented `timelineDuration`. `playbackSpeed = sourceDuration / timelineDuration` for editorial re-timing (for example `1.55 / 3.10 = 0.5`). All lengths must be explicit and coherent in Editor EDL and Producer scene input. Markcut has no native validated video-speed field in this workflow: Producer generates a derived MP4 under the canonical `runs/<episode>/assets/treated-media/`, keeping original source path/hash as provenance. Do not slow source dialogue as if it were authentic spoken speech; mute slowed audio, verify and layer original ambience separately when required.
+- **Still photos are usable moving coverage.** Assign a deliberate `override.motion`: `slowPush`, `zoomOut`, `driftLeft`, `driftRight`, or `none`. Different crops/angles and motivated callbacks can show the same verified source more than once; don't depict a repeated moment as a newly recorded event. Media coverage must vary according to the narrative turn, not randomly.
+- **Longer is not automatically better.** Keep the complete audible goal, difficulty, response and payoff, and eliminate empty scenic holds. One long photo, synthetic black filler, or instruction-only Markcut nodes do not satisfy a beat. Review actual motion and readable captions in the final MP4.

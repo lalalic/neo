@@ -19,7 +19,7 @@ test('cinematic Story uses ONE continuous looping root BGM under all scene trans
    const music={path:'main-theme.mp3',authorized:true,sha256:hash(bytes[3]),evidenceRef:'rights#main-theme',catalogReference:'Artlist:133995+133996'};
    const md=compileCinematicVlog({scenes,boundaries,music});
    assert.equal((md.match(/- audio src:main-theme.mp3 isBackground:true/g)||[]).length,1);
-   assert.equal((md.match(/isBackground:true volume:0.18/g)||[]).length,1);
+   assert.equal((md.match(/isBackground:true volume:0.7/g)||[]).length,1);
    assert.match(md,/layout:series transition:fade transitionTime:0.25/);
    assert.deepEqual(lintCinematicVlog(md,{scenes,boundaries,music}),[]);
  } finally {process.chdir(cwd);rmSync(dir,{recursive:true,force:true});}

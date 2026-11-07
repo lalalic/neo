@@ -6,6 +6,8 @@ Follow Neo root `AGENTS.md` and this project guide. [graph.mmd](graph.mmd) is th
 
 This project declares HTTPS URL input in [project.run.json](project.run.json). `neo project run --url=https://... --project=content-distribution` stores the complete source reference only in private canonical `runs/` evidence and delegates through the existing Relay CLI and [graph.mmd](graph.mmd). A URL, including an RS Root URL, is only a reference: it does not establish a license, authorize downloading, prove asset rights, or authorize publishing. Continue to follow the rights, source-acquisition, account, and campaign publication gates below. This explicit entry point does not download media or post content.
 
+Per-Run local Git is opt-in via [project.run.json](project.run.json) and [run-template/.gitignore](run-template/.gitignore). Only named non-secret text artifacts can enter the private, no-remote Run Git; originals, generated media, source references and publication receipts stay ignored. Relay still owns authorization and review decisions.
+
 ## Identity, evidence and privacy
 
 - [accounts.md](accounts.md) is the **only project-level account registry**. It contains verified public social handles/URLs, stable account IDs and as-of RS Boost registration/Safelist status. Check it at start and on cross-campaign reuse; validate live status before externally acting. Reference `target_account_ids` in private campaign plans instead of copying account identities into each Run.

@@ -4,7 +4,8 @@
   "type": "object",
   "required": [
     "schema_version",
-    "edits"
+    "edits",
+    "personal_story_id"
   ],
   "properties": {
     "schema_version": {
@@ -21,7 +22,8 @@
           "source_hash",
           "in_seconds",
           "out_seconds",
-          "beat"
+          "beat",
+          "story_beat_id"
         ],
         "properties": {
           "shot_id": {
@@ -50,10 +52,52 @@
           },
           "transition": {
             "type": "string"
+          },
+          "story_beat_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sourceDuration": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "description": "Original sourceOut - sourceIn, seconds; not presentation time"
+          },
+          "playbackSpeed": {
+            "type": "number",
+            "minimum": 0.1,
+            "maximum": 4,
+            "description": "Source video speed multiplier; 0.5 = half-speed"
+          },
+          "timelineDuration": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "description": "Duration on final video timeline, distinct from source range"
+          },
+          "sourceType": {
+            "enum": [
+              "image",
+              "still",
+              "video"
+            ],
+            "description": "Original media type for interval semantics"
+          },
+          "motion": {
+            "enum": [
+              "slowPush",
+              "zoomOut",
+              "driftLeft",
+              "driftRight",
+              "none"
+            ],
+            "description": "Editorial motion over still photos"
           }
         },
         "additionalProperties": true
       }
+    },
+    "personal_story_id": {
+      "type": "string",
+      "minLength": 3
     }
   },
   "additionalProperties": true

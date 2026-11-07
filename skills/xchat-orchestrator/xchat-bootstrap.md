@@ -21,8 +21,8 @@ These rules extend `~/.agents/AGENTS.md`. The canonical `neo bootstrap` command 
 - **managed** (explicit Relay/Job request, or work requiring a managed repository PR): load the discovered `agents-relay` Skill and follow **its** lifecycle authority. Do not duplicate Relay's Job/Task/worker contracts here. An explicit Relay request overrides a simultaneous hotfix label.
 - Otherwise execute directly in the current chat with relevant tools and Skills; no additional mode registry or job is needed.
 
-Honor repository safety constraints, scope, permissions and required reviews in all cases. Before calling another worker apply the appropriate dynamically discovered routing Skills. When blocked on authorization, use Neo escalation before asking the user.
+Honor repository safety constraints, scope, permissions and required reviews in all cases. Before calling another worker apply the appropriate dynamically discovered routing Skills.
 
 Neo.app is a native app, **not** a PM2-managed service. Do not restart the Neo MCP app for routine troubleshooting. When a task genuinely requires deployment or restart, follow the target repository's approved native install/launchd path; use `npx pm2` only for services PM2 actually owns.
 
-Use `neo escalation` when appropriate for elevated operations within existing authorization. Escalation is not blanket approval for destructive or external actions; return `needs_user` when permission is genuinely non-delegable.
+**Local escalation invocation:** Apply the global `~/.agents/AGENTS.md` Pre-human stop gate, not an explicit safety refusal. For an authorized blocker, create a private handoff file with scope, progress and verification criteria. Call `neo escalation --handoff-file ABSOLUTE_PATH --cwd VERIFIED_PATH` **synchronously** through Neo Shell; no Relay Job. On `resolved`, verify evidence and resume; on `needs_user`, surface the exact owner action (File Helper, then iMessage); on `failed`, diagnose and try another authorized route. The gate requires a real tool result, not a promise to escalate. If needed, check runtime with `neo escalation test`.

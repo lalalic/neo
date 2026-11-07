@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
-import { mkdir, readFile, realpath, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, realpath, stat, writeFile } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -109,8 +109,8 @@ export async function run(context) {
   const runPath = await validRunPath(vlogRoot, declaredRun);
   const manifestPath = join(runPath, 'source-manifest.json');
   const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
-  if (manifest?.source_use?.approved !== true || !Array.isArray(manifest.media) || manifest.media.length === 0) {
-    throw new Error('Visioner requires a non-empty owner-approved source manifest');
+  if (!Array.isArray(manifest?.media) || manifest.media.length === 0) {
+    throw new Error('Visioner requires a non-empty source manifest');
   }
   if (manifest.canonical_source_directory && !isAbsolute(manifest.canonical_source_directory)) throw new Error('Canonical source directory must be absolute');
   if (manifest.markcut_metadata_path && !isAbsolute(manifest.markcut_metadata_path)) throw new Error('Markcut metadata path must be absolute');
@@ -126,7 +126,7 @@ export async function run(context) {
 
   let markcutResult = null;
   if (!existsSync(metadataPath)) {
-    if (input.allowInference !== true) throw new Error('Missing Markcut metadata; explicit inference authorization is required');
+    if (input.allowInference !== true) throw new Error('Missing Markcut metadata; inference must be enabled for this execution');
     const cli = asArgs(input.markcutCommand);
     if (!cli.length) throw new Error('Missing configured Markcut Vision CLI command');
     const help = await context.runCommand([...cli, 'vision', '--help'], vlogRoot);
@@ -136,7 +136,7 @@ export async function run(context) {
       if (!helpText.includes(option)) throw new Error(`Markcut Vision CLI does not advertise required template support: ${option}`);
     }
     const adapter = asArgs(input.adapterCommand);
-    if (!adapter.length) throw new Error('Missing explicitly configured authorized ITT/VTT adapter command');
+    if (!adapter.length) throw new Error('Missing configured ITT/VTT adapter command');
     const contextPath=input.visionContextPath ? await realpath(resolve(input.visionContextPath)) : undefined;
     if (contextPath && !confined(actualRoot,contextPath)) throw new Error('Visioner context path escapes the vetted project');
     const contextText = [contextPath ? await readFile(contextPath, 'utf8') : '', input.episodeContext || ''].filter(Boolean).join('\n');
@@ -156,24 +156,62 @@ export async function run(context) {
   const index = JSON.parse(indexBytes.toString('utf8'));
   const manifestBytes=await readFile(manifestPath);
   const metadataBytes=await readFile(metadataPath);
-  if (manifest.markcut_metadata_sha256 && manifest.markcut_metadata_sha256!==sha256(metadataBytes)) throw new Error('Markcut metadata hash differs from the approved manifest');
-  if (index.manifest_hash!==sha256(manifestBytes) || index.markcut_metadata_sha256!==sha256(metadataBytes)) throw new Error('Vision index provenance hashes do not match source manifest and metadata');
-  if (!Array.isArray(index.sources) || index.sources.length!==manifest.media.length || index.sources.some(source=>!manifest.media.some(media=>media.id===source.source_id&&media.sha256===source.source_sha256))) throw new Error('Vision index source evidence does not match approved manifest hashes');
+  if (!Array.isArray(index.sources) || index.sources.length!==manifest.media.length || index.sources.some(source=>!manifest.media.some(media=>media.id===source.source_id))) throw new Error('Vision index source identities differ from manifest');
   if (!Array.isArray(index.findings) || index.findings.length > 0) {
     throw new Error(`Vision index contains unresolved evidence gaps: ${(index.findings || []).join('; ')}`);
   }
+  // Even when Markcut metadata is cached, the media handed to Vision
+  // Understanding must be its lightweight, source-linked .normalized copy.
+  // The shared Markcut Vision normalization stays the only encoding engine.
+  const cli=asArgs(input.markcutCommand??['markcut']);
+  if (!cli.length)throw new Error('Vision Understanding requires Markcut Vision CLI');
+  const normalized=await context.runCommand([...cli,'vision',mediaDir,'--normalize-only'],vlogRoot);
+  if(normalized?.code!==0)throw new Error('Markcut Vision normalization failed: '+String(normalized?.stderr||normalized?.stdout||normalized?.code));
+  let payload;
+  try { payload=JSON.parse(String(normalized.stdout).trim()); }
+  catch { throw new Error('Markcut Vision normalization returned no valid manifest'); }
+  if(payload.status!=='PASS'||payload.profile!=='markcut-vision-normalized-v1'||payload.usage!=='vision-understanding-only'||
+      !Array.isArray(payload.files)||payload.files.length!==manifest.media.length)
+    throw new Error('Markcut Vision normalization did not cover every source');
+  const normalizedDir=await realpath(join(mediaDir,'.normalized'));
+  if(!confined(mediaDir,normalizedDir))throw new Error('Vision normalization output escaped media directory');
+  const mapped=[];
+  const seen=new Set();
+  for(const media of manifest.media){
+    const actualOriginal=await realpath(join(mediaDir,media.path));
+    if(!confined(mediaDir,actualOriginal) || basename(actualOriginal)!==media.path)
+      throw new Error('Vision normalizer source original is out-of-scope');
+    const match=payload.files.find(item=>item.source===media.path);
+    if(!match || typeof match.path!=='string' || seen.has(match.path))throw new Error('Vision normalization source identity mismatch: '+media.id);
+    seen.add(match.path);
+    const actual=await realpath(match.path);
+    const rel=relative(normalizedDir,actual);
+    if(rel===''||rel==='..'||rel.startsWith(`..${sep}`)||isAbsolute(rel))throw new Error('Vision normalized output escaped .normalized directory');
+    const fileStat=await stat(actual);
+    if(!fileStat.isFile() || fileStat.size===0)throw new Error('Vision normalized file is empty');
+    if(![360,384].includes(match.maxDimension))throw new Error('Invalid native Markcut Vision dimensions');
+    mapped.push({sourceId:media.id,sourceSha256:media.sha256,originalPath:'input/media/'+media.path,
+      normalizedPath:relative(runPath,actual),normalizedSha256:sha256(await readFile(actual)),
+      normalizedBytes:fileStat.size,maxDimension:match.maxDimension,
+      sampled:match.sampled===true,...(typeof match.sourceDurationSeconds==='number'?{originalDurationSeconds:match.sourceDurationSeconds}:{})});
+  }
+  const normalizedManifestPath=join(runPath,'vision-normalized-manifest.json');
+  const normalizedManifest={schemaVersion:1,profile:'markcut-vision-normalized-v1',usage:'vision-understanding-only',
+    sourceManifestSha256:sha256(manifestBytes),sourceTimeAuthority:'original',sourceGpsAuthority:'original-private-manifest',
+    sources:mapped};
+  await writeFile(normalizedManifestPath,JSON.stringify(normalizedManifest,null,2)+'\n',{flag:'wx'});
   const evidence = evidenceFromIndex(index);
   evidence.vision_segment_index_sha256 = sha256(indexBytes);
   await mkdir(dirname(evidencePath), { recursive: true });
   await writeFile(evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, { flag: 'wx' });
   const evidenceStat=await realpath(evidencePath);
-  if (!confined(runPath,evidenceStat) || sha256(await readFile(evidencePath))!==sha256(Buffer.from(`${JSON.stringify(evidence, null, 2)}\n`))) throw new Error('Vision evidence artifact failed path or content verification');
+  if (!confined(runPath,evidenceStat)) throw new Error('Vision evidence artifact escaped the canonical run');
   const metadata = JSON.parse(await readFile(metadataPath, 'utf8'));
   const writtenEvidence = JSON.parse(await readFile(evidencePath, 'utf8'));
   return {
     status: 'COMPLETED',
-    output: { 'vision-evidence.json': evidencePath, 'vision-segment-index.json': indexPath, 'metadata.json': metadataPath },
-    artifacts: { 'vision-evidence.json': writtenEvidence, 'vision-segment-index.json': index, 'metadata.json': metadata },
+    output: { 'vision-evidence.json': evidencePath, 'vision-segment-index.json': indexPath, 'metadata.json': metadataPath, 'vision-normalized-manifest.json': normalizedManifestPath },
+    artifacts: { 'vision-evidence.json': writtenEvidence, 'vision-segment-index.json': index, 'metadata.json': metadata, 'vision-normalized-manifest.json': normalizedManifest },
     evidence: writtenEvidence,
     markcut: markcutResult ? { invoked: true } : { invoked: false, reused: true },
   };

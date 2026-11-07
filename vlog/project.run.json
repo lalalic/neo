@@ -1,10 +1,45 @@
 {
   "schemaVersion": 1,
+  "preflight": {
+    "script": "scripts/preflight-template-assets.mjs"
+  },
   "input": {
     "type": "path",
     "path": {
       "base": "runs",
       "datedRunDirectory": true
     }
+  },
+  "stageValidation": {
+    "script": "scripts/validate-stage.mjs",
+    "agents": {
+      "vlog-visioner": "visioner",
+      "vlog-director": "director",
+      "vlog-editor": "editor",
+      "vlog-producer": "producer",
+      "vlog-publisher": "publisher",
+      "video-director": "video-director",
+      "market": "market"
+    }
+  },
+  "publicationReview": "publisher-explicit-authorization",
+  "versioning": {
+    "mode": "local-git",
+    "template": "run-template",
+    "trackedArtifacts": [
+      "story.md",
+      "visual-brief.md",
+      "edit-decision-list.json",
+      "music-plan.json",
+      "shot-selection.json",
+      "route.md",
+      "video.md",
+      "post.md",
+      "production-receipt.json",
+      "vision-segment-index.json",
+      "vision-normalized-manifest.json",
+      "vision-evidence.json",
+      "route-intent.json"
+    ]
   }
 }

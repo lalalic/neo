@@ -16,10 +16,13 @@ Inspect the actual current rendered episode and its source-linked production rec
 
 - Verify video decodes and playback/seek works; inspect representative opening, body and payoff frames.
 - Reject a mere written progression with no audience-facing audio narrative: verify the spoken hook, development, and payoff are actually present; confirm delivery matches story.progression[].delivery. Listen for one continuous template-selected BGM bed (including loop seams), original narration/ambient sound and correct ducking; verify each scene transition and map entry/exit. Check the story goal, progression and resolved ending.
-- Verify a real human Markcut Preview approval of the **current** `video.md`
+- For a canonical private render test with `review-mode.json` mode `private-render-test` and publicationAllowed=false: check `reviews/review.json` explicitly says `NOT_RUN`; report the human and specialist review checks as NOT_RUN, never PASS. Perform independent actual MP4/video/audio playback QA, write a report clearly marked UNREVIEWED and a private archive receipt with publicationAllowed=false. **This is solely a rendering test, never approval**. For every other Run, verify a real human Markcut Preview approval of the **current** `video.md`
   revision, with `revisionId`, `contentHash` and evidence in `reviews/`.
-  Missing or stale approval is FAIL; AI reviews cannot replace it.
-- Verify visible captions and external-context disclosures; respect source rights and authentic GPS evidence and public-release permission.
-- Write `qa.md` with PASS/FAIL/NOT_RUN per check, evidence paths and exact reviewed output version/hash. Write a private archive receipt only after the accepted artifact is copied or confirmed in the canonical run.
+  For a standard Run, missing or stale approval is FAIL; AI reviews cannot replace it. This requirement does not apply to the explicitly marked private render-only technical test, which must instead be labeled UNREVIEWED and nonpublishable.
+- Verify visible captions and external-context disclosures; check authentic GPS evidence.
+- Write `qa.md` with PASS/FAIL/NOT_RUN per check, evidence paths and the reviewed output version. Write `archive-receipt.json` only after the accepted artifact is copied or confirmed in the canonical run.
 - If a required check fails, report concrete findings to the Planner/owning Stage. Never silently edit the Producer's deliverable or claim completion.
-- Publication remains a separate authorized action; private archive is the default.
+- Publication review belongs to a separate workflow; private archive is the default.
+- Before emitting task.completed run `node <vlog-root>/scripts/validate-stage.mjs final-qa <run>`; repair only this Stage's report/receipt on validation failure, then revalidate. Do not change Producer outputs or perform license/permission audits.
+
+- Confirm that narrative duration drives visual treatment, that any transformed clip actually plays at its intended `playbackSpeed`, and that no long still hold replaces missing beat coverage. Inspect the real final MP4, not just its media recipe; technical QA must not pass a narratively unfinished film.

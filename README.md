@@ -9,8 +9,14 @@ This repository is the public Neo monorepo: root orchestration rules, reusable a
 - `MISSION.md` — canonical Neo identity and mission context for agents and projects.
 - `AGENTS.md` — workspace-wide agent operating rules.
 - `skills/` — canonical editable Neo skills, including orchestration, events, model routing, social posting, and skill authoring.
+- `skills/mcp-wrapper/` — orchestrate external MCP providers, Relay and the Neo.app Core review service with one-call Markcut Preview wrappers.
 - `.bin/` — compatibility and packaging helpers; canonical XChat discovery/resolution scripts live under `skills/xchat-orchestrator/scripts/`.
+- `neo agent list [--project PATH]` and `neo agent search QUERY [--project PATH]` — discover context-visible project and shared Agent definitions plus Agency Agents specialist templates; templates require a project manifest before Relay dispatch.
 - `neo mcp token issue --stdout` (direct interactive copy) or `--output` (private file), plus `revoke` — provider-neutral, one-hour OAuth PKCE credentials; see `docs/interactive-mcp-access.md`.
+- `neo computer-use help` and `neo computer-use call COMMAND [--args-file PATH]` — **the only Neo.app MCP tool exposed via local CLI**. Calls are synchronous, bound to a fixed Computer Use subcommand allowlist, and reuse the native app permissions. Other local operations use Shell or WebHelm Skills, not generic MCP passthrough. Local Escalation uses this CLI directly; its workflow is defined in `agents/escalation.agent.md`.
+- `neo escalation --handoff-file PATH` — always runs a synchronous on-demand stateless local agent + llama.cpp Metal using Qwen3.5-4B Q4. Uses WebHelm, `neo computer-use`, and Shell; stops model process after the call. A per-host exclusive lock serializes concurrent `neo escalation` requests, including the self-test (default wait 3600s). Change model/inference with `NEO_ESCALATION_MODEL` / `NEO_ESCALATION_ENGINE`. See `docs/local-escalation.md`.
+- `neo escalation challenges [--search TEXT] [--limit N]` — inspect original unredacted handoffs, compact attempt outcomes and last-stage crash checkpoints on Neo Master. Stored locally in 0700/0600 directories; do not forward to public logs.
+- `neo escalation cases [--search TEXT] [--limit N]` — inspect private deduplicated success/failure/human-handoff experience candidates. See `docs/escalation-experience.md`.
 - `skills/xchat-orchestrator/` — self-contained XChat bootstrap, orchestrator protocol, dynamic project discovery, and skill discovery for ChatGPT, Grok, Claude, and other web orchestrators.
 - `neo-build-log/` — public build-log production system; each actual episode lives under ignored `runs/`.
 - `neo-highlights/` — selective event-to-video project; each highlight execution lives under ignored `runs/`.
@@ -20,6 +26,8 @@ This repository is the public Neo monorepo: root orchestration rules, reusable a
 - `package.json` — legacy workspace metadata retained during repository-history consolidation.
 
 Nested repositories such as `markcut/`, `neox/`, `wechat-bro/`, and `mac-developer-bridge/` are managed independently and are not committed through this repository.
+For Projects enabled for `neo project run`, each project owns a `run-template/.gitignore` and explicit text-artifact allowlist. Run Git is local, nested inside ignored `runs/`, and never pushed. Git safety hooks are checked into `.githooks/`; enable them in the canonical Neo checkout with `git config core.hooksPath .githooks` (or use `npm run push`, which independently checks outgoing Run paths). See [Run Contract](docs/neo-project-run-contract.md#local-run-git-versioning).
+
 ## Repository model
 
 Neo is a public **monorepo**. Each Neo-owned top-level project has its own `README.md` and `AGENTS.md`; shared reusable capabilities live under `skills/`. Project executions are private/local by default and use either `<project>/runs/<YYYY-MM-DD[-slug]>/` for standalone work or `<project>/runs/<series-name>/<YYYY-MM-DD[-slug]>/` for series work. `runs/` is ignored globally. See root `AGENTS.md` for the canonical project contract.

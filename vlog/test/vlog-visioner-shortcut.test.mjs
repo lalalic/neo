@@ -53,6 +53,14 @@ function fakeHost() {
         await writeFile(join(args[2], 'vision-segment-index.json'), `${JSON.stringify(index)}\n`);
         return { code: 0, stdout: '{}' };
       }
+      if (args.includes('--normalize-only')) {
+        const mediaArg=args[args.indexOf('vision')+1];
+        const dir=join(mediaArg,'.normalized'); await mkdir(dir,{recursive:true});
+        const path=join(dir,'CLIP_0to4.mp4');
+        await writeFile(path,'normalized fixture understanding bytes');
+        return {code:0,stdout:JSON.stringify({status:'PASS',profile:'markcut-vision-normalized-v1',usage:'vision-understanding-only',
+          files:[{source:'CLIP.mp4',path,kind:'video',sampled:false,sourceDurationSeconds:4,maxDimension:360}]})};
+      }
       if (args.includes('vision') && !args.includes('--help')) {
         const mediaArg = args[args.indexOf('vision') + 1];
         const metadata = join(mediaArg, 'metadata.json');
@@ -75,7 +83,8 @@ test('reuses approved Markcut metadata and writes source-linked, explicitly unre
   assert.ok(result.artifacts['vision-evidence.json']);
   assert.ok(result.artifacts['vision-segment-index.json']);
   assert.ok(result.artifacts['metadata.json'].CLIP);
-  assert.equal(host.calls.length, 1);
+  assert.equal(result.artifacts['vision-normalized-manifest.json'].sources[0].normalizedPath,'input/media/.normalized/CLIP_0to4.mp4');
+  assert.equal(host.calls.length, 2);
   const evidence = JSON.parse(await readFile(join(f.runPath, 'vision-evidence.json'), 'utf8'));
   assert.equal(evidence.status, 'EVIDENCE_READY_UNREVIEWED');
   assert.equal(evidence.sources[0].source_sha256, hash('fixture media bytes'));
@@ -93,8 +102,15 @@ test('real subprocess indexes a pretty-printed approved manifest with byte-exact
   await writeFile(manifestPath, manifestBytes);
   await copyFile(fileURLToPath(new URL('../scripts/index-markcut-vision.mjs', import.meta.url)),
     join(f.vlogRoot, 'scripts/index-markcut-vision.mjs'));
+  const stub=join(f.vlogRoot,'scripts','markcut-normalize-stub.mjs');
+  await writeFile(stub,`import {writeFileSync,mkdirSync} from 'node:fs';
+import {join} from 'node:path';
+const dir=process.argv[3];const out=join(dir,'.normalized');mkdirSync(out,{recursive:true});
+const path=join(out,'CLIP_0to4.mp4');writeFileSync(path,'small vision bytes');
+console.log(JSON.stringify({status:'PASS',profile:'markcut-vision-normalized-v1',usage:'vision-understanding-only',
+ files:[{source:'CLIP.mp4',path,kind:'video',sampled:false,sourceDurationSeconds:4,maxDimension:360}]}));`);
   const commands = [];
-  const result = await run({ input: { projectPath:f.vlogRoot, runPath:f.runPath },
+  const result = await run({ input: { projectPath:f.vlogRoot, runPath:f.runPath,markcutCommand:[process.execPath,stub] },
     runCommand: async (argv, cwd) => {
       commands.push(argv);
       const { stdout, stderr } = await execFileAsync(argv[0],argv.slice(1),{cwd});
@@ -103,7 +119,7 @@ test('real subprocess indexes a pretty-printed approved manifest with byte-exact
   });
   assert.equal(result.status,'COMPLETED');
   assert.deepEqual(result.markcut,{invoked:false,reused:true});
-  assert.equal(commands.length,1);
+  assert.equal(commands.length,2);
   const indexBytes = await readFile(join(f.runPath,'vision-segment-index.json'));
   assert.equal(result.artifacts['vision-segment-index.json'].manifest_hash,hash(manifestBytes));
   assert.equal(result.evidence.vision_segment_index_sha256,hash(indexBytes));
@@ -111,10 +127,10 @@ test('real subprocess indexes a pretty-printed approved manifest with byte-exact
   assert.equal(result.evidence.observations.length,1);
 });
 
-test('missing metadata requires explicit inference authorization and accepted CLI templates', async t => {
+test('missing metadata requires inference must be enabled for this execution and accepted CLI templates', async t => {
   const f = await fixture(t, false);
   const host = fakeHost();
-  await assert.rejects(run({ input: { projectPath:f.root, vlogRoot: f.vlogRoot, runPath: f.runPath }, ...host }), /explicit inference authorization/);
+  await assert.rejects(run({ input: { projectPath:f.root, vlogRoot: f.vlogRoot, runPath: f.runPath }, ...host }), /inference must be enabled for this execution/);
   assert.equal(host.calls.length, 0);
   const result = await run({ input: {
     projectPath:f.root, vlogRoot: f.vlogRoot, runPath: f.runPath, allowInference: true,
@@ -124,6 +140,7 @@ test('missing metadata requires explicit inference authorization and accepted CL
   assert.deepEqual(host.calls[1].args.slice(0, 3), ['node', '/mock/markcut/cli.mjs', 'vision']);
   assert.ok(host.calls[1].args.includes('--itt'));
   assert.ok(host.calls[1].args.includes('--vtt'));
+  assert.ok(host.calls.some(call=>call.args.includes('--normalize-only')));
 });
 
 test('fails closed on unsupported CLI options and preserves existing evidence', async t => {
@@ -141,14 +158,14 @@ test('fails closed on unsupported CLI options and preserves existing evidence', 
   assert.equal(host.calls.length, 1);
 });
 
-test('rejects unapproved manifests before calling external tools', async t => {
+test('source-use approval is handled outside Visioner while CLI configuration still gates inference', async t => {
   const f = await fixture(t, false);
   const path = join(f.runPath, 'source-manifest.json');
   const manifest = JSON.parse(await readFile(path, 'utf8'));
   manifest.source_use.approved = false;
   await writeFile(path, JSON.stringify(manifest));
   const host = fakeHost();
-  await assert.rejects(run({ input: { projectPath:f.root, vlogRoot: f.vlogRoot, runPath: f.runPath, allowInference: true }, ...host }), /owner-approved source manifest/);
+  await assert.rejects(run({ input: { projectPath:f.root, vlogRoot: f.vlogRoot, runPath: f.runPath, allowInference: true }, ...host }), /shortcut command must be an argument array/);
   assert.equal(host.calls.length, 0);
 });
 
@@ -171,7 +188,7 @@ test('pins the supplied Vlog root to the resolved project root',async t=>{
   assert.equal(host.calls.length,0);
 });
 
-test('rejects source symlink escapes and stale approved metadata hashes', async t => {
+test('rejects source symlink escapes without duplicate metadata checks', async t => {
   const f=await fixture(t,true);
   const outside=join(f.vlogRoot,'outside.mp4'); await writeFile(outside,'fixture media bytes');
   await (await import('node:fs/promises')).rm(join(f.mediaDir,'CLIP.mp4'));
@@ -181,10 +198,11 @@ test('rejects source symlink escapes and stale approved metadata hashes', async 
   assert.equal(host.calls.length,1);
   const f2=await fixture(t,true); const manifest=JSON.parse(await readFile(join(f2.runPath,'source-manifest.json'),'utf8'));
   manifest.markcut_metadata_sha256='0'.repeat(64); await writeFile(join(f2.runPath,'source-manifest.json'),JSON.stringify(manifest));
-  await assert.rejects(run({input:{projectPath:f2.root,vlogRoot:f2.vlogRoot,runPath:f2.runPath},...fakeHost()}),/metadata changed since manifest approval/);
+  const success=await run({input:{projectPath:f2.root,vlogRoot:f2.vlogRoot,runPath:f2.runPath},...fakeHost()});
+  assert.equal(success.status,'COMPLETED'); // Outdated checksum metadata does not block Stage output.
 });
 
-test('rejects fake index output that does not prove the approved manifest and metadata hashes', async t=>{
+test('rejects fake index output with missing source identity', async t=>{
   const f=await fixture(t,true); const host=fakeHost();
   host.runCommand=async (args,cwd)=>{
     host.calls.push({args,cwd});
@@ -192,7 +210,7 @@ test('rejects fake index output that does not prove the approved manifest and me
     await writeFile(join(args[2],'vision-segment-index.json'),JSON.stringify({status:'SOURCE_LINKED_UNREVIEWED',findings:[],sources:[],observations:[]}));
     return {code:0,stdout:'{}'};
   };
-  await assert.rejects(run({input:{projectPath:f.root,vlogRoot:f.vlogRoot,runPath:f.runPath},...host}),/provenance hashes/);
+  await assert.rejects(run({input:{projectPath:f.root,vlogRoot:f.vlogRoot,runPath:f.runPath},...host}),/source identities differ/);
 });
 
 test('Relay project-root and canonical Task text resolve the Vlog source without a nested vlog/vlog path',async t=>{
@@ -204,7 +222,7 @@ test('Relay project-root and canonical Task text resolve the Vlog source without
   },...host});
   assert.equal(result.status,'COMPLETED');
   assert.equal(result.markcut.reused,true);
-  assert.equal(host.calls.length,1);
+  assert.equal(host.calls.length,2);
 });
 test('Vlog project shortcut does not accept a run from a separate project',async t=>{
   const f=await fixture(t,true);
@@ -212,4 +230,31 @@ test('Vlog project shortcut does not accept a run from a separate project',async
   await mkdir(other,{recursive:true});
   await assert.rejects(run({input:{projectPath:f.vlogRoot,runPath:other},...fakeHost()}),
     /dated canonical Vlog runs/);
+});
+
+test('unverified speech and absent optional source-preview approval do not block Visioner evidence handoff', async t => {
+  // Regression for Job 553: the 1.57s clip has a machine-only \"Thank you\" hint.
+  // The source evidence must complete without claiming verified speech or
+  // requesting the Producer-only canonical preview approval at this Stage.
+  const f = await fixture(t, true);
+  const metaPath = join(f.mediaDir, 'metadata.json');
+  const metadata = { CLIP: { duration: 1.57, perception: { desc: 'Creek and rocks',
+    segments: { '0to940': { vision: 'Shallow creek', subtitle: 'Thank you.' },
+      '940to1570': { vision: 'Water beside vegetation' } } } } };
+  const rawMetadata = JSON.stringify(metadata);
+  await writeFile(metaPath, rawMetadata);
+  const manifestPath = join(f.runPath, 'source-manifest.json');
+  const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
+  manifest.markcut_metadata_sha256 = hash(rawMetadata);
+  await writeFile(manifestPath, JSON.stringify(manifest));
+  const host = fakeHost();
+  const result = await run({ input: { projectPath: f.vlogRoot, runPath: f.runPath }, ...host });
+  assert.equal(result.status, 'COMPLETED');
+  assert.equal(result.evidence.status, 'EVIDENCE_READY_UNREVIEWED');
+  assert.equal(result.artifacts['vision-segment-index.json'].findings.length, 0);
+  assert.equal(result.evidence.observations.length, 2);
+  assert.ok(result.evidence.observations.every(item => item.status === 'MODEL_OUTPUT_UNREVIEWED'));
+  assert.match(JSON.stringify(result.evidence), /Thank you/);
+  assert.equal(host.calls.length, 2, 'source indexer and native Markcut normalizer only; no mandatory preview or approval');
+  await assert.rejects(readFile(join(f.runPath, 'vision-human-review.json')), { code: 'ENOENT' });
 });

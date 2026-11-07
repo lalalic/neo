@@ -23,7 +23,7 @@ Create thin Neo projects. The project owns domain intent, Graph, Agent and Artif
 └── runs/                    # ignored, private durable execution artifacts
 ```
 
-Do not create empty directories. Shared Agents, contracts and skills must be referenced, not copied. All actual execution inputs, intermediate files, versions, generated media, reviews, receipts and private state go under `runs/<YYYY-MM-DD[-slug]>/`, or `runs/<series-name>/<YYYY-MM-DD[-slug]>/` for series. Keep secrets and user content out of tracked files. Run-producing work uses the canonical project directory, never a temporary Git worktree. No project may depend on another project's `runs/`.
+Do not create empty directories. Shared Agents, contracts and skills must be referenced, not copied. All actual execution inputs, intermediate files, versions, generated media, reviews, receipts and private state go under `runs/<YYYY-MM-DD[-slug]>/`, or `runs/<series-name>/<YYYY-MM-DD[-slug]>/` for series. Keep secrets and user content out of tracked files. Run-producing work uses the canonical project directory, never a temporary Git worktree. No project may depend on another project's `runs/`. When a project opts into `neo project run` versioning, provide `run-template/.gitignore` and an exact tracked-artifact allowlist in `project.run.json`; the Runner maintains a private nested Run Git repository. See [Neo Project Run Contract](../../docs/neo-project-run-contract.md#local-run-git-versioning) for commit, review tag, and ignored-media boundaries.
 
 ## 2. Canonical Graph
 
@@ -156,3 +156,11 @@ Installable/persistent projects expose exactly one optional executable `<project
 9. Reflect reusable lessons in the project's AGENTS, not in a run diary.
 
 A zero exit code, existing file, rendered media, click or attempted publication is not sufficient evidence of success. Respect explicit approval boundaries for publishing, spending and external commitments.
+
+## Contract-first terminal validation
+
+Each project Stage Agent must validate its own declared artifacts against the project's stage contract before reporting `task.completed`. Use the existing `agents-relay artifact validate` for JSON Schemas, plus project-local cross-artifact and media checks when required. A validator must report concrete failures to the **same Worker**, which repairs its own artifacts and reruns validation. Only PASS permits `task.completed`; otherwise publish an accurate `task.failed` event. This is a local self-heal loop, not an extra Relay Task, and must never manufacture evidence or treat a command exit as proof of a rendered media artifact. Project templates may declare URL/path assets for one lightweight preflight; TTS and later-stage artifacts must be produced at the proper DAG stage rather than required in advance. Do not repeat upstream media inference or checksum verification as an Agent acceptance gate.
+
+## Shared TTS audio generation
+
+All Neo Projects share the same callable `neo project tts` capability. The Producer (or any owning Stage) writes final Chinese narration to a text file, then calls `neo project tts --text-file <absolute-text-path> --output <absolute-output>.m4a`. Optional `--voice` and `--rate` select the macOS speech voice and pace; default is Tingting on Neo Master. The command returns verified JSON including `status: PASS`, actual file path, audio duration, and elapsed time. It refuses to overwrite artifacts and fails on missing/invalid media. Never generate TTS at project-run preflight; this belongs after the upstream copy/timing decisions. This first backend is the system's available Chinese voice; it is not a substitute for a validated personal voice clone. New engines and remote-node transports belong behind this shared CLI, not inside individual Project Agents.

@@ -18,23 +18,54 @@
     ]
   },
   {
+    "id": "visioner-optional-clarification-handoff",
+    "role": "vlog-visioner",
+    "capability": "uncertain speech and optional source review",
+    "references": [
+      "docs/episode-stage-contract.md"
+    ],
+    "choices": [
+      "record_uncertainty_and_handoff",
+      "block_until_source_preview_approved",
+      "treat_machine_speech_as_verified",
+      "create_director_story_in_visioner"
+    ],
+    "task": "Approved Vlog run contains two photos and a 1.57-second creek clip. Media hashes and Markcut source index pass. One clip has only machine speech hint “Thank you.” and nobody has independently listened to it. No owner source-preview decision exists. What should Visioner do now, before Director?",
+    "expectedDecision": "record_uncertainty_and_handoff",
+    "required": [
+      "unverified",
+      "provenance"
+    ],
+    "forbidden": [
+      "require Producer preview approval",
+      "verified transcript"
+    ]
+  },
+  {
     "id": "director-story-delivery",
     "role": "vlog-director",
-    "capability": "story before shots",
+    "capability": "complete personal narrative before shots",
     "references": [
+      "docs/personal-story-first.md",
       "docs/story-first-route-sound.md"
     ],
     "choices": [
-      "plan_story_delivery",
+      "write_complete_personal_story_before_shots",
       "select_scenic_montage",
       "claim_unobserved_route"
     ],
-    "task": "18 real autumn clips show trail, creek and fruit. Owner says 秋日跑步. The previous job cut these into a pretty montage without a story voice. Source STT is not yet verified. Decide the next creative handoff before Editor.",
-    "expectedDecision": "plan_story_delivery",
+    "task": "18 real autumn clips show trails, creek and fruit. Owner says 秋日跑步. Prior episode only describes scenery, and no complete personal anecdote exists. Decide the next Director deliverable *before* choosing shots for Editor.",
+    "expectedDecision": "write_complete_personal_story_before_shots",
     "required": [
-      "story"
+      "personal-story.md",
+      "goal",
+      "setback",
+      "outcome",
+      "first-person"
     ],
     "forbidden": [
+      "pretty montage",
+      "scenery-only story",
       "invent a route"
     ]
   },
@@ -179,5 +210,209 @@
       "test/markcut-template-execution.test.mjs",
       "test/cinematic-vlog-render.test.mjs"
     ]
+  },
+  {
+    "id": "director-no-person-visible-creative-mishap",
+    "role": "vlog-director",
+    "capability": "profile-informed first-person creative story",
+    "references": [
+      "docs/personal-story-first.md"
+    ],
+    "choices": [
+      "first_person_mishap_with_provenance",
+      "ask_user_to_prove_the_run",
+      "scenic_description_only"
+    ],
+    "task": "Episode has only two photos of a path/creek and a 1.57-second flowing-water clip. No cyclist, runner, or creator appears. Owner prefers ordinary first-person stories, mild embarrassing mishaps and allows creative invention. What story should Director write before Editor?",
+    "expectedDecision": "first_person_mishap_with_provenance",
+    "required": [
+      "protagonist",
+      "goal",
+      "setback",
+      "fictionalized",
+      "observed"
+    ],
+    "forbidden": [
+      "prove the creator was cycling",
+      "only describe scenic beauty",
+      "require owner testimony"
+    ]
+  },
+  {
+    "id": "director-mood-everyday-not-grand",
+    "role": "vlog-director",
+    "capability": "ordinary self-deprecating personal arc",
+    "references": [
+      "docs/personal-story-first.md"
+    ],
+    "choices": [
+      "small_human_setback_with_comic_payoff",
+      "inspirational_scenic_poem",
+      "create_fake_documentary_scene"
+    ],
+    "task": "A plain path photo and a short creek video do not support a heroic journey. The user requests a mildly awkward, ordinary, casual personal Vlog rather than a polished inspirational scenic film. Which narrative should Director hand to Editor?",
+    "expectedDecision": "small_human_setback_with_comic_payoff",
+    "required": [
+      "everyday",
+      "first-person",
+      "contrast"
+    ],
+    "forbidden": [
+      "grand life lesson",
+      "invented video footage"
+    ]
+  },
+  {
+    "id": "editor-missing-personal-story",
+    "role": "vlog-editor",
+    "capability": "reject scenic-only story input",
+    "references": [
+      "docs/personal-story-first.md"
+    ],
+    "choices": [
+      "return_to_director_for_full_personal_story",
+      "accept_scenic_edl",
+      "invent_personal_history_in_editor"
+    ],
+    "task": "The Director has supplied a valid shot-selection and a prose note about clouds, stones and flowing water, but did not supply personal-story.md or its JSON human-arc companion. What does the Editor do?",
+    "expectedDecision": "return_to_director_for_full_personal_story",
+    "required": [
+      "director",
+      "personal-story"
+    ],
+    "forbidden": [
+      "treat scenery as full story",
+      "editor invents new story"
+    ]
+  },
+  {
+    "id": "director-full-story-before-coverage",
+    "role": "vlog-director",
+    "capability": "complete personal story drives runtime and visual coverage",
+    "references": [
+      "docs/personal-story-first.md",
+      "agents/vlog-director.agent.md"
+    ],
+    "choices": [
+      "complete_goal_setback_action_payoff_then_plan_media_timing",
+      "cut_story_to_one_point_five_second_clip",
+      "write_scenic_timeline_only"
+    ],
+    "task": "You have a compelling 26-second first-person story with goal, setback, trying another approach, and a resolved payoff. The source folder contains only a photo of a path, a creek photo and a 1.55-second creek video. Decide whether to shorten the story to 1.55 seconds, or first preserve the complete human arc and plan varied media coverage.",
+    "expectedDecision": "complete_goal_setback_action_payoff_then_plan_media_timing",
+    "required": [
+      "complete",
+      "timing",
+      "media"
+    ],
+    "forbidden": [
+      "source video limits the story",
+      "invent filmed events"
+    ]
+  },
+  {
+    "id": "editor-distinguish-source-and-timeline",
+    "role": "vlog-editor",
+    "capability": "source bounds distinct from story timeline and playback speed",
+    "references": [
+      "docs/story-first-route-sound.md",
+      "contracts/edit-decision-list.schema.json"
+    ],
+    "choices": [
+      "use_original_1_55_source_with_0_5_speed_for_3_10_timeline",
+      "truncate_payoff_to_1_55",
+      "invent_extra_1_55_source_footage"
+    ],
+    "task": "A story beat needs 3.10 seconds of moving water while the only camera video is 0.00–1.55 seconds. Source is authenticated but source speech unverified. Decide EDL treatment, preserve raw source ID and bounds, and keep the speaking story continuous. List all three numeric EDL fields by name: sourceDuration, playbackSpeed and timelineDuration.",
+    "expectedDecision": "use_original_1_55_source_with_0_5_speed_for_3_10_timeline",
+    "required": [
+      "sourceDuration",
+      "playbackSpeed",
+      "timelineDuration"
+    ],
+    "forbidden": [
+      "claim a second source was filmed",
+      "classify source audio as confirmed dialogue"
+    ]
+  },
+  {
+    "id": "producer-avoid-ten-second-frozen-image",
+    "role": "vlog-producer",
+    "capability": "actual media treatment and complete audible arc",
+    "references": [
+      "agents/vlog-producer.agent.md",
+      "templates/cinematic-vlog.md"
+    ],
+    "choices": [
+      "apply_real_slow_motion_photo_movements_and_retime_narration",
+      "leave_one_frozen_still_ten_seconds",
+      "declare_pass_if_mp4_decodes"
+    ],
+    "task": "The canonical run contains a connected goal/setback/action/payoff script. Only 1.55 seconds of original motion and two photos exist. A preliminary 20-second MP4 has a 10-second static closing shot; technical verification passed but story playback feels unfinished. Choose a real executable fix, preserving source provenance and not inventing new footage.",
+    "expectedDecision": "apply_real_slow_motion_photo_movements_and_retime_narration",
+    "required": [
+      "media",
+      "narration",
+      "story"
+    ],
+    "forbidden": [
+      "technical PASS proves story PASS",
+      "fake footage"
+    ]
+  },
+  {
+    "id": "publisher-no-authorization",
+    "role": "vlog-publisher",
+    "capability": "safe platform publication",
+    "choices": [
+      "skip_without_browser_action",
+      "publish_from_preview",
+      "draft_to_both_accounts"
+    ],
+    "task": "Producer has rendered a playable video, but the run has no publisher-request.json, no verified account, and no explicit per-platform permission. What must Publisher do?",
+    "expectedDecision": "skip_without_browser_action",
+    "required": [
+      "SKIPPED"
+    ],
+    "forbidden": [
+      "auto-publish",
+      "upload without consent"
+    ]
+  },
+  {
+    "id": "editor-verify-without-playback",
+    "role": "vlog-editor",
+    "capability": "verified playable Markcut authoring",
+    "choices": [
+      "verify_and_handoff_without_player",
+      "handoff_edl_only",
+      "defer_verify_to_producer"
+    ],
+    "task": "Director story and route intent are complete. Editor made a video.md and referenced actual audio and map subvideo. Which concrete checks must happen before Editor may hand off?",
+    "expectedDecision": "verify_and_handoff_without_player",
+    "required": [
+      "markcut verify",
+      "route"
+    ],
+    "forbidden": [
+      "Producer writes video.md"
+    ]
+  },
+  {
+    "id": "publisher-uncertain-wechat",
+    "role": "vlog-publisher",
+    "capability": "idempotent verified publishing",
+    "choices": [
+      "hold_and_inspect_platform_state",
+      "retry_publish_immediately",
+      "mark_published_without_receipt"
+    ],
+    "task": "An explicitly authorized WeChat Channels video upload was attempted but the platform manager returned unknown with no stable post ID. XHS has not yet been attempted. What does Publisher do next?",
+    "expectedDecision": "hold_and_inspect_platform_state",
+    "required": [
+      "uncertain",
+      "duplicate"
+    ],
+    "forbidden": []
   }
 ]

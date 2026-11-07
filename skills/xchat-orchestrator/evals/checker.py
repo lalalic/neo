@@ -123,6 +123,45 @@ def check(case, t):
     if case == "transport_failure_fallback":
         f = next((r for r in rs if r.get("kind") == "fallback"), None)
         return {"ok": bool(f and f.get("structured") is True and f.get("reported") is True and f.get("business_success") is not True), "reason": "transport failure needs structured fallback and degraded-observability report"}
+    if case == "pre_human_escalation_gate":
+        # Record type contract: operational human_handoff must be preceded by
+        # an actual Neo Shell escalation call and an authoritative needs_user
+        # result for the same task. Genuine nondelegable authorization and
+        # verified tool outages are explicit exceptions, not silent fallbacks.
+        for i, record in enumerate(rs):
+            if record.get("kind") != "action" or record.get("action") != "human_handoff":
+                continue
+            task_id = record.get("task_id")
+            if not task_id:
+                return fail("human_handoff requires a task_id")
+            before = rs[:i]
+            if record.get("boundary") in {"owner_only_consent", "safety_restriction", "missing_authorization"} and record.get("evidence"):
+                continue
+            unavailable = any(
+                x.get("kind") == "action" and x.get("action") == "escalation_unavailable"
+                and x.get("task_id") == task_id and x.get("verified") is True
+                and x.get("diagnostic") for x in before
+            )
+            if unavailable:
+                continue
+            tool_indexes = [
+                j for j, x in enumerate(before)
+                if x.get("kind") == "tool_call" and x.get("task_id") == task_id
+                and x.get("name") in {"neo_shell", "mcp__neo__shell"}
+                and "neo escalation --handoff-file" in str(x.get("command", ""))
+            ]
+            result_index = next((
+                j for j in range(len(before)-1, -1, -1)
+                if before[j].get("kind") == "action"
+                and before[j].get("action") == "escalation_result"
+                and before[j].get("task_id") == task_id
+            ), None)
+            attempted = result_index is not None and any(j < result_index for j in tool_indexes)
+            result = before[result_index] if result_index is not None else None
+            if not (attempted and result and result.get("status") == "needs_user"
+                    and result.get("verified") is True and result.get("user_action")):
+                return fail("human handoff requires same-task Neo escalation evidence or a documented nondelegable boundary")
+        return {"ok": True, "reason": "every operational human handoff has a verified escalation path or justified boundary"}
     if case == "unrouted_launch_negative":
         launches = [r for r in rs if r.get("kind") == "launch" and r.get("new_worker") is True]
         bad = any(r.get("routed") is not True for r in launches)
@@ -131,7 +170,7 @@ def check(case, t):
 
 
 def grade(t):
-    cases = t.get("cases") or ["bootstrap_project_binding", "host_project_name_binding", "resolver_failure", "ordered_context_and_session_docs", "dynamic_skill_precedence", "explicit_skill_trigger", "job_creation_starts_execution", "route_implementation", "route_research_review", "sticky_continuation", "watch_before_delegation", "job_id_propagation", "render_barrier", "task_completion_not_job_terminal", "transport_failure_fallback", "heartbeat", "unrouted_launch_negative"]
+    cases = t.get("cases") or ["bootstrap_project_binding", "host_project_name_binding", "resolver_failure", "ordered_context_and_session_docs", "dynamic_skill_precedence", "explicit_skill_trigger", "job_creation_starts_execution", "route_implementation", "route_research_review", "sticky_continuation", "watch_before_delegation", "job_id_propagation", "render_barrier", "task_completion_not_job_terminal", "transport_failure_fallback", "heartbeat", "pre_human_escalation_gate", "unrouted_launch_negative"]
     results = {c: check(c, t) for c in cases}
     return {"ok": all(x["ok"] for x in results.values()), "results": results}
 
@@ -232,11 +271,43 @@ def main():
             {"kind":"tool_call","name":"events__wait"},
             {"kind":"render","event_id":"bad"},
         ]})
+        gate_good = grade({"cases":["pre_human_escalation_gate"],"records":[
+            {"kind":"tool_call","name":"neo_shell","task_id":"toyalive","command":"neo escalation --handoff-file /tmp/handoff.md --cwd /tmp"},
+            {"kind":"action","action":"escalation_result","task_id":"toyalive","status":"needs_user","verified":True,"user_action":"Complete hardware-key confirmation"},
+            {"kind":"action","action":"human_handoff","task_id":"toyalive"},
+        ]})
+        gate_owner = grade({"cases":["pre_human_escalation_gate"],"records":[
+            {"kind":"action","action":"human_handoff","task_id":"toyalive","boundary":"owner_only_consent","evidence":"hardware key owner presence required"},
+        ]})
+        gate_outage = grade({"cases":["pre_human_escalation_gate"],"records":[
+            {"kind":"action","action":"escalation_unavailable","task_id":"toyalive","verified":True,"diagnostic":"Neo MCP cannot connect"},
+            {"kind":"action","action":"human_handoff","task_id":"toyalive"},
+        ]})
+        gate_early = grade({"cases":["pre_human_escalation_gate"],"records":[
+            {"kind":"action","action":"human_handoff","task_id":"toyalive"},
+            {"kind":"tool_call","name":"neo_shell","task_id":"toyalive","command":"neo escalation --handoff-file ..."},
+        ]})
+        gate_wrong_task = grade({"cases":["pre_human_escalation_gate"],"records":[
+            {"kind":"tool_call","name":"neo_shell","task_id":"other","command":"neo escalation --handoff-file ..."},
+            {"kind":"action","action":"escalation_result","task_id":"other","status":"needs_user","verified":True,"user_action":"OTP"},
+            {"kind":"action","action":"human_handoff","task_id":"toyalive"},
+        ]})
+        gate_failed = grade({"cases":["pre_human_escalation_gate"],"records":[
+            {"kind":"tool_call","name":"neo_shell","task_id":"toyalive","command":"neo escalation --handoff-file ..."},
+            {"kind":"action","action":"escalation_result","task_id":"toyalive","status":"failed","verified":True},
+            {"kind":"action","action":"human_handoff","task_id":"toyalive"},
+        ]})
+        gate_unverified = grade({"cases":["pre_human_escalation_gate"],"records":[
+            {"kind":"action","action":"escalation_unavailable","task_id":"toyalive","verified":False,"diagnostic":"not attempted"},
+            {"kind":"action","action":"human_handoff","task_id":"toyalive"},
+        ]})
         result["self_test_extra"] = extra
         result["self_test_create_only"] = create_only
         result["self_test_negative"] = {"unrouted_launch": negative, "missing_route": missing_route, "missing_worker": missing_worker, "after_launch": after_launch, "reversed_worker_model": reversed_worker_model, "worker_order_by_role": worker_order_negative, "watch_after_launch": watch_after_launch, "nested_job_mismatch": nested_bad, "tool_before_render": render_bad}
+        result["self_test_human_gate"] = {"allowed": {"escalated":gate_good,"owner_only":gate_owner,"outage":gate_outage},
+            "rejected":{"premature":gate_early,"wrong_task":gate_wrong_task,"failed_not_human":gate_failed,"unverified_outage":gate_unverified}}
         result["self_test_sticky"] = sticky
-        result["ok"] = result["ok"] and all(x["ok"] for x in extra.values()) and create_only["ok"] and negative["ok"] and all(not x["ok"] for x in missing_route.values()) and not missing_worker["ok"] and not after_launch["ok"] and not reversed_worker_model["ok"] and all(not outcome["ok"] for role_cases in worker_order_negative.values() for outcome in role_cases.values()) and not watch_after_launch["ok"] and not nested_bad["ok"] and not render_bad["ok"] and sticky["ok"]
+        result["ok"] = result["ok"] and all(x["ok"] for x in extra.values()) and create_only["ok"] and negative["ok"] and all(not x["ok"] for x in missing_route.values()) and not missing_worker["ok"] and not after_launch["ok"] and not reversed_worker_model["ok"] and all(not outcome["ok"] for role_cases in worker_order_negative.values() for outcome in role_cases.values()) and not watch_after_launch["ok"] and not nested_bad["ok"] and not render_bad["ok"] and sticky["ok"] and all(x["ok"] for x in result["self_test_human_gate"]["allowed"].values()) and all(not x["ok"] for x in result["self_test_human_gate"]["rejected"].values())
     elif args.transcript:
         result = grade(json.loads(Path(args.transcript).read_text(encoding="utf-8")))
     else:

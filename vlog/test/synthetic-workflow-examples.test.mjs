@@ -298,12 +298,12 @@ test('publication requires exact scope, rights, current review, observable QA, a
 });
 
 test('canonical Vlog stages map to distinct ordered Task IDs', () => {
-  assert.deepEqual(EPISODE_STAGES, ['visioner', 'director', 'editor', 'producer', 'final-qa']);
+  assert.deepEqual(EPISODE_STAGES, ['visioner', 'director', 'editor', 'producer', 'publisher']);
   assert.equal(episodeTaskId('visioner', 's1'), 'vlog-visioner-s1');
-  assert.equal(episodeTaskId('final-qa', 's1'), 'vlog-final-qa-s1');
-  const edges = [['visioner', 'director'], ['director', 'editor'], ['editor', 'producer'], ['producer', 'final-qa']];
+  assert.equal(episodeTaskId('publisher', 's1'), 'vlog-publisher-s1');
+  const edges = [['visioner', 'director'], ['director', 'editor'], ['editor', 'producer'], ['producer', 'publisher']];
   assert.equal(isDAG(edges), true);
-  assert.equal(isDAG([...edges, ['final-qa', 'visioner']]), false);
+  assert.equal(isDAG([...edges, ['publisher', 'visioner']]), false);
 });
 
 test('tracked design documentation carries actual per-case Markcut excerpts', async () => {

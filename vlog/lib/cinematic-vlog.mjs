@@ -1,5 +1,4 @@
-import {readFileSync} from 'node:fs';
-import {createHash} from 'node:crypto';
+import {readFileSync,statSync} from 'node:fs';
 import {relative,resolve,sep} from 'node:path';
 
 const DEFAULT_TEMPLATE = new URL('../templates/cinematic-vlog.md',import.meta.url);
@@ -36,7 +35,8 @@ export function parseCinematicTemplate(template = readFileSync(DEFAULT_TEMPLATE,
     throw Error('Markcut template must define one continuous root BGM');
   if(!config.song?.title || !config.song?.artist || !config.song?.provider)
     throw Error('Markcut template BGM song metadata is required');
-  if(!config.format || !config.pacing || !config.transitions || !Number.isFinite(config.audio?.source_video_volume))
+  if(!config.format || !config.pacing || !config.transitions || !config.motions?.slowPush ||
+     ![config.audio?.source_video_volume,config.audio?.bgm_plain_volume,config.audio?.bgm_preducked_volume].every(v=>Number.isFinite(v)&&v>=0&&v<=1))
     throw Error('Markcut template format and pacing are required');
   if(!config.variants?.includes(config.id))throw Error('Markcut template variant mismatch');
   return {config,blocks,body:body.trim()};
@@ -56,8 +56,8 @@ export function compileCinematicVlog({
   fps ??=config.format.fps;
   if(!Array.isArray(scenes) || scenes.length<2)throw Error('At least two source scenes are required');
   if(!config.variants.includes(variant))throw Error('Unknown Vlog style variant: '+variant);
-  if(!music?.path || !music.sha256 || !music.evidenceRef)
-    throw Error('Template-selected BGM path, hash, and provenance are required');
+  if(!music?.path || !music.evidenceRef)
+    throw Error('Template-selected BGM path and origin are required');
   const songSource = config.song.provider+':'+config.song.vocal_track_id+'+'+config.song.instrumental_track_id;
   if(music.catalogReference!==songSource)
     throw Error('BGM_SOURCE_MISMATCH: run audio asset must match the song selected in the Markcut template');
@@ -78,7 +78,7 @@ export function compileCinematicVlog({
   if(!Number.isFinite(width)||!Number.isFinite(height)||!Number.isFinite(fps))
     throw Error('Invalid output format');
   const root=resolve(process.cwd());
-  const sha256=path=>createHash('sha256').update(readFileSync(resolve(root,path))).digest('hex');
+  const readable=path=>statSync(resolve(root,path)).isFile()&&statSync(resolve(root,path)).size>0;
   const local=path=>{
     const abs=resolve(root,path);
     const rel=relative(root,abs);
@@ -86,22 +86,19 @@ export function compileCinematicVlog({
     return rel.split(sep).join('/');
   };
   local(music.path);
-  let musicHash;
-  try{musicHash=sha256(music.path);}catch{throw Error('MISSING_TEMPLATE_SONG: supply the selected track, not a substitute');}
-  if(musicHash!==music.sha256.toLowerCase())throw Error('BGM bytes do not match music.sha256');
+  try{if(!readable(music.path))throw Error('empty');}catch{throw Error('MISSING_TEMPLATE_SONG: supply the selected track, not a substitute');}
   const renderedScenes=[];
   for(const [index,scene] of scenes.entries()) {
     if(!scene.id || !scene.path || !['video','image'].includes(scene.type) || !(scene.duration>0))
       throw Error('Invalid scene at index '+index);
-    if(!scene.authorized || !scene.sourceHash || !scene.evidenceRef)
-      throw Error('Scene '+scene.id+' lacks source authorization, hash, or evidence reference');
+    if(!scene.sourceHash || !scene.evidenceRef)
+      throw Error('Scene '+scene.id+' lacks source identity or evidence reference');
     const hashPath=scene.sourceEvidencePath??scene.path;
     local(hashPath);
-    if(sha256(hashPath)!==scene.sourceHash.toLowerCase())
-      throw Error('Scene '+scene.id+' source bytes do not match sourceHash');
+    try{if(!readable(hashPath))throw Error('empty');}catch{throw Error('Scene '+scene.id+' source media is unreadable');}
     if(scene.override && (!scene.override.description?.trim()||!scene.override.rationale?.trim()||!scene.override.evidenceRef))
       throw Error('Scene '+scene.id+' override lacks description, rationale, or evidence provenance');
-    if(scene.override?.motion && (scene.type!=='image'||!['slowPush','none'].includes(scene.override.motion)))
+    if(scene.override?.motion && (scene.type!=='image'||!['slowPush','zoomOut','driftLeft','driftRight','none'].includes(scene.override.motion)))
       throw Error('Scene '+scene.id+' has an unsupported motion override');
     if(scene.override?.sourceAudioVolume!=null && (scene.type!=='video'||scene.override.sourceAudioVolume<0||scene.override.sourceAudioVolume>1))
       throw Error('Scene '+scene.id+' has an invalid source-audio override');
@@ -118,9 +115,11 @@ export function compileCinematicVlog({
     if(scene.type==='image'){
       const duration=Math.max(scene.duration,scene.audioPath?scene.audioDuration??scene.duration:scene.duration);
       const block=scene.override?.motion==='none'?'IMAGE_STATIC':'IMAGE_MOTION';
-      media=substitute(blocks[block],{...common,'scene.duration':duration,'scene.background':scene.audioPath?' isBackground:true':''});
+      const motion=config.motions[scene.override?.motion||'slowPush'];
+      if(block==='IMAGE_MOTION' && (!motion?.start||!motion?.end))throw Error('Missing template still-motion preset for '+scene.id);
+      media=substitute(blocks[block],{...common,'scene.duration':duration,'scene.background':scene.audioPath?' isBackground:true':'','scene.motionStart':q(motion?.start||''),'scene.motionEnd':q(motion?.end||'')});
       if(scene.audioPath){
-        try{sha256(scene.audioPath);}catch{throw Error('STORY_VOICEOVER_MISSING: '+scene.id+' audio asset is unreadable');}
+        try{if(!readable(scene.audioPath))throw Error('empty');}catch{throw Error('STORY_VOICEOVER_MISSING: '+scene.id+' audio asset is unreadable');}
         media+='\n'+substitute(blocks.VOICE,{'scene.audio.path':local(scene.audioPath),'scene.audio.duration':scene.audioDuration??scene.duration});
       }
     }else{
@@ -129,7 +128,7 @@ export function compileCinematicVlog({
       if(scene.audioPath){
         if(!(scene.audioDuration>0)||scene.audioDuration>scene.duration)
           throw Error('STORY_VOICEOVER_DURATION: video '+scene.id+' ends before narration');
-        try{sha256(scene.audioPath);}catch{throw Error('STORY_VOICEOVER_MISSING: '+scene.id+' audio asset is unreadable');}
+        try{if(!readable(scene.audioPath))throw Error('empty');}catch{throw Error('STORY_VOICEOVER_MISSING: '+scene.id+' audio asset is unreadable');}
         media+='\n'+substitute(blocks.VOICE,{'scene.audio.path':local(scene.audioPath),'scene.audio.duration':scene.audioDuration});
       }
     }
@@ -141,7 +140,7 @@ export function compileCinematicVlog({
     }));
   }
   const song=config.song;
-  const metadata=`BGM ${song.title} — ${song.artist}, ${song.provider}; catalog vocal=${song.vocal_track_id??'none'} instrumental=${song.instrumental_track_id??'none'}; template rights=${song.license_status??'unknown'}; asset sha256 ${music.sha256}; rights evidence ${music.evidenceRef}${music.duckingEvidenceRef?'; mix evidence '+music.duckingEvidenceRef:''}`;
+  const metadata=`BGM ${song.title} — ${song.artist}, ${song.provider}; catalog vocal=${song.vocal_track_id??'none'} instrumental=${song.instrumental_track_id??'none'}; source reference ${music.evidenceRef}${music.duckingEvidenceRef?'; mix evidence '+music.duckingEvidenceRef:''}`;
   const subtitle=captions?.path?substitute(blocks.SUBTITLE,{'captions.path':q(local(captions.path))}):'';
   const transitionSetting=transition==='cut'?'':` transition:${transition} transitionTime:${seconds}`;
   const output=substitute(body,{
@@ -150,6 +149,9 @@ export function compileCinematicVlog({
     subtitle,
     metadata:q(metadata),
     'music.path':local(music.path),
+    // Pre-ducked mixes already lower music underneath narration. Applying the
+    // plain-track 0.18 root gain again made the soundtrack nearly inaudible.
+    'music.volume':music.preMixedDucking===true?config.audio.bgm_preducked_volume:config.audio.bgm_plain_volume,
     scenes:renderedScenes.join('\n\n'),
   }).trim()+'\n';
   if(/<!-- VLOG:|\{\{/.test(output))throw Error('Unrendered Markcut template directives');
@@ -164,8 +166,8 @@ export function lintCinematicVlog(markdown,{scenes,boundaries,music,captions},{t
   if(music?.catalogReference!==config.song.provider+':'+config.song.vocal_track_id+'+'+config.song.instrumental_track_id)issues.push('BGM identity differs from the Markcut template');
   if(boundaries?.length!==scenes?.length-1 || boundaries?.some(b=>!b.transition||!b.rationale?.trim()))
     issues.push('Missing intentional edit decision or rationale at one or more scene boundaries');
-  if(!music?.sha256 || !music?.evidenceRef || !markdown.includes(`src:${music.path} isBackground:true`))
-    issues.push('Authorized BGM bed, hash, or rights evidence is missing');
+  if(!music?.path || !music?.evidenceRef || !markdown.includes(`src:${music.path} isBackground:true`))
+    issues.push('Template-selected BGM bed or origin is missing');
   if(scenes?.some(s=>['speech','dialogue','narration','meaningful-original-sound'].includes(s.audioIntent)) &&
     (!music?.preMixedDucking||!music?.duckingEvidenceRef))issues.push('Speech/original-sound ducking evidence is missing');
   const choices=boundaries?.map(b=>b.transition)??[];

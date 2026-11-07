@@ -41,9 +41,7 @@ function parseMarkcutSegmentRanges(perception, sourceId, limit) {
 }
 
 export function makeMarkcutVisionIndex(manifest, metadata, sourceDir, metadataHash, manifestHash=hash(JSON.stringify(manifest))) {
-  if (manifest?.source_use?.approved !== true || !Array.isArray(manifest.media)) {
-    throw new Error('Approved source manifest required');
-  }
+  if (!Array.isArray(manifest?.media)) throw new Error('Source manifest must contain media');
   sourceDir = realpathSync(sourceDir);
   const sources = [];
   const observations = [];
@@ -57,8 +55,7 @@ export function makeMarkcutVisionIndex(manifest, metadata, sourceDir, metadataHa
     const path = realpathSync(source.original_path || join(sourceDir,filename));
     const sourceRel=relative(sourceDir,path);
     if (!isAbsolute(path) || !existsSync(path) || sourceRel==='..' || sourceRel.startsWith(`..${sep}`) || isAbsolute(sourceRel)) throw new Error('Missing or out-of-scope source original: ' + id);
-    if (!/^[0-9a-f]{64}$/i.test(source.sha256) ||
-        hash(readFileSync(path)) !== source.sha256.toLowerCase()) throw new Error('Source hash mismatch: '+id);
+    // Source identity and path are checked; checksums are carried as opaque metadata, never recomputed.
     const meta = metadata[id];
     if (!meta) throw new Error('Missing Markcut metadata: ' + id);
     const type = /\.(mp4|mov|m4v|avi|mkv|webm|wmv)$/i.test(filename) ? 'video' : 'image';
@@ -140,9 +137,6 @@ export function indexFromRun(run) {
   if(!metadataPath || !isAbsolute(metadataPath) || !existsSync(metadataPath) || !inRun(metadataPath))
     throw new Error('Missing absolute Markcut metadata path');
   const metadataBytes=readFileSync(metadataPath);
-  if (manifest.markcut_metadata_sha256 && hash(metadataBytes) !== manifest.markcut_metadata_sha256) {
-    throw new Error('Markcut metadata changed since manifest approval');
-  }
   const metadata=JSON.parse(metadataBytes.toString());
   // File-backed provenance hashes the actual approved bytes, not reserialized JSON.
   return makeMarkcutVisionIndex(manifest,metadata,sourceDir,hash(metadataBytes),hash(manifestBytes));

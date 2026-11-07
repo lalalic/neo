@@ -56,3 +56,9 @@ export function writeRuntimeConfig(config, env = process.env) {
   fs.writeFileSync(target, `${JSON.stringify(payload, null, 2)}\n`, { encoding: 'utf8', mode: 0o600 });
   return target;
 }
+
+/** Resolve one canonical publish subject from the configured runtime, not a hard-coded prefix. */
+export function publishSubjectFor(event,env=process.env){
+  if(!event?.job_id||!event?.type) throw Error('publish subject needs Job ID and event type');
+  return `${resolveRuntimeConfig(env).subjectPrefix}.${event.job_id}.${event.type}`;
+}

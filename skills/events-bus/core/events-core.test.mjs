@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { EventsBusCore, MAX_MEMORY_EVENTS, normalizePublishEvent } from './events-core.mjs';
-import { resolveRuntimeConfig, writeRuntimeConfig } from './config.mjs';
+import { resolveRuntimeConfig, writeRuntimeConfig, publishSubjectFor } from './config.mjs';
 
 test('runtime config is one discovery source for NATS and API', () => {
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'events-bus-config-'));
@@ -59,4 +59,11 @@ test('events bus overrides producer timestamps at publish and persists recorder 
   assert.notEqual(stored.timestamp,bogus);
   assert.equal(JSON.parse(fs.readFileSync(config.historyFile,'utf8').trim()).event.timestamp,stored.timestamp);
   assert.equal(stored.receivedAt,undefined);
+});
+
+test('emit publishes to configured prefix without default leakage',()=>{
+  const event={job_id:'iso-553',type:'task.started'};
+  assert.equal(publishSubjectFor(event,{NEO_EVENTS_SUBJECT_PREFIX:'neo.events.private-run'}),'neo.events.private-run.iso-553.task.started');
+  assert.equal(publishSubjectFor(event,{EVENTS_BUS_DATA_DIR:fs.mkdtempSync(path.join(os.tmpdir(),'events-default-'))}),'neo.events.job.iso-553.task.started');
+  assert.throws(()=>publishSubjectFor({job_id:'iso-553'},{}),/Job ID and event type/);
 });

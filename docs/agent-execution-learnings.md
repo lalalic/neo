@@ -12,6 +12,8 @@ These are preserved observations from prior work, not universal startup instruct
 
 ## Project learnings
 
+- 2026-11-05: Neo Master TestFlight archive succeeded, but Xcode account login blocked export. A previously authorized App Store Connect API key with a verified Issuer let Xcode export and upload without interactive login. Apple build processing VALID alone was misleading: the TestFlight website still required Missing Compliance resolution and exact-build internal testers-group assignment. See [TestFlight release playbook](testflight-release-playbook.md); confirm encryption classification per app and test on device.
+
 - 2026-10-31: A third-party MCP OAuth session saved in one client cannot automatically authenticate Neo federation's independent HTTP MCP connection. For shared ChatGPT tools, bridge through the authorized client using a private profile; verify actual read-only tool execution and guard paid or mutating calls rather than treating tool discovery as authorization.
 - 2026-10-29: Executable Node ESM CLIs installed as symlinks must compare the real path of argv[1] with import.meta.url. A global CLI symlink may otherwise exit successfully without executing its service-management action; integration tests must invoke the symlink itself.
 

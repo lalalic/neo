@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildXChatBootstrap, renderXChatBootstrap } from '../.bin/xchat-bootstrap.mjs';
+import { readFileSync } from 'node:fs';
 
 const workspace = { workspaceRoot: '/workspace', neoRoot: '/workspace/neo' };
 const files = new Map([
@@ -64,4 +65,15 @@ test('bad catalog and unavailable instructions fail closed', () => {
   assert.throws(() => build({ executeControl: (args, cb) => {
     cb.emit('[{"name":"bad","description":"bad","path":"relative"}]'); return 0;
   } }), /invalid skill record/);
+});
+
+test('orchestrator bootstrap loads explicit synchronous local escalation rule', () => {
+  const policy=readFileSync(new URL('../skills/xchat-orchestrator/xchat-bootstrap.md', import.meta.url), 'utf8');
+  assert.match(policy, /neo escalation --handoff-file ABSOLUTE_PATH --cwd VERIFIED_PATH/);
+  assert.match(policy, /synchronously/);
+  assert.match(policy, /On `resolved`/);
+  assert.match(policy, /on `needs_user`/);
+  assert.match(policy, /on `failed`/);
+  assert.match(policy, /neo escalation test/);
+  assert.match(policy, /not an explicit safety refusal/);
 });

@@ -11,8 +11,10 @@
     "provider": "Artlist",
     "vocal_track_id": "133995",
     "vocal_url": "https://artlist.io/royalty-free-music/song/good-times/133995",
+    "vocal_file": "assets/music/good-times-rynn-vocal.mp3",
     "instrumental_track_id": "133996",
     "instrumental_url": "https://artlist.io/royalty-free-music/song/good-times-instrumental-version/133996",
+    "instrumental_file": "assets/music/good-times-rynn-instrumental.mp3",
     "license_status": "unverified",
     "note": "Use one authorized pre-mixed continuous asset for vocal opening, instrumental speech and vocal ending; this selection does not grant publication rights"
   },
@@ -22,7 +24,9 @@
     "fps": 30
   },
   "audio": {
-    "source_video_volume": 0.72
+    "source_video_volume": 0.72,
+    "bgm_plain_volume": 0.7,
+    "bgm_preducked_volume": 0.7
   },
   "pacing": {
     "hook_seconds": [
@@ -33,6 +37,12 @@
       2,
       5
     ]
+  },
+  "motions": {
+    "slowPush": {"start": "scale(1.02)", "end": "scale(1.08)"},
+    "zoomOut": {"start": "scale(1.12)", "end": "scale(1.02)"},
+    "driftLeft": {"start": "scale(1.12) translateX(2%)", "end": "scale(1.12) translateX(-2%)"},
+    "driftRight": {"start": "scale(1.12) translateX(-2%)", "end": "scale(1.12) translateX(2%)"}
   },
   "transitions": {
     "supported": [
@@ -52,7 +62,7 @@ VLOG:END_CONFIG -->
 title:{{variant}}
 width:{{width}} height:{{height}} fps:{{fps}} layout:series{{transition}}{{subtitle}} stt:"" metadata:{{metadata}}
 
-- audio src:{{music.path}} isBackground:true volume:0.18
+- audio src:{{music.path}} isBackground:true volume:{{music.volume}}
 
 {{scenes}}
 
@@ -82,7 +92,7 @@ instruction:{{scene.instruction}}
 <!-- VLOG:VIDEO:END -->
 
 <!-- VLOG:IMAGE_MOTION:BEGIN -->
-- image src:{{scene.path}} duration:{{scene.duration}} fit:cover{{scene.background}} effects:[{"animation":"custom","duration":{{scene.duration}},"customKeyframes":{"0":{"transform":"scale(1.02)"},"100":{"transform":"scale(1.08)"}}}]
+- image src:{{scene.path}} duration:{{scene.duration}} fit:cover{{scene.background}} effects:[{"animation":"custom","duration":{{scene.duration}},"customKeyframes":{"0":{"transform":{{scene.motionStart}}},"100":{"transform":{{scene.motionEnd}}}}}]
 <!-- VLOG:IMAGE_MOTION:END -->
 
 <!-- VLOG:IMAGE_STATIC:BEGIN -->

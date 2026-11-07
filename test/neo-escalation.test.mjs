@@ -1,10 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, symlinkSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { buildEscalationPrompt, codexArgs, parseEscalationArgs, readRequiredTextFile, runEscalation } from '../.bin/neo.mjs';
+import { fileURLToPath } from 'node:url';
+import { parseEscalationArgs, readRequiredTextFile } from '../.bin/neo.mjs';
+
+const agentPrompt = readFileSync(fileURLToPath(new URL('../agents/escalation.agent.md', import.meta.url)), 'utf8');
 
 function tempFile(name, content) {
   const dir = mkdtempSync(join(tmpdir(), 'neo-escalation-'));
@@ -58,79 +61,44 @@ test('requires a non-empty handoff file', () => {
   assert.throws(() => parseEscalationArgs(['--handoff-file', empty]), /--handoff-file is empty/);
 });
 
-test('prompt carries one handoff payload plus notification policy', () => {
-  const prompt = buildEscalationPrompt({
-    handoff: 'Finish the release. Current blocker is a verification prompt. Completion means registry is updated.',
-    onNeedsUser: 'Send iMessage to the user with the exact action.'
-  }, 'First solve the blocker. Only use needs_user for genuinely non-delegable actions.');
-  assert.match(prompt, /First solve the blocker/);
-  assert.match(prompt, /Finish the release/);
-  assert.match(prompt, /"handoff"/);
-  assert.match(prompt, /"on_needs_user"/);
-  assert.doesNotMatch(prompt, /"intent"/);
-  assert.doesNotMatch(prompt, /"blocked_on"/);
-  assert.doesNotMatch(prompt, /"context"/);
+test('deprecated backend selector and Codex CLI option are not accepted', () => {
+  const handoff = tempFile('handoff.md', 'Complete the authorized local task.');
+  assert.throws(() => parseEscalationArgs(['--handoff-file', handoff, '--codex-command', 'codex']), /unknown escalation option/);
 });
 
-test('Codex invocation uses elevated local execution permissions at the top level', () => {
-  const args = codexArgs({ cwd: '/tmp/example' });
-  assert.deepEqual(args.slice(0, 2), ['-c', 'mcp_servers.neoy.url=\"http://127.0.0.1:6767/mcp\"']);
-  assert.deepEqual(args.slice(2, 7), ['--sandbox', 'danger-full-access', '--ask-for-approval', 'never', 'exec']);
-  assert.ok(args.includes('--output-schema'));
-  assert.deepEqual(args.slice(-3), ['-C', '/tmp/example', '-']);
+test('local escalation prompt selects WebHelm, Neo Computer Use CLI, and Shell', () => {
+  const prompt = agentPrompt;
+  assert.match(prompt, /Execution path: WebHelm, Neo Computer Use, Shell/);
+  assert.match(prompt, /\*\*WebHelm\*\*/);
+  assert.match(prompt, /installed `webhelm` Skill on demand/);
+  assert.match(prompt, /\*\*Neo Computer Use\*\*/);
+  assert.match(prompt, /neo computer-use help/);
+  assert.match(prompt, /neo computer-use call list_apps/);
+  assert.match(prompt, /neo computer-use call get_app_state --args-file/);
+  assert.match(prompt, /\*\*Shell\*\* directly/);
+  assert.match(prompt, /not a `computer-use` Skill/);
+  assert.match(prompt, /Do \*\*not\*\* call arbitrary Neo.app MCP tools/);
+  assert.doesNotMatch(prompt, /browser-workspace|neoy\/computer|NeoY MCP/);
 });
 
-test('Codex invocation accepts an explicit NeoY MCP URL override', () => {
-  const args = codexArgs({ cwd: '/tmp/example', neoyMcpUrl: 'http://127.0.0.1:9999/mcp' });
-  assert.deepEqual(args.slice(0, 2), ['-c', 'mcp_servers.neoy.url=\"http://127.0.0.1:9999/mcp\"']);
+test('native UI evidence and interactive authorization avoid premature human escalation', () => {
+  const prompt = agentPrompt;
+  assert.match(prompt, /obtain `list_apps` and a fresh `get_app_state`/);
+  assert.match(prompt, /background\/PTY process with observable output/);
+  assert.match(prompt, /rejoin it and verify its outcome/);
+  assert.match(prompt, /One failed tool does not establish `needs_user`/);
+  assert.match(prompt, /clicked button.*not proof of completion/);
 });
 
-test('runEscalation parses resolved structured output', () => {
-  let observed;
-  const result = runEscalation({
-    handoff: 'Push the branch after resolving the caller permission issue.', cwd: '/tmp', codexCommand: 'codex'
-  }, {
-    agentContract: 'Resolve it and return JSON.',
-    spawnSyncImpl(command, args, options) {
-      observed = { command, args, options };
-      return { status: 0, stdout: JSON.stringify({ status: 'resolved', summary: 'pushed', evidence: ['remote ref exists'] }), stderr: '' };
-    }
-  });
-  assert.equal(observed.command, 'codex');
-  assert.match(observed.options.input, /Push the branch/);
-  assert.equal(result.status, 'resolved');
-});
-
-test('needs_user requires a concrete human action', () => {
-  assert.throws(() => runEscalation({ handoff: 'Complete the flow.', cwd: '/tmp' }, {
-    agentContract: 'Return JSON.',
-    spawnSyncImpl() {
-      return { status: 0, stdout: JSON.stringify({ status: 'needs_user', summary: 'MFA remains' }), stderr: '' };
-    }
-  }), /requires user_action/);
-});
-
-test('default agent contract makes Computer Use and Browser Workspace primary before needs_user', () => {
-  const prompt = buildEscalationPrompt({ handoff: 'Enable the System Settings permission and verify it.', cwd: '/tmp' });
-  assert.match(prompt, /primary tools are \*\*Computer Use\*\* and \*\*Browser Workspace\*\*/);
-  assert.match(prompt, /must attempt it yourself with Computer Use or Browser Workspace before considering `needs_user`/);
-  assert.match(prompt, /permission toggle, unlock button, browser authorization screen, or settings page is not by itself proof/);
-  assert.match(prompt, /unknown password\/secret, OTP\/MFA, biometric check/);
-});
-
-test('default agent contract requires concrete NeoY Computer Use evidence before giving up native UI', () => {
-  const prompt = buildEscalationPrompt({ handoff: 'Open a browser publisher console and handle any verification surface.', cwd: '/tmp' });
-  assert.match(prompt, /Computer Use evidence gate/);
-  assert.match(prompt, /computer\.list_apps/);
-  assert.match(prompt, /computer\.get_app_state/);
-  assert.match(prompt, /Google Chrome/);
-  assert.match(prompt, /failed built-in CUA call does not satisfy this gate/i);
-});
-
-test('default agent contract requires mobile-friendly user notifications', () => {
-  const prompt = buildEscalationPrompt({ handoff: 'Complete authorization; only a human-only OTP may remain.', cwd: '/tmp' });
+test('human fallback is only for irreducible steps and uses File Helper then iMessage', () => {
+  const prompt = agentPrompt;
+  assert.match(prompt, /genuinely requires the account owner's presence or decision/);
+  assert.match(prompt, /wechat-bro → File Helper/);
+  assert.match(prompt, /\*\*iMessage\*\*/);
   assert.match(prompt, /concise and phone-readable/);
-  assert.match(prompt, /short bullet list or a small ASCII status block/);
+  assert.match(prompt, /do not wait indefinitely for a human response/);
+  assert.match(prompt, /return `needs_user` with a resumable action/);
+  assert.match(prompt, /Return \*\*exactly one JSON object\*\*/);
 });
 
 test('CLI help exposes only file-based content inputs', () => {
@@ -144,15 +112,15 @@ test('CLI help exposes only file-based content inputs', () => {
   assert.doesNotMatch(output, /--blocked-on/);
   assert.doesNotMatch(output, /--context/);
   assert.doesNotMatch(output, /--handoff TEXT/);
+  assert.doesNotMatch(output, /--codex-command/);
+  assert.match(output, /neo escalation challenges/);
+  assert.match(output, /--correlation-id ID/);
 });
 
 
-test('default agent contract prevents synchronous interactive-auth deadlocks', () => {
-  const prompt = buildEscalationPrompt({ handoff: 'Publish a package; browser confirmation may be required.', cwd: '/tmp' });
-  assert.match(prompt, /Do \*\*not\*\* run a command synchronously in the foreground when it may block waiting for browser\/native approval/);
-  assert.match(prompt, /Start the command asynchronously\/background\/PTY-style with observable stdout\/stderr and a PID\/process handle/);
-  assert.match(prompt, /explicitly open or reuse it with \*\*Browser Workspace\*\*/);
-  assert.match(prompt, /continue with \*\*NeoY Computer Use\*\*/);
-  assert.match(prompt, /poll\/rejoin that process and verify its terminal result/);
-  assert.match(prompt, /waiting authentication subprocess.*never by itself evidence for `needs_user`/s);
+test('default needs-user policy is a human fallback, not a primary execution path', () => {
+  const prompt = agentPrompt;
+  assert.match(prompt, /Never notify before attempting authorized recovery/);
+  assert.match(prompt, /\`on_needs_user\`/);
+  assert.match(prompt, /If WeChat\/File Helper cannot deliver/);
 });

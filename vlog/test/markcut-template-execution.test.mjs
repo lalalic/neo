@@ -39,17 +39,17 @@ test('only a Markcut MD controls BGM selection, audio volume and hook/body/closi
  fixture(input=>{
    const baseline=compileCinematicVlog(input);
    assert.match(baseline,/BGM Good Times — Rynn/);
-   assert.match(baseline,/- audio src:sound.m4a isBackground:true volume:0.18/);
-   assert.equal((baseline.match(/isBackground:true volume:0.18/g)||[]).length,1);
+   assert.match(baseline,/- audio src:sound.m4a isBackground:true volume:0.7/);
+   assert.equal((baseline.match(/isBackground:true volume:0.7/g)||[]).length,1);
    assert.match(baseline,/## opening/);
    assert.match(baseline,/## journey/);
    assert.match(baseline,/## ending/);
    assert.deepEqual(lintCinematicVlog(baseline,input),[]);
    const edited=template
-     .replace('src:{{music.path}} isBackground:true volume:0.18',
+     .replace('src:{{music.path}} isBackground:true volume:{{music.volume}}',
               'src:{{music.path}} isBackground:true volume:0.36')
      .replace('## {{scene.id}}\nlayout:parallel','## Hook {{scene.id}}\nlayout:parallel')
-     .replace('\"transform\":\"scale(1.08)\"','\"transform\":\"scale(1.12)\"');
+     .replace('\"end\": \"scale(1.08)\"','\"end\": \"scale(1.12)\"');
    const altered=compileCinematicVlog(input,{templateContent:edited});
    assert.match(altered,/volume:0.36/);
    assert.match(altered,/## Hook opening/);
@@ -58,6 +58,18 @@ test('only a Markcut MD controls BGM selection, audio volume and hook/body/closi
    assert.notEqual(baseline,altered);
    // Untrusted run JSON has no right to silently replace the source template.
    assert.equal(compileCinematicVlog({...input,template:edited}),baseline);
+ });
+});
+
+test('Vlog soundtrack gain is 0.7 for both preducked and unprocessed music',()=>{
+ fixture(input=>{
+  const mixed={...input,music:{...input.music,preMixedDucking:true,duckingEvidenceRef:'synthetic sidechain mix record'}};
+  mixed.scenes=mixed.scenes.map(scene=>({...scene,audioIntent:'narration'}));
+  const output=compileCinematicVlog(mixed);
+  assert.match(output,/- audio src:sound.m4a isBackground:true volume:0.7/);
+  assert.doesNotMatch(output,/isBackground:true volume:(?:0.18|0.9)/);
+  assert.deepEqual(lintCinematicVlog(output,mixed),[]);
+  assert.throws(()=>compileCinematicVlog({...mixed,music:{...mixed.music,duckingEvidenceRef:undefined}}),/pre-mixed ducked/);
  });
 });
 

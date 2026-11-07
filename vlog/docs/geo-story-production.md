@@ -1,8 +1,12 @@
 # Geo Story production
 
-Executable route scenes come from [geo-story.md](../templates/geo-story.md), and the lightweight route overview from [route-overview.md](../templates/route-overview.md); this document governs factual evidence, not Markcut scene layout. Also see [Story-first route and sound](story-first-route-sound.md). Private previews may use verified original GPS precision without a second production gate. Before public release, ensure the owner's approval covers displayed exact/sensitive locations. The route view is a real Directions navigation geometry over observed stops, not an unrecorded track. Director controls placement and citations.
+Executable route scenes come from [geo-story.md](../templates/geo-story.md), and the lightweight route overview from [route-overview.md](../templates/route-overview.md); this document governs factual evidence, not Markcut scene layout. Also see [Story-first route and sound](story-first-route-sound.md). Private previews may use verified original GPS precision without a second production gate. Before public release, ensure the owner's approval covers displayed exact/sensitive locations. The route view is a real Directions navigation geometry over observed stops, not an unrecorded track. Director chooses route story and evidence; Editor chooses exact placement, visual realization, Markcut authoring and verification.
 
-## Director input contract
+## Director route decision and Editor integration
+
+Director writes `route-intent.json` (include/omit, observed filmed stops, story purpose and desired beat). Editor maps it to `episode-input.geo` and produces the route media.
+
+## Editor geo block
 
 In the existing `episode-input.json`, preserve original `scenes`, source hashes, Editor `boundaries`, and authorized `music`. Add an optional `geo` block:
 
@@ -23,4 +27,6 @@ All `observed` content requires a Vision or owner source reference; unsupported 
 
 ## Rendering and QA
 
-Producer pre-renders two narrated Markcut geographic scenes to a verified `route.mp4` and inserts it at Director's chosen story beat, preserving Editor transitions. The final episode keeps one continuous root BGM. For unreliable or absent GPS, omit the map without inventing movement. Verified place and knowledge facts require explicit evidence references. Any failed render or missing sound halts production; final release still needs separate owner authorization.
+Editor pre-renders narrated Markcut geographic scenes to a verified `route.mp4` and inserts it at Director's chosen story beat, preserving Editor transitions. The final episode keeps one continuous root BGM. For unreliable or absent GPS, omit the map without inventing movement. Verified place and knowledge facts require explicit evidence references. Any failed render or missing sound halts production; final release still needs separate owner authorization.
+
+Editor must run `markcut verify` on `route.md` and `video.md` and check source-linked route narration, media paths and transitions without requiring playback.

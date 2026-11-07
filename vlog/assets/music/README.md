@@ -1,6 +1,6 @@
 # Local Vlog music assets
 
-The canonical [cinematic-vlog template](../../templates/cinematic-vlog.md) owns song selection, artist, provider and track URLs. This directory is for local copies used in authorized private production. Its audio binaries are deliberately **not** committed to the public Neo repository.
+The canonical [cinematic-vlog template](../../templates/cinematic-vlog.md) owns song selection, artist, provider and track URLs. This directory is for local copies used in authorized private production. Audio binaries are kept local and excluded from Git.
 
 | Local filename | Role | SHA-256 | Bytes |
 | --- | --- | --- | ---: |
@@ -9,4 +9,4 @@ The canonical [cinematic-vlog template](../../templates/cinematic-vlog.md) owns 
 
 These hashes describe the locally observed files; they do **not** establish licensing or source authenticity. The template currently marks the Artlist license status as `unverified`. Before public video release, obtain and preserve the applicable license/authorization and follow the Vlog publication contract. Artlist's standard music license is for synchronized projects, not uploading or sharing the MP3 files themselves.
 
-Keep both files locally at the paths above; verify using `shasum -a 256 vlog/assets/music/*.mp3` from the Neo root. Do not copy standalone music into public commits, release archives or documentation attachments.
+Keep both files locally at the template-declared paths above. Only the template asset preflight checks that they are readable. Do not copy standalone music into public commits or release archives.
