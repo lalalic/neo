@@ -4,11 +4,11 @@ Neo Project for licensed short-video CPS distribution. **RS Boost** is the first
 
 The sole normal-stage workflow is [graph.mmd](graph.mmd). [AGENTS.md](AGENTS.md) owns project-wide policy and approval gates; project-specific roles are in `agents/`. Reuse the installed Markcut Skill for editing and preview, and WebHelm for authorized browser actions. The project does not implement its own task queue or publishing backend.
 
-To explicitly start a Relay-backed run from an HTTPS source reference, use `neo project run --url=https://... --project=content-distribution` (or separate flag values). The URL is private input evidence only; it grants no license and triggers no automatic download or publication. See the [Neo Project Run Contract](../docs/neo-project-run-contract.md) and retain the rights and owner-authorization gates below. The current `graph.mmd` is the only workflow authority; the CLI does not introduce another planner or queue.
+To explicitly start a Relay-backed run from an HTTPS source reference, use `neo project run --url=https://... --project=content-distribution` (or separate flag values). To process a previously prepared canonical episode or a synthetic owned fixture, use `neo project run --path=<absolute-run> --project=content-distribution`; `preparedPath` still requires `campaign.json` and source evidence, and it does **not** authorize distribution. The URL is private input evidence only; it grants no license and triggers no automatic download or publication. See the [Neo Project Run Contract](../docs/neo-project-run-contract.md) and retain the rights and owner-authorization gates below. The current `graph.mmd` is the only workflow authority; the CLI does not introduce another planner or queue.
 
 The [commercial release and attribution gates](docs/commercial-readiness.md) define reusable owner Campaign authorization, licensed assets, tracked links and separate publication, measurement and payout evidence. The [Artifact Handoff Contract](contracts/artifact-handoffs.md) names run-local deliverables and checks without duplicating the DAG.
 
-The [creative strategy library](templates/creative-strategies.md) guides the Editor in choosing 1–N evidence-backed variants after Vision; it does not prescribe a fixed count.
+The [creative strategy library](templates/creative-strategies.md) guides the Strategist in proposing >=3 genuinely distinct, evidence-backed market hypotheses after Vision (otherwise HOLD); Editor owns actual variants, Markcut renders and QA.
 
 ## Cached-artifact shortcuts
 

@@ -2,7 +2,7 @@
 // Create only owned, synthetic, private fixtures. Never use provider media here.
 import {createHash} from 'node:crypto';
 import {spawnSync} from 'node:child_process';
-import {existsSync,mkdirSync,readFileSync,writeFileSync,statSync,realpathSync,linkSync} from 'node:fs';
+import {existsSync,mkdirSync,readFileSync,writeFileSync,statSync,realpathSync,linkSync,copyFileSync} from 'node:fs';
 import {dirname,join,resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 const project=realpathSync(process.env.NEO_CONTENT_DISTRIBUTION_PROJECT || resolve(dirname(fileURLToPath(import.meta.url)),'..'));
@@ -27,6 +27,10 @@ put('evidence/story-context.json',{title:'Synthetic transitions',provider_id:'lo
 const words=[{type:'word',speaker_id:'speaker_unknown',start:0.20,end:0.65,text:'Opening'},{type:'word',speaker_id:'speaker_unknown',start:0.72,end:1.08,text:'pattern'},{type:'word',speaker_id:'speaker_unknown',start:3.15,end:3.65,text:'Color'},{type:'word',speaker_id:'speaker_unknown',start:3.68,end:4.04,text:'motion'},{type:'word',speaker_id:'speaker_unknown',start:6.18,end:6.62,text:'Closing'},{type:'word',speaker_id:'speaker_unknown',start:6.70,end:7.05,text:'pattern'}];
 const transcript=put('analysis/speech/fixture-words.json',{audio_duration_secs:duration,words});
 put('analysis/speech/fixture-source.json',{schema:'content-distribution.fixture-source.v1',source_sha256:sourceSha,transcript_sha256:sha(transcript),transcript_path:transcript,word_count:words.length,method:'synthetic_authored_timed_script'});
+const idVtt=join(run,'analysis/speech/speaker-id.vtt');
+cmd(process.execPath,[join(project,'scripts/speaker-vtt.mjs'),'from-fixture','--input',transcript,
+  '--output',idVtt,'--boundaries',join(run,'analysis/speech/boundaries.json'),'--exclusive']);
+copyFileSync(idVtt,join(run,'analysis/speech/speaker-name.vtt'));
 const scenes=[{id:'opening',start_s:0,end_s:3,observation:'Generated moving geometric test chart with synthetic tone; no people or storyline.'},{id:'middle',start_s:3,end_s:6,observation:'Generated chromatic motion chart continues; no actual product claims.'},{id:'closing',start_s:6,end_s:9,observation:'Generated chart movement reaches the final test interval.'}];
 put('analysis/vision/evidence.json',{schema:'content-distribution.source-vision.v1',source_sha256:sourceSha,external_transfer:false,observed_at:now,method:'synthetic_authored_scenes',scenes});
 const variants=[
@@ -37,7 +41,7 @@ const variants=[
 put('market-strategy.json',{schema:'content-distribution.market-strategy.v1',campaign_id:campaignId,source_sha256:sourceSha,variants});
 const creativePlan=[];
 for(const [index,variant] of variants.entries()){
-  const sections=index===0?[['Opening',3],['Reaction',2]]:index===1?[['MiddleBeat',2],['ClosingBeat',3]]:[['Closing',2],['Return',3]];
+  const sections=index===0?[['Opening',2],['Reaction',2]]:index===1?[['MiddleBeat',3],['ClosingBeat',2]]:[['Closing',3],['Return',3]];
   const media=join(run,`creatives/${variant.id}/media`);mkdirSync(media,{recursive:true});
   linkSync(original,join(media,'episode.mp4'));
   const md='# video\n'+`title:"Private ${variant.id} synthetic"\nwidth:320 height:480 fps:12 layout:series\n\n`+

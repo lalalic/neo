@@ -67,7 +67,7 @@ test('actual Neo project graph has complete declarative artifact handoffs', () =
 test('Neo project run declaration is URL-only with recovery through a bound path',()=>{
   const doc=JSON.parse(read('project.run.json'));
   assert.equal(doc.schemaVersion,1);
-  assert.deepEqual(doc.input,{type:'url',schemes:['https'],resumePath:true});
+  assert.deepEqual(doc.input,{type:'url',schemes:['https'],resumePath:true,preparedPath:true});
   assert.match(read('AGENTS.md'), /source reference only|only a reference/i);
   assert.match(read('README.md'), /neo project run --url=/);
   assert.ok(!existsSync(join(project,'neo-project')), 'pure Agent project must not invent lifecycle services');

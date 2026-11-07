@@ -13,8 +13,16 @@ export async function run(context) {
        x.end_s>original.duration_s+0.05)) throw Error('source_bound_offline_vision_evidence_required');
   if(original.source_kind==='owned_test_fixture') {
     if(d.method!=='synthetic_authored_scenes') throw Error('test_scenes_must_be_explicitly_authored');
-  } else if(d.method!=='local_qwen3_vl' || !d.model_id || !d.model_revision || !d.local_inference_receipt_path) {
-    throw Error('real_vision_requires_verifiable_local_model_receipt');
+  } else {
+    if(d.method!=='local_qwen3_vl' || !d.model_id || !d.model_revision ||
+       typeof d.local_inference_receipt_path!=='string' ||
+       !/^analysis\/vision\/[a-zA-Z0-9._-]+\.json$/.test(d.local_inference_receipt_path))
+      throw Error('real_vision_requires_verifiable_local_model_receipt');
+    const receipt=await jsonRun(run,d.local_inference_receipt_path);
+    if(receipt.data.source_sha256!==original.source_sha256 ||
+       receipt.data.model_id!==d.model_id || receipt.data.model_revision!==d.model_revision ||
+       receipt.data.external_transfer!==false || receipt.data.status!=='COMPLETED')
+      throw Error('local_vision_receipt_mismatch');
   }
   const ids=d.scenes.map(s=>s.id);
   if(new Set(ids).size!==ids.length) throw Error('duplicate_vision_scene_id');

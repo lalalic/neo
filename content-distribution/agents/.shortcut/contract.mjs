@@ -31,12 +31,17 @@ export async function scope(context) {
   return {project,run,input};
 }
 
-export async function readRun(run,name) {
+export async function fileRun(run,name) {
   if(typeof name!=='string'||!name||isAbsolute(name)||name.split(/[\\/]/).includes('..')) throw Error('unsafe_run_relative_path');
   const file=resolve(run,name);
   const actual=await realpath(file);
   if(!inside(run,actual)||!(await lstat(file)).isFile()) throw Error('run_evidence_outside_scope_or_not_file');
-  return {path:actual,text:await readFile(actual,'utf8')};
+  return {path:actual};
+}
+
+export async function readRun(run,name) {
+  const file=await fileRun(run,name);
+  return {...file,text:await readFile(file.path,'utf8')};
 }
 
 export async function jsonRun(run,name) {

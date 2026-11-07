@@ -91,6 +91,26 @@ test('URL input supports both flag forms, keeps token private, and delegates exa
   } finally { rmSync(f.base, { recursive: true, force: true }); }
 });
 
+test('opted-in URL project processes a prepared canonical private Run without inventing URL rights', async () => {
+  const f = fixture(), relay = relayStub();
+  try {
+    const declaration = JSON.parse(readFileSync(join(f.content,'project.run.json'),'utf8'));
+    declaration.input.preparedPath=true;
+    writeFileSync(join(f.content,'project.run.json'),JSON.stringify(declaration));
+    const runPath=join(f.content,'runs','2026-11-07-prepared');
+    mkdirSync(join(runPath,'evidence'),{recursive:true});
+    writeFileSync(join(runPath,'campaign.json'),'{}');
+    writeFileSync(join(runPath,'evidence','original-source.json'),'{}');
+    const info=JSON.parse(await run(['--project=content-distribution','--path',runPath],f,relay));
+    assert.equal(info.runPath,realpathSync(runPath));
+    assert.equal(info.jobId,'job-1');
+    const input=JSON.parse(readFileSync(join(runPath,'source-reference.json'),'utf8'));
+    assert.equal(input.kind,'canonical-run');
+    assert.equal(input.sourceUrl,undefined);
+    assert.equal(relay.calls.filter(x=>x[0]==='job'&&x[1]==='create').length,1);
+  } finally { rmSync(f.base,{recursive:true,force:true}); }
+});
+
 test('path input creates one run binding and a repeated invocation verifies instead of duplicating', async () => {
   const f = fixture(), relay = relayStub();
   try {

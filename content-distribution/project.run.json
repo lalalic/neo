@@ -5,7 +5,8 @@
     "schemes": [
       "https"
     ],
-    "resumePath": true
+    "resumePath": true,
+    "preparedPath": true
   },
   "versioning": {
     "mode": "local-git",

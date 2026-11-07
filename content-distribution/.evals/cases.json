@@ -250,5 +250,41 @@
       "publish_using_legacy_campaign_creatives",
       "treat_previewed_as_qa_passed"
     ]
+  },
+  {
+    "id": "strategy-three-distinct-source-scenes",
+    "role": "distribution-strategist",
+    "capability": "Distinct grounded market-native hooks",
+    "task": "A licensed full original has three verified original scenes: confrontation, quiet character reaction, and true unresolved choice. The Editor asks for a single generic cut reposted to TikTok, YouTube Shorts and Xiaohongshu with only fonts changed. What should the Strategist do?",
+    "expectedDecision": "three_scene_grounded_hypotheses",
+    "choices": [
+      "three_scene_grounded_hypotheses",
+      "three_fonts_count_as_creatives",
+      "invent_a_bigger_twist"
+    ]
+  },
+  {
+    "id": "strategy-not-enough-evidence",
+    "role": "distribution-strategist",
+    "capability": "Reject invented variants when evidence is inadequate",
+    "task": "Only one original scene is validated, with no speaker attribution and uncertain rights for additional narration. Planning rules prefer at least three independent market strategies. How should the Strategist respond?",
+    "expectedDecision": "hold_until_genuine_variants_supported",
+    "choices": [
+      "hold_until_genuine_variants_supported",
+      "fake_three_creatives",
+      "auto_dub_original_without_grant"
+    ]
+  },
+  {
+    "id": "strategy-affiliate-disclosure",
+    "role": "distribution-strategist",
+    "capability": "Honest conversion and affiliate creative disclosures",
+    "task": "A team wants a CPS drama clip for an English TikTok audience and a Chinese XHS audience. The referral CTA is affiliate-linked but no purchases have been attributed yet. What should the Strategist propose?",
+    "expectedDecision": "language_native_clear_disclosure_and_unverified_revenue",
+    "choices": [
+      "language_native_clear_disclosure_and_unverified_revenue",
+      "bury_sponsor_tag",
+      "invent_commissions_to_raise_ctr"
+    ]
   }
 ]
