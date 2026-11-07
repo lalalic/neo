@@ -35,7 +35,8 @@ export function parseCinematicTemplate(template = readFileSync(DEFAULT_TEMPLATE,
     throw Error('Markcut template must define one continuous root BGM');
   if(!config.song?.title || !config.song?.artist || !config.song?.provider)
     throw Error('Markcut template BGM song metadata is required');
-  if(!config.format || !config.pacing || !config.transitions || !config.motions?.slowPush || !Number.isFinite(config.audio?.source_video_volume))
+  if(!config.format || !config.pacing || !config.transitions || !config.motions?.slowPush ||
+     ![config.audio?.source_video_volume,config.audio?.bgm_plain_volume,config.audio?.bgm_preducked_volume].every(v=>Number.isFinite(v)&&v>=0&&v<=1))
     throw Error('Markcut template format and pacing are required');
   if(!config.variants?.includes(config.id))throw Error('Markcut template variant mismatch');
   return {config,blocks,body:body.trim()};
@@ -148,6 +149,9 @@ export function compileCinematicVlog({
     subtitle,
     metadata:q(metadata),
     'music.path':local(music.path),
+    // Pre-ducked mixes already lower music underneath narration. Applying the
+    // plain-track 0.18 root gain again made the soundtrack nearly inaudible.
+    'music.volume':music.preMixedDucking===true?config.audio.bgm_preducked_volume:config.audio.bgm_plain_volume,
     scenes:renderedScenes.join('\n\n'),
   }).trim()+'\n';
   if(/<!-- VLOG:|\{\{/.test(output))throw Error('Unrendered Markcut template directives');

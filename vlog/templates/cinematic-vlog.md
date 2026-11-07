@@ -24,7 +24,9 @@
     "fps": 30
   },
   "audio": {
-    "source_video_volume": 0.72
+    "source_video_volume": 0.72,
+    "bgm_plain_volume": 0.18,
+    "bgm_preducked_volume": 0.9
   },
   "pacing": {
     "hook_seconds": [
@@ -60,7 +62,7 @@ VLOG:END_CONFIG -->
 title:{{variant}}
 width:{{width}} height:{{height}} fps:{{fps}} layout:series{{transition}}{{subtitle}} stt:"" metadata:{{metadata}}
 
-- audio src:{{music.path}} isBackground:true volume:0.18
+- audio src:{{music.path}} isBackground:true volume:{{music.volume}}
 
 {{scenes}}
 
