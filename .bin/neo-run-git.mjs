@@ -1,5 +1,5 @@
 import { execFileSync, spawnSync } from 'node:child_process';
-import { chmodSync, existsSync, lstatSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, lstatSync, readdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { isAbsolute, join, relative, sep } from 'node:path';
 
 const fail = message => { throw new Error(`Run Git: ${message}`); };
@@ -31,8 +31,16 @@ export function loadRunGitConfig(project, declaration) {
     fail('project run-template/.gitignore is missing or unsafe');
   const rules = readFileSync(template, 'utf8');
   if (!rules.trim()) fail('empty run-template/.gitignore');
-  const paths = new Set();
+  const paths = new Set(), creativePatterns = new Set();
   for (const path of spec.trackedArtifacts) {
+    // Deliberately narrow, nonrecursive project allowlist pattern: one safe
+    // creative ID folder and one approved text/QA file, never arbitrary globs.
+    const creative = typeof path==='string' ? /^creatives\/\*\/(video\.md|qa\.json)$/.exec(path) : null;
+    if (creative) {
+      if (creativePatterns.has(creative[1])) fail(`invalid/duplicate tracked artifact: ${path}`);
+      creativePatterns.add(creative[1]);
+      continue;
+    }
     if (typeof path !== 'string' || !/^[A-Za-z0-9_][A-Za-z0-9_.\/-]*$/.test(path) ||
         path.split('/').some(part => !part || part === '.' || part === '..') ||
         path.startsWith('.git') || path === '.gitignore' || paths.has(path) ||
@@ -40,7 +48,7 @@ export function loadRunGitConfig(project, declaration) {
       fail(`invalid/duplicate tracked artifact: ${path}`);
     paths.add(path);
   }
-  return { rules, paths };
+  return { rules, paths, creativePatterns };
 }
 
 export function ensureRunGit(run, config) {
@@ -80,20 +88,50 @@ export function ensureRunGit(run, config) {
 }
 
 function approvedFiles(run, config) {
-  const chosen = [];
+  const chosen = new Set();
   for (const file of config.paths) {
     const full = join(run, file);
     if (!inside(run, full)) fail(`artifact path escape: ${file}`);
     const entry = lstatSync(full, {throwIfNoEntry:false});
     if (!entry) {
-      if (git(run, 'ls-files', '--', file)) chosen.push(file);
+      if (git(run, 'ls-files', '--', file)) chosen.add(file);
       continue;
     }
     if (entry.isSymbolicLink() || !entry.isFile() || !inside(realpathSync(run), realpathSync(full)))
       fail(`artifact is not a regular file inside the Run: ${file}`);
-    chosen.push(file);
+    chosen.add(file);
   }
-  return chosen;
+  if(config.creativePatterns?.size) {
+    const base=join(run,'creatives');
+    const candidateIds=new Set();
+    if(existsSync(base)) {
+      if(lstatSync(base).isSymbolicLink() || !lstatSync(base).isDirectory() ||
+          !inside(realpathSync(run),realpathSync(base)))
+        fail('creative artifacts directory must be a private regular directory');
+      for(const entry of readdirSync(base,{withFileTypes:true})) {
+        if(!/^[a-z0-9][a-z0-9-]*$/.test(entry.name)) continue;
+        if(entry.isSymbolicLink()) fail('symlinked creative directory is not permitted');
+        if(entry.isDirectory()) candidateIds.add(entry.name);
+      }
+    }
+    // Track deleted and renamed allowlisted files too, rather than silently
+    // keeping old creative revisions in the next checkpoint.
+    for(const path of git(run,'ls-files','--','creatives').split('\n').filter(Boolean)) {
+      const parts=path.split('/');
+      if(parts.length===3 && /^[a-z0-9][a-z0-9-]*$/.test(parts[1]) &&
+          config.creativePatterns.has(parts[2])) candidateIds.add(parts[1]);
+    }
+    for(const id of candidateIds) for(const filename of config.creativePatterns) {
+      const rel=`creatives/${id}/${filename}`, full=join(run,rel);
+      if(!inside(run,full))fail('creative artifact path escaped run');
+      const entry=lstatSync(full,{throwIfNoEntry:false});
+      if(entry && (entry.isSymbolicLink() || !entry.isFile() ||
+          !inside(realpathSync(run),realpathSync(full))))
+        fail(`creative artifact not a regular file within Run: ${rel}`);
+      if(entry || git(run,'ls-files','--',rel))chosen.add(rel);
+    }
+  }
+  return [...chosen];
 }
 
 export function commitRunStage(run, config, nodeId, executionId = null) {
@@ -114,7 +152,8 @@ export function commitRunStage(run, config, nodeId, executionId = null) {
     git(run, 'add', '-A', '--', path);
   }
   const staged = git(run, 'diff', '--cached', '--name-only').split('\n').filter(Boolean);
-  if (staged.some(file => !config.paths.has(file)))
+  const accepted=new Set(selected);
+  if (staged.some(file => !accepted.has(file)))
     fail('staged path escaped project allowlist');
   // The same Relay node event may be replayed after an interruption. Its
   // execution ID is the durable idempotency fence, not the current HEAD.

@@ -50,3 +50,15 @@ On optional Interactive Preview, the Producer first invokes `neo project review 
 - **Vlog** accepts an existing canonical run path only. Input media must be owner-approved for the intended private production. By default skip interactive Preview and independent Final QA/Final Review: Editor verifies complete video.md without a player; Producer verifies and renders MP4, with Preview only on demand; Publisher is a conditional final Agent (WeChat Channels/XHS) with no review and acts only on explicitly authorized per-video/per-platform/account request. For an explicit `--no-review` run (Vlog path input only), require `source-manifest.json` owner approval and a private scope; create an immutable run-local `review-mode.json` with `private-render-test` / `UNREVIEWED` / `publicationAllowed:false`. Producer renders and verifies a real MP4 without interactive review; the separate Final QA Agent no longer runs. Publisher must skip the private-test Run even if a publication request exists. No publication is authorized, and retries cannot alter this policy. This explicit CLI path does not migrate the iCloud watcher or its Planner-backed Jobs.
 
 Legacy watchers and project-local Planner Jobs continue to follow their existing project instructions. `neo project run` is a separate explicit user action and does not silently replace those workflows.
+
+### Creative variant artifact allowlist
+
+`versioning.trackedArtifacts` may list exactly `creatives/*/video.md` and
+`creatives/*/qa.json` to include safe per-variant Markdown and QA under one
+single `[a-z0-9-]+` subfolder. This is a narrow scoped pattern, **not** an
+arbitrary recursive glob. The Runner rejects symlinked directories and files,
+checks canonical Run containment, stages only these allowlisted paths and
+records one Git SHA at each completed node. The project `.gitignore` must
+continue ignoring private media, evidence, transcripts and arbitrary exports.
+Old Runs keep their immutable `.gitignore`/Git history; they are never silently
+migrated by a new template.

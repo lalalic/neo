@@ -71,6 +71,55 @@ test('Run repo preserves paths, ignores media/private inputs, commits only allow
   } finally {rmSync(f.base,{recursive:true,force:true});}
 });
 
+test('creative-scoped Run Git tracks only versioned Markcut and QA, never media or secrets',()=>{
+  const f=fixture();
+  try {
+    const rules=readFileSync(join(sourceRoot,'content-distribution','run-template','.gitignore'),'utf8');
+    writeFileSync(join(f.project,'run-template','.gitignore'),rules);
+    const declaration={...f.declaration,versioning:{...f.declaration.versioning,
+      trackedArtifacts:['story.md','creatives/*/video.md','creatives/*/qa.json']}};
+    const config=loadRunGitConfig(f.project,declaration);
+    const creative=join(f.run,'creatives','open-first');
+    mkdirSync(join(creative,'media'),{recursive:true});
+    mkdirSync(join(f.run,'analysis'),{recursive:true});
+    mkdirSync(join(f.run,'evidence'),{recursive:true});
+    writeFileSync(join(creative,'video.md'),'source-safe shot list v1');
+    writeFileSync(join(creative,'qa.json'),'\"verified\":true');
+    writeFileSync(join(creative,'media','episode.mp4'),'private full original');
+    writeFileSync(join(creative,'preview.mp4'),'private rendered video');
+    writeFileSync(join(f.run,'analysis','speech.json'),'private dialogue');
+    writeFileSync(join(f.run,'evidence','rights.md'),'private account rights');
+    writeFileSync(join(f.run,'fixture-policy.json'),'private test policy');
+    ensureRunGit(f.run,config);
+    const commit=commitRunStage(f.run,config,'edit','unique-exec');
+    assert.equal(commit.changed,true);
+    assert.deepEqual(commit.files,['creatives/open-first/qa.json','creatives/open-first/video.md']);
+    const tracked=git(f.run,'ls-files');
+    assert.match(tracked,/creatives\/open-first\/video\.md/);
+    assert.match(tracked,/creatives\/open-first\/qa\.json/);
+    assert.doesNotMatch(tracked,/preview\.mp4|episode\.mp4|analysis|evidence|fixture-policy/);
+    assert.equal(git(f.run,'status','--porcelain','--untracked-files=all'),'');
+    writeFileSync(join(creative,'video.md'),'source-safe shot list v2');
+    const next=commitRunStage(f.run,config,'edit','second-exec');
+    assert.notEqual(next.commitSha,commit.commitSha);
+    assert.equal(git(f.run,'show',`${commit.commitSha}:creatives/open-first/video.md`),'source-safe shot list v1');
+    // Reject creative path symlinks, even if the attacker hides the target in ignored media.
+    rmSync(join(creative,'video.md'));
+    symlinkSync(join(f.run,'evidence','rights.md'),join(creative,'video.md'));
+    assert.throws(()=>commitRunStage(f.run,config,'edit','third-exec'),/creative artifact not a regular file/);
+  } finally {rmSync(f.base,{recursive:true,force:true});}
+});
+
+test('creative allowlist permits only exact one-level Markcut text and QA patterns',()=>{
+  const f=fixture();
+  try {
+    for(const pattern of ['creatives/**/video.md','creatives/*/episode.mp4','creatives/*/media/episode.mp4','creatives/*/.env']) {
+      assert.throws(()=>loadRunGitConfig(f.project,{...f.declaration,versioning:{...f.declaration.versioning,
+        trackedArtifacts:['story.md',pattern]}}),/invalid.*tracked artifact/);
+    }
+  }finally{rmSync(f.base,{recursive:true,force:true});}
+});
+
 test('Run Git rejects remote, unexpected staged files and symlinked artifact data', () => {
   const f=fixture();
   try {

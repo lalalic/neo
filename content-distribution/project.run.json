@@ -15,6 +15,8 @@
       "campaign.json",
       "market-strategy.json",
       "creative-plan.json",
+      "creatives/*/video.md",
+      "creatives/*/qa.json",
       "campaign.md",
       "story.md",
       "edit-plan.json",
