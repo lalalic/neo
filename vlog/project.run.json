@@ -22,5 +22,24 @@
       "market": "market"
     }
   },
-  "publicationReview": "publisher-explicit-authorization"
+  "publicationReview": "publisher-explicit-authorization",
+  "versioning": {
+    "mode": "local-git",
+    "template": "run-template",
+    "trackedArtifacts": [
+      "story.md",
+      "visual-brief.md",
+      "edit-decision-list.json",
+      "music-plan.json",
+      "shot-selection.json",
+      "route.md",
+      "video.md",
+      "post.md",
+      "production-receipt.json",
+      "vision-segment-index.json",
+      "vision-normalized-manifest.json",
+      "vision-evidence.json",
+      "route-intent.json"
+    ]
+  }
 }

@@ -26,6 +26,8 @@ This repository is the public Neo monorepo: root orchestration rules, reusable a
 - `package.json` — legacy workspace metadata retained during repository-history consolidation.
 
 Nested repositories such as `markcut/`, `neox/`, `wechat-bro/`, and `mac-developer-bridge/` are managed independently and are not committed through this repository.
+For Projects enabled for `neo project run`, each project owns a `run-template/.gitignore` and explicit text-artifact allowlist. Run Git is local, nested inside ignored `runs/`, and never pushed. Git safety hooks are checked into `.githooks/`; enable them in the canonical Neo checkout with `git config core.hooksPath .githooks` (or use `npm run push`, which independently checks outgoing Run paths). See [Run Contract](docs/neo-project-run-contract.md#local-run-git-versioning).
+
 ## Repository model
 
 Neo is a public **monorepo**. Each Neo-owned top-level project has its own `README.md` and `AGENTS.md`; shared reusable capabilities live under `skills/`. Project executions are private/local by default and use either `<project>/runs/<YYYY-MM-DD[-slug]>/` for standalone work or `<project>/runs/<series-name>/<YYYY-MM-DD[-slug]>/` for series work. `runs/` is ignored globally. See root `AGENTS.md` for the canonical project contract.

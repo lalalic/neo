@@ -23,7 +23,7 @@ Create thin Neo projects. The project owns domain intent, Graph, Agent and Artif
 └── runs/                    # ignored, private durable execution artifacts
 ```
 
-Do not create empty directories. Shared Agents, contracts and skills must be referenced, not copied. All actual execution inputs, intermediate files, versions, generated media, reviews, receipts and private state go under `runs/<YYYY-MM-DD[-slug]>/`, or `runs/<series-name>/<YYYY-MM-DD[-slug]>/` for series. Keep secrets and user content out of tracked files. Run-producing work uses the canonical project directory, never a temporary Git worktree. No project may depend on another project's `runs/`.
+Do not create empty directories. Shared Agents, contracts and skills must be referenced, not copied. All actual execution inputs, intermediate files, versions, generated media, reviews, receipts and private state go under `runs/<YYYY-MM-DD[-slug]>/`, or `runs/<series-name>/<YYYY-MM-DD[-slug]>/` for series. Keep secrets and user content out of tracked files. Run-producing work uses the canonical project directory, never a temporary Git worktree. No project may depend on another project's `runs/`. When a project opts into `neo project run` versioning, provide `run-template/.gitignore` and an exact tracked-artifact allowlist in `project.run.json`; the Runner maintains a private nested Run Git repository. See [Neo Project Run Contract](../../docs/neo-project-run-contract.md#local-run-git-versioning) for commit, review tag, and ignored-media boundaries.
 
 ## 2. Canonical Graph
 

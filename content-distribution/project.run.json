@@ -2,7 +2,24 @@
   "schemaVersion": 1,
   "input": {
     "type": "url",
-    "schemes": ["https"],
+    "schemes": [
+      "https"
+    ],
     "resumePath": true
+  },
+  "versioning": {
+    "mode": "local-git",
+    "template": "run-template",
+    "trackedArtifacts": [
+      "campaign.json",
+      "campaign.md",
+      "story.md",
+      "edit-plan.json",
+      "edit-plan.md",
+      "video.md",
+      "production-receipt.json",
+      "release-plan.json",
+      "analysis.json"
+    ]
   }
 }

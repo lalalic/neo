@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { chmodSync, closeSync, existsSync, linkSync, lstatSync, mkdirSync, openSync, readFileSync, realpathSync, statSync, unlinkSync, writeFileSync, writeSync } from 'node:fs';
 import { basename, dirname, isAbsolute, join, relative, sep } from 'node:path';
 import { loadWorkspaceConfig } from './workspace-config.mjs';
+import { loadRunGitConfig, ensureRunGit, commitRunStage, tagRunReview } from './neo-run-git.mjs';
 
 const TASK_ID = 'content-run';
 const bindingName = '.neo-project-run.json';
@@ -170,7 +171,7 @@ function relayCommand(options) {
  * private per-Run transcript so another observer can tail the same execution. */
 export async function executeBoundRun(options, files, args) {
   if (options.runRelayJob) {
-    const result = await options.runRelayJob(args);
+    const result = await options.runRelayJob(args, options.onNodeEvent);
     if (!Number.isInteger(result) || result < 0 || result > 255) fail('Relay run returned invalid exit status');
     return result;
   }
@@ -184,29 +185,50 @@ export async function executeBoundRun(options, files, args) {
   chmodSync(path, 0o600);
   const output = options.emit ?? (value => process.stdout.write(value));
   const errors = options.error ?? (value => process.stderr.write(value));
+  let nodeBuffer = '', checkpointError = null;
+  const scanNodeEvents = data => {
+    nodeBuffer += data;
+    if (nodeBuffer.length > 1024 * 1024) throw new Error('Relay node event line exceeds safety limit');
+    while (nodeBuffer.includes('\n')) {
+      const boundary = nodeBuffer.indexOf('\n');
+      const line = nodeBuffer.slice(0, boundary);
+      nodeBuffer = nodeBuffer.slice(boundary + 1);
+      if (!line.startsWith('shortcut.node ')) continue;
+      const event = JSON.parse(line.slice('shortcut.node '.length));
+      if (event?.type === 'completed') options.onNodeEvent?.(event);
+    }
+  };
   let child;
   try {
     child = (options.spawnImpl ?? spawn)(executable, [...prefix, ...args], {
       cwd: dirname(files.binding), stdio: ['inherit', 'pipe', 'pipe'], env: process.env,
     });
   } catch (error) { closeSync(fd); throw error; }
-  const forward = (data, sink) => {
+  const forward = (data, sink, isStderr = false) => {
     const bytes = Buffer.isBuffer(data) ? data : Buffer.from(data);
     writeSync(fd, bytes);
     sink(bytes.toString('utf8'));
+    if (isStderr && options.onNodeEvent && !checkpointError) {
+      try { scanNodeEvents(bytes.toString('utf8')); } catch (error) {
+        checkpointError = error;
+        if (child?.pid && child.exitCode === null) child.kill('SIGTERM');
+      }
+    }
   };
   child.stdout?.on('data', chunk => forward(chunk, output));
-  child.stderr?.on('data', chunk => forward(chunk, errors));
+  child.stderr?.on('data', chunk => forward(chunk, errors, true));
   const onSignal = signal => { if (child.pid && child.exitCode === null && !child.killed) child.kill(signal); };
   const interrupt = () => onSignal('SIGINT');
   const terminate = () => onSignal('SIGTERM');
   process.on('SIGINT', interrupt);
   process.on('SIGTERM', terminate);
   try {
-    return await new Promise((resolve, reject) => {
+    const result = await new Promise((resolve, reject) => {
       child.once('error', reject);
       child.once('close', (code, signal) => resolve(signal ? 5 : code ?? 1));
     });
+    if (checkpointError) throw checkpointError;
+    return result;
   } finally {
     process.off('SIGINT', interrupt);
     process.off('SIGTERM', terminate);
@@ -242,6 +264,7 @@ export function runProject(args, options = {}) {
   if (parsed.help) { (options.emit ?? (text => process.stdout.write(text)))(projectRunHelp); return 0; }
   const workspace = options.workspace ?? loadWorkspaceConfig();
   const selected = safeProject(workspace.neoRoot, parsed.project);
+  const runGit = loadRunGitConfig(selected.project, selected.declaration);
   const isUrl = parsed.url !== undefined;
   let url, runDir;
   if (isUrl) url = validateUrl(parsed.url, selected.declaration);
@@ -278,15 +301,26 @@ export function runProject(args, options = {}) {
     runDir = realpathSync(runDir);
   }
   const files = initializeRun(runDir, parsed.project, isUrl ? undefined : runDir, isUrl ? parsed.url : undefined, selected.declaration.publicationReview, parsed.noReview === true);
+  ensureRunGit(runDir, runGit);
   const repo = options.repository ?? process.env.NEO_RELAY_REPOSITORY ?? 'lalalic/neo';
   const projectPath = relative(selected.root, selected.project).split(sep).join('/');
   const invoke = args => relayInvocation(options, (options.localShortcut ?? Boolean(options.relayCli ?? process.env.NEO_RELAY_CLI)) ? [...args, '--shortcut-local'] : args);
+  let stageCheckpoints = 0;
+  const onNodeEvent = event => {
+    if (!runGit || event?.type !== 'completed') return;
+    const checkpoint = commitRunStage(runDir, runGit, event.nodeId, event.data?.executionId);
+    const review = tagRunReview(runDir, runGit, event.data?.output?.preview, checkpoint.commitSha);
+    stageCheckpoints += 1;
+    (options.emit ?? (text => process.stdout.write(text)))(JSON.stringify({
+      type: 'run.git.checkpoint', nodeId: event.nodeId, ...checkpoint, ...(review ? { review } : {})
+    }) + '\n');
+  };
   const runBound = async (jobId, previouslyCompleted = false) => {
     if (previouslyCompleted) {
       (options.emit ?? (value => process.stdout.write(value)))(`${JSON.stringify({ project: parsed.project, runPath: runDir, jobId, taskId: TASK_ID, status: 'COMPLETED', reused: true })}\n`);
       return 0;
     }
-    const exitCode = await executeBoundRun(options, files, [
+    const exitCode = await executeBoundRun({ ...options, onNodeEvent }, files, [
       'job', 'run', '--mode', 'shortcut', '--repo', repo,
       '--id', jobId, '--task-id', TASK_ID,
       '--project-path', selected.root, '--neo-root', selected.root,
@@ -302,6 +336,7 @@ export function runProject(args, options = {}) {
       (options.error ?? (value => process.stderr.write(value)))('Relay exited zero without proven durable Job/Task completion\n');
       return 2;
     }
+    if (runGit && stageCheckpoints === 0) commitRunStage(runDir, runGit, 'recovery');
     return 0;
   };
   let jobId;

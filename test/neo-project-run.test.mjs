@@ -242,6 +242,7 @@ test('package staging includes the project run entrypoint', async () => {
     const destination = join(base, 'dist');
     execFileSync(process.execPath, [join(root, 'scripts/stage-neo-cli.mjs'), destination], { encoding: 'utf8' });
     assert.equal(readFileSync(join(destination, '.bin/neo-project-run.mjs'), 'utf8').includes('runProject'), true);
+    assert.equal(readFileSync(join(destination, '.bin/neo-run-git.mjs'), 'utf8').includes('commitRunStage'), true);
   } finally { rmSync(base, { recursive: true, force: true }); }
 });
 
