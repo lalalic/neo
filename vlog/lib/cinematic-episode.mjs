@@ -1,5 +1,5 @@
 /** Assemble a source-bound Cinematic Natural episode and a required Route subvideo. */
-import {readFile,writeFile,mkdir,copyFile,stat} from 'node:fs/promises';
+import {readFile,writeFile,mkdir,copyFile,stat,realpath} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
@@ -44,6 +44,73 @@ export function insertGeoRoute(input,route){
  boundaries.splice(at,1,bridge,{...original,rationale:`Continue the story from the map to ${scenes[at+2].id}. ${original.rationale}`});
  return {...input,scenes,boundaries};
 }
+/** An offline position schematic is not navigation: verify the Director's
+ * selected media samples against the original private manifest instead of
+ * requiring a continuous GPS track or any Maps/Routes API. */
+export async function verifiedOfflineGeoStory(root,geo){
+ if(!Array.isArray(geo?.points)||geo.points.length<2||geo.points.length>24)
+  throw Error('OFFLINE_GPS_POINTS: Director-approved original locations required');
+ const manifest=JSON.parse(await readFile(resolve(root,'source-manifest.json'),'utf8'));
+ const intent=JSON.parse(await readFile(resolve(root,'route-intent.json'),'utf8'));
+ if(manifest?.source_use?.approved!==true||
+   !/private/i.test(String(manifest?.source_use?.scope??''))||intent?.decision!=='include')
+  throw Error('OFFLINE_GPS_RIGHTS: missing private authorization or Director intent');
+ const selected=intent.observedStops;
+ if(!Array.isArray(selected)||selected.length!==geo.points.length)
+  throw Error('OFFLINE_GPS_SELECTED: GPS stops differ from Director selection');
+ const byId=new Map((manifest.media??[]).map(x=>[x.id,x]));
+ const used=new Set();
+ const points=geo.points.map((point,i)=>{
+  const id=point.sourceId,source=byId.get(id);
+  if(typeof id!=='string'||id!==selected[i]?.sourceId||used.has(id)||!selected[i]?.evidenceRef||
+    !source?.use_approved||source.identity_verified!=='sha256_exact'||
+    !/^[a-f0-9]{64}$/.test(source.sha256??''))
+   throw Error('OFFLINE_GPS_SOURCE: unapproved, repeated or out-of-order source ID');
+  used.add(id);
+  const lat=Number(source.original_location?.latitude),lng=Number(source.original_location?.longitude);
+  if(!Number.isFinite(lat)||!Number.isFinite(lng)||Math.abs(lat)>90||Math.abs(lng)>180||
+    Math.abs(lat-Number(point.lat))>0.0000005||Math.abs(lng-Number(point.lng))>0.0000005)
+   throw Error('OFFLINE_GPS_COORDINATES: source coordinate mismatch');
+  return {sourceId:id,source:'input/media/'+source.path,lat,lng};
+ });
+ return {required:true,reason:'director-selected-original-gps-positions',kind:'offline-source-gps-schematic',
+    points,scenes:[],trackedMovement:false,travelMode:null};
+}
+
+/** Bind an offline GPS schematic only when its bytes, duration and selected
+ * source positions match the verified route evidence, with no network access. */
+export async function verifiedOfflineGeoRoute(root,geo,story){
+  const mediaRel=geo.offlineRoutePath;
+  const evidenceRel=geo.offlineEvidencePath;
+  if(mediaRel!=='assets/route.mp4'||evidenceRel!=='assets/geo-story/evidence.json')
+   throw Error('OFFLINE_ROUTE_PATH: canonical local route and evidence paths required');
+  const media=await realpath(resolve(root,mediaRel)),proof=await realpath(resolve(root,evidenceRel));
+  if(!media.startsWith(root+'/assets/')||!proof.startsWith(root+'/assets/geo-story/'))
+   throw Error('OFFLINE_ROUTE_ESCAPE: route references must remain inside the Run');
+  const evidence=JSON.parse(await readFile(proof,'utf8'));
+  // Two explicit offline evidence schemes exist: canonical helper and
+  // Editor-authored per-source verification. Both must match the actual
+  // media SHA-256, duration and the precise selected GPS positions.
+  const automatic=evidence.kind==='offline-gps-position-schematic'&&evidence.status==='VERIFIED'&&
+     evidence.declaredNoTravelTrack===true;
+  const authored=evidence.method==='coordinate-proportional schematic rendered from original GPS coordinates'&&
+     typeof evidence.lineSemantics==='string'&&/no road geometry.*travel claim/.test(evidence.lineSemantics);
+  if(!automatic&&!authored)throw Error('OFFLINE_ROUTE_EVIDENCE: unrecognized route provenance');
+  const observed=automatic?evidence.observedPoints:evidence.sourcePositions;
+  const positions=Array.isArray(observed)?observed:[];
+  const pointKey=p=>`${Number(p.lat).toFixed(6)},${Number(p.lng).toFixed(6)}`;
+  const intended=story.points.map(pointKey).sort(),recorded=positions.map(pointKey).sort();
+  const videoHash=automatic?evidence.videoSha256:evidence.routeVideoSha256;
+  const recordedDuration=automatic?evidence.durationSeconds:evidence.routeVideoDurationSeconds;
+  if(positions.length!==story.points.length||recorded.some((k,i)=>k!==intended[i])||
+     !/^[a-f0-9]{64}$/.test(videoHash??'')||videoHash!==sha(await readFile(media)))
+   throw Error('OFFLINE_ROUTE_EVIDENCE: visual media or source GPS positions differ');
+  await audioCodec(media);
+  const duration=await ffprobe(media);
+  if(Math.abs(duration-recordedDuration)>0.2)throw Error('OFFLINE_ROUTE_DURATION: evidence does not match rendered bytes');
+  return {required:true,path:mediaRel,duration:Number(duration.toFixed(3)),sha256:videoHash,
+   evidenceRef:evidenceRel,previewHash:null,output:media,kind:'offline-source-gps-schematic'};
+}
 export async function buildCinematicEpisode(input,{runDir=process.cwd(),markcutRoot,renderRoute=true}={}){
  const storyPlan=assertAudiovisualStory(input);
  const root=resolve(runDir);
@@ -55,11 +122,19 @@ export async function buildCinematicEpisode(input,{runDir=process.cwd(),markcutR
  const metadata=await readGpsMetadata(sourceFiles.map(p=>resolve(root,p)));
  const evidence={...(input.geo||{}),mediaEvidence:(input.geo?.mediaEvidence||[]).map(m=>({...m,source:resolve(root,m.source)})),
   locationEvidence:(input.geo?.locationEvidence||[]).map(m=>({...m,source:resolve(root,m.source)}))};
+ const offlineSelected=input.geo?.offlineRoutePath||input.geo?.visualMethod==='offline-coordinate-schematic';
  const story=input.geo?.required===false
   ? {required:false,kind:'not-applicable',reason:input.geo.reason||'Director selected a mapless story'}
+  : offlineSelected ? await verifiedOfflineGeoStory(root,input.geo)
   : planGeoStory(metadata,evidence);
  let route=null;
- if(story.required){
+ if(story.required && (input.geo?.offlineRoutePath||input.geo?.visualMethod==='offline-coordinate-schematic')) {
+  const offline=input.geo?.offlineRoutePath ? input.geo : {
+   offlineRoutePath:input.geo.visualAsset,offlineEvidencePath:input.geo.visualEvidenceRef
+  };
+  route=await verifiedOfflineGeoRoute(root,offline,story);
+ }
+ if(story.required && !route){
   if(!renderRoute)throw Error('GPS_ROUTE_REQUIRED: cannot omit subvideo without performing verified rendering');
   if(!markcutRoot)throw Error('MARKCUT_ROOT_REQUIRED: route rendering requires Markcut');
   const assetsDir=join(root,'assets','geo-story');await mkdir(assetsDir,{recursive:true});
