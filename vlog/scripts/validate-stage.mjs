@@ -154,6 +154,42 @@ if(stage==='visioner'){
  }
  if(input?.music?.path)check(confinedFile(input.music.path),'EDITOR_MUSIC_ASSET','Prepare the actual selected BGM before completing Editor');
  for(const scene of input?.scenes||[])if(scene.audioPath)check(confinedFile(scene.audioPath),'EDITOR_VOICEOVER_ASSET','Prepare real audio '+scene.audioPath);
+ // Worknode ChatTTS is compulsory for synthesized narration in new Vlogs;
+ // legacy runs remain checkable with their original voice provenance.
+ const runDate=relative(runs,run).split(sep)[0].slice(0,10);
+ if(/^\d{4}-\d{2}-\d{2}$/.test(runDate)&&runDate>='2026-11-07'){
+   const md=valid['video.md']?readFileSync(valid['video.md'],'utf8'):'';
+   check(/^- audio src:[^\n]*isBackground:true volume:0\.7\s*$/m.test(md),'EDITOR_BGM_07',
+    'Use the canonical cinematic Vlog template root BGM volume 0.7');
+   const voices=(input?.scenes||[]).filter(scene=>scene?.audioPath &&
+     !['source-speech','dialogue','meaningful-original-sound','ambience'].includes(scene.audioIntent));
+   if(voices.length){
+     const report=json('assets/narration/chattts-male/worknode-result.json');
+     check(report?.status==='COMPLETE'&&typeof report?.provider==='string'&&
+      /^Worknode ChatTTS\b/.test(report.provider)&&report.voice==='male'&&Array.isArray(report.scenes),
+      'EDITOR_WORKNODE_CHATTTS','Generate male narration with ChatTTS on Worknode via Neo cluster MCP; preserve its actual result.json, do not use Tingting');
+     for(const scene of voices){
+       const path=scene.audioPath;
+       check(typeof path==='string' && md.includes('src:'+path+' '),
+         'EDITOR_VOICE_TIMELINE','The executable video.md must actually play the matching Worknode voice asset: '+String(path));
+       check(/^assets\/narration\/chattts-male\/[a-zA-Z0-9_-]+\.m4a$/.test(path),
+         'EDITOR_VOICE_NODE','Narration must be sourced from Worknode ChatTTS male audio: '+String(path));
+       const name=typeof path==='string'?path.split('/').pop().replace(/(?:-final)?\.m4a$/,''):'';
+       const source=Array.isArray(report?.scenes)?report.scenes.find(x=>x.name===name):null;
+       const original='assets/narration/chattts-male/'+name+'.m4a';
+       check(!!source&&source.bytes>1000&&confinedFile(original)&&statSync(resolve(run,original)).size===source.bytes,
+        'EDITOR_VOICE_PROVENANCE','Worknode ChatTTS result must match original synthesized bytes for '+name);
+       if(typeof path==='string'&&confinedFile(path)){
+         const probe=spawnSync('ffprobe',['-v','error','-show_entries','format=duration:stream=codec_type','-of','json',resolve(run,path)],
+             {encoding:'utf8',timeout:30000});
+         let audio;try{audio=JSON.parse(probe.stdout)}catch{}
+         check(probe.status===0&&audio?.streams?.some(x=>x.codec_type==='audio')&&
+           Math.abs(Number(audio?.format?.duration)-Number(scene.audioDuration))<=0.15,
+           'EDITOR_VOICE_DURATION','Verify Worknode voice duration matches scene audioDuration for '+name);
+       }
+     }
+   }
+ }
  }else if(stage==='producer'){
  required('video.md');
  const receipt=json('production-receipt.json');

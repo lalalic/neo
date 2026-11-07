@@ -92,4 +92,4 @@ The result should not feel like a static slideshow. Real media stays the foundat
 
 Generated/CG material remains editorial/explanatory and must never be presented as real source footage.
 
-Chinese personal Vlog narration defaults to **Worknode ChatTTS male voice** (OpenVoice V2 normal timbre), with Markcut root BGM at **0.5**. Source media and original edit timing remain authoritative; never manufacture narration outputs.
+Chinese personal Vlog narration defaults to **Worknode ChatTTS male voice** (OpenVoice V2 normal timbre), with Markcut root BGM at **0.7**. Source media and original edit timing remain authoritative; never manufacture narration outputs.

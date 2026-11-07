@@ -57,3 +57,15 @@ An explicit private `--no-review` render test uses
 `review-mode.json` with `schemaVersion:1`, `mode:private-render-test`,
 `reviewStatus:UNREVIEWED` and `publicationAllowed:false`.
 This does not imply any external publishing authorization.
+
+## Narration source policy (new Vlog Runs)
+
+For Runs dated 2026-11-07 or later, Editor's synthesized Chinese voiceovers
+come only from **Worknode ChatTTS male voice** (normal timbre conversion by
+OpenVoice V2). Record the real Worknode `result.json` as
+`assets/narration/chattts-male/worknode-result.json` with original generated
+`.m4a` assets and duration-matched scene references. Stage validation rejects
+local Tingting or unverified fallback and enforces root BGM `volume:0.7`.
+Original recorded speech and ambience are not synthetic narration and are
+not substituted by ChatTTS. Existing earlier Runs retain historical voice provenance. Voice and soundtrack
+rights must be cleared separately before commercial/public distribution.

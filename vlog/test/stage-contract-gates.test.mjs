@@ -1,15 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtempSync,mkdirSync,writeFileSync,readFileSync,copyFileSync,rmSync} from 'node:fs';
+import {mkdtempSync,mkdirSync,writeFileSync,readFileSync,copyFileSync,rmSync,statSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join,resolve} from 'node:path';
 import {spawnSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
 const source=resolve(import.meta.dirname,'..');
-function fixture(){
+function fixture(runName='2026-11-04-contract'){
  const root=mkdtempSync(join(tmpdir(),'vlog-contract-'));
  const vlog=join(root,'vlog');mkdirSync(join(vlog,'scripts'),{recursive:true});mkdirSync(join(vlog,'templates'));mkdirSync(join(vlog,'assets/music'),{recursive:true});mkdirSync(join(vlog,'contracts'));
- const run=join(vlog,'runs','2026-11-04-contract');mkdirSync(join(run,'input/media'),{recursive:true});
+ const run=join(vlog,'runs',runName);mkdirSync(join(run,'input/media'),{recursive:true});
  for(const f of ['validate-stage.mjs','preflight-template-assets.mjs'])copyFileSync(join(source,'scripts',f),join(vlog,'scripts',f));
  for(const f of ['shot-selection.schema.json','edit-decision-list.schema.json','personal-story.schema.json','route-intent.schema.json'])copyFileSync(join(source,'contracts',f),join(vlog,'contracts',f));
  copyFileSync(join(source,'templates/cinematic-vlog.md'),join(vlog,'templates/cinematic-vlog.md'));
@@ -58,6 +58,45 @@ test('Editor validates sourceDuration versus story-paced timelineDuration instea
   result=call(tool,['editor',f.run],env);assert.equal(result.status,1);assert.match(result.stdout,/EDL_TREATMENT_FIELDS/);
   edit.sourceDuration=1.55;write(f.run,'edit-decision-list.json',edl);
   result=call(tool,['editor',f.run],env);assert.equal(result.status,0,result.stdout);
+ }finally{f.clean();}
+});
+
+test('new Vlogs enforce BGM 0.7 and verified Worknode ChatTTS male audio, no local fallback',()=>{
+ const f=fixture('2026-11-07-worknode-policy');try{
+  const tool=join(f.vlog,'scripts/validate-stage.mjs');const env={AGENTS_RELAY_CLI:f.cli,MARKCUT_CLI:f.cli};
+  write(f.run,'vision-evidence.json',{stage:'visioner',summary:[{source_id:'a'}],sources:[{source_id:'a'}]});
+  personalStoryFixture(f);editorReady(f);
+  write(f.run,'shot-selection.json',{schema_version:1,personal_story_id:'human-story-01',shots:[{id:'shotA',source_id:'a',story_beat_id:'b01'}]});
+  write(f.run,'edit-decision-list.json',{schema_version:1,personal_story_id:'human-story-01',edits:[{shot_id:'shotA',source_id:'a',story_beat_id:'b01',in_seconds:0,out_seconds:1}]});
+  const folder=join(f.run,'assets/narration/chattts-male');mkdirSync(folder,{recursive:true});
+  const audio=join(folder,'line.m4a');
+  const made=spawnSync('ffmpeg',['-hide_banner','-loglevel','error','-y','-f','lavfi','-i','sine=frequency=440:duration=1',
+    '-c:a','aac','-b:a','96k',audio],{encoding:'utf8'});
+  assert.equal(made.status,0,made.stderr);
+  write(f.run,'episode-input.json',{geo:{required:false},music:{path:'assets/music.m4a'},scenes:[{
+    id:'opening',audioIntent:'narration',audioPath:'assets/narration/chattts-male/line.m4a',audioDuration:1.0}]});
+  let md='# video\nwidth:1080 height:1920 fps:30 layout:series\n- audio src:assets/music.m4a isBackground:true volume:0.5\n## opening\nlayout:parallel\n- audio src:assets/narration/chattts-male/line.m4a duration:1 volume:1\n';
+  write(f.run,'video.md',md);
+  let result=call(tool,['editor',f.run],env);
+  assert.equal(result.status,1);
+  assert.match(result.stdout,/EDITOR_BGM_07/);
+  assert.match(result.stdout,/EDITOR_WORKNODE_CHATTTS/);
+  md=md.replace('volume:0.5','volume:0.7');write(f.run,'video.md',md);
+  const fake={status:'COMPLETE',provider:'Local Tingting',voice:'female',scenes:[{name:'line',bytes:statSync(audio).size}]};
+  write(f.run,'assets/narration/chattts-male/worknode-result.json',fake);
+  result=call(tool,['editor',f.run],env);assert.equal(result.status,1);
+  assert.match(result.stdout,/EDITOR_WORKNODE_CHATTTS/);
+  const valid={...fake,provider:'Worknode ChatTTS 0.2.5 + OpenVoice V2 normal male voice',voice:'male'};
+  write(f.run,'assets/narration/chattts-male/worknode-result.json',valid);
+  result=call(tool,['editor',f.run],env);
+  assert.equal(result.status,0,result.stdout);
+  write(f.run,'video.md',md.replace('src:assets/narration/chattts-male/line.m4a','src:assets/music.m4a'));
+  result=call(tool,['editor',f.run],env);assert.equal(result.status,1);
+  assert.match(result.stdout,/EDITOR_VOICE_TIMELINE/);
+  write(f.run,'video.md',md);
+  valid.scenes[0].bytes=1;write(f.run,'assets/narration/chattts-male/worknode-result.json',valid);
+  result=call(tool,['editor',f.run],env);assert.equal(result.status,1);
+  assert.match(result.stdout,/EDITOR_VOICE_PROVENANCE/);
  }finally{f.clean();}
 });
 

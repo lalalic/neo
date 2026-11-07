@@ -33,18 +33,29 @@ and template style; do not turn a human story into a scenic montage.
    transitions, framing, speech and audio intent. Preserve authentic speech,
    source facts, human setup/setback/actions/payoff and original provenance.
 3. Prepare all final assets: template-selected continuous BGM (root volume
-   **`0.5`**), narration, meaningful source ambience, captions and optional
+   **`0.7`**), narration, meaningful source ambience, captions and optional
    supported effects. For the owner's Chinese personal Vlogs, the narrator
    is **male ChatTTS on Worknode**: discover the connected `work` node using
-   `neo cluster`, use Worknode's installed `tts-stt-sts` skill and existing
+   the **Neo cluster MCP** (`status work`, `invoke work exec/fs`), not the
+   unavailable `neo cluster` shell CLI, use Worknode's installed `tts-stt-sts` skill and existing
    local ChatTTS model with the approved `normal` male timbre via OpenVoice V2.
    Run all TTS inference on Worknode, not Neo Master. Return verified audio
    to the Run and make every `video.md` voice path and duration match the
    output. Preserve natural speed (no pitch/tempo postprocessing); shorten
    trailing silence or revise shot pacing if audio exceeds the scene.
-   Do not silently fall back to Neo Master's macOS `Tingting` voice when
+   Do not call the local-only `neo project tts` as a substitution and do not
+   silently fall back to Neo Master's macOS `Tingting` voice when
    Worknode/ChatTTS is unavailable. ChatTTS's license is noncommercial;
-   public/commercial publishing requires separate rights review. Do not use
+   public/commercial publishing requires separate rights review. Save the
+   *actual* Worknode batch result at `assets/narration/chattts-male/worknode-result.json`
+   with `status:COMPLETE`, `provider:Worknode ChatTTS ...`, `voice:male`,
+   and `scenes[]` recording each source filename and encoded byte count.
+   Put the generated m4a files in the same folder (an optional `-final`
+   silence-trimmed version may be used in the timeline), and use their
+   measured lengths in `episode-input.json`. The Editor Stage validator
+   checks these against real files for new Vlog Runs (2026-11-07 onward);
+   no valid Worknode TTS receipt means FAIL rather than local fallback.
+   Do not use
    instruction-only placeholders or replace missing assets with substitutes.
 4. Assemble ordered `episode-input.json`, `music-plan.json`, then run
    `node <vlog-root>/scripts/compile-cinematic-vlog.mjs episode-input.json video.md`
