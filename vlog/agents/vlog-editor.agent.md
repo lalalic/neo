@@ -32,9 +32,19 @@ and template style; do not turn a human story into a scenic montage.
    stable `sceneId`, playbackSpeed, actual/timeline durations, boundary
    transitions, framing, speech and audio intent. Preserve authentic speech,
    source facts, human setup/setback/actions/payoff and original provenance.
-3. Prepare all final assets: template-selected continuous BGM, narration
-   generated with shared `neo project tts` after edit timing, meaningful
-   source ambience, captions and optional supported effects. Do not use
+3. Prepare all final assets: template-selected continuous BGM (root volume
+   **`0.5`**), narration, meaningful source ambience, captions and optional
+   supported effects. For the owner's Chinese personal Vlogs, the narrator
+   is **male ChatTTS on Worknode**: discover the connected `work` node using
+   `neo cluster`, use Worknode's installed `tts-stt-sts` skill and existing
+   local ChatTTS model with the approved `normal` male timbre via OpenVoice V2.
+   Run all TTS inference on Worknode, not Neo Master. Return verified audio
+   to the Run and make every `video.md` voice path and duration match the
+   output. Preserve natural speed (no pitch/tempo postprocessing); shorten
+   trailing silence or revise shot pacing if audio exceeds the scene.
+   Do not silently fall back to Neo Master's macOS `Tingting` voice when
+   Worknode/ChatTTS is unavailable. ChatTTS's license is noncommercial;
+   public/commercial publishing requires separate rights review. Do not use
    instruction-only placeholders or replace missing assets with substitutes.
 4. Assemble ordered `episode-input.json`, `music-plan.json`, then run
    `node <vlog-root>/scripts/compile-cinematic-vlog.mjs episode-input.json video.md`

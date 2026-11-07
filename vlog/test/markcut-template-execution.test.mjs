@@ -39,8 +39,8 @@ test('only a Markcut MD controls BGM selection, audio volume and hook/body/closi
  fixture(input=>{
    const baseline=compileCinematicVlog(input);
    assert.match(baseline,/BGM Good Times — Rynn/);
-   assert.match(baseline,/- audio src:sound.m4a isBackground:true volume:0.18/);
-   assert.equal((baseline.match(/isBackground:true volume:0.18/g)||[]).length,1);
+   assert.match(baseline,/- audio src:sound.m4a isBackground:true volume:0.5/);
+   assert.equal((baseline.match(/isBackground:true volume:0.5/g)||[]).length,1);
    assert.match(baseline,/## opening/);
    assert.match(baseline,/## journey/);
    assert.match(baseline,/## ending/);
@@ -61,13 +61,13 @@ test('only a Markcut MD controls BGM selection, audio volume and hook/body/closi
  });
 });
 
-test('pre-ducked narration soundtrack stays audible; unprocessed tracks stay at the quieter gain',()=>{
+test('Vlog soundtrack gain is 0.5 for both preducked and unprocessed music',()=>{
  fixture(input=>{
   const mixed={...input,music:{...input.music,preMixedDucking:true,duckingEvidenceRef:'synthetic sidechain mix record'}};
   mixed.scenes=mixed.scenes.map(scene=>({...scene,audioIntent:'narration'}));
   const output=compileCinematicVlog(mixed);
-  assert.match(output,/- audio src:sound.m4a isBackground:true volume:0.9/);
-  assert.doesNotMatch(output,/isBackground:true volume:0.18/);
+  assert.match(output,/- audio src:sound.m4a isBackground:true volume:0.5/);
+  assert.doesNotMatch(output,/isBackground:true volume:(?:0.18|0.9)/);
   assert.deepEqual(lintCinematicVlog(output,mixed),[]);
   assert.throws(()=>compileCinematicVlog({...mixed,music:{...mixed.music,duckingEvidenceRef:undefined}}),/pre-mixed ducked/);
  });

@@ -25,8 +25,8 @@
   },
   "audio": {
     "source_video_volume": 0.72,
-    "bgm_plain_volume": 0.18,
-    "bgm_preducked_volume": 0.9
+    "bgm_plain_volume": 0.5,
+    "bgm_preducked_volume": 0.5
   },
   "pacing": {
     "hook_seconds": [
