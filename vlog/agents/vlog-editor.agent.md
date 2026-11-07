@@ -38,8 +38,13 @@ and template style; do not turn a human story into a scenic montage.
    is **male ChatTTS on Worknode**: discover the connected `work` node using
    the **Neo cluster MCP** (`status work`, `invoke work exec/fs`), not the
    unavailable `neo cluster` shell CLI, use Worknode's installed `tts-stt-sts` skill and existing
-   local ChatTTS model with the approved `normal` male timbre via OpenVoice V2.
-   Run all TTS inference on Worknode, not Neo Master. Return verified audio
+   local ChatTTS model with the approved male timbre. Use OpenVoice V2
+   reference conversion **only** if the specific Run source-use authorization
+   explicitly permits voice cloning. If the Run forbids voice cloning, use
+   unconverted male ChatTTS output directly; do not load, sample or clone any
+   person's voice reference. This is ordinary synthesis, not a clone or
+   a substitution for Worknode ChatTTS. Record the actual synthesis method
+   in the receipt. Run all TTS inference on Worknode, not Neo Master. Return verified audio
    to the Run and make every `video.md` voice path and duration match the
    output. Preserve natural speed (no pitch/tempo postprocessing); shorten
    trailing silence or revise shot pacing if audio exceeds the scene.

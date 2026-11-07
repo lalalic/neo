@@ -61,8 +61,11 @@ This does not imply any external publishing authorization.
 ## Narration source policy (new Vlog Runs)
 
 For Runs dated 2026-11-07 or later, Editor's synthesized Chinese voiceovers
-come only from **Worknode ChatTTS male voice** (normal timbre conversion by
-OpenVoice V2). Record the real Worknode `result.json` as
+come only from **Worknode ChatTTS male voice**. OpenVoice V2 conversion
+requires an explicit Run-specific voice-cloning authorization. If the Run
+forbids voice cloning, use unconverted generic male ChatTTS audio and do not
+access a voice reference; do not weaken the Worknode provenance requirement.
+Record the real Worknode `result.json` as
 `assets/narration/chattts-male/worknode-result.json` with original generated
 `.m4a` assets and duration-matched scene references. Stage validation rejects
 local Tingting or unverified fallback and enforces root BGM `volume:0.7`.
