@@ -60,6 +60,16 @@ and template style; do not turn a human story into a scenic montage.
    measured lengths in `episode-input.json`. The Editor Stage validator
    checks these against real files for new Vlog Runs (2026-11-07 onward);
    no valid Worknode TTS receipt means FAIL rather than local fallback.
+   For the paired **Neo mini work node**, the working MCP command form is
+   `cluster.invoke` with `invoke work exec -- run -- sh -lc "<shell command>"`.
+   Do **not** pass a JSON command object or use the unsupported
+   `invoke work exec -- { ... }` form. Check `cluster.status work` first.
+   The Worknode skill `tts-stt-sts/scripts/generic_chattts.py` provides
+   verified, **unconverted** ChatTTS for no-cloning Runs; run it using the
+   installed Worknode model Python, request .mp3, then transfer and
+   transcode to canonical .m4a with ffprobe validation. This generic script
+   must never read the owner's `normal.wav` reference. Keep the per-scene
+   text, measured audio and batch receipt with real byte lengths.
    Do not use
    instruction-only placeholders or replace missing assets with substitutes.
 4. Assemble ordered `episode-input.json`, `music-plan.json`, then run
