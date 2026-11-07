@@ -138,23 +138,16 @@ if(stage==='visioner'){
  if(edit.timelineDuration!=null&&edit.target_duration_seconds!=null)
   check(Math.abs(edit.timelineDuration-edit.target_duration_seconds)<=.08,'EDL_TARGET_DURATION','Target and presentation duration must agree for '+edit.shot_id);
  }}
- // Editor owns complete Markcut video.md and actual viewer evidence.
+ // Editor owns complete executable Markcut video.md. Syntax, source timing,
+ // references, source-linked route and real assets are checked statically here.
+ // No browser/native playback, Viewer artifact, or interactive review required.
  const input=json('episode-input.json');json('music-plan.json');required('video.md');
- const viewer=json('editor-viewer.json');
- if(valid['video.md']){
-  check(viewer?.status==='PASS'&&viewer.videoSha256===fingerprint('video.md'),
-   'EDITOR_VIEWER_REVISION','Inspect current Markcut player with image/audio and record the exact video.md fingerprint');
-  const checkpoints=['opening','middle','ending','transitions','subtitles','audio'];
-  check(checkpoints.every(x=>viewer?.checks?.includes(x)),
-   'EDITOR_VIEWER_CHECKPOINTS','Actually play/seek/check opening, middle, ending, transitions, captions, audio');
-  markcutVerify('video.md');
- }
+ if(valid['video.md'])markcutVerify('video.md');
  if(existsSync(resolve(run,'route.md'))){required('route.md');markcutVerify('route.md');}
  const route=json('route-intent.json');
  if(route?.decision==='include'){
    check(input?.geo?.required!==false&&typeof input?.geo?.insertAfterSceneId==='string',
     'EDITOR_ROUTE_INTEGRATION','Merge Director route plan into episode-input.geo and Markcut timeline');
-   check(viewer?.checks?.includes('route'),'EDITOR_ROUTE_VIEWER','View route camera, sound and transitions');
  }else if(route?.decision==='omit'){
    check(!input?.geo||input.geo.required===false,
     'EDITOR_ROUTE_OMISSION','Do not create a route when Director explicitly omitted it');
@@ -162,7 +155,7 @@ if(stage==='visioner'){
  if(input?.music?.path)check(confinedFile(input.music.path),'EDITOR_MUSIC_ASSET','Prepare the actual selected BGM before completing Editor');
  for(const scene of input?.scenes||[])if(scene.audioPath)check(confinedFile(scene.audioPath),'EDITOR_VOICEOVER_ASSET','Prepare real audio '+scene.audioPath);
  }else if(stage==='producer'){
- required('video.md');required('editor-viewer.json');
+ required('video.md');
  const receipt=json('production-receipt.json');
  const mp4=required('output/video.mp4');
  if(valid['video.md'])markcutVerify('video.md');

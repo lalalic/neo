@@ -29,4 +29,4 @@ All `observed` content requires a Vision or owner source reference; unsupported 
 
 Editor pre-renders narrated Markcut geographic scenes to a verified `route.mp4` and inserts it at Director's chosen story beat, preserving Editor transitions. The final episode keeps one continuous root BGM. For unreliable or absent GPS, omit the map without inventing movement. Verified place and knowledge facts require explicit evidence references. Any failed render or missing sound halts production; final release still needs separate owner authorization.
 
-Editor must run `markcut verify` on `route.md` and `video.md` and watch actual route camera, audio and transitions in the viewer.
+Editor must run `markcut verify` on `route.md` and `video.md` and check source-linked route narration, media paths and transitions without requiring playback.

@@ -28,7 +28,6 @@ function editorReady(f){
  write(f.run,'music-plan.json',{track:'assets/music.m4a'});
  const md='# video\nwidth:1080 height:1920 fps:30 layout:series\n';
  write(f.run,'video.md',md);
- write(f.run,'editor-viewer.json',{status:'PASS',videoSha256:hash(md),checks:['opening','middle','ending','transitions','subtitles','audio']});
 }
 const personalNarrative='我今天原本想着出门多运动一会儿，别老坐在家里。走到小路附近，看到一条小溪，结果忍不住停下来拍照。刚觉得自己今天挺积极，手机却先把我带进了拍视频模式。拍完才发现视频才一秒多，真正的运动时间倒没多少。回头如果有人问我今天练得怎么样，我也只能说：给手机找素材这件事，我确实很努力。';
 function personalStoryFixture(f){

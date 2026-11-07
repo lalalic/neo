@@ -380,19 +380,18 @@
     ]
   },
   {
-    "id": "editor-verify-and-viewer",
+    "id": "editor-verify-without-playback",
     "role": "vlog-editor",
     "capability": "verified playable Markcut authoring",
     "choices": [
-      "verify_and_watch_full_video",
+      "verify_and_handoff_without_player",
       "handoff_edl_only",
       "defer_verify_to_producer"
     ],
     "task": "Director story and route intent are complete. Editor made a video.md and referenced actual audio and map subvideo. Which concrete checks must happen before Editor may hand off?",
-    "expectedDecision": "verify_and_watch_full_video",
+    "expectedDecision": "verify_and_handoff_without_player",
     "required": [
       "markcut verify",
-      "viewer",
       "route"
     ],
     "forbidden": [

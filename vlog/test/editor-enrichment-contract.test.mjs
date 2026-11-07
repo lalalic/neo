@@ -16,13 +16,13 @@ test('Director decides and describes source-linked route; Editor owns its timing
  assert.match(geo,/Editor/);
  assert.match(project,/GPS is optional/);
 });
-test('Editor views real video/audio while Producer only renders; Publisher posts conditionally',()=>{
+test('Editor verifies Markcut without real player; Producer renders; Publisher posts conditionally',()=>{
  const editor=read('../agents/vlog-editor.agent.md');
  const producer=read('../agents/vlog-producer.agent.md');
  const publisher=read('../agents/vlog-publisher.agent.md');
- assert.match(editor,/markcut preview/);
- assert.match(editor,/editor-viewer\.json/);
- assert.match(editor,/narration\/BGM\/ambience/);
+ assert.match(editor,/markcut verify/);
+ assert.match(editor,/Do not launch or require/);
+ assert.doesNotMatch(editor,/Viewer self-check:/);
  assert.match(producer,/markcut render/);
  assert.doesNotMatch(producer,/agents-relay review run/);
  assert.match(publisher,/wechat-channels/);

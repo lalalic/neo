@@ -34,11 +34,11 @@ test('Stage ownership is unambiguous: Editor authors, Producer executes, Publish
  assert.match(read('../agents/vlog-producer.agent.md'),/Shortcut-first/);
  assert.match(read('../agents/vlog-publisher.agent.md'),/WebHelm/);
 });
-test('on-demand human Preview is separate from viewer self-check and publishing',()=>{
+test('on-demand human Preview belongs to Producer, never required by Editor or Publisher',()=>{
  const stage=read('../docs/episode-stage-contract.md');
  const editor=read('../agents/vlog-editor.agent.md'),producer=read('../agents/vlog-producer.agent.md');
  assert.match(stage,/no human preview is/);
- assert.match(editor,/NOT \x60--delivery event\x60/);
+ assert.match(editor,/Do not launch or require/);
  assert.match(producer,/Only on demand/);
  assert.match(stage,/Publisher requires.*no interactive review/s);
  assert.doesNotMatch(stage,/Producer must obtain.*interactive owner approval/);

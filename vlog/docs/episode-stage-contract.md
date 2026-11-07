@@ -10,7 +10,7 @@ required for an ordinary private MP4.
 | Source | `source-manifest.json` | Owner-authorized real evidence; `INPUT_NEEDED` blocks |
 | Visioner | `vision-evidence.json`, source index | Real visuals/audio, timestamps and uncertainty; Markcut-normalized small Vision Understanding media mapped in `vision-normalized-manifest.json` |
 | Director | `personal-story.md/json`, `story.md`, `shot-selection.json`, `visual-brief.md`, `post.md`, `route-intent.json` | Complete personal goal → setback → actions → payoff, verified source-linked stops or omit |
-| Editor | `edit-decision-list.json`, assets, `episode-input.json`, `music-plan.json`, `video.md`, `editor-viewer.json` | All Markcut .md verified, real playback checked, audio/captions/transitions/route working |
+| Editor | `edit-decision-list.json`, assets, `episode-input.json`, `music-plan.json`, `video.md` | All Markcut .md verified and source-linked assets/route/audio/captions/transitions statically checked; no player required |
 | Producer | `output/video.mp4`, `production-receipt.json` | Verify again, render exact Editor revision, probe playable video **and audio**, Preview only on request |
 | Publisher | `publish/<platform>-receipt.json` or SKIPPED | Separate explicit per-MP4, per-platform/account authorization and verified platform status |
 
@@ -25,28 +25,26 @@ and source-linked `observedStops`. An omitted route is a normal success.
 Editor converts that narrative decision into `episode-input.geo`,
 choosing the exact scene placement, geo/map subvideo, timing, transitions,
 narration and BGM. If it generates a `route.md` it must verify that file.
-It must watch/seek the route in the real viewer before handing off. A map
+It verifies the route Markdown and source-linked asset references before handing off. A map
 Directions line is inferred navigation, never a claimed recorded track.
 See [geo production](geo-story-production.md).
 
-## Every Markcut author verifies and views
+## Every Markcut author verifies
 
 **Any Agent creating or modifying a Markcut .md must run `markcut
-verify <file>` on the current revision.** The Editor then uses native
-Markcut viewer/player (not human event Preview) to watch opening, middle,
-ending, shot boundaries and the optional map, and listen to audio.
-Store `editor-viewer.json` with the actual `videoSha256`,
-`status: PASS`, `checks: [opening,middle,ending,transitions,subtitles,audio]`
-and `route` when applicable. Changed Markdown invalidates the viewer
-record. Storyboard placeholders do not demonstrate sound or final frames.
-Producer verifies and probes a real MP4 but never re-authors Markcut.
+verify <file>` on the current revision.** Editor also checks the
+real source references, timings, narration/audio files, captions, transitions
+and optional GPS integration via the Stage contract. No native player,
+browser, `markcut preview`, or `editor-viewer.json` is required for Editor.
+Verification does not imply human/audio-visual review; Producer separately
+renders and probes the actual MP4's video and audio streams.
 
 ## Preview, publishing and private tests
 
 Producer interactive human `markcut preview` is optional and only sent when requested.
 Its Event request receipt is not approval. If requested, the Producer waits
 for the decision for that exact revision. Content-change feedback goes
-back to Editor, whose changed files require fresh verify/viewer evidence.
+back to Editor, whose changed files require fresh `markcut verify` and Stage checks.
 Private archive does not depend on a final-review task.
 
 Publisher requires **no interactive review**. It is conditional. Read [publication contract](vlog-publication.md).

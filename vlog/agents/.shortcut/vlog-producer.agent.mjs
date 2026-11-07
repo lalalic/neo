@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile, stat } from 'node:fs/promises';
+import { mkdir, writeFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { scope, file, digest, command } from './_vlog-contract.mjs';
 
@@ -6,10 +6,8 @@ export async function run(context) {
  const {input,project,run}=await scope(context);
  const md=await file(run,'video.md');
  const version=await digest(md);
- const viewer=JSON.parse(await readFile(await file(run,'editor-viewer.json'),'utf8'));
- if(viewer.status!=='PASS'||viewer.videoSha256!==version ||
-    !['opening','middle','ending','transitions','subtitles','audio'].every(x=>viewer.checks?.includes(x)))
-   throw Error('Editor viewer did not verify this exact video.md revision');
+ // Editor no longer requires a native player or viewer receipt; verify the
+ // exact current Markdown revision before performing any render side effects.
  await command(context,['markcut','verify',md],run);
  const output=join(run,'output','video.mp4');
  await mkdir(join(run,'output'),{recursive:true});

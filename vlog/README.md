@@ -11,7 +11,7 @@ The canonical topology is [graph.mmd](graph.mmd). See the
 ```text
 Visioner (source video/audio evidence)
   → Director (complete personal story, selected footage, route decision and description)
-  → Editor (EDL, full video.md, audio/assets, route integration, markcut verify, real Viewer)
+  → Editor (EDL, full video.md, audio/assets, route integration, markcut verify, static source/asset validation)
   → Producer Agent + Shortcut (verify, render MP4, probe, Preview on demand)
   → Publisher Agent + Shortcut (conditional authorized WeChat Channels/XHS publication)
 ```
@@ -19,12 +19,12 @@ Visioner (source video/audio evidence)
 Director writes the human goal/setback/actions/payoff before selecting shots.
 Director decides **if/why** the route serves the narrative and which filmed
 stops are verified. Editor decides **how** that route appears on the movie
-(timeline, map animation, transition, sound) and checks it in the viewer.
+(timeline, map animation, transition, sound) and verifies its source and asset references without opening a player.
 A route is optional. A navigational route is not evidence of travelled track.
 
 **Any Agent writing/revising a Markcut .md calls `markcut verify`.**
-Editor must also inspect real native Markcut playback and retain revision-bound
-`editor-viewer.json`. Producer re-verifies/renders without editorial changes.
+Editor does not require native playback or `editor-viewer.json`.
+Producer re-verifies/renders without editorial changes.
 There is no independent Final QA or mandatory final review. Optional owner
 Preview is not publication authorization.
 

@@ -55,8 +55,8 @@ Reject a missing source manifest or an `INPUT_NEEDED` manifest; rights and licen
 - Editor owns exact EDL, complete executable `video.md`, narration/BGM
   assets and how the optional route is merged into the timeline. Every
   Markcut author calls `markcut verify` after changing any .md.
-  Editor uses actual Markcut viewer to inspect visual/audio, then records
-  `editor-viewer.json` for that exact revision before handoff.
+  Editor passes noninteractive Markcut verification and its Stage contract;
+  no native player, browser or `editor-viewer.json` is a prerequisite.
 - Producer Agent runs its Shortcut for Markcut verify, MP4 render and media
   probing; human Preview is on demand only. No mandatory review or Final QA.
   When the user explicitly requests interactive approval, route the optional
@@ -80,7 +80,7 @@ Producer/Publisher interactive approval. Producer may request an interactive
 Preview only when specifically requested; its delivery receipt alone is
 not approval. If feedback changes the story, source selection or Markcut
 `video.md`, return to Director/Editor as appropriate. Editor edits,
-re-verifies and re-views; Producer re-renders the revised video. Publisher
+re-verifies; Producer re-renders the revised video. Publisher
 has no review step and can post only with its own explicit exact-MP4,
 account-bound per-platform authorization.
 

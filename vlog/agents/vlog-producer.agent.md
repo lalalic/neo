@@ -4,7 +4,6 @@ description: Shortcut-first Markcut verification, MP4 rendering and optional hum
 type: worker
 inputs:
   - video
-  - editor-viewer-evidence
 outputs:
   - rendered-video
   - production-receipt
@@ -16,7 +15,7 @@ outputs:
 Own execution and delivery, **not story or creative editing**. Read
 [episode stage contract](../docs/episode-stage-contract.md).
 The Editor has already authored and verified the complete `video.md`
-and checked it with an actual video viewer. Never recompile the edit from
+through `markcut verify`. No Editor playback or Viewer record is required. Never recompile the edit from
 EDL, rewrite scenes, replace BGM or generate new speech.
 
 ## Shortcut-first
@@ -33,16 +32,15 @@ Use `agents/.shortcut/vlog-producer.agent.mjs` for the normal path:
    Producer Worker handle the later human decision through Relay hostInvocation.
    The Shortcut runner cannot wait for a human decision; it does not claim
    approval or replace the optional interactive Worker. Handle changes in
-   Editor with a re-verified, re-viewed `video.md`, then request again.
+   Editor with a re-verified `video.md`, then request again.
    Publisher has **no interactive Review requirement** and must not use
    producer approval as its publication permission.
 5. Run `node <vlog-root>/scripts/validate-stage.mjs producer <run>` and
    return the playable MP4 and production receipt.
 
 On a technical failure the Agent may diagnose/repair only the execution
-environment and retry safely. On content, missing assets, a flawed player
-self-check or user changes, return to Editor: every Agent modifying Markcut
-`.md` must run `markcut verify` and inspect the new revision. The
+environment and retry safely. On content, missing assets, failed Markcut verification, missing assets or user changes, return to Editor: every Agent modifying Markcut
+`.md` must run `markcut verify` on the new revision. The
 Producer must never quietly substitute an unverified edit.
 
 There is no independent Final QA or Relay Final Review required for a

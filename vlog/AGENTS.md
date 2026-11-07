@@ -28,12 +28,12 @@ and Visioner evidence must exist before writing the story.
   **if/why** to show the route, which filmed stops it represents, and
   describes its narrative purpose, not timeline mechanics.
 - **Editor** owns the EDL, actual audio/media assets, `episode-input.json`,
-  `music-plan.json`, complete `video.md`, and viewer self-check. Editor
+  `music-plan.json`, and complete verified `video.md`. Editor
   decides **how** to merge the Director route into an executable map scene,
   its timing, narration, transitions and continuous BGM. **Any Agent
   creating or modifying Markcut .md must run `markcut verify`** on that
-  exact revision before handoff. Editor must actually view/listen to
-  Markcut playback and save revision-bound `editor-viewer.json`.
+  exact revision before handoff. Editor does not need native playback,
+  a browser, audio listening, or a Viewer receipt.
 - **Producer Agent** uses its Shortcut to verify Editor's `video.md`,
   render an MP4, probe real audio/video and optionally call human Preview
   **only on demand**. Return content changes to Editor; never rewrite its
@@ -75,8 +75,8 @@ and lease monitoring, recoverable errors, and explicit user cancellation.
 
 Each Stage runs `node scripts/validate-stage.mjs <stage> <run>`.
 Repair problems in the owning Agent, then re-verify the changed .md.
-Parser PASS alone is not viewer evidence; real playback/seek/listening
-matters. Render command success alone is not proof of a decodable MP4.
+Editor runs Markcut verification and noninteractive Stage checks, not a real
+player. Producer render success alone is not proof of decodable MP4 audio/video.
 Browser click success alone is not proof of published content.
 The executable `video.md` is the authority for the actual video;
 all other artifacts are its evidence/inputs.

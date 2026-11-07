@@ -34,15 +34,15 @@ test('worker role references and mandatory project Markdown links are reachable'
   }
 });
 
-test('assembled roles have one verified Markcut source, real Editor viewer, Producer render, conditional Publisher',()=>{
+test('assembled roles have verified Markcut Editor, Producer render, conditional Publisher',()=>{
  const project=text('AGENTS.md'),director=text('agents/vlog-director.agent.md');
  const editor=text('agents/vlog-editor.agent.md'),producer=text('agents/vlog-producer.agent.md');
  const publisher=text('agents/vlog-publisher.agent.md'),stage=text('docs/episode-stage-contract.md');
  assert.match(project,/Visioner/);assert.match(project,/Publisher/);
  assert.match(director,/route-intent.json/);
  assert.match(editor,/markcut verify/);
- assert.match(editor,/markcut preview/);
- assert.match(editor,/editor-viewer.json/);
+ assert.doesNotMatch(editor,/markcut preview <run>/);
+ assert.match(editor,/Do not launch or require/);
  assert.match(producer,/markcut verify/);
  assert.match(producer,/markcut render/);
  assert.match(publisher,/wechat-channels/);assert.match(publisher,/xhs/);

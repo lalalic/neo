@@ -78,7 +78,6 @@ test('Producer verifies Editor exact revision, renders and probes before deliver
  const md='# video\nwidth:1080 height:1920 fps:30 layout:series\n';
  const checksum=hash(md);
  await writeFile(join(f.run,'video.md'),md);
- await writeFile(join(f.run,'editor-viewer.json'),JSON.stringify({status:'PASS',videoSha256:checksum,checks:['opening','middle','ending','transitions','subtitles','audio']}));
  const calls=[];
  const output=await produce({input:{projectPath:f.project,runPath:f.run},runCommand:async args=>{
   calls.push(args);
@@ -92,12 +91,15 @@ test('Producer verifies Editor exact revision, renders and probes before deliver
  assert.equal(output.output.videoMdSha256,checksum);
  assert.equal(calls.some(c=>c.includes('preview')),false);
 });
-test('Producer rejects stale Editor viewer fingerprint before verify or render',async t=>{
- const f=await fixture(t);await writeFile(join(f.run,'video.md'),'# video\n');
- await writeFile(join(f.run,'editor-viewer.json'),JSON.stringify({status:'PASS',videoSha256:'old',checks:[]}));
- let count=0;await assert.rejects(produce({input:{projectPath:f.project,runPath:f.run},
- runCommand:async()=>{count++}}),/Editor viewer/);
- assert.equal(count,0);
+test('Producer refuses invalid Markcut verify without rendering, regardless of old Viewer state',async t=>{
+ const f=await fixture(t);await rm(f.video);await rm(join(f.run,'production-receipt.json'));
+ await writeFile(join(f.run,'video.md'),'# video\n');
+ // An old blocked viewer record from a previous failed run is not a gate.
+ await writeFile(join(f.run,'editor-viewer.json'),JSON.stringify({status:'BLOCKED',videoSha256:'old',checks:[]}));
+ const commands=[];
+ await assert.rejects(produce({input:{projectPath:f.project,runPath:f.run},
+  runCommand:async args=>{commands.push(args);return {code:1,stderr:'Markcut verification failed'};}}),/Markcut verification failed/);
+ assert.deepEqual(commands.map(c=>c[1]),['verify']);
 });
 
 test('Publisher partial success resumes second platform without reposting first',async t=>{
@@ -122,7 +124,6 @@ test('Producer optional interactive preview sends event only on request and reco
  const f=await fixture(t);await rm(f.video);await rm(join(f.run,'production-receipt.json'));
  const md='# video\nwidth:1080 height:1920 fps:30 layout:series\n';
  await writeFile(join(f.run,'video.md'),md);
- await writeFile(join(f.run,'editor-viewer.json'),JSON.stringify({status:'PASS',videoSha256:hash(md),checks:['opening','middle','ending','transitions','subtitles','audio']}));
  await writeFile(join(f.run,'preview-template.json'),JSON.stringify({type:'task.interactive_decision',source:'job/id/task/id/execution/id',data:{interactive:{jobId:'test',taskId:'t',executionId:'e',invocationId:'i'}}}));
  const calls=[];
  const result=await produce({input:{projectPath:f.project,runPath:f.run,preview:{mode:'event',eventTemplatePath:'preview-template.json'}},runCommand:async args=>{

@@ -1,6 +1,6 @@
 ---
 name: vlog-editor
-description: Assemble Director-selected shots, speech, music and story into a complete, verified and viewed executable Markcut video.md.
+description: Assemble Director-selected shots, speech, music and story into a complete, verified executable Markcut video.md without a player dependency.
 type: worker
 inputs:
   - personal-story
@@ -9,7 +9,6 @@ inputs:
 outputs:
   - edit-decision-list
   - video
-  - editor-viewer-evidence
 ---
 
 # Vlog Editor
@@ -45,22 +44,19 @@ and template style; do not turn a human story into a scenic montage.
    `markcut verify <actual-file>` on the current revision (including route.md if created), fix errors and
    re-verify until PASS.** This applies after every edit, not only before
    completion.
-6. **Viewer self-check:** use `markcut preview <run>/video.md` as an actual
-   local/native playback viewer, NOT `--delivery event` and NOT a human
-   review. Watch/seek opening, middle, transitions and ending, **listen**
-   to narration/BGM/ambience, confirm route movement where present, subtitles, shot identity and story
-   continuity, look for blank frames, truncated lines and black tails.
-   Storyboard placeholders are insufficient for the final self-check.
-   Use appropriate video/vision playback tools when needed, including the
-   discovered `understand-image-video` Skill for frames. Record actual
-   observations and exact video.md SHA-256 in `editor-viewer.json` (`status: PASS`, checked playback segments, audio, subtitles, transitions, and route where present); fail rather than
-   fabricate visual/audio checks if the player is unavailable. Repair,
-   verify and view again whenever edits change the revision.
+6. **Noninteractive structural checks:** verify every referenced media/audio
+   file exists, the selected source/time ranges are valid, the route treatment
+   uses supported source-linked points, and narration/BGM/captions/transitions
+   are represented by concrete assets, not merely instructions. Run
+   `markcut verify <actual-file>` on each `.md` after its final modification;
+   repair errors in the Editor. **Do not launch or require `markcut preview`,
+   a native player, browser, or real playback/listening.** Markcut syntax
+   verification is not a claim that an audio/visual preview was watched.
 7. Run `node <vlog-root>/scripts/validate-stage.mjs editor <run>` and
    finish only on PASS. Handoff includes EDL, `episode-input.json`,
-   `music-plan.json`, `video.md`, media assets and viewer evidence.
+   `music-plan.json`, complete `video.md`, and source-linked media assets.
 
 Director owns changing the story or selected shots. Editor owns all editable
 media/Markcut authorship. Producer verifies/renders and optionally sends
-human Preview. Every revision goes back through Editor's verify/viewer gate.
+human Preview. Every revision goes back through Editor's Markdown verification and static Stage contract.
 GPS is optional; never fake recorded route or unverified observed speech.

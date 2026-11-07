@@ -9,15 +9,17 @@ Use verified EXIF/QuickTime GPS at source precision in private production withou
 ## Transitions and soundtrack
 
 - Every adjacent scene requires a continuity rationale and a supported, **actually rendered** boundary transition. For the cinematic default use a short `fade`; direct `cut` is valid for justified match/action cuts and in the explicit cuts variant. Markcut currently applies one transition type and duration per series; never silently promise mixed effects that this DSL cannot render.
-- The executable [Markcut template](../templates/cinematic-vlog.md) owns the BGM selection and continuous root audio leaf. A pre-mixed continuous asset matching the **exact template song** is required for vocal/bed/ending changes; the template selection itself does not grant licensing. The root `audio isBackground:true` is a global Markcut stream and loops to the full episode duration. Verify loop seams in real playback; prepare a seamless loop / crossfade in an authorized source asset where needed.
+- The executable [Markcut template](../templates/cinematic-vlog.md) owns the BGM selection and continuous root audio leaf. A pre-mixed continuous asset matching the **exact template song** is required for vocal/bed/ending changes; the template selection itself does not grant licensing. The root `audio isBackground:true` is a global Markcut stream and loops to the full episode duration. Use an authorized seamless loop / crossfade source where needed; Producer verifies the rendered output technically.
 - Maintain natural creator narration and meaningful original ambience above the music. Duck BGM under speech and source sound using a verified pre-mixed track when the current DSL can't sidechain automatically. The same root BGM continues through route clips, stills and video. Route narration is foreground; it is not a new theme song. One-off SFX accents may be layered; a second BGM requires an evidence-based major story/emotional change approved by Director.
 - No forced multi-song montage, blanket dissolve on every match cut, abrupt silence at scene boundaries or unrelated 20-30-second GPS insertion.
 
-## Review as an actual viewer
+## Noninteractive Editor verification
 
-1. Listen with the screen hidden: does a single narrated story progress from a clear premise to a truthful payoff? Do ambience and BGM continue at shot changes and loop points, without unwanted silences or jumps?
-2. Watch with normal audio: check each visible boundary (including route entry/exit), intelligible narration, motivation and pace. A valid render is not a quality PASS.
-3. Verify the actual route map tiles, coordinate order, geographic fact sources and labels, source identity, BGM authorization, current preview revision and final playback. Any unsupported claim or distracting transition is CHANGE_REQUIRED.
+Editor verifies each authored Markcut `.md`, scene order, real source
+intervals, declared foreground narration, continuous BGM and route references.
+It does not need a native viewer or to listen/watch the output. Producer renders
+and verifies real video/audio streams. Optional human Preview remains on demand,
+and cannot be implied by Markcut parser or render success.
 
 ## Story-paced media coverage (source evidence vs screen time)
 
