@@ -351,7 +351,8 @@ test('default Vlog run skips interactive review, routes conditional Publisher, n
   await run(['--project','vlog','--path',f.runDir],f,relay);
   const task=readFileSync(join(f.runDir,'neo-project-run.input.md'),'utf8');
   assert.match(task,/Default: no human interactive review/);
-  assert.match(task,/Editor must verify and inspect playable Markcut media/);
+  assert.match(task,/Editor must run Markcut verify and noninteractive source\/asset checks/);
+  assert.match(task,/no real viewer required/);
   assert.match(task,/Publisher.*SKIPPED/);
   assert.match(task,/Publisher itself has no review/);
   assert.equal(readdirSync(f.runDir).includes('review-mode.json'),false,'normal no-review must not be private-test policy');
