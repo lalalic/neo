@@ -5,7 +5,7 @@ import { mkdtemp, mkdir, readFile, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { run as publish } from '../agents/.shortcut/vlog-publisher.agent.mjs';
-import { run as produce } from '../agents/.shortcut/vlog-producer.agent.mjs';
+import { run as produce,assertMarkcutAutoSeedOnly } from '../agents/.shortcut/vlog-producer.agent.mjs';
 
 const hash=s=>createHash('sha256').update(s).digest('hex');
 async function fixture(t){
@@ -150,4 +150,64 @@ test('Publisher skips an explicit private-render-test Run even when request is p
  const called=[];
  const result=await publish({input:{projectPath:f.project,runPath:f.run},runCommand:async args=>{called.push(args);throw Error('No browser calls allowed');}});
  assert.equal(result.status,'COMPLETED');assert.equal(result.output.publicationStatus,'SKIPPED');assert.equal(called.length,0);
+});
+
+test('Markcut injected seed is the only permitted render-time Editor source mutation',()=>{
+ const before='# video\nwidth:1080 height:1920 fps:30\n';
+ assert.equal(assertMarkcutAutoSeedOnly(before,before),false);
+ assert.equal(assertMarkcutAutoSeedOnly(before,'# video\nseed:4020129075\nwidth:1080 height:1920 fps:30\n'),true);
+ assert.throws(()=>assertMarkcutAutoSeedOnly(before,'# video\nseed:4020129075\nwidth:999\n'),/beyond/);
+ assert.throws(()=>assertMarkcutAutoSeedOnly(before,'# video\nseed:bad\nwidth:1080 height:1920 fps:30\n'),/beyond/);
+});
+
+test('Producer records the actual rendered Markdown after Markcut auto-seed',async t=>{
+ const f=await fixture(t);await rm(f.video);await rm(join(f.run,'production-receipt.json'));
+ const original='# video\nwidth:1080 height:1920 fps:30 layout:series\n';
+ await writeFile(join(f.run,'video.md'),original);
+ const calls=[];
+ const result=await produce({input:{projectPath:f.project,runPath:f.run},runCommand:async args=>{
+  calls.push(args);
+  if(args[1]==='render'){await writeFile(join(f.run,'video.md'),'# video\nseed:4020129075\nwidth:1080 height:1920 fps:30 layout:series\n');await writeFile(f.video,'render with audio');return {code:0}}
+  if(args[0]==='ffprobe')return {code:0,stdout:JSON.stringify({streams:[{codec_type:'video'},{codec_type:'audio'}],format:{duration:'29.5'}})};
+  if(args[1]?.endsWith('validate-stage.mjs'))return {code:0,stdout:JSON.stringify({status:'PASS'})};
+  return {code:0,stdout:'PASS'};
+ }});
+ assert.equal(result.status,'COMPLETED');
+ assert.equal(result.output.videoMdSha256,hash(await readFile(join(f.run,'video.md'),'utf8')));
+ assert.equal(calls.filter(a=>a[1]==='verify').length,2);
+});
+
+test('Producer safely rebinds a completed MP4 receipt after documented Markcut auto-seed, without rerendering',async t=>{
+ const f=await fixture(t);
+ const before='# video\nwidth:1080 height:1920 fps:30 layout:series\n';
+ const after='# video\nseed:4020129075\nwidth:1080 height:1920 fps:30 layout:series\n';
+ await writeFile(join(f.run,'video.md'),after);
+ await writeFile(join(f.run,'production-receipt.json'),JSON.stringify({schemaVersion:1,status:'RENDERED',
+  videoMdSha256:hash(before),videoSha256:f.digest,videoPath:'output/video.mp4',durationSeconds:29.5}));
+ const calls=[];
+ const out=await produce({input:{projectPath:f.project,runPath:f.run},runCommand:async args=>{
+  calls.push(args);
+  if(args[0]==='ffprobe')return {code:0,stdout:JSON.stringify({streams:[{codec_type:'video'},{codec_type:'audio'}],format:{duration:'29.5'}})};
+  if(args[1]?.endsWith('validate-stage.mjs'))return {code:0,stdout:JSON.stringify({status:'PASS'})};
+  if(args[1]==='render')throw Error('must reuse verified existing MP4');
+  return {code:0,stdout:'PASS'};
+ }});
+ const receipt=JSON.parse(await readFile(join(f.run,'production-receipt.json'),'utf8'));
+ assert.equal(out.status,'COMPLETED');
+ assert.equal(receipt.videoMdSha256,hash(after));
+ assert.equal(receipt.videoSha256,f.digest);
+ assert.equal(calls.some(x=>x[1]==='render'),false);
+});
+
+test('Producer fails closed on stale or tampered MP4 receipt',async t=>{
+ const f=await fixture(t);
+ const md='# video\nseed:4020129075\nwidth:1080 height:1920 fps:30 layout:series\n';
+ await writeFile(join(f.run,'video.md'),md);
+ await writeFile(join(f.run,'production-receipt.json'),JSON.stringify({schemaVersion:1,status:'RENDERED',
+  videoMdSha256:hash(md),videoSha256:hash('not the MP4'),videoPath:'output/video.mp4',durationSeconds:29.5}));
+ await assert.rejects(produce({input:{projectPath:f.project,runPath:f.run},runCommand:async args=>{
+  if(args[0]==='ffprobe')return {code:0,stdout:JSON.stringify({streams:[{codec_type:'video'},{codec_type:'audio'}],format:{duration:'29.5'}})};
+  if(args[1]==='render')throw Error('must never overwrite source MP4');
+  return {code:0,stdout:'PASS'};
+ }}),/existing rendered video bytes/);
 });
