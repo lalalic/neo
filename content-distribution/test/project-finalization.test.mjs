@@ -38,7 +38,7 @@ function declaredList(role, field) {
 
 test('actual Neo project graph has complete declarative artifact handoffs', () => {
   const {nodes,edges} = declarations();
-  assert.equal(nodes.size, 7);
+  assert.equal(nodes.size, 8);
   assert.equal(edges.length, nodes.size - 1);
   const outputNames = new Set();
   const ownership = new Map();
@@ -55,7 +55,7 @@ test('actual Neo project graph has complete declarative artifact handoffs', () =
     }
     visited.add(id);
   }
-  assert.equal(visited.size,7);
+  assert.equal(visited.size,8);
   const handoffs=read('contracts/artifact-handoffs.md');
   for(const [artifact,owner] of ownership){
     assert.ok(handoffs.includes('`'+artifact+'`'), owner+' output lacks project handoff contract: '+artifact);
@@ -77,7 +77,8 @@ test('Acquirer owns source/account manifest and Editor owns creative plan and re
   const acquirer=read('agents/distribution-acquirer.agent.md');
   const editor=read('agents/distribution-editor.agent.md');
   assert.match(acquirer, /\*\*Own the Campaign manifest:\*\*/);
-  assert.match(editor, /Own both creative selection and execution/);
+  assert.match(editor, /Own variant editing, rendering and QA/);
+  assert.match(read('agents/distribution-strategist.agent.md'), /market-strategy\.json/);
   assert.match(editor, /creative-plan\.json/);
   assert.match(read('contracts/artifact-handoffs.md'), /authored by the Acquirer/);
   assert.match(read('contracts/artifact-handoffs.md'), /updated only by the Editor/);

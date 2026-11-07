@@ -9,6 +9,7 @@ inputs:
   - speaker-name-vtt
   - speech-boundaries
   - vision-evidence
+  - market-strategy
 outputs:
   - creative-plan
   - video
@@ -17,7 +18,7 @@ outputs:
 
 # Distribution Editor
 
-**Own both creative selection and execution.** Read the full-episode `vision-evidence`, official story context, named WebVTT, original word boundaries, the source-backed `campaign.json`, and [creative strategy library](../templates/creative-strategies.md). Choose **1–N genuinely different creative angles** that the actual scenes support; neither exactly three nor a fixed audience segmentation is mandatory. A change in overlay text alone is not a separate variant. Audience interests and hook hypotheses are optional, unverified ideas rather than demographic targeting claims.
+**Own variant editing, rendering and QA; the Strategist owns market hypotheses.** Read the full-episode `vision-evidence`, official story context, named WebVTT, original word boundaries, the source-backed `campaign.json`, and [creative strategy library](../templates/creative-strategies.md). Read `market-strategy.json` for three or more distinct, scene-verified market hypotheses and use the selected variants without adding unsupported ones. In a real campaign with insufficient material, report a HOLD instead of inventing hooks. A change in overlay text alone is not a separate variant. Audience interests and hook hypotheses are optional, unverified ideas rather than demographic targeting claims.
 
 Write and validate `creative-plan.json` against `../contracts/creative-plan.schema.json`. For every selected creative, capture the angle, testable hypothesis, scene evidence with original timestamps, hook, and versioned Markcut `video_path`. The `creative-plan.json` is the Editor's variant inventory and QA state, **not** a second storyboard. The concrete shots, temporal edits, audio, transitions, captions and CTA belong to each `creatives/<id>/video.md`. Do not re-author `campaign.json`; it is the Acquirer's source/account manifest.
 

@@ -40,3 +40,7 @@ For deterministic reuse, the project-local `agents/.shortcut/` provides Acquirer
 ## Providers
 
 Use official links in [config/providers.json](config/providers.json), but keep specific episode URLs and link tokens in Run evidence. RS Boost is the first pilot provider; its active account and Safelist evidence are in [accounts.md](accounts.md). ReelTree needs an actual agreement, verified Canada eligibility and platform permissions; Dream CPS remains unverified. Payhip original products are a separate campaign type, not evidence of short-drama rights.
+
+## Local Shortcut completion and market hypothesis boundary
+
+The canonical Graph inserts a Strategist after Vision to own `market-strategy.json` (minimum three **evidence-backed** audience/market/platform experiments). Editor owns only source-safe `creative-plan.json` and actual Markcut videos. Do not invent variants when the real original cannot support three distinct hooks. Per-node shortcuts reuse verified cached evidence and checked rendered media; they do not authorize new inference, cloud transfer, or publication. The local-fixture source route is only for authored testsrc+sine media, with explicit `fixture-policy.json` forbidding publication. Never identify it as licensed RS Boost media or as actual market performance. A REAL licensed Episode with uncertain transcript or no rights-safe visual evidence stays HOLD.

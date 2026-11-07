@@ -13,6 +13,10 @@ if (args.length < 2 || args[0] !== "--run" ||
 }
 try {
   const runDir = realpathSync(args[1]);
+  const campaign=JSON.parse(readFileSync(join(runDir,'campaign.json'),'utf8'));
+  if (campaign.provider_id==='local-fixture' ||
+      readFileSync(join(runDir,'evidence/original-source.json'),'utf8').includes('owned_test_fixture'))
+    throw Error('synthetic_fixture_never_publish');
   const trust = JSON.parse(readFileSync(join(project,"config/release-trust.json"),"utf8"));
   if (trust.schema !== "content-distribution.release-trust.v1") throw Error("invalid_trust_config");
   const result = verifyPublication({

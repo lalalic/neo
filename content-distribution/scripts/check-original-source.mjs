@@ -33,10 +33,20 @@ export async function verifyOriginalInput(runDir, analysisInput) {
   if (typeof campaign.original_source_path !== 'string' || !campaign.original_source_path.startsWith('evidence/')) throw new Error('original_source_path_missing');
   const manifestPath = safePath(run, campaign.original_source_path, 'evidence');
   const source = JSON.parse(readFileSync(manifestPath, 'utf8'));
-  if (source.kind !== 'provider_original' || source.provider_id !== campaign.provider_id) throw new Error('not_a_provider_original');
+  const fixture=source.kind === 'owned_test_fixture' && campaign.provider_id === 'local-fixture';
+  if (fixture) {
+    const fixtureFile=resolve(run,'fixture-policy.json');
+    if (!existsSync(fixtureFile)) throw new Error('fixture_private_policy_required');
+    const policy=JSON.parse(readFileSync(fixtureFile,'utf8'));
+    if (policy.mode !== 'synthetic-local-e2e' || policy.publicationAllowed !== false ||
+        source.acquisition_method !== 'locally_generated_test_media' || source.provider_id !== 'local-fixture')
+      throw new Error('invalid_test_fixture_policy');
+  } else {
+    if (source.kind !== 'provider_original' || source.provider_id !== campaign.provider_id) throw new Error('not_a_provider_original');
+    if (source.acquisition_method !== 'authenticated_rsboost_content_hub') throw new Error('original_acquisition_unverified');
+    if (typeof source.source_url !== 'string' || !/^https:\/\/cps\.reelshort\.com\/resource-square\/detail\/[a-f\d]{24}(?:\?|$)/.test(source.source_url)) throw new Error('invalid_provider_source_url');
+  }
   if (!Number.isInteger(source.episode_number) || source.episode_number < 1) throw new Error('invalid_episode');
-  if (source.acquisition_method !== 'authenticated_rsboost_content_hub') throw new Error('original_acquisition_unverified');
-  if (typeof source.source_url !== 'string' || !/^https:\/\/cps\.reelshort\.com\/resource-square\/detail\/[a-f\d]{24}(?:\?|$)/.test(source.source_url)) throw new Error('invalid_provider_source_url');
   if (!/^[a-f\d]{64}$/.test(source.sha256 || '')) throw new Error('missing_source_sha256');
   if (!Number.isInteger(source.bytes) || source.bytes <= 0) throw new Error('missing_source_size');
   if (!Number.isFinite(source.duration_s) || source.duration_s <= 0) throw new Error('missing_source_duration');
@@ -51,7 +61,7 @@ export async function verifyOriginalInput(runDir, analysisInput) {
   if (!Number.isFinite(duration) || Math.abs(duration-source.duration_s)>0.05) throw new Error('original_duration_mismatch');
   const rights = resolve(run, campaign.rights_evidence_path ?? '');
   if (!inside(resolve(run, 'evidence'), rights) || !existsSync(rights)) throw new Error('rights_evidence_missing');
-  return {ok:true, source_path:original, source_sha256:source.sha256, source_bytes:lstatSync(original).size, duration_s:duration, episode_number:source.episode_number, story_context_path:campaign.story_context_path ? resolve(run,campaign.story_context_path):null, rights_evidence_path:rights};
+  return {ok:true, source_path:original, source_sha256:source.sha256, source_bytes:lstatSync(original).size, duration_s:duration, source_kind:source.kind, episode_number:source.episode_number, story_context_path:campaign.story_context_path ? resolve(run,campaign.story_context_path):null, rights_evidence_path:rights};
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {

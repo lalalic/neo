@@ -7,14 +7,14 @@ import { fileURLToPath } from 'node:url';
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const read = (path) => readFileSync(join(root, path), 'utf8');
 
-test('graph declares 7 roles: Acquirer → STT → speaker-name VTT → Vision → Editor → release → measure', () => {
+test('graph declares 8 roles: Acquirer → STT → speaker-name VTT → Vision → Editor → release → measure', () => {
   const graph = read('graph.mmd').trim().split('\n');
   assert.equal(graph.shift(), 'flowchart TD');
   const agents = [...graph.join('\n').matchAll(/\[agent:([a-z-]+)\]/g)].map((m) => m[1]);
   const order = [...new Set(agents)];
   assert.deepEqual(order, [
     'distribution-acquirer', 'distribution-transcriber', 'distribution-speaker-resolver',
-    'distribution-visioner', 'distribution-editor', 'distribution-operator',
+    'distribution-visioner', 'distribution-strategist', 'distribution-editor', 'distribution-operator',
     'distribution-analyst',
   ]);
   assert.equal((graph.join('\n').match(/-->/g) || []).length, order.length - 1);
@@ -46,7 +46,6 @@ test('projects own distinct Visioner identities and domain-specific handoffs', (
   for (const prohibited of [
     '../agents/.shortcut/visioner.agent.mjs',
     'agents/.shortcut/visioner.agent.mjs',
-    'agents/.shortcut/distribution-visioner.agent.mjs',
     'docs/vision-context.md',
   ]) assert.equal(existsSync(join(root, prohibited)), false, prohibited);
 });

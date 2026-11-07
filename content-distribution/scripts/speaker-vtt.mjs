@@ -180,13 +180,13 @@ function option(args, name) {
 
 function main(args) {
   const [mode, ...flags] = args;
-  if (mode === 'from-scribe' || mode === 'from-local-asr') {
+  if (mode === 'from-scribe' || mode === 'from-local-asr' || mode === 'from-fixture') {
     const input = option(flags, '--input');
     const output = option(flags, '--output');
     if (!input || !output || resolve(input) === resolve(output)) throw new Error(`usage: ${mode} --input INPUT.json --output speaker-id.vtt [--boundaries boundaries.json] [--exclusive]`);
     const doc = JSON.parse(readFileSync(resolve(input), 'utf8'));
-    const toVtt = mode === 'from-scribe' ? scribeToVtt : localAsrToVtt;
-    const toBoundaries = mode === 'from-scribe' ? speechBoundaryEvidence : localAsrSpeechBoundaries;
+    const toVtt = mode === 'from-scribe' ? scribeToVtt : mode === 'from-fixture' ? (data)=>scribeToVtt(data,{allowUnknownSpeaker:true}) : localAsrToVtt;
+    const toBoundaries = mode === 'from-local-asr' ? localAsrSpeechBoundaries : speechBoundaryEvidence;
     const vtt = toVtt(doc);
     mkdirSync(dirname(resolve(output)), {recursive: true});
     const exclusive = flags.includes('--exclusive');

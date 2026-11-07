@@ -14,7 +14,7 @@ export function validateStoryContext(doc) {
   }
   if (!Array.isArray(doc.sources) || doc.sources.length === 0) errors.push('at least one official source is required');
   else for (const [i, source] of doc.sources.entries()) {
-    if (!['provider_api', 'provider_web', 'official_web'].includes(source?.kind)) errors.push(`sources[${i}].kind invalid`);
+    if (!['provider_api', 'provider_web', 'official_web'].includes(source?.kind) && !(doc.provider_id==='local-fixture' && source?.kind==='synthetic_fixture')) errors.push(`sources[${i}].kind invalid`);
     if (typeof source?.url !== 'string' || !source.url.startsWith('https://')) errors.push(`sources[${i}].url must be HTTPS`);
     if (typeof source?.observed_at !== 'string' || Number.isNaN(Date.parse(source.observed_at))) errors.push(`sources[${i}].observed_at invalid`);
   }

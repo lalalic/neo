@@ -12,6 +12,8 @@
     "template": "run-template",
     "trackedArtifacts": [
       "campaign.json",
+      "market-strategy.json",
+      "creative-plan.json",
       "campaign.md",
       "story.md",
       "edit-plan.json",

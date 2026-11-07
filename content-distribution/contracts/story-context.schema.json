@@ -15,7 +15,7 @@
         "type": "object", "additionalProperties": false,
         "required": ["kind", "url", "observed_at"],
         "properties": {
-          "kind": {"enum": ["provider_api", "provider_web", "official_web"]},
+          "kind": {"enum": ["provider_api", "provider_web", "official_web", "synthetic_fixture"]},
           "url": {"type": "string", "pattern": "^https://"},
           "observed_at": {"type": "string", "format": "date-time"},
           "note": {"type": "string"}

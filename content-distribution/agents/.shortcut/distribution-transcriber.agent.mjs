@@ -14,16 +14,35 @@ export async function run(context) {
     .catch((error)=>{if(error?.code!=='ENOENT') throw error; return null;});
   const localManifest=await readOptionalManifest('analysis/speech/local-asr-source.json');
   const scribeManifest=await readOptionalManifest('analysis/speech/scribe-source.json');
-  if(localManifest && scribeManifest) throw Error('local_and_scribe_provenance_conflict');
-  const route=localManifest ? 'local-asr' : 'scribe';
-  const manifest=localManifest ?? await jsonRun(run,'analysis/speech/scribe-source.json');
-  const transcriptName=route==='local-asr' ? 'analysis/speech/local-asr.json' : 'analysis/speech/scribe.json';
+  const fixtureManifest=await readOptionalManifest('analysis/speech/fixture-source.json');
+  if([localManifest,scribeManifest,fixtureManifest].filter(Boolean).length>1)
+    throw Error('local_and_scribe_provenance_conflict');
+  const route=fixtureManifest ? 'fixture' : localManifest ? 'local-asr' : 'scribe';
+  const manifest=fixtureManifest ?? localManifest ?? await jsonRun(run,'analysis/speech/scribe-source.json');
+  const transcriptName=route==='fixture' ? 'analysis/speech/fixture-words.json' :
+    route==='local-asr' ? 'analysis/speech/local-asr.json' : 'analysis/speech/scribe.json';
   const transcript=await jsonRun(run,transcriptName);
-  const schemaName=route==='local-asr' ? 'local-asr-source.schema.json' : 'scribe-source.schema.json';
+  const schemaName=route==='fixture' ? 'fixture-source.schema.json' : route==='local-asr' ? 'local-asr-source.schema.json' : 'scribe-source.schema.json';
   const provenanceSchema=await runSchema(context,project,manifest.path,schemaName);
   if(provenanceSchema.valid!==true) throw Error(`${route}_source_schema_invalid`);
   const transcriptSha=createHash('sha256').update(await readFile(transcript.path)).digest('hex');
-  if(route==='local-asr') {
+  if(route==='fixture') {
+    const policy=await jsonRun(run,'fixture-policy.json');
+    const {scribeToVtt}=await import('../../scripts/speaker-vtt.mjs');
+    if(source.source_kind!=='owned_test_fixture' || policy.data.mode!=='synthetic-local-e2e' ||
+      policy.data.publicationAllowed!==false) throw Error('fixture_route_requires_owned_private_source');
+    scribeToVtt(transcript.data,{allowUnknownSpeaker:true});
+    const words=transcript.data.words?.filter(item=>item.type==='word')??[];
+    if(words.length<1 || words.some(w=>w.speaker_id!=='speaker_unknown' || w.end<=w.start || w.end>source.duration_s+0.05))
+      throw Error('fixture_words_invalid_or_not_unknown');
+    if(manifest.data.schema!=='content-distribution.fixture-source.v1' ||
+      manifest.data.source_sha256!==source.source_sha256 ||
+      manifest.data.transcript_sha256!==transcriptSha ||
+      manifest.data.transcript_path!==transcript.path ||
+      manifest.data.word_count!==words.length ||
+      manifest.data.method!=='synthetic_authored_timed_script')
+      throw Error('cached_fixture_provenance_mismatch');
+  } else if(route==='local-asr') {
     const {normalizeLocalAsr}=await import('../../scripts/speaker-vtt.mjs');
     const localTranscript=normalizeLocalAsr(transcript.data);
     const checks={
@@ -37,7 +56,7 @@ export async function run(context) {
       transcript_path:manifest.data.transcript_path===transcript.path,
       word_count:manifest.data.word_count===localTranscript.words.length,
       word_timestamps:manifest.data.word_timestamps===true,
-      transcript_duration:Number.isFinite(transcript.data.duration)&&Math.abs(transcript.data.duration-source.duration_s)<=0.05,
+      transcript_duration:transcript.data.duration==null || (Number.isFinite(transcript.data.duration)&&Math.abs(transcript.data.duration-source.duration_s)<=0.05),
       observed_at:Number.isFinite(Date.parse(manifest.data.observed_at)),
       engine:manifest.data.transcription_engine==='mlx-whisper',
       model_id:manifest.data.model_id==='mlx-community/whisper-large-v3-turbo',
@@ -65,7 +84,7 @@ export async function run(context) {
   if(Boolean(sourceVtt)!==Boolean(boundaries)) throw Error('partial_scribe_export_requires_manual_reconciliation');
 
   if(!sourceVtt){
-    const bridgeMode=route==='local-asr' ? 'from-local-asr' : 'from-scribe';
+    const bridgeMode=route==='fixture' ? 'from-fixture' : route==='local-asr' ? 'from-local-asr' : 'from-scribe';
     const derived=await command(context,project,[
       process.execPath,join(project,'scripts/speaker-vtt.mjs'),bridgeMode,
       '--input',transcript.path,'--output',idPath,'--boundaries',boundsPath,'--exclusive'
@@ -79,12 +98,12 @@ export async function run(context) {
   // bridge's public pure functions, rather than trusting stale cached outputs.
   const {scribeToVtt,localAsrToVtt,speechBoundaryEvidence,localAsrSpeechBoundaries,parseVtt}=
     await import('../../scripts/speaker-vtt.mjs');
-  const expectedVtt=route==='local-asr' ? localAsrToVtt(transcript.data) : scribeToVtt(transcript.data);
+  const expectedVtt=route==='fixture' ? scribeToVtt(transcript.data,{allowUnknownSpeaker:true}) : route==='local-asr' ? localAsrToVtt(transcript.data) : scribeToVtt(transcript.data);
   const expectedBounds=route==='local-asr' ? localAsrSpeechBoundaries(transcript.data) : speechBoundaryEvidence(transcript.data);
   if(sourceVtt.text!==expectedVtt||JSON.stringify(boundaries.data)!==JSON.stringify(expectedBounds)||
     parseVtt(sourceVtt.text).length<1) throw Error(`${route}_derived_artifacts_mismatch`);
   return completed({runPath:run,source_sha256:source.source_sha256,route,
-    transcription_engine:route==='local-asr' ? 'mlx-whisper' : 'video-use-scribe',
+    transcription_engine:route==='fixture' ? 'synthetic-authored-fixture' : route==='local-asr' ? 'mlx-whisper' : 'video-use-scribe',
     transcript_path:transcript.path,speaker_id_vtt_path:sourceVtt.path,
     speech_boundaries_path:boundaries.path,
     status:`derived_from_source_bound_${route}`},
