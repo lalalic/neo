@@ -48,16 +48,16 @@ test('Run repo preserves paths, ignores media/private inputs, commits only allow
     const replay=commitRunStage(f.run,f.config,'producer','exec-01');
     assert.equal(replay.reused,true);
     assert.equal(replay.commitSha,noChange.commitSha);
-    const preview={status:'review_requested',requestId:'req-r1',revisionId:'markcut-1',contentHash:hash('a')};
+    const preview={status:'review_requested',requestId:'req-r1',commitSha:noChange.commitSha};
     assert.deepEqual(tagRunReview(f.run,f.config,preview),{tag:'review/r1',commitSha:noChange.commitSha,reused:false});
     assert.equal(tagRunReview(f.run,f.config,preview).reused,true);
-    assert.throws(()=>tagRunReview(f.run,f.config,{...preview,contentHash:hash('b')}),/content changed without/);
+    assert.equal(tagRunReview(f.run,f.config,{...preview,requestId:'retry-1'}).reused,true);
     writeFileSync(join(f.run,'video.md'),'r2');
     writeFileSync(join(f.run,'production-receipt.json'),JSON.stringify({videoSha256:hash('b')}));
     writeFileSync(join(f.run,'output','video.mp4'),'second private video');
     const second=commitRunStage(f.run,f.config,'producer');
     assert.notEqual(second.commitSha,first.commitSha);
-    assert.equal(tagRunReview(f.run,f.config,{...preview,requestId:'req-r2',revisionId:'markcut-2',contentHash:hash('b')}).tag,'review/r2');
+    assert.equal(tagRunReview(f.run,f.config,{...preview,requestId:'req-r2',commitSha:second.commitSha}).tag,'review/r2');
     assert.equal(git(f.run,'rev-list','-n','1','review/r1'),noChange.commitSha);
     assert.equal(git(f.run,'rev-list','-n','1','review/r2'),second.commitSha);
     assert.equal(git(f.run,'tag','--list','review/*').split('\n').length,2);
@@ -127,8 +127,9 @@ test('Project Runner automatically checkpoints verified stage callbacks and revi
       onNodeEvent({nodeId:'director',type:'completed',data:{output:{title:'walk'}}});
       writeFileSync(join(f.run,'video.md'),'verified Markcut');
       writeFileSync(join(f.run,'production-receipt.json'),JSON.stringify({videoSha256:hash('c')}));
+      const preReview=commitRunStage(f.run,loadRunGitConfig(f.project,f.declaration),'producer');
       onNodeEvent({nodeId:'producer',type:'completed',data:{output:{preview:{
-        status:'review_requested',requestId:'req-1',revisionId:'mc-1',contentHash:hash('c')
+        status:'review_requested',requestId:'req-1',commitSha:preReview.commitSha
       }}}});
       jobs.get('job-1').state='COMPLETED'; tasks.get('content-run').state='SUCCEEDED';
       return 0;

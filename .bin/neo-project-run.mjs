@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { chmodSync, closeSync, existsSync, linkSync, lstatSync, mkdirSync, openSync, readFileSync, realpathSync, statSync, unlinkSync, writeFileSync, writeSync } from 'node:fs';
 import { basename, dirname, isAbsolute, join, relative, sep } from 'node:path';
 import { loadWorkspaceConfig } from './workspace-config.mjs';
-import { loadRunGitConfig, ensureRunGit, commitRunStage, tagRunReview } from './neo-run-git.mjs';
+import { loadRunGitConfig, ensureRunGit, commitRunStage, tagRunReview, assertReviewCheckpoint } from './neo-run-git.mjs';
 
 const TASK_ID = 'content-run';
 const bindingName = '.neo-project-run.json';
@@ -35,7 +35,7 @@ function parseOptions(args) {
   return result;
 }
 
-function safeProject(neoRoot, name) {
+export function safeProject(neoRoot, name) {
   if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(name) || name === '.' || name === '..') fail('invalid project name');
   const root = realpathSync(neoRoot);
   const gitMarker = join(root, '.git');
@@ -67,7 +67,7 @@ function validateUrl(input, declaration) {
   return url;
 }
 
-function validateRunPath(input, selected) {
+export function validateRunPath(input, selected) {
   const declared = selected.declaration.input;
   const canonicalRun = declared.type === 'path' && declared.path?.base === 'runs' && declared.path?.datedRunDirectory === true;
   const resumeUrlRun = declared.type === 'url' && declared.resumePath === true;
@@ -308,8 +308,11 @@ export function runProject(args, options = {}) {
   let stageCheckpoints = 0;
   const onNodeEvent = event => {
     if (!runGit || event?.type !== 'completed') return;
-    const checkpoint = commitRunStage(runDir, runGit, event.nodeId, event.data?.executionId);
-    const review = tagRunReview(runDir, runGit, event.data?.output?.preview, checkpoint.commitSha);
+    const preview = event.data?.output?.preview;
+    const checkpoint = preview?.status === 'review_requested'
+      ? { commitSha: assertReviewCheckpoint(runDir, runGit, preview.commitSha), changed:false, reused:true, files:[] }
+      : commitRunStage(runDir, runGit, event.nodeId, event.data?.executionId);
+    const review = tagRunReview(runDir, runGit, preview, checkpoint.commitSha);
     stageCheckpoints += 1;
     (options.emit ?? (text => process.stdout.write(text)))(JSON.stringify({
       type: 'run.git.checkpoint', nodeId: event.nodeId, ...checkpoint, ...(review ? { review } : {})

@@ -87,7 +87,7 @@ export async function previewCall(message,forward,{control=relayControl,notifyWa
     if(receipt.reused===true)
       throw Error('Preview already requested for this execution; do not start another compile');
     forwarded={...message,params:{...params,arguments:{...input,
-      review:{delivery:'event',eventTemplate:receipt.eventTemplate}}}};
+      review:{delivery:'event',commitSha:input.review?.commitSha,eventTemplate:receipt.eventTemplate}}}};
   }
   let result;
   try{result=await forward(forwarded);}
@@ -225,10 +225,12 @@ export function buildNeoReviewRequest(operationId,operation){
   if(!HASH.test(result.contentHash||'')||typeof result.revisionId!=='string'||!result.revisionId||
      typeof result.id!=='string'||!result.id)throw new Error('Invalid immutable preview identity');
   const review=result.review||{delivery:'text'};
-  const request={id:operationId,contentHash:result.contentHash,revisionId:result.revisionId,
-    previewId:result.id,title:basename(operation.requestedPath||result.requestedPath||'video.md','.md'),
+  const request={id:operationId,previewId:result.id,title:basename(operation.requestedPath||result.requestedPath||'video.md','.md'),
     delivery:review.delivery||'text'};
   if(request.delivery==='event'){
+    if(!/^[a-f0-9]{40}$/.test(review.commitSha||''))throw new Error('Event review requires full Git Commit SHA');
+    request.commitSha=review.commitSha;
+    request.mediaHash=result.contentHash;
     if(!review.eventTemplate)throw new Error('Event review requires caller-bound template');
     request.eventTemplate=review.eventTemplate;
     const fixed=review.eventTemplate?.data?.interactive;
@@ -237,6 +239,7 @@ export function buildNeoReviewRequest(operationId,operation){
     request.jobId=fixed.jobId;
     request.groupId=`job/${fixed.jobId}/task/${fixed.taskId}`;
   } else if(request.delivery==='text'){
+    request.contentHash=result.contentHash;request.revisionId=result.revisionId;
     request.groupId=operation.requestedPath||result.requestedPath;
   } else throw new Error('Unknown delivery');
   return request;
@@ -272,7 +275,7 @@ export async function watchAndNotify(operationId,{directory=operationsDirectory(
           // The Worker may still be returning from tools/call when compilation
           // finishes. Wait for Relay waiting transition before binding hash.
           for(let attempt=0;;attempt++){
-            try{await ready(request.contentHash);break;}
+            try{await ready(request.commitSha);break;}
             catch(error){if(attempt>=19)throw error;await delay(250);}
           }
         }catch(error){

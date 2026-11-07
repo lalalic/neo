@@ -137,31 +137,35 @@ export function commitRunStage(run, config, nodeId, executionId = null) {
   return { commitSha: git(run, 'rev-parse', 'HEAD'), changed: staged.length > 0, reused: false, files: staged };
 }
 
+export function assertReviewCheckpoint(run, config, commitSha) {
+  if (!config) fail('project does not support Git SHA reviews');
+  ensureRunGit(run, config);
+  if (!/^[a-f0-9]{40}$/.test(commitSha) || git(run, 'rev-parse', 'HEAD') !== commitSha)
+    fail('review must target current full Git Commit SHA');
+  const selected = approvedFiles(run, config);
+  for (const file of selected) {
+    const changed = spawnSync('git', ['-C', run, 'status', '--porcelain', '--untracked-files=all', '--', file],
+      { encoding: 'utf8', timeout: 10000 });
+    if (changed.error || changed.status !== 0 || changed.stdout.trim())
+      fail('review has uncommitted allowlisted changes: ' + file);
+  }
+  return commitSha;
+}
+
 export function tagRunReview(run, config, preview, commitSha = null) {
   if (!config || !preview || preview.status !== 'review_requested') return null;
-  if (typeof preview.contentHash !== 'string' || !/^[0-9a-f]{64}$/i.test(preview.contentHash) ||
-      typeof preview.revisionId !== 'string' || !/^[A-Za-z0-9_.-]+$/.test(preview.revisionId) ||
+  if (!/^[a-f0-9]{40}$/.test(preview.commitSha || '') ||
       typeof preview.requestId !== 'string' || !/^[A-Za-z0-9_.:-]+$/.test(preview.requestId))
-    fail('review request lacks immutable revisionId, requestId or contentHash');
-  const sha = commitSha ?? git(run, 'rev-parse', 'HEAD');
-  if (!/^[a-f0-9]{40,64}$/i.test(sha) || git(run, 'cat-file', '-t', sha) !== 'commit')
-    fail('review must target an existing Git Commit SHA');
+    fail('review request requires commitSha and requestId');
+  const sha = assertReviewCheckpoint(run, config, commitSha ?? preview.commitSha);
+  if (sha !== preview.commitSha) fail('Review preview Commit SHA mismatch');
   const names = git(run, 'tag', '--list', 'review/r*').split('\n').filter(Boolean);
   for (const tag of names) {
-    const actual = git(run, 'rev-list', '-n', '1', tag);
-    if (actual === sha) {
-      const annotation = git(run, 'cat-file', '-p', tag).split('\n\n').slice(1).join('\n\n');
-      let bound;
-      try { bound = JSON.parse(annotation); } catch { fail('existing review tag lacks valid metadata'); }
-      if (bound.contentHash !== preview.contentHash)
-        fail('review content changed without a new allowlisted Git Commit');
-      return { tag, commitSha: sha, reused: true };
-    }
+    if (git(run, 'rev-list', '-n', '1', tag) !== sha) continue;
+    return { tag, commitSha: sha, reused: true };
   }
   const number = 1 + Math.max(0, ...names.map(name => revisionTag.exec(name)?.[1]).filter(Boolean).map(Number));
   const tag = `review/r${number}`;
-  git(run, 'tag', '-a', tag, sha, '-m', JSON.stringify({
-    revisionId: preview.revisionId, contentHash: preview.contentHash, requestId: preview.requestId
-  }));
+  git(run, 'tag', '-a', tag, sha, '-m', JSON.stringify({commitSha:sha,requestId:preview.requestId}));
   return { tag, commitSha: sha, reused: false };
 }

@@ -41,9 +41,13 @@ export async function run(context) {
  if(input.preview){
    if(input.preview.mode==='event'){
      const template=await file(run,input.preview.eventTemplatePath);
-     const submitted=await command(context,['markcut','preview',md,'--delivery','event','--event-template',template],run);
+     const prepared=await command(context,['neo','project','review','checkpoint','--project','vlog','--path',run,'--stage','producer'],run);
+     const reviewIdentity=JSON.parse(prepared.stdout);
+     if(reviewIdentity.status!=='ready'||!/^[a-f0-9]{40}$/.test(reviewIdentity.commitSha))
+       throw Error('Runner did not produce an immutable Review Git Commit SHA');
+     const submitted=await command(context,['markcut','preview',md,'--delivery','event','--event-template',template,'--commit-sha',reviewIdentity.commitSha],run);
      try{previewReceipt=JSON.parse(submitted.stdout)}catch{throw Error('missing machine-readable Markcut preview receipt')}
-     if(previewReceipt.status!=='review_requested'||!previewReceipt.requestId||!previewReceipt.revisionId||!previewReceipt.contentHash)
+     if(previewReceipt.status!=='review_requested'||!previewReceipt.requestId||!previewReceipt.commitSha||previewReceipt.commitSha!==reviewIdentity.commitSha)
        throw Error('Markcut did not confirm the requested interactive review revision');
      previewReceipt={...previewReceipt,videoMdSha256:version,humanDecision:'PENDING'};
      await writeFile(join(run,'preview-request.json'),JSON.stringify(previewReceipt,null,2)+'\n',{flag:'wx'});
