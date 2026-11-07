@@ -1,6 +1,7 @@
-import { mkdir, writeFile, stat } from 'node:fs/promises';
+import { mkdir, writeFile, stat, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { scope, file, digest, command } from './_vlog-contract.mjs';
+import { rootBackgroundMusic, evaluateMusicAudibility } from '../../lib/bgm-audibility.mjs';
 
 export async function run(context) {
  const {input,project,run}=await scope(context);
@@ -9,6 +10,16 @@ export async function run(context) {
  // Editor no longer requires a native player or viewer receipt; verify the
  // exact current Markdown revision before performing any render side effects.
  await command(context,['markcut','verify',md],run);
+ // A valid Markcut file can still encode nearly silent background music.
+ // Measure the actual source at its authored gain before expensive rendering.
+ const music=rootBackgroundMusic(await readFile(md,'utf8'));
+ let bgmAudibility=null;
+ if(music){
+   const bgm=await file(run,music.src);
+   const measured=await command(context,
+     ['ffmpeg','-hide_banner','-nostats','-i',bgm,'-vn','-af','volumedetect','-f','null','-'],run);
+   bgmAudibility=evaluateMusicAudibility(music,String(measured.stderr||'')+'\n'+String(measured.stdout||''));
+ }
  const output=join(run,'output','video.mp4');
  await mkdir(join(run,'output'),{recursive:true});
  try{await stat(output);throw Error('existing render requires explicit inspection, never overwrite')}catch(e){
@@ -24,7 +35,7 @@ export async function run(context) {
  const hash=await digest(mp4);
  const receipt={schemaVersion:1,status:'RENDERED',videoMdSha256:version,
    videoSha256:hash,videoPath:'output/video.mp4',durationSeconds:Number(info.format.duration),
-   verifiedAt:new Date().toISOString()};
+   verifiedAt:new Date().toISOString(),...(bgmAudibility?{bgmAudibility}:{})};
  await writeFile(join(run,'production-receipt.json'),JSON.stringify(receipt,null,2)+'\n',{flag:'wx'});
  let previewReceipt=null;
  if(input.preview){

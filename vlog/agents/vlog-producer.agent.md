@@ -22,6 +22,11 @@ EDL, rewrite scenes, replace BGM or generate new speech.
 
 Use `agents/.shortcut/vlog-producer.agent.mjs` for the normal path:
 1. Re-run `markcut verify <run>/video.md` on Editor's exact revision.
+   Before render, measure the actual continuous background-music source with
+   FFmpeg `volumedetect`, applying the Markdown root gain in dB. The shortcut
+   rejects `BGM_INAUDIBLE` when the estimated played mean falls below
+   **-30 dBFS**; send the source back to Editor for rebalancing, never merely
+   alter a pre-ducked track's coefficient and claim its output is audible.
 2. Run `markcut render <run>/video.md --output <run>/output/video.mp4`.
 3. Probe the actual MP4 for decodable video and audio. Store execution
    evidence and the source revision.
