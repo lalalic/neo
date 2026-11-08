@@ -39,8 +39,14 @@ and optional GPS integration via the Stage contract. A graphical player,
 browser Preview and `editor-viewer.json` are not mandatory; however, Editor
 **must examine actual source frames, source sound and rendered rough-cut
 frames/audio** to judge story, orientation, cut boundaries and clarity.
-Markcut syntax verification alone is not an artistic review. Producer
-separately renders and probes the final MP4's video and audio streams.
+Markcut syntax verification alone is not an artistic review. If the executing
+Editor has no tool to genuinely listen, it must report subjective audio quality
+**UNVERIFIED** (never PASS), use decode/level/silence checks and retain the
+source audio. For a private film this does not block the **technical** Editor
+handoff when real render, visual inspection, Markcut verify and Stage checks
+all PASS. An unavailable listening capability is not a failed media asset.
+Producer separately renders and probes the final MP4's video and audio streams.
+Neither technical completion nor no-review mode authorizes public publishing.
 
 ## Optional Visioner / Director previews
 

@@ -79,7 +79,11 @@ and Visioner evidence must exist before writing the story.
   exact revision before handoff. Editor must privately inspect real source
   frames and audio and inspect the rendered draft's visuals/sound before
   claiming quality. A graphical player, human Preview and Viewer receipt
-  are optional; real visual/audio checks are not.
+  are optional; real visual/audio checks are not. If the Agent cannot
+  genuinely listen to audio, **do not claim it did**: label subjective sound
+  quality UNVERIFIED, perform real audio decode/level/silence diagnostics,
+  and allow technically verified **private** Editor delivery. Reserve
+  FAILED for actual technical/content failures, not lack of ears.
 - **Producer Agent** uses its Shortcut to verify Editor's `video.md`,
   render an MP4, probe real audio/video and optionally call human Preview
   **only on demand**. Return content changes to Editor; never rewrite its

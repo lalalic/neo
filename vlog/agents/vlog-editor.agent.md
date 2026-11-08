@@ -84,8 +84,19 @@ If no acceptable recording/device is available, edit with existing Run media.
      creative PASS. Inspect real frames across the whole film and audit
      output sound. Reject twisted/blank frames,
      abrupt jumps, repetitive scenic beats and inaudible voice; revise and
-     re-render. No human review or approval gate is required. If sensory
-     inspection tools are unavailable, report it rather than claiming quality.
+     re-render. No human review or approval gate is required. If genuine
+     **audio listening** is unavailable in the executing Agent's tool
+     environment, do not invent listening or claim creative/audio-quality
+     PASS. Independently verify the actual rendered MP4 has decodable video
+     and audio, objectively audit level/clipping/silence, retain original
+     speech when source-backed, and document `audioListeningReview: UNVERIFIED`
+     separately from technical Stage completion. For a private draft, this
+     limitation **does not fail a technically verified Editor handoff** and
+     does not justify a Troubleshooter/escalation loop. A later capable
+     reviewer may judge subjective voice/music balance; publishing remains
+     subject to independent music/source rights and explicit owner permission.
+     Failed media decode, missing assets, unsafe factual claims, or failed
+     Markcut/Stage validation still fail the owning Stage.
 
    Write `edit-decision-list.json` with exact source IDs and in/out points,
    stable `sceneId`, playbackSpeed, actual/timeline durations, boundary
