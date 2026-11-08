@@ -6,6 +6,15 @@ with optional explicitly authorized publication. Use [graph.mmd](graph.mmd),
 [publication contract](docs/vlog-publication.md). Relay manages Jobs,
 Tasks and dependencies, not this project.
 
+## Local service lifecycle
+
+`neo-project` owns the iCloud Inbox watcher lifecycle using PM2 against
+`vlog/scripts/vlog-inbox-watcher.mjs` and imported `vlog/lib/` modules directly.
+`setup` verifies local sources; `restart` reloads them. Do not package
+`.tgz` or copy a secondary runtime under `runs/.service/`. The `runs/`
+tree is for private episodes and ignored state, not duplicated executable
+source. A watcher migration must preserve recorded Run and Inbox media.
+
 ## Run boundary
 
 Use `neo project run --path=/absolute/neo/vlog/runs/YYYY-MM-DD-episode --project=vlog`

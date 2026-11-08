@@ -72,14 +72,18 @@ The project exposes one lifecycle entrypoint:
 
 `uninstall` removes only the PM2 service and preserves private media and
 `runs/`. Neo.app calls this entrypoint instead of owning watcher commands.
-`setup` packages the watcher under ignored `runs/.service/`; `start`
-uses the packaged runtime and PM2 boot persistence.
+`setup` checks the canonical watcher source and local PM2 availability without packaging.
+`start` uses PM2 to run `scripts/vlog-inbox-watcher.mjs` directly (importing
+`lib/inbox-watcher.mjs`) and migrates any legacy npm-packaged PM2 watcher.
+`restart` reloads current source; PM2 retains process persistence. Neo.app's
+Project boot uses the same lifecycle verbs and needs no native change; its
+independent published-package Feature installer is unaffected.
 
 The optional watcher treats `manifest.json` as the producer's final-ready signal. A supported manifest is JSON with `schema_version: 1`, a safe `submission_id`, and a non-empty `media` array whose entries are either relative path strings or `{ "path": "..." }` objects. Media must be downloaded local regular files; missing, zero-byte, symlinked, absolute, or traversal paths are rejected.
 
 The watcher moves a valid submission directory atomically into `runs/YYYY-MM-DD/HH/<submission-id>/input/` before creating one planner-backed Episode Job through Agents Relay. The Vlog-local Planner creates the ordered Task DAG; the watcher does not define an agentGraph. On restart it scans moved inputs first, so a crash after the move and before Task creation is recoverable without a local database. The Visioner stage Task uses `vlog-visioner-<submission_id>`; the Episode Job owns the overall outcome.
 
-For a persistent process, package `vlog/` with `npm pack` and run the resulting `vlog-inbox-watcher` bin through the existing process supervisor via `npx --package <tarball> vlog-inbox-watcher` (do not point PM2 at a developer checkout). By default the watcher consumes Neox’s fixed app-owned iCloud inbox at `~/Library/Mobile Documents/iCloud~com~neox~app/Documents/Vlog Inbox`; `VLOG_ICLOUD_INBOX` remains an explicit override. Configure these deployment values: `VLOG_ICLOUD_INBOX`, `VLOG_RUNS_DIR`, `VLOG_RELAY_REPO`, `VLOG_RELAY_PR`, `VLOG_RELAY_JOB_ID`, and optionally `VLOG_RELAY_AGENT` and `VLOG_WATCH_INTERVAL_MS`. The watcher creates a normal model-backed Task without adapter/provider/model constraints, so Agents Relay performs the required worker-router then model-router selection. The project-local Planner reads `graph.mmd` to derive normal Stage Tasks; reviewers run inside Producer through the Relay Action, not separate Tasks.
+For a persistent process, `./neo-project start` registers the tracked source `vlog/scripts/vlog-inbox-watcher.mjs` with PM2; it imports `vlog/lib/inbox-watcher.mjs`. The canonical project checkout is the single live codebase, with no `.tgz` or copied `.service` runtime. Restart the service after code changes. By default the watcher consumes Neox’s fixed app-owned iCloud inbox at `~/Library/Mobile Documents/iCloud~com~neox~app/Documents/Vlog Inbox`; `VLOG_ICLOUD_INBOX` remains an explicit override. Configure these deployment values: `VLOG_ICLOUD_INBOX`, `VLOG_RUNS_DIR`, `VLOG_RELAY_REPO`, `VLOG_RELAY_PR`, `VLOG_RELAY_JOB_ID`, and optionally `VLOG_RELAY_AGENT` and `VLOG_WATCH_INTERVAL_MS`. The watcher creates a normal model-backed Task without adapter/provider/model constraints, so Agents Relay performs the required worker-router then model-router selection. The project-local Planner reads `graph.mmd` to derive normal Stage Tasks; reviewers run inside Producer through the Relay Action, not separate Tasks.
 
 
 ## Route Story template

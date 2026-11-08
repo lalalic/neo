@@ -1,77 +1,106 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Neo Project Lifecycle Contract v1. This file is the project's only control entrypoint.
+# Neo Project Lifecycle Contract: PM2 runs the canonical project scripts/lib directly.
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SERVICE="vlog/watcher"
-RUNTIME="$ROOT/runs/.service"
-PACKAGE="$RUNTIME/lalalic-neo-vlog-runtime-0.1.1.tgz"
+ENTRYPOINT="$ROOT/scripts/vlog-inbox-watcher.mjs"
 INBOX="${VLOG_ICLOUD_INBOX:-$HOME/Library/Mobile Documents/iCloud~com~neox~app/Documents/Vlog Inbox}"
 export VLOG_ICLOUD_INBOX="$INBOX"
 export VLOG_RUNS_DIR="${VLOG_RUNS_DIR:-$ROOT/runs}"
 
 usage() {
-  printf '%s\n' "usage: ./neo-project {setup|start|stop|restart|status|health|uninstall|help}"
+  printf '%s\n' 'usage: ./neo-project {setup|start|stop|restart|status|health|uninstall|help}'
 }
 
-pm2_id() {
-  npx pm2 pid "$SERVICE" 2>/dev/null | tail -1 | tr -d '[:space:]'
-}
+pm2() { npx --yes pm2 "$@"; }
 
-exists() {
-  npx pm2 jlist 2>/dev/null | node -e '
-    let input = "";
-    process.stdin.on("data", part => input += part);
+# Node is only used to parse documented PM2 process metadata, not to run a second service.
+process_record() {
+  pm2 jlist | node -e '
+    let raw = "";
+    process.stdin.on("data", part => raw += part);
     process.stdin.on("end", () => {
-      const item = JSON.parse(input).find(p => p.name === "vlog/watcher");
-      process.exit(item ? 0 : 1);
+      const item = JSON.parse(raw).find(p => p.name === "vlog/watcher");
+      console.log(JSON.stringify(item ? {
+        exists: true,
+        status: item.pm2_env?.status,
+        pid: item.pid,
+        entrypoint: item.pm2_env?.pm_exec_path,
+        cwd: item.pm2_env?.pm_cwd
+      } : { exists: false }));
     });'
+}
+
+exists() { [ "$(process_record | node -p 'JSON.parse(require("fs").readFileSync(0,"utf8")).exists')" = 'true' ]; }
+current() {
+  process_record | node -e '
+    let raw="";
+    process.stdin.on("data", c => raw += c);
+    process.stdin.on("end", () => {
+      const item = JSON.parse(raw);
+      process.exit(item.exists && item.entrypoint === process.argv[1] && item.cwd === process.argv[2] ? 0 : 1);
+    });' "$ENTRYPOINT" "$ROOT"
 }
 
 status() {
-  npx pm2 jlist 2>/dev/null | node -e '
-    let input = "";
-    process.stdin.on("data", part => input += part);
+  process_record | node -e '
+    let raw="";
+    process.stdin.on("data", c => raw += c);
     process.stdin.on("end", () => {
-      const item = JSON.parse(input).find(p => p.name === "vlog/watcher");
-      const state = item?.pm2_env?.status ?? "not-installed";
+      const record = JSON.parse(raw);
+      const installed = record.exists === true;
+      const online = installed && record.status === "online" && Number(record.pid) > 0;
       console.log(JSON.stringify({
-        project: "vlog", service: "watcher", status: state,
-        running: state === "online", pid: state === "online" ? item.pid : null
+        project: "vlog", service: "watcher",
+        status: installed ? record.status : "not-installed",
+        running: online, pid: online ? record.pid : null,
+        entrypoint: installed ? record.entrypoint : null,
+        source: !installed ? "none" : record.entrypoint === process.argv[1] && record.cwd === process.argv[2] ? "project-scripts" : "legacy-or-other",
       }));
-    });'
+    });' "$ENTRYPOINT" "$ROOT"
 }
 
 setup() {
-  command -v npm >/dev/null
+  command -v node >/dev/null
   command -v npx >/dev/null
-  mkdir -p "$RUNTIME" "$VLOG_RUNS_DIR"
-  (cd "$ROOT" && npm pack --silent --pack-destination "$RUNTIME" >/dev/null)
-  test -s "$PACKAGE"
-  printf '%s\n' "Vlog runtime packaged; existing media and runs preserved."
+  test -f "$ENTRYPOINT"
+  test -f "$ROOT/lib/inbox-watcher.mjs"
+  node --check "$ENTRYPOINT"
+  node --check "$ROOT/lib/inbox-watcher.mjs"
+  pm2 --version >/dev/null
+  mkdir -p "$VLOG_RUNS_DIR"
+  printf '%s\n' 'Vlog watcher source verified; no package/install or duplicated runtime.'
+}
+
+install_direct() {
+  (cd "$ROOT" && pm2 start "$ENTRYPOINT" --name "$SERVICE" --cwd "$ROOT" --interpreter "$(command -v node)" >/dev/null)
 }
 
 start() {
-  if [ ! -s "$PACKAGE" ]; then setup; fi
+  setup >/dev/null
   if exists; then
-    if [ "$(pm2_id)" != "0" ]; then
-      status
-      return
+    if current; then
+      if [ "$(pm2 pid "$SERVICE" | tail -1 | tr -d '[:space:]')" != '0' ]; then
+        status
+        return
+      fi
+      pm2 restart "$SERVICE" --update-env >/dev/null
+    else
+      # One-time migration from a stale packaged or alternate entrypoint.
+      pm2 delete "$SERVICE" >/dev/null
+      install_direct
     fi
-    npx pm2 restart "$SERVICE" --update-env >/dev/null
   else
-    (cd "$RUNTIME" && npx pm2 start npx --name "$SERVICE" -- \
-      --yes --package "$PACKAGE" vlog-inbox-watcher >/dev/null)
+    install_direct
   fi
-  npx pm2 save >/dev/null
+  pm2 save >/dev/null
+  health >/dev/null
   status
 }
 
 stop() {
-  if exists; then
-    npx pm2 stop "$SERVICE" >/dev/null
-    npx pm2 save >/dev/null
-  fi
+  if exists; then pm2 stop "$SERVICE" >/dev/null; pm2 save >/dev/null; fi
   status
 }
 
@@ -81,18 +110,17 @@ health() {
     try {
       fs.readdirSync(process.env.VLOG_ICLOUD_INBOX);
       fs.accessSync(process.env.VLOG_RUNS_DIR, fs.constants.R_OK | fs.constants.W_OK);
-      console.log(JSON.stringify({project:"vlog", inboxReadable:true, runsWritable:true}));
+      fs.accessSync(process.argv[1], fs.constants.R_OK);
+      console.log(JSON.stringify({project:"vlog", inboxReadable:true, runsWritable:true, sourceReadable:true}));
     } catch (error) {
-      console.error(JSON.stringify({project:"vlog", healthy:false, error:error.code ?? error.message}));
+      console.error(JSON.stringify({project:"vlog", healthy:false, reason:error.code ?? error.message}));
       process.exitCode = 1;
-    }'
-  local pid
-  pid="$(pm2_id)"
-  if [ -z "$pid" ] || [ "$pid" = "0" ]; then
-    printf '%s\n' '{"project":"vlog","healthy":false,"reason":"watcher not running"}'
+    }' "$ENTRYPOINT"
+  if ! exists || ! current || [ "$(pm2 pid "$SERVICE" | tail -1 | tr -d '[:space:]')" = '0' ]; then
+    printf '%s\n' '{"project":"vlog","healthy":false,"reason":"watcher not running from canonical project scripts"}' >&2
     return 1
   fi
-  printf '%s\n' '{"project":"vlog","healthy":true}'
+  printf '%s\n' '{"project":"vlog","healthy":true,"source":"project-scripts"}'
 }
 
 case "${1:-help}" in
@@ -100,16 +128,21 @@ case "${1:-help}" in
   start) start ;;
   stop) stop ;;
   restart)
-    # Repack a new project runtime, rather than reviving a stale PM2 command.
-    if exists; then npx pm2 delete "$SERVICE" >/dev/null; fi
-    setup
-    start
+    setup >/dev/null
+    if exists && current; then
+      pm2 restart "$SERVICE" --update-env >/dev/null
+      pm2 save >/dev/null
+      health >/dev/null
+      status
+    else
+      start
+    fi
     ;;
   status) status ;;
   health) health ;;
   uninstall)
-    if exists; then npx pm2 delete "$SERVICE" >/dev/null; npx pm2 save >/dev/null; fi
-    printf '%s\n' "Vlog service removed; media and runs preserved."
+    if exists; then pm2 delete "$SERVICE" >/dev/null; pm2 save >/dev/null; fi
+    printf '%s\n' 'Vlog watcher removed; project source, user media and runs preserved.'
     ;;
   help|--help|-h) usage ;;
   *) usage >&2; exit 2 ;;

@@ -18,6 +18,8 @@ Create thin Neo projects. The project owns domain intent, Graph, Agent and Artif
 ├── contracts/               # reusable JSON Schemas, optional
 ├── config/                  # reusable non-secret configuration, optional
 ├── templates/               # reusable project templates, optional
+├── lib/                     # reusable project code, optional
+├── scripts/                 # executable project entrypoints, optional
 ├── neo-project              # optional executable lifecycle entrypoint
 ├── setup/bootstrap.md       # optional interactive setup agent instructions
 └── runs/                    # ignored, private durable execution artifacts
@@ -142,6 +144,8 @@ Installable/persistent projects expose exactly one optional executable `<project
 - The bootstrap coordinates account creation, permissions, ChatGPT Projects/threads, service setup and real first-use verification, with consent gates. It is idempotent, does not contain secrets, and checks existing state before making changes. `./neo-project setup` remains the safe scripted dependency/config preparation step; do not overload it with browser/account setup.
 - Pure Agent projects may omit this entrypoint or unsupported commands.
 - Reuse PM2/shared Neo service management; never add another scheduler, Task database, MCP server or Neo.app project backend unless a concrete missing capability requires it.
+- When a project already has maintained source under `<project>/lib/` and `<project>/scripts/`, **run the owned service directly from `<project>/scripts/`**, importing `<project>/lib/` as needed. Keep the canonical source checkout as runtime authority: do not `npm pack`, install a private `.tgz`, or duplicate source to `runs/.service/{lib,scripts}` just to launch a local PM2 service. Publish versioned packages only for a real external distribution requirement.
+- `setup` checks source/runtime dependencies without packaging; `start` is idempotent and must migrate a legacy PM2 package/entrypoint to the canonical script rather than treating the old online process as current. `restart` reloads the current project source and verifies it is healthy; `status` should identify the active entrypoint. Preserve Runs and original media across all lifecycle operations. New code must be reloaded with restart, not assumed hot-updated in a live Node process.
 
 ## Creation/refactor workflow and verification
 

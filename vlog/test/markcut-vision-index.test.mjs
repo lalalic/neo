@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
-import {mkdtempSync,writeFileSync,rmSync} from 'node:fs';
+import {mkdtempSync,mkdirSync,writeFileSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {makeMarkcutVisionIndex,indexFromRun} from '../scripts/index-markcut-vision.mjs';
@@ -66,7 +66,10 @@ test('rejects invalid timecodes and missing Markcut metadata without rehashing s
   writeFileSync(f.manifest.media[1].original_path,'altered');
   assert.doesNotThrow(index); // Source checksums are opaque provenance, not a validation gate.
 });
-test('legacy cross-run source manifests cannot bypass canonical run containment',()=>{
-  const run='/Users/chengli/Workspace/neo/vlog/runs/2026-10-30-job536-real-review-e2e';
+test('legacy cross-run source manifests cannot bypass canonical run containment',t=>{
+  const f=fixture(t);
+  const run=join(f.dir,'2026-10-30-unsafe-legacy-run');
+  mkdirSync(run);
+  writeFileSync(join(run,'source-manifest.json'),JSON.stringify(f.manifest));
   assert.throws(()=>indexFromRun(run),/Canonical source directory must resolve inside the dated Vlog run/);
 });

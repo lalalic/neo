@@ -30,7 +30,7 @@ Use the smallest relevant role/skill context, local command `--help`, project sc
 
 Reuse shared Markcut media understanding and rendering capability; do not create parallel inference pipelines or use a managed Relay ChatGPT Worker as synchronous vision inference. Optional browser/platform operations use the discovered WebHelm Skill and its active session lifecycle; do not hard-code outdated CDP ports or browser implementation details.
 
-All external posting and publishing requires explicit owner permission. Draft/preview consent is not publication consent. Paid services, private uploads, credentials, private data or cloud mutations require their owning authorization gates. Services managed by Neo.app must use their published package `@latest` launchers rather than fixed npm version strings; the existing package publication watcher handles updates. Local archive or tarball sources are not registry packages.
+All external posting and publishing requires explicit owner permission. Draft/preview consent is not publication consent. Paid services, private uploads, credentials, private data or cloud mutations require their owning authorization gates. Services shipped as external npm packages and managed by Neo.app must use published `@latest` launchers rather than fixed npm version strings; the package publication watcher handles those updates. **Project-owned local services** with canonical `lib/` and `scripts/` should instead run source scripts directly from their project via `neo-project` and PM2, without a duplicate `.tgz` or private runtime copy. Local archive or tarball sources are not registry packages.
 
 ## Project Worker quality
 
