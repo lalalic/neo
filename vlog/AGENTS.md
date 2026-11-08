@@ -23,8 +23,13 @@ and Visioner evidence must exist before writing the story.
   passed to Vision Understanding; original footage and GPS stay authoritative
   for shot selection, timecodes and final render. Long clips are sampled
   for understanding, never reused as timeline footage.
-- **Director** writes a complete first-person goal/setback/actions/payoff
-  story, source-linked shot plan and `route-intent.json`. Director chooses
+- **Private creator profile**: Director reads project-root `user.md` if
+  present, solely as background for everyday story discovery and natural tone.
+  It is private Git-ignored context; do not replicate it in public artifacts,
+  infer filmed actions from it, or force personal hardship into each episode.
+- **Director** writes a complete first-person lived-experience story
+  (curiosity/intent, exploration or action, discovery/result; real setbacks
+  only when evidenced), source-linked shot plan and `route-intent.json`. Director chooses
   **if/why** to show the route, which filmed stops it represents, and
   describes its narrative purpose, not timeline mechanics.
 - **Editor** owns the EDL, actual audio/media assets, `episode-input.json`,
