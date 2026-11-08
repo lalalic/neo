@@ -17,7 +17,8 @@ process_record() {
       const p=JSON.parse(raw).find(item=>item.name==="chat-gateway/server");
       console.log(JSON.stringify(p ? {
         exists:true, status:p.pm2_env?.status, pid:p.pid,
-        entrypoint:p.pm2_env?.pm_exec_path, cwd:p.pm2_env?.pm_cwd
+        entrypoint:p.pm2_env?.pm_exec_path, cwd:p.pm2_env?.pm_cwd,
+        interpreter:p.pm2_env?.exec_interpreter
       } : {exists:false}));
     });'
 }
@@ -27,7 +28,7 @@ current() {
     let raw=""; process.stdin.on("data", c=>raw+=c);
     process.stdin.on("end", () => {
       const p=JSON.parse(raw);
-      process.exit(p.exists && p.entrypoint===process.argv[1] && p.cwd===process.argv[2] ? 0 : 1);
+      process.exit(p.exists && p.entrypoint===process.argv[1] && p.cwd===process.argv[2] && p.interpreter==="none" ? 0 : 1);
     });' "$ENTRYPOINT" "$ROOT"
 }
 status() {
@@ -39,7 +40,7 @@ status() {
       console.log(JSON.stringify({
         service:"chat-gateway/server", status:p.exists?p.status:"not-installed",
         running:live,pid:live?p.pid:null,entrypoint:p.entrypoint??null,
-        source:p.exists && p.entrypoint===process.argv[1] && p.cwd===process.argv[2] ? "project-scripts" : "legacy-or-other"
+        source:p.exists && p.entrypoint===process.argv[1] && p.cwd===process.argv[2] && p.interpreter==="none" ? "project-scripts" : "legacy-or-other"
       }));
     });' "$ENTRYPOINT" "$ROOT"
 }
@@ -69,7 +70,14 @@ assert_canonical() {
   fi
 }
 install_direct() {
-  (cd "$ROOT" && pm2 start "$ENTRYPOINT" --name "$SERVICE" --cwd "$ROOT" --interpreter "$(command -v node)" -- serve >/dev/null)
+  (cd "$ROOT" && pm2 start "$ENTRYPOINT" --name "$SERVICE" --cwd "$ROOT" --interpreter none -- serve >/dev/null)
+}
+await_health() {
+  for attempt in $(seq 1 30); do
+    if health >/dev/null 2>&1; then return 0; fi
+    sleep 0.5
+  done
+  health
 }
 start() {
   assert_canonical
@@ -77,7 +85,7 @@ start() {
   deps
   if exists; then
     if current; then
-      if [ "$(pm2 pid "$SERVICE" | tail -1 | tr -d '[:space:]')" != '0' ]; then status; return; fi
+      if [ "$(pm2 pid "$SERVICE" | tail -1 | tr -d '[:space:]')" != '0' ]; then await_health; status; return; fi
       pm2 restart "$SERVICE" --update-env >/dev/null
     else
       pm2 delete "$SERVICE" >/dev/null
@@ -87,7 +95,7 @@ start() {
     install_direct
   fi
   pm2 save >/dev/null
-  health >/dev/null
+  await_health
   status
 }
 health() {
@@ -109,7 +117,7 @@ case "${1:-help}" in
     if exists && current; then
       pm2 restart "$SERVICE" --update-env >/dev/null
       pm2 save >/dev/null
-      health >/dev/null
+      await_health
       status
     else start; fi ;;
   status) status ;;

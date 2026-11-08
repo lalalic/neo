@@ -22,6 +22,9 @@ test('direct-source lifecycle refuses live start from a disposable worktree', ()
   assert.match(script, /assert_canonical/);
   assert.match(script, /Refusing to start chat-gateway/);
   assert.match(script, /pm2 start.*ENTRYPOINT/);
+  assert.match(script, /--interpreter none -- serve/);
+  assert.match(script, /p.interpreter==="none"/);
+  assert.match(script, /await_health/);
   assert.match(script, /pm2 delete.*SERVICE/);
   assert.doesNotMatch(script, /npm pack|--package|\.tgz/);
 });
