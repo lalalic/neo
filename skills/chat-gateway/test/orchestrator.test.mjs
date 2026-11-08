@@ -86,3 +86,22 @@ test('WebHelm adapter verifies real project-setup receipts from a private config
   assert.equal(receipt.projectId, projectId);
   assert.equal(receipt.threadId, threadId);
 });
+
+test('WebHelm failed action exposes structured action error rather than SQLite stderr', async (t) => {
+  const { dir } = await fixture(t);
+  const launcher = join(dir, 'fail-webhelm');
+  await writeFile(launcher, [
+    '#!/bin/sh',
+    `echo '{"result":{"ok":false,"error":"Project settings Save button was not found"}}'`,
+    'echo "(node:123) ExperimentalWarning: SQLite" >&2',
+    'exit 1',
+    '',
+  ].join('\n'));
+  await chmod(launcher, 0o755);
+  await assert.rejects(
+    createProjectWithWebHelm({
+      command: launcher, instructions: 'Initial instructions', initialPrompt: 'Initialize',
+    }),
+    /Project settings Save button was not found/,
+  );
+});
