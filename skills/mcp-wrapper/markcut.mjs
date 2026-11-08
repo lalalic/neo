@@ -2,10 +2,10 @@
 /** Neo Core's single Markcut MCP wrapper. Generic stdio proxy + Neo-owned
  * review handoff/notification; no Swift changes or middleware registry.
  */
-import {spawn,execFile} from 'node:child_process';
+import {spawn,execFile,execFileSync} from 'node:child_process';
 import {promisify} from 'node:util';
-import {existsSync,readFileSync,writeFileSync,renameSync,statSync,unlinkSync,mkdirSync,readdirSync} from 'node:fs';
-import {join,basename,resolve} from 'node:path';
+import {existsSync,readFileSync,writeFileSync,renameSync,statSync,unlinkSync,mkdirSync,readdirSync,realpathSync} from 'node:fs';
+import {join,basename,resolve,dirname,relative,isAbsolute,sep} from 'node:path';
 import {homedir} from 'node:os';
 import {fileURLToPath} from 'node:url';
 import {startStdioProxy} from './stdio-proxy.mjs';
@@ -69,6 +69,31 @@ function watcher(id){
   child.on('error',error=>{process.stderr.write('Neo Preview watcher: '+error.message+'\n');});
   child.unref();
 }
+/** A Relay review must bind a committed Run revision, not Markcut's media hash.
+ * Neo's federated markcut_preview schema does not expose review.commitSha.
+ * Resolve it deterministically from the checked-in Markdown source, before
+ * reserving any Relay invocation; an uncommitted edit must fail closed.
+ */
+export function commitShaForPreview(previewPath,{git=execFileSync}={}){
+  if(typeof previewPath!=='string'||!isAbsolute(previewPath)||!previewPath.endsWith('.md'))
+    throw Error('Event Preview requires an absolute committed Markdown path');
+  const file=realpathSync(previewPath);
+  if(!statSync(file).isFile())throw Error('Event Preview source is not a regular file');
+  const options={cwd:dirname(file),encoding:'utf8',timeout:8000,maxBuffer:1024*1024};
+  const call=(...args)=>String(git('git',args,options)).trim();
+  let root,sha;
+  try {root=realpathSync(call('rev-parse','--show-toplevel')); sha=call('rev-parse','--verify','HEAD^{commit}');}
+  catch {throw Error('Event Preview needs a valid committed Run Git revision; checkpoint the Stage first');}
+  const rel=relative(root,file);
+  if(!rel||rel==='..'||rel.startsWith(`..${sep}`)||isAbsolute(rel)||!/^[a-f0-9]{40}$/.test(sha))
+    throw Error('Event Preview is outside its committed Run or has an invalid Git SHA');
+  try {call('cat-file','-e',`HEAD:${rel}`);}
+  catch {throw Error('Event Preview Markdown must be tracked in the Run checkpoint before delivery');}
+  if(call('status','--porcelain=v1','--untracked-files=normal','--',rel))
+    throw Error('Event Preview Markdown differs from the immutable Run checkpoint; commit the Stage first');
+  return sha;
+}
+
 /** Called only for markcut.preview. All other MCP methods are transparent. */
 export async function previewCall(message,forward,{control=relayControl,notifyWatcher=watcher,record=recordDeliveryIntent}={}){
   const params=message.params||{};
@@ -81,13 +106,17 @@ export async function previewCall(message,forward,{control=relayControl,notifyWa
       !(typeof relay.taskId==='string'&&relay.taskId.length||Number.isSafeInteger(relay.taskId))||
       typeof relay.executionId!=='string'||!relay.executionId)
       throw Error('Managed preview requires relay.jobId, taskId and executionId');
+    // A missing commitSha is normal for the public Neo tool schema; do not
+    // reserve a Relay invocation or submit an invalid Markcut request for it.
+    const commitSha=input.review?.commitSha??commitShaForPreview(input.path);
+    if(!/^[a-f0-9]{40}$/.test(commitSha))throw Error('Event Preview requires a full Git Commit SHA');
     const receipt=await control('review.interactive.begin',{
       jobId:relay.jobId,taskId:String(relay.taskId),executionId:relay.executionId});
     binding=assertBoundReceipt(receipt,{...relay,taskId:String(relay.taskId)});
     if(receipt.reused===true)
       throw Error('Preview already requested for this execution; do not start another compile');
     forwarded={...message,params:{...params,arguments:{...input,
-      review:{delivery:'event',commitSha:input.review?.commitSha,eventTemplate:receipt.eventTemplate}}}};
+      review:{delivery:'event',commitSha,eventTemplate:receipt.eventTemplate}}}};
   }
   let result;
   try{result=await forward(forwarded);}
