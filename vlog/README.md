@@ -33,7 +33,9 @@ stops are verified. Editor decides **how** that route appears on the movie
 A route is optional. A navigational route is not evidence of travelled track.
 
 **Any Agent writing/revising a Markcut .md calls `markcut verify`.**
-Editor does not require native playback or `editor-viewer.json`.
+Editor must inspect source actions, make a private Markcut rough-cut,
+then review rendered frames/audio and revise before handing off. A graphical
+player or `editor-viewer.json` is optional; sensory checking is not.
 Producer re-verifies/renders without editorial changes.
 There is no independent Final QA or mandatory final review. Optional owner
 Preview is not publication authorization.

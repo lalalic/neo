@@ -152,11 +152,22 @@ if(stage==='visioner'){
 }else if(stage==='editor'){
  const evidence=json('vision-evidence.json');const story=personalStory(evidence);const shots=json('shot-selection.json');const edl=json('edit-decision-list.json');schema('edit-decision-list.json','edit-decision-list.schema.json');
  if(story&&edl)check(edl.personal_story_id===story.story_id,'EDL_PERSONAL_STORY_ID','Carry unchanged personal_story_id from Director to Editor');
- if(shots&&edl){const byId=new Map((shots.shots||[]).map(s=>[s.id,s]));for(const edit of edl.edits||[]){
- const shot=byId.get(edit.shot_id);check(!!shot,'EDL_SHOT_REF','Repair shot_id '+edit.shot_id+' to reference Director output');
- if(shot)check(shot.source_id===edit.source_id,'EDL_SOURCE_REF','Use Director source_id for shot '+edit.shot_id);
- if(shot)check(shot.story_beat_id===edit.story_beat_id,'EDL_PERSONAL_STORY_BEAT','Preserve Director personal-story beat for shot '+edit.shot_id);
- check(edit.out_seconds>edit.in_seconds,'EDL_TIMECODE','Set a positive source interval for '+edit.shot_id);
+ if(shots&&edl){
+  const byId=new Map((shots.shots||[]).map(s=>[s.id,s]));
+  const sources=new Map((evidence?.sources||[]).map(s=>[s.source_id,s]));
+  const beats=new Set((story?.beats||[]).map(b=>b.id));
+  for(const edit of edl.edits||[]){
+  const shot=byId.get(edit.shot_id);
+  // Creative changes are allowed but must be grounded in real source + story beat.
+  const deviates=!shot||shot.source_id!==edit.source_id||shot.story_beat_id!==edit.story_beat_id;
+  if(deviates)check(typeof edit.editor_reason==='string'&&edit.editor_reason.trim().length>=15,
+    'EDL_EDITOR_REASON','Explain the editorial reason to change a shot: '+String(edit.shot_id));
+  const source=sources.get(edit.source_id);
+  check(!!source,'EDL_SOURCE_REF','Bind Editor cut '+String(edit.shot_id)+' to an actual Visioner source');
+  if(source&&/^[a-f0-9]{64}$/i.test(source.source_sha256||''))
+   check(source.source_sha256===edit.source_hash,'EDL_SOURCE_SHA','Preserve the original source SHA-256 for '+String(edit.shot_id));
+  check(beats.has(edit.story_beat_id),'EDL_PERSONAL_STORY_BEAT','Bind cut '+String(edit.shot_id)+' to a real personal story beat');
+  check(edit.out_seconds>edit.in_seconds,'EDL_TIMECODE','Set a positive source interval for '+edit.shot_id);
  if(edit.sourceType==='video' && (edit.sourceDuration!=null||edit.playbackSpeed!=null||edit.timelineDuration!=null)){
   const sourceDuration=edit.out_seconds-edit.in_seconds,speed=edit.playbackSpeed??1,screenTime=edit.timelineDuration??edit.target_duration_seconds;
   check([edit.sourceDuration,edit.playbackSpeed,edit.timelineDuration].every(Number.isFinite),

@@ -64,8 +64,10 @@ and Visioner evidence must exist before writing the story.
   decides **how** to merge the Director route into an executable map scene,
   its timing, narration, transitions and continuous BGM. **Any Agent
   creating or modifying Markcut .md must run `markcut verify`** on that
-  exact revision before handoff. Editor does not need native playback,
-  a browser, audio listening, or a Viewer receipt.
+  exact revision before handoff. Editor must privately inspect real source
+  frames and audio and inspect the rendered draft's visuals/sound before
+  claiming quality. A graphical player, human Preview and Viewer receipt
+  are optional; real visual/audio checks are not.
 - **Producer Agent** uses its Shortcut to verify Editor's `video.md`,
   render an MP4, probe real audio/video and optionally call human Preview
   **only on demand**. Return content changes to Editor; never rewrite its

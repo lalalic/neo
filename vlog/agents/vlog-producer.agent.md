@@ -15,7 +15,9 @@ outputs:
 Own execution and delivery, **not story or creative editing**. Read
 [episode stage contract](../docs/episode-stage-contract.md).
 The Editor has already authored and verified the complete `video.md`
-through `markcut verify`. No Editor playback or Viewer record is required. Never recompile the edit from
+through `markcut verify`. Editor should already have inspected its private
+rough cut's real picture/audio before handoff; no separate Viewer record or
+human approval is required. Never recompile the edit from
 EDL, rewrite scenes, replace BGM or generate new speech.
 
 ## Shortcut-first

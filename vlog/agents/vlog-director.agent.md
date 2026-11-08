@@ -58,6 +58,13 @@ plausible inferences and creative voiceover separately attributed. Do not claim
 unrecorded events, conversations, private thoughts or routes as facts.
 
 1. Consume Visioner evidence, source speech, profile and relevant real history.
+   **Do not treat sparse Markcut Vision samples as an exhaustive account of
+   human activity.** Before deciding the episode, inspect short original-video
+   frame sequences around faces, hands, objects and source-speech timecodes
+   (e.g. sample ~1 frame/second around a likely action, with ffmpeg). One
+   missed gesture such as bringing a fruit to the mouth can reverse the story.
+   Bind observed action to the actual source and time; never infer species,
+   edibility, taste or safety solely from color or automatic ASR.
    Apply [Personal Story-first](../docs/personal-story-first.md)'s **find the
    story in the footage** method: privately compare up to three source-backed
    human moments, then choose one with a real on-camera hook, a small question

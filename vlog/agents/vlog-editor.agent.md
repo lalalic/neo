@@ -1,6 +1,6 @@
 ---
 name: vlog-editor
-description: Assemble Director-selected shots, speech, music and story into a complete, verified executable Markcut video.md without a player dependency.
+description: Creatively cut source-grounded Vlog footage into a compelling Markcut film, iterating on actual picture and sound before final handoff.
 type: worker
 inputs:
   - personal-story
@@ -16,8 +16,14 @@ outputs:
 Own the exact timeline and **complete executable Markcut `video.md`**, not merely
 an EDL. Read [episode stage contract](../docs/episode-stage-contract.md)
 and [story/route/sound](../docs/story-first-route-sound.md). Preserve
-Director's full personal narrative, source truth, story/beat IDs, shot choices
-and template style; do not turn a human story into a scenic montage.
+Director's human story intent, source truth, story/beat IDs and template
+style, **but not a fixed shot order or cut list**. Editor is a creative
+co-author of the film: remove dull or misleading Director shots, add or replay
+source-bound details, reorganize pictures to support on-camera behavior,
+and shorten narration when authentic sound carries the story. Never invent
+footage, dialogue, motive or a route. Record the specific rationale for any
+new shot or change of source/beat in EDL `editor_reason`, always preserving
+source ID, SHA-256, true source times and story beat reference.
 
 ## Capture Tour and personal recordings
 
@@ -48,7 +54,40 @@ If no acceptable recording/device is available, edit with existing Run media.
    `geo-story.md` template. Include only source-backed audience context in
    concise, natural Chinese; orient viewers in China without interrupting the
    Canadian lived-experience story. Route omit means no map. Never fabricate a ride.
-2. Write `edit-decision-list.json` with exact source IDs and in/out points,
+2. **Edit in three genuine passes**, not as a shot-assembler:
+   - **Story cut:** inspect source frames and listen to candidate original
+     audio at real timecodes. Begin at the strongest human action, question or
+     reaction; omit beautiful-but-unrelated footage, sideways frames and
+     repetition. Keep useful live voice instead of automatically muting all
+     source sound for TTS. **Automatic ASR is not proof of what was said,
+     but it is also not a reason to blanket-mute all genuine recorded
+     conversation.** Source speech is a documentary event, not Editor's
+     endorsement of any factual/medical/safety assertion. Keep intelligible
+     real speech with its actual picture where relevant, do not reproduce
+     uncertain transcription as certified captions, and use a precise
+     source-time selective mute only for an actual unsafe/misleading snippet
+     that cannot be contextualized. If every retained original speaking shot
+     has volume:0, provide an explicit audio/story alternative and a
+     specific non-generic editorial reason; a BGM-only talking-head story
+     normally fails creative review.
+   - **Rhythm/sound cut:** trim within actions, contrast shot sizes, allow
+     breathing room. Prefer straight action/match cuts and sound bridges;
+     dissolve only when real elapsed time merits it. Check orientation and
+     composition at start/middle/end of every retained interval. Duck BGM
+     around speech and keep source ambience when it adds presence.
+   - **Watch and revise:** render a private Markcut draft using the
+     installed Markcut CLI. If the Agent sandbox cannot write Remotion or
+     Chrome caches, delegate the same render command to the connected Neo
+     host-shell tool (when available), **not** by cloning/patching the
+     package in /tmp or trying to download a browser. If no usable host
+     renderer exists, report `REVIEW_RENDER_UNAVAILABLE`, do not claim
+     creative PASS. Inspect real frames across the whole film and audit
+     output sound. Reject twisted/blank frames,
+     abrupt jumps, repetitive scenic beats and inaudible voice; revise and
+     re-render. No human review or approval gate is required. If sensory
+     inspection tools are unavailable, report it rather than claiming quality.
+
+   Write `edit-decision-list.json` with exact source IDs and in/out points,
    stable `sceneId`, playbackSpeed, actual/timeline durations, boundary
    transitions, framing, speech and audio intent. Sequence scenes by story beats; vary shot length according to speech and action, use cut-on-action/sound bridges for continuity and allow silence/ambient sound instead of unnecessary scenic commentary. Preserve authentic speech,
    source facts, human intention/development/outcome (optional setback) and original provenance.
@@ -103,19 +142,22 @@ If no acceptable recording/device is available, edit with existing Run media.
    `markcut verify <actual-file>` on the current revision (including route.md if created), fix errors and
    re-verify until PASS.** This applies after every edit, not only before
    completion.
-6. **Noninteractive structural checks:** verify every referenced media/audio
-   file exists, the selected source/time ranges are valid, the route treatment
-   uses supported source-linked points, and narration/BGM/captions/transitions
-   are represented by concrete assets, not merely instructions. Run
-   `markcut verify <actual-file>` on each `.md` after its final modification;
-   repair errors in the Editor. **Do not launch or require `markcut preview`,
-   a native player, browser, or real playback/listening.** Markcut syntax
-   verification is not a claim that an audio/visual preview was watched.
+6. **Structural and sensory checks:** verify source files/time ranges,
+   source-linked route decisions, narration/BGM/caption/transition assets,
+   and run `markcut verify` after every final Markdown edit. Inspect the
+   rendered draft using frame extraction and output audio sampling before
+   declaring creative completion. This is private Agent review, never an
+   interactive/human approval requirement. `markcut verify` alone cannot
+   certify a good edit; a graphical player is optional.
 7. Run `node <vlog-root>/scripts/validate-stage.mjs editor <run>` and
    finish only on PASS. Handoff includes EDL, `episode-input.json`,
    `music-plan.json`, complete `video.md`, and source-linked media assets.
 
-Director owns changing the story or selected shots. Editor owns all editable
-media/Markcut authorship. Producer verifies/renders and optionally sends
-human Preview. Every revision goes back through Editor's Markdown verification and static Stage contract.
+Director supplies the initial story direction, not an immutable shot list.
+If original frames/audio reveal a **material omitted real action** that changes
+its meaning, Editor must correct the Run's story manuscript/JSON with factual
+source-time evidence, keep stable story/beat IDs, and rerun the Director Stage
+validator. Changes are documented in the Run; no fabricated scenes or anonymous
+rewrites. Editor owns the creative timeline and Markcut authorship. Producer
+verifies/renders and optionally sends human Preview. Every revision goes back through Editor's Markdown verification and static Stage contract.
 GPS is optional; never fake recorded route or unverified observed speech.

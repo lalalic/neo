@@ -360,23 +360,18 @@
     ]
   },
   {
-    "id": "editor-verify-without-playback",
+    "id": "editor-verify-and-sensory-review",
     "role": "vlog-editor",
-    "capability": "verified playable Markcut authoring",
+    "capability": "independent private rough-cut render and source-audio/visual review before Editor handoff",
     "choices": [
-      "verify_and_handoff_without_player",
-      "handoff_edl_only",
-      "defer_verify_to_producer"
+      "verify_render_privately_inspect_real_frames_and_audio_then_revise",
+      "verify_only_without_watching",
+      "handoff_edl_and_ask_producer_to_decide_story"
     ],
-    "task": "Director story and route intent are complete. Editor made a video.md and referenced actual audio and map subvideo. Which concrete checks must happen before Editor may hand off?",
-    "expectedDecision": "verify_and_handoff_without_player",
-    "required": [
-      "markcut verify",
-      "route"
-    ],
-    "forbidden": [
-      "Producer writes video.md"
-    ]
+    "task": "Editor has a Markcut video.md that verifies. However, original source 004 rotates sideways mid-clip, source 013 includes on-camera reactions and speech, and the proposed timeline uses fade for every transition with no actual output inspection. No human reviewer is requested. What must Editor do before claiming a creatively finished cut?",
+    "expectedDecision": "verify_render_privately_inspect_real_frames_and_audio_then_revise",
+    "required": [],
+    "forbidden": []
   },
   {
     "id": "publisher-uncertain-wechat",
@@ -623,6 +618,61 @@
     ],
     "task": "Actual source 013 shows the creator looking up at red berries and a picture-in-picture view of himself. Source 003 shows a walking path. VTT 013 has unverified ASR sounding like \"这是可以吃的\" at 0-1.22 s and \"酸甜味了\" at 23.36-24.48 s. Fruit identity, safe edibility, tasting action and original spoken words are NOT verified. The creator wants a natural Chinese story for a China-based audience. What should Director build and hand to Editor: a person-led moment with honest open question and source-time-coded *candidate* original speech for listening, or assert the fruit was eaten, or write a scenic life lesson?",
     "expectedDecision": "human_reaction_with_candidate_audio_for_editor",
+    "required": [],
+    "forbidden": []
+  },
+  {
+    "id": "editor-sparse-vision-real-action-correction",
+    "role": "vlog-editor",
+    "capability": "correct Director story from actual source frames when sparse Vision samples missed the human payoff",
+    "references": [
+      "agents/vlog-editor.agent.md",
+      "agents/vlog-director.agent.md",
+      "docs/personal-story-first.md"
+    ],
+    "choices": [
+      "inspect_original_timecodes_recut_real_action_and_correct_story_with_provenance",
+      "strictly_follow_director_scenic_story",
+      "claim_unidentified_fruit_is_safe_to_eat"
+    ],
+    "task": "Visioner for 013.mov sampled sparse frames at 2.2s and 6.7s, describing a man looking at red berries. Director wrote an unanswered scenic story. Editor extracts the original video frames around 3–5s and clearly sees the creator bring a berry to his mouth; two ASRs suggest speech but are not human-verified. Another source 004 rotates 90 degrees halfway through. What is the tasteful, truthful editorial decision? Preserve the visible human action, source ID/SHA/timecodes, correct Director story and recut picture while withholding claims about edibility, or blindly follow the scenic plan?",
+    "expectedDecision": "inspect_original_timecodes_recut_real_action_and_correct_story_with_provenance",
+    "required": [],
+    "forbidden": []
+  },
+  {
+    "id": "director-audit-unsampled-action",
+    "role": "vlog-director",
+    "capability": "recognize sparse Vision missed a critical human event and inspect source before writing narrative",
+    "references": [
+      "agents/vlog-director.agent.md",
+      "docs/personal-story-first.md"
+    ],
+    "choices": [
+      "inspect_dense_frames_and_real_speech_around_human_action",
+      "write_generic_berry_question_from_sparse_summary",
+      "invent_fruit_identification_or_safe_tasting"
+    ],
+    "task": "Markcut Vision description for a 27-second Vlog clip contains frames at 2.2 and 6.7s, showing a person under berry branches, but a creator speech VTT shows an event around 3–5s. A preliminary source-frame contact sheet suggests a hand-to-mouth moment. What should Director do BEFORE deciding a scenic story and script?",
+    "expectedDecision": "inspect_dense_frames_and_real_speech_around_human_action",
+    "required": [],
+    "forbidden": []
+  },
+  {
+    "id": "editor-preserve-authentic-voice",
+    "role": "vlog-editor",
+    "capability": "retain relevant recorded original speech without treating uncertain ASR as certified factual claim",
+    "references": [
+      "agents/vlog-editor.agent.md",
+      "docs/personal-story-first.md"
+    ],
+    "choices": [
+      "use_real_original_speech_with_picture_no_uncertain_subtitle_and_context",
+      "mute_all_source_speech_and_only_keep_bgm",
+      "recreate_unsafe_edibility_claim_in_voiceover"
+    ],
+    "task": "A 20-second source video shows a real creator putting one red fruit in his mouth and speaking before/after the action. The audio exists and is intelligible; two ASRs suggest words about edibility and taste, but the fruit species and safe edibility are not verified. The Editor finds this the main human story. What sound treatment best represents the source without making unsafe claims?",
+    "expectedDecision": "use_real_original_speech_with_picture_no_uncertain_subtitle_and_context",
     "required": [],
     "forbidden": []
   }

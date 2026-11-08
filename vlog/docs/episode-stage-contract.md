@@ -8,9 +8,9 @@ required for an ordinary private MP4.
 | Stage | Output | Acceptance |
 | --- | --- | --- |
 | Source | `source-manifest.json` | Owner-authorized real evidence; `INPUT_NEEDED` blocks |
-| Visioner | `vision-evidence.json`, source index | Real visuals/audio, timestamps and uncertainty; Markcut-normalized small Vision Understanding media mapped in `vision-normalized-manifest.json` |
+| Visioner | `vision-evidence.json`, `vision-normalized-manifest.json` | Source-bound observations projected directly from Markcut metadata; timecodes, hashes and ASR uncertainty (sparse samples are not an exhaustive action inventory) |
 | Director | `personal-story.md/json`, `story.md`, `shot-selection.json`, `visual-brief.md`, `post.md`, `route-intent.json` | Complete human intent → exploration/development → real result; setbacks optional, source-linked route or omit |
-| Editor | `edit-decision-list.json`, assets, `episode-input.json`, `music-plan.json`, `video.md` | All Markcut .md verified and source-linked assets/route/audio/captions/transitions statically checked; no player required |
+| Editor | `edit-decision-list.json`, assets, `episode-input.json`, `music-plan.json`, `video.md` | Independent source-backed shot selection, sound and rhythm cut, private rough-cut render with real frame/audio inspection, final Markcut verify and Stage validation; no human gate |
 | Producer | `output/video.mp4`, `production-receipt.json` | Verify again, render exact Editor revision, probe playable video **and audio**, Preview only on request |
 | Publisher | `publish/<platform>-receipt.json` or SKIPPED | Separate explicit per-MP4, per-platform/account authorization and verified platform status |
 
@@ -35,10 +35,12 @@ See [geo production](geo-story-production.md).
 **Any Agent creating or modifying a Markcut .md must run `markcut
 verify <file>` on the current revision.** Editor also checks the
 real source references, timings, narration/audio files, captions, transitions
-and optional GPS integration via the Stage contract. No native player,
-browser, `markcut preview`, or `editor-viewer.json` is required for Editor.
-Verification does not imply human/audio-visual review; Producer separately
-renders and probes the actual MP4's video and audio streams.
+and optional GPS integration via the Stage contract. A graphical player,
+browser Preview and `editor-viewer.json` are not mandatory; however, Editor
+**must examine actual source frames, source sound and rendered rough-cut
+frames/audio** to judge story, orientation, cut boundaries and clarity.
+Markcut syntax verification alone is not an artistic review. Producer
+separately renders and probes the final MP4's video and audio streams.
 
 ## Preview, publishing and private tests
 

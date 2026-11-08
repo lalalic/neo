@@ -61,6 +61,26 @@ test('Editor validates sourceDuration versus story-paced timelineDuration instea
  }finally{f.clean();}
 });
 
+test('Editor may select a new source-bound human reaction only with explicit creative rationale',()=>{
+ const f=fixture();try{
+  const tool=join(f.vlog,'scripts/validate-stage.mjs');const env={AGENTS_RELAY_CLI:f.cli,MARKCUT_CLI:f.cli};
+  const sourceHash='b'.repeat(64);
+  write(f.run,'vision-evidence.json',{stage:'visioner',summary:[{source_id:'a'},{source_id:'b'}],sources:[{source_id:'a'},{source_id:'b',source_sha256:sourceHash}]});
+  personalStoryFixture(f);editorReady(f);
+  write(f.run,'shot-selection.json',{schema_version:1,personal_story_id:'human-story-01',shots:[{id:'shotA',source_id:'a',story_beat_id:'b01'}]});
+  const edit={shot_id:'editor-berry-reaction',source_id:'b',source_hash:sourceHash,story_beat_id:'b02',beat:'reaction',sourceType:'video',in_seconds:4,out_seconds:6.5,sourceDuration:2.5,playbackSpeed:1,timelineDuration:2.5,target_duration_seconds:2.5};
+  write(f.run,'edit-decision-list.json',{schema_version:1,personal_story_id:'human-story-01',edits:[edit]});
+  let r=call(tool,['editor',f.run],env);assert.equal(r.status,1);assert.match(r.stdout,/EDL_EDITOR_REASON/);
+  edit.editor_reason='Replacing a redundant scenic cut with a genuine person reacting to berries';
+  write(f.run,'edit-decision-list.json',{schema_version:1,personal_story_id:'human-story-01',edits:[edit]});
+  r=call(tool,['editor',f.run],env);assert.equal(r.status,0,r.stdout);
+  edit.source_hash='wrong';write(f.run,'edit-decision-list.json',{schema_version:1,personal_story_id:'human-story-01',edits:[edit]});
+  r=call(tool,['editor',f.run],env);assert.equal(r.status,1);assert.match(r.stdout,/EDL_SOURCE_SHA/);
+  edit.source_hash=sourceHash;edit.source_id='invented';write(f.run,'edit-decision-list.json',{schema_version:1,personal_story_id:'human-story-01',edits:[edit]});
+  r=call(tool,['editor',f.run],env);assert.equal(r.status,1);assert.match(r.stdout,/EDL_SOURCE_REF/);
+ }finally{f.clean();}
+});
+
 test('new Vlogs enforce BGM 0.7 and verified Worknode ChatTTS male audio, no local fallback',()=>{
  const f=fixture('2026-11-07-worknode-policy');try{
   const tool=join(f.vlog,'scripts/validate-stage.mjs');const env={AGENTS_RELAY_CLI:f.cli,MARKCUT_CLI:f.cli};
@@ -145,7 +165,7 @@ test('personal story must exist before shot planning; director/editor self-heal 
   assert.match(r.stdout,/HISTORY_INDEX_UPDATE_FAILED/);
   assert.equal(readFileSync(historyPath,'utf8'),'{corrupt-index','broken index must not be silently reset');
   write(f.run,'edit-decision-list.json',{schema_version:1,personal_story_id:'wrong',edits:[{shot_id:'shotA',source_id:'a',story_beat_id:'b02',in_seconds:0,out_seconds:1}]});
-  r=call(tool,['editor',f.run],env);assert.equal(r.status,1);assert.match(r.stdout,/EDL_PERSONAL_STORY_ID/);assert.match(r.stdout,/EDL_PERSONAL_STORY_BEAT/);
+  r=call(tool,['editor',f.run],env);assert.equal(r.status,1);assert.match(r.stdout,/EDL_PERSONAL_STORY_ID/);assert.match(r.stdout,/EDL_EDITOR_REASON/);
   write(f.run,'edit-decision-list.json',{schema_version:1,personal_story_id:'human-story-01',edits:[{shot_id:'shotA',source_id:'a',story_beat_id:'b01',in_seconds:0,out_seconds:1}]});
   editorReady(f);r=call(tool,['editor',f.run],env);assert.equal(r.status,0,r.stdout);
  }finally{f.clean();}
