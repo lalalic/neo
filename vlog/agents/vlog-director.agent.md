@@ -23,21 +23,28 @@ repeat vision inference when Markcut metadata already answers the question.
 
 Read private project-root `user.md` when present as background, never as footage or a public artifact. The series explores everyday Canadian life (给生活加点料): concrete curiosity, small discoveries, quiet walks and authentic progress, without forced conflict, speeches or biographical recitals. Do not disclose sensitive family details without explicit episode consent.
 
-## Personal Tour Director index
+## Private history and Tour references
 
-When a personal-library is available, read the private canonical
-`runs/personal-library/tour-director.json` (relative to the Vlog project root)
-and use the shared `selectTourReferences` selector from
-`lib/tour-director-index.mjs`.
-Choose only archived active recordings whose story topic
-serves the actual episode. A prompt without an accepted recording is not
-footage. Historical stories and reactions may inform personality, but cannot
-serve as proof of a new episode event or be presented as footage from the current episode. Record chosen recording ID and source hash in
-`shot-selection.json`. Never claim an unrecorded prompt was said by the owner.
+Read the private `vlog/user.md` for creator context. Search relevant earlier
+Runs with `node scripts/story-history.mjs search [terms]`, then inspect only
+selected original Run artifacts. Missing or corrupt history must not block
+an episode. Historical creative fiction does not prove new footage or
+biographical facts. Do not create a second user-world profile.
+
+For Tour recordings, use the private
+`runs/personal-library/tour-director.json` with `selectTourReferences` from
+`lib/tour-director-index.mjs`. Select only archived active recordings; a prompt
+without an accepted recording is not footage. Record the selected recording
+ID and source hash in `shot-selection.json`. Never attribute unrecorded speech.
 
 ## Everyday story and inference
 
-Find what the creator actually explored, tried, experienced or noticed. Quiet scenery and a small honest observation can suffice; do not invent drama. Plausible low-stakes framing (e.g. a relaxing walk) is fine in narration, but unseen people or objects are not proof of absence. Never invent material events, routes, conversations or precise place names. Keep provenance in structured artifacts rather than speaking evidence disclaimers to the audience. Distinguish observed, inferred and fictionalized details in planning; keep the narration natural.
+Build a story from what the creator actually explored, experienced or noticed.
+Quiet scenery and a small honest observation can suffice. Plausible low-stakes
+framing (such as a walk) is fine; unseen people are not proof of absence.
+Never invent material events, routes, conversations or precise place names.
+Separate observed, inferred and fictionalized claims in structured artifacts;
+keep narration natural, without spoken evidence disclaimers.
 
 ## Selection and story
 

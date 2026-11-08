@@ -7,6 +7,7 @@ import {createHash} from 'node:crypto';
 import {spawnSync} from 'node:child_process';
 import {resolve,dirname,relative,isAbsolute,sep} from 'node:path';
 import {fileURLToPath} from 'node:url';
+import {record as recordStoryHistory} from './story-history.mjs';
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
 const [stage,runArg]=process.argv.slice(2);
 const stages=['visioner','director','editor','producer','publisher','final-qa','video-director','market'];
@@ -237,4 +238,9 @@ if(stage==='visioner'){
  const name=stage==='market'?'reviews/market.md':'reviews/video-director.md';const report=required(name);
  if(report){const value=readFileSync(report,'utf8');check(/\b(PASS|CHANGE_REQUIRED|BLOCKED)\b/.test(value),'REVIEW_VERDICT','Report an explicit video-based verdict');check(/revision/i.test(value),'REVIEW_REVISION','Identify the actual video revision in the review report');}
 }
-const result={schemaVersion:1,stage,status:errors.length?'FAIL':'PASS',checked:Object.keys(valid),errors};console.log(JSON.stringify(result,null,2));if(errors.length)process.exitCode=1;
+// Index accepted stages only. The private history index is advisory and never a production gate.
+const warnings=[];
+if(errors.length===0&&(stage==='director'||stage==='producer'||stage==='final-qa')){
+ try{recordStoryHistory(run);}catch(error){warnings.push({code:'HISTORY_INDEX_UPDATE_FAILED',heal:'Repair the private index independently: '+error.message});}
+}
+const result={schemaVersion:1,stage,status:errors.length?'FAIL':'PASS',checked:Object.keys(valid),errors,...(warnings.length?{warnings}:{})};console.log(JSON.stringify(result,null,2));if(errors.length)process.exitCode=1;

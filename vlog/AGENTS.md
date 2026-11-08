@@ -27,6 +27,11 @@ and Visioner evidence must exist before writing the story.
   present, solely as background for everyday story discovery and natural tone.
   It is private Git-ignored context; do not replicate it in public artifacts,
   infer filmed actions from it, or force personal hardship into each episode.
+- **Episode history** is a private, Git-ignored search index under
+  `runs/personal-library/history-index.json`. The Director consults relevant
+  prior Runs selectively; accepted Director and completed Producer stages
+  update the index. A broken history index is an advisory warning, never a
+  media-production failure or a second source of creator identity.
 - **Director** writes a complete first-person lived-experience story
   (curiosity/intent, exploration or action, discovery/result; real setbacks
   only when evidenced), source-linked shot plan and `route-intent.json`. Director chooses

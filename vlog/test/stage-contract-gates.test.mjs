@@ -10,7 +10,7 @@ function fixture(runName='2026-11-04-contract'){
  const root=mkdtempSync(join(tmpdir(),'vlog-contract-'));
  const vlog=join(root,'vlog');mkdirSync(join(vlog,'scripts'),{recursive:true});mkdirSync(join(vlog,'templates'));mkdirSync(join(vlog,'assets/music'),{recursive:true});mkdirSync(join(vlog,'contracts'));
  const run=join(vlog,'runs',runName);mkdirSync(join(run,'input/media'),{recursive:true});
- for(const f of ['validate-stage.mjs','preflight-template-assets.mjs'])copyFileSync(join(source,'scripts',f),join(vlog,'scripts',f));
+ for(const f of ['validate-stage.mjs','preflight-template-assets.mjs','story-history.mjs'])copyFileSync(join(source,'scripts',f),join(vlog,'scripts',f));
  for(const f of ['shot-selection.schema.json','edit-decision-list.schema.json','personal-story.schema.json','route-intent.schema.json'])copyFileSync(join(source,'contracts',f),join(vlog,'contracts',f));
  copyFileSync(join(source,'templates/cinematic-vlog.md'),join(vlog,'templates/cinematic-vlog.md'));
  const cli=join(root,'fake-relay');writeFileSync(cli,'#!/bin/sh\nexit 0\n',{mode:0o755});
@@ -142,6 +142,13 @@ test('personal story must exist before shot planning; director/editor self-heal 
   r=call(tool,['director',f.run],env);assert.equal(r.status,1);assert.match(r.stdout,/SHOT_PERSONAL_STORY_BEAT/);
   write(f.run,'shot-selection.json',{schema_version:1,personal_story_id:'human-story-01',shots:[{id:'shotA',source_id:'a',story_beat_id:'b01'}]});
   r=call(tool,['director',f.run],env);assert.equal(r.status,0,r.stdout);
+  const historyPath=join(f.vlog,'runs/personal-library/history-index.json');
+  assert.equal(JSON.parse(readFileSync(historyPath,'utf8')).entries.length,1,'successful Director gets indexed');
+  writeFileSync(historyPath,'{corrupt-index');
+  r=call(tool,['director',f.run],env);
+  assert.equal(r.status,0,'history failure must not fail creative stage: '+r.stdout);
+  assert.match(r.stdout,/HISTORY_INDEX_UPDATE_FAILED/);
+  assert.equal(readFileSync(historyPath,'utf8'),'{corrupt-index','broken index must not be silently reset');
   write(f.run,'edit-decision-list.json',{schema_version:1,personal_story_id:'wrong',edits:[{shot_id:'shotA',source_id:'a',story_beat_id:'b02',in_seconds:0,out_seconds:1}]});
   r=call(tool,['editor',f.run],env);assert.equal(r.status,1);assert.match(r.stdout,/EDL_PERSONAL_STORY_ID/);assert.match(r.stdout,/EDL_PERSONAL_STORY_BEAT/);
   write(f.run,'edit-decision-list.json',{schema_version:1,personal_story_id:'human-story-01',edits:[{shot_id:'shotA',source_id:'a',story_beat_id:'b01',in_seconds:0,out_seconds:1}]});
