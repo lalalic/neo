@@ -10,7 +10,7 @@ function fixture(runName='2026-11-04-contract'){
  const root=mkdtempSync(join(tmpdir(),'vlog-contract-'));
  const vlog=join(root,'vlog');mkdirSync(join(vlog,'scripts'),{recursive:true});mkdirSync(join(vlog,'templates'));mkdirSync(join(vlog,'assets/music'),{recursive:true});mkdirSync(join(vlog,'contracts'));
  const run=join(vlog,'runs',runName);mkdirSync(join(run,'input/media'),{recursive:true});
- for(const f of ['validate-stage.mjs','preflight-template-assets.mjs','story-history.mjs'])copyFileSync(join(source,'scripts',f),join(vlog,'scripts',f));
+ for(const f of ['validate-stage.mjs','story-history.mjs'])copyFileSync(join(source,'scripts',f),join(vlog,'scripts',f));
  for(const f of ['shot-selection.schema.json','edit-decision-list.schema.json','personal-story.schema.json','route-intent.schema.json'])copyFileSync(join(source,'contracts',f),join(vlog,'contracts',f));
  copyFileSync(join(source,'templates/cinematic-vlog.md'),join(vlog,'templates/cinematic-vlog.md'));
  const cli=join(root,'fake-relay');writeFileSync(cli,'#!/bin/sh\nexit 0\n',{mode:0o755});
@@ -100,17 +100,6 @@ test('new Vlogs enforce BGM 0.7 and verified Worknode ChatTTS male audio, no loc
  }finally{f.clean();}
 });
 
-test('template preflight resolves declared asset files and HTTPS URLs, fails on missing file',()=>{
- const f=fixture();try{
-  const tool=join(f.vlog,'scripts/preflight-template-assets.mjs');
-  let r=call(tool,[]);assert.equal(r.status,1);assert.match(r.stdout,/song.vocal_file/);
-  write(f.vlog,'assets/music/good-times-rynn-vocal.mp3','audio');write(f.vlog,'assets/music/good-times-rynn-instrumental.mp3','audio');
-  r=call(tool,[]);assert.equal(r.status,0,r.stderr+r.stdout);assert.match(r.stdout,/'status': 'PASS'|"status": "PASS"/);
-  const template=join(f.vlog,'templates/cinematic-vlog.md');
-  const contents= readFileSync(template,'utf8').replace('https://artlist.io/royalty-free-music/song/good-times/133995','http://bad.test/song');
-  writeFileSync(template,contents);r=call(tool,[]);assert.equal(r.status,1);assert.match(r.stdout,/invalid HTTPS URL/);
- }finally{f.clean();}
-});
 test('visioner contract fails closed, then passes after agent heals missing evidence',()=>{
  const f=fixture();try{
   const tool=join(f.vlog,'scripts/validate-stage.mjs');
@@ -233,15 +222,6 @@ test('Producer refuses incomplete render receipt; Editor owns story decisions',(
   const r=call(join(f.vlog,'scripts/validate-stage.mjs'),['producer',f.run],{MARKCUT_CLI:f.cli});
   assert.equal(r.status,1);assert.match(r.stdout,/production-receipt.json/);
   assert.match(r.stdout,/REQUIRED_ARTIFACT_MISSING/);
- }finally{f.clean();}
-});
-test('Editor audio assets and Producer render are not initial preflight dependencies',()=>{
- const f=fixture();try{
-  write(f.vlog,'assets/music/good-times-rynn-vocal.mp3','audio');write(f.vlog,'assets/music/good-times-rynn-instrumental.mp3','audio');
-  const preflight=call(join(f.vlog,'scripts/preflight-template-assets.mjs'),[]);assert.equal(preflight.status,0,preflight.stdout);
-  const result=call(join(f.vlog,'scripts/validate-stage.mjs'),['producer',f.run]);
-  assert.equal(result.status,1);assert.match(result.stdout,/REQUIRED_ARTIFACT_MISSING/);
-  assert.match(result.stdout,/output\/video.mp4/);
  }finally{f.clean();}
 });
 test('specialist review validates its own verdict and revision, repairs in same Stage',()=>{

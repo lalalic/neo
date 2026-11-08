@@ -24,5 +24,5 @@ test('Vlog model eval scenarios encode distinct executable choices, not generic 
  }
  assert.ok(cases.some(c=>c.role==='vlog-producer'&&c.capability==='template song identity'));
  assert.ok(cases.some(c=>c.role==='vlog-producer'&&c.capability==='executable story realization'));
- assert.ok(cases.some(c=>c.id==='template-verify'&&c.type==='node-tests'&&c.testFiles.includes('test/markcut-template-execution.test.mjs')&&c.testFiles.includes('test/cinematic-vlog-render.test.mjs')));
+ assert.ok(cases.some(c=>c.id==='template-verify'&&c.type==='node-tests'&&c.testFiles.includes('test/worknode-chattts-contract.test.mjs')&&c.testFiles.includes('test/vlog-publisher-shortcut.test.mjs')));
 });

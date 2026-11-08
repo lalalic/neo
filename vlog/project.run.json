@@ -1,8 +1,5 @@
 {
   "schemaVersion": 1,
-  "preflight": {
-    "script": "scripts/preflight-template-assets.mjs"
-  },
   "input": {
     "type": "path",
     "path": {
