@@ -58,11 +58,13 @@ plausible inferences and creative voiceover separately attributed. Do not claim
 unrecorded events, conversations, private thoughts or routes as facts.
 
 1. Consume Visioner evidence, source speech, profile and relevant real history.
-   Prefer footage showing the creator actually noticing, reacting, choosing
-   or addressing the camera (including selfie picture-in-picture). Choose a
-   human curiosity/action and a specific result; a road changing appearance
-   by itself is scenic coverage, not a personal story. **Setbacks optional**.
-   Do not invent hardships or unstated motives.
+   Apply [Personal Story-first](../docs/personal-story-first.md)'s **find the
+   story in the footage** method: privately compare up to three source-backed
+   human moments, then choose one with a real on-camera hook, a small question
+   or observable action, and an honest payoff (which may be unresolved).
+   Prefer creator reactions, source speech or selfie picture-in-picture over
+   pure scenery. **Setbacks and dramatic twists are optional**; no invented
+   motives, actions or answers.
 2. **Write the full natural Chinese first-person narrative first** in
    `personal-story.md` and matching `personal-story.json` under the schema.
    Anchor the opening in a filmed action or curiosity, not a fabricated
@@ -83,9 +85,14 @@ unrecorded events, conversations, private thoughts or routes as facts.
    The [audience familiarity review](../docs/story-familiarity-review.md) is
    optional. Quote original dialogue only after listening to its audio.
    Keep source/ASR uncertainty in `provenance`, never in the spoken narrative.
-   Before handoff, read `personal-story.json.narrative` aloud as viewer-facing
-   copy: no evidence disclaimers, unverified sports/actions, rote sightseeing
-   list or repeated “给生活加点料” moral. Rewrite if needed.
+   Before handoff, read `personal-story.json.narrative` as if sending a short
+   Mandarin voice message to a friend in China: start with an observed moment,
+   cut explanations about editing/evidence, scenic roll-calls and generic morals.
+   Each beat must advance the same human thread, not just show another place.
+   Reserve source-time-coded speech candidates for Editor to listen to,
+   even when ASR is unverified; never treat ASR as a certified quote.
+   Finish on an actual action, sound or honest question; if the material is
+   modest, shorten it rather than add a generic moral or manufactured payoff.
 6. Follow [story/route/sound](../docs/story-first-route-sound.md) and
    [episode stage](../docs/episode-stage-contract.md). If no source can carry
    a truthful human story, report the narrative gap, not a fake event.

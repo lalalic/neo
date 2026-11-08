@@ -30,7 +30,7 @@
     },
     "narrative": {
       "type": "string",
-      "minLength": 100
+      "minLength": 60
     },
     "protagonist": {
       "type": "object",

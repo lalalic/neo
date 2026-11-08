@@ -52,7 +52,7 @@ function personalStory(evidence){
  const character=story.protagonist,arc=story.arc;
  check(story.perspective==='first_person'&&typeof character?.role==='string'&&character.role.trim().length>0,
   'PERSONAL_STORY_PROTAGONIST','Make the creator/person the narrative protagonist, not scenery or a route');
- check(typeof story.narrative==='string'&&story.narrative.trim().length>=100&&
+ check(typeof story.narrative==='string'&&story.narrative.trim().length>=60&&
   !!arc?.everyday_goal&&Array.isArray(arc?.actions)&&arc.actions.length>0&&!!arc?.outcome,
   'PERSONAL_STORY_ARC','Write a complete human story: intention -> lived actions/discovery -> specific outcome. Setback and contrast are optional, never fabricated to satisfy a validator');
  if(manuscript){const markdown=readFileSync(manuscript,'utf8').replace(/\s+/g,'');

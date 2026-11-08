@@ -211,53 +211,36 @@
   {
     "id": "director-no-person-visible-creative-mishap",
     "role": "vlog-director",
-    "capability": "profile-informed first-person creative story",
+    "capability": "honest quiet first-person story with optional evidence gap, no invented filmed mishap",
     "references": [
       "docs/personal-story-first.md"
     ],
     "choices": [
-      "first_person_mishap_with_provenance",
-      "ask_user_to_prove_the_run",
+      "source_grounded_first_person_with_provenance_or_gap",
+      "invent_comic_accident",
       "scenic_description_only"
     ],
-    "task": "Episode has only two photos of a path/creek and a 1.57-second flowing-water clip. No cyclist, runner, or creator appears. Owner prefers ordinary first-person stories, mild embarrassing mishaps and allows creative invention. What story should Director write before Editor?",
-    "expectedDecision": "first_person_mishap_with_provenance",
-    "required": [
-      "protagonist",
-      "goal",
-      "setback",
-      "fictionalized",
-      "observed"
-    ],
-    "forbidden": [
-      "prove the creator was cycling",
-      "only describe scenic beauty",
-      "require owner testimony"
-    ]
+    "task": "A run has only a path photo, creek photo, and 1.57-second flowing-water clip. The creator does NOT appear or speak, and no mishap is shown. They want an ordinary first-person Chinese Vlog with a little personality. Should Director invent an embarrassing moment as a filmed fact, write a scenic poem, or build only what is supported, attribute any creative voiceover as an assumption and flag a story evidence gap if needed?",
+    "expectedDecision": "source_grounded_first_person_with_provenance_or_gap",
+    "required": [],
+    "forbidden": []
   },
   {
     "id": "director-mood-everyday-not-grand",
     "role": "vlog-director",
-    "capability": "ordinary self-deprecating personal arc",
+    "capability": "light lived story with optional humor and no required setbacks",
     "references": [
       "docs/personal-story-first.md"
     ],
     "choices": [
-      "small_human_setback_with_comic_payoff",
+      "quiet_truthful_first_person_with_optional_humor",
       "inspirational_scenic_poem",
-      "create_fake_documentary_scene"
+      "invent_fake_comic_accident"
     ],
-    "task": "A plain path photo and a short creek video do not support a heroic journey. The user requests a mildly awkward, ordinary, casual personal Vlog rather than a polished inspirational scenic film. Which narrative should Director hand to Editor?",
-    "expectedDecision": "small_human_setback_with_comic_payoff",
-    "required": [
-      "everyday",
-      "first-person",
-      "contrast"
-    ],
-    "forbidden": [
-      "grand life lesson",
-      "invented video footage"
-    ]
+    "task": "A plain path photo and a short creek video do not depict a mishap or conflict. The creator asks for an ordinary, casual first-person Chinese Vlog rather than a polished inspirational landscape film. Director should choose natural lived observations, optionally playful tone if tied to what is actually visible, without fabricating a comedic setback. Which treatment?",
+    "expectedDecision": "quiet_truthful_first_person_with_optional_humor",
+    "required": [],
+    "forbidden": []
   },
   {
     "id": "editor-missing-personal-story",
@@ -624,5 +607,23 @@
       "test/vision-evidence-direct.test.mjs",
       "test/vlog-visioner-shortcut.test.mjs"
     ]
+  },
+  {
+    "id": "director-source-audio-human-hook",
+    "role": "vlog-director",
+    "capability": "human moment leads Vlog story; unverified ASR handed to Editor as source-timed audio candidates",
+    "references": [
+      "docs/personal-story-first.md",
+      "agents/vlog-director.agent.md"
+    ],
+    "choices": [
+      "human_reaction_with_candidate_audio_for_editor",
+      "declare_fruit_edible_and_tasted",
+      "generic_scenery_with_life_lesson"
+    ],
+    "task": "Actual source 013 shows the creator looking up at red berries and a picture-in-picture view of himself. Source 003 shows a walking path. VTT 013 has unverified ASR sounding like \"这是可以吃的\" at 0-1.22 s and \"酸甜味了\" at 23.36-24.48 s. Fruit identity, safe edibility, tasting action and original spoken words are NOT verified. The creator wants a natural Chinese story for a China-based audience. What should Director build and hand to Editor: a person-led moment with honest open question and source-time-coded *candidate* original speech for listening, or assert the fruit was eaten, or write a scenic life lesson?",
+    "expectedDecision": "human_reaction_with_candidate_audio_for_editor",
+    "required": [],
+    "forbidden": []
   }
 ]
