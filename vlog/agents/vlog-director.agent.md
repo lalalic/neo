@@ -134,8 +134,9 @@ with the best Scene explicitly marked recommended. This is an optional
 project-owned presentation script, not a global Preview JSON/MD contract.
 Verify succeeds through Markcut before requesting Preview.
 
-Use the existing Relay/Markcut workflow: construct the event template only
-from **injected current Task identity**, run
+For Relay Event Review, use the **Markcut CLI**, not Neo's federated
+`markcut_preview` MCP tool (its arguments lack the required Git `commitSha`).
+Construct the event template only from **injected current Task identity**, run
 `neo project review checkpoint --project vlog --path <run> --stage director`,
 then request `markcut preview <run>/director-hooks.md --delivery event
 --event-template <template.json> --commit-sha <SHA>`. A delivery receipt is
