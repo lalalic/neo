@@ -1,4 +1,4 @@
-/** Evidence guards for Vlog enrichment and mandatory BGM. No network side effects. */
+/** Evidence guards for Vlog location enrichment. No network side effects. */
 const RELATIONS = new Set(['observed', 'nearby_at_time', 'historical_context', 'future_suggestion']);
 const CATEGORIES = new Set(['event', 'activity', 'weather', 'landmark', 'history', 'point_of_interest', 'interesting_fact']);
 const isIso = (value) => typeof value === 'string' && Number.isFinite(Date.parse(value));
@@ -24,18 +24,3 @@ export function validateLocationEnrichment(document) {
   return document;
 }
 
-export function validateMusicPlan(plan) {
-  if (plan?.schema_version !== 1) throw new Error('invalid music-plan schema');
-  if (plan.status === 'INPUT_NEEDED') {
-    if (typeof plan.reason !== 'string' || !plan.reason.trim()) throw new Error('missing BGM blocker reason');
-    return { ready: false, reason: plan.reason };
-  }
-  if (plan.status !== 'READY') throw new Error('music plan must be READY or INPUT_NEEDED');
-  if (!plan.asset?.uri || !plan.asset?.license?.evidence || !plan.asset?.license?.authorized_usage) throw new Error('BGM asset and permission evidence are mandatory');
-  if (!Array.isArray(plan.cues) || plan.cues.length === 0) throw new Error('BGM needs audible planned cues');
-  for (const cue of plan.cues) {
-    if (!(Number.isFinite(cue.start) && Number.isFinite(cue.end) && cue.start >= 0 && cue.end > cue.start)) throw new Error('invalid BGM cue timing');
-    if (!(typeof cue.gain === 'number' && cue.gain > 0 && cue.gain <= 1)) throw new Error('BGM cue must be audible');
-  }
-  return { ready: true, note: 'Metadata gate only; actual playback, loudness and rights QA still required' };
-}
