@@ -42,11 +42,10 @@ a dated private run, an owner-approved source manifest and a host-provided
 owned-process command runner. Existing `input/media/metadata.json` is reused.
 Missing metadata requires explicit inference authorization and a configured
 authorized ITT/VTT adapter; Markcut Vision must advertise the template options
-from the Vlog Visioner contract. The existing
-`scripts/index-markcut-vision.mjs` validates source hashes and produces the
-intermediate source-linked index. The shortcut derives a separate
-`vision-evidence.json` from that index without turning model output into
-accepted facts. Existing Visioner evidence is never overwritten.
+from the Vlog Visioner contract. The Visioner Shortcut binds original source IDs and SHA-256 directly to
+Markcut metadata and writes `vision-evidence.json` without a second index.
+It does not promote model observations into accepted facts and never
+overwrites existing Visioner evidence.
 
 The shortcut itself does not provide Relay Job claim/checkpoint/wait-resume
 integration. It must not be invoked as a standalone substitute for Relay's

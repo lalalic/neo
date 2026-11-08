@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { existsSync } from 'node:fs';
+import { existsSync, realpathSync, statSync } from 'node:fs';
 import { mkdir, readFile, realpath, stat, writeFile } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -31,11 +31,116 @@ async function validRunPath(vlogRoot, runPath) {
   return run;
 }
 
-function evidenceFromIndex(index) {
-  if (index?.status !== 'SOURCE_LINKED_UNREVIEWED' || !Array.isArray(index.sources) || !Array.isArray(index.observations)) {
-    throw new Error('Vision index is missing its required source-linked schema');
+const isNum = n => typeof n === 'number' && Number.isFinite(n);
+function parseMarkcutSegmentRanges(perception, sourceId, limit) {
+  const observations = [];
+  const raw = perception?.segments || {};
+  for (const [key, value] of Object.entries(raw)) {
+    const match = /^(\d+)to(\d+)$/.exec(key);
+    if (!match) throw new Error('Unrecognized Markcut segment key: ' + key);
+    const start = Number(match[1]) / 1000;
+    const end = Number(match[2]) / 1000;
+    if (!isNum(start) || !isNum(end) || start < 0 || end <= start ||
+        (limit != null && end > limit + 0.1)) throw new Error('Invalid segment bounds: ' + key);
+    observations.push({
+      evidence_id: sourceId + ':' + key,
+      source_id: sourceId,
+      source_time_start_seconds: start, source_time_end_seconds: end,
+      visual_observation: typeof value?.vision === 'string' ? value.vision : '',
+      speech_hint: typeof value?.subtitle === 'string' ? value.subtitle : null,
+      semantic_description: typeof value?.description === 'string' ? value.description : null,
+      sample_time_seconds: isNum(value?.sampleSeconds) ? value.sampleSeconds : null,
+      origin: 'markcut_metadata.perception.segments',
+      observation_status: 'MODEL_OUTPUT_UNREVIEWED',
+    });
   }
-  const sources = index.sources.map(source => ({
+  return observations.sort((a,b)=>a.source_time_start_seconds-b.source_time_start_seconds);
+}
+
+function projectMarkcutMetadata(manifest, metadata, sourceDir) {
+  if (!Array.isArray(manifest?.media)) throw new Error('Source manifest must contain media');
+  sourceDir = realpathSync(sourceDir);
+  const sources = [];
+  const observations = [];
+  const seenKeys = new Set();
+  const findings = [];
+  for (const source of manifest.media) {
+    const id = source.id, filename = source.path;
+    if (typeof id !== 'string' || !id || typeof filename !== 'string' || !filename || filename !== basename(filename) || filename==='.' || filename==='..') throw new Error('Invalid source identity');
+    if (seenKeys.has(id)) throw new Error('Duplicate source identity');
+    seenKeys.add(id);
+    const path = realpathSync(source.original_path || join(sourceDir,filename));
+    const sourceRel=relative(sourceDir,path);
+    if (!isAbsolute(path) || !existsSync(path) || !sourceRel || sourceRel==='..' || sourceRel.startsWith(`..${sep}`) || isAbsolute(sourceRel) || !statSync(path).isFile()) throw new Error('Missing or out-of-scope source original: ' + id);
+    // Source identity and path are checked; checksums are carried as opaque metadata, never recomputed.
+    const meta = Object.hasOwn(metadata,id) ? metadata[id] : null;
+    if (!meta) throw new Error('Missing Markcut metadata: ' + id);
+    const type = /\.(mp4|mov|m4v|avi|mkv|webm|wmv)$/i.test(filename) ? 'video' : 'image';
+    const duration = type === 'video' ? meta.duration : null;
+    if (type === 'video' && (!isNum(duration) || duration <= 0)) throw new Error('Missing Markcut video duration for '+id);
+    const allowedRange = source.usable_time_range_seconds;
+    const allowedStart = Array.isArray(allowedRange) && allowedRange.length===2 ? allowedRange[0] : 0;
+    const allowedEnd = Array.isArray(allowedRange) && allowedRange.length===2 ? allowedRange[1] : duration;
+    if (type === 'video' && (!isNum(allowedStart) || !isNum(allowedEnd) ||
+        allowedStart < 0 || allowedEnd <= allowedStart || allowedEnd > duration+0.1)) {
+      throw new Error('Invalid approved video range for '+id);
+    }
+    const desc = typeof meta.perception?.desc === 'string' ? meta.perception.desc : '';
+    if (!desc.trim()) findings.push('Missing visual description: '+id);
+    const segments = type === 'video' ? parseMarkcutSegmentRanges(meta.perception,id,duration)
+      .filter(x => x.source_time_end_seconds > allowedStart &&
+        x.source_time_start_seconds < allowedEnd).map(x => ({
+          ...x, source_time_start_seconds:Math.max(allowedStart,x.source_time_start_seconds),
+          source_time_end_seconds:Math.min(allowedEnd,x.source_time_end_seconds),
+        })):[];
+    sources.push({
+      source_id:id, source_path:path, source_filename:filename, source_sha256:source.sha256,
+      media_type:type, duration_seconds:duration,
+      allowed_source_time_range_seconds:type==='video'?[allowedStart,allowedEnd]:null,
+      visual_summary:desc,
+      summary_status:'MODEL_OUTPUT_UNREVIEWED',
+      markcut_subtitle_path:typeof meta.perception?.subtitle === 'string' ? meta.perception.subtitle : null,
+      markcut_metadata_entry_id:id,
+    });
+    for (const segment of segments) observations.push({
+      ...segment, source_sha256:source.sha256, source_path:path,
+      metadata_pointer:'/'+id+'/perception/segments/'+segment.evidence_id.split(':').at(-1),
+    });
+    // DeepSeek's timestamped observations supply metadata references even when
+    // no semantic segments were inferred. Never mislabel these as approved cuts.
+    const modelObservations = meta.perception?.observations;
+    if (type === 'video' && Array.isArray(modelObservations) && !segments.length) {
+      for (const [idx, item] of modelObservations.entries()) {
+        if (!isNum(item.startSeconds) || !isNum(item.endSeconds) ||
+           item.startSeconds<0 || item.endSeconds<=item.startSeconds ||
+           item.endSeconds>duration+0.1) throw new Error('Invalid Markcut observation time: '+id);
+        if (item.endSeconds<=allowedStart || item.startSeconds>=allowedEnd) continue;
+        observations.push({
+          evidence_id:id+':observation:'+idx,source_id:id,source_sha256:source.sha256,
+          source_path:path,source_time_start_seconds:Math.max(allowedStart,item.startSeconds),
+          source_time_end_seconds:Math.min(allowedEnd,item.endSeconds),
+          sample_time_seconds:isNum(item.seconds)?item.seconds:null,
+          visual_observation:typeof item.description==='string'?item.description:'',
+          speech_hint:null,origin:'markcut_metadata.perception.observations',
+          metadata_pointer:'/'+id+'/perception/observations/'+idx,
+          observation_status:'MODEL_OUTPUT_UNREVIEWED',
+        });
+      }
+    }
+    if (type === 'video' && !observations.some(item=>item.source_id===id))
+      findings.push('Missing approved timestamped Markcut segments or observations: '+id);
+  }
+  return { sources, observations, findings };
+}
+
+/** Create the one authoritative Visioner evidence artifact from Markcut metadata.
+ * All source identity/time boundaries are checked in memory; no intermediate
+ * Vlog index, extra AI inference, or second metadata store is produced.
+ */
+export function buildVisionEvidence(manifest, metadata, sourceDir, manifestBytes, metadataBytes) {
+  const projection = projectMarkcutMetadata(manifest, metadata, sourceDir);
+  if (projection.findings.length) throw new Error(`Vision evidence contains unresolved gaps: ${projection.findings.join('; ')}`);
+  const sources = projection.sources.map(source => ({
     source_id: source.source_id,
     source_sha256: source.source_sha256,
     media_type: source.media_type,
@@ -43,7 +148,7 @@ function evidenceFromIndex(index) {
     summary_status: source.summary_status,
     evidence_ref: source.markcut_metadata_entry_id,
   }));
-  const observations = index.observations.map(item => ({
+  const observations = projection.observations.map(item => ({
     evidence_id: item.evidence_id,
     source_id: item.source_id,
     source_sha256: item.source_sha256,
@@ -55,13 +160,13 @@ function evidenceFromIndex(index) {
     metadata_pointer: item.metadata_pointer,
     status: item.observation_status,
   }));
-  const findings = [...index.findings];
+  const findings = [...projection.findings];
   return {
     schema_version: 1,
     stage: 'visioner',
     status: 'EVIDENCE_READY_UNREVIEWED',
-    manifest_hash: index.manifest_hash,
-    markcut_metadata_sha256: index.markcut_metadata_sha256,
+    manifest_hash: sha256(manifestBytes),
+    markcut_metadata_sha256: sha256(metadataBytes),
     artifacts: { source_count: sources.length, observation_count: observations.length },
     summary: sources.filter(source => typeof source.summary === 'string' && source.summary.trim()).map(source => ({
       source_id: source.source_id,
@@ -119,7 +224,6 @@ export async function run(context) {
   const metadataPath = existsSync(metadataCandidate) ? await realpath(metadataCandidate) : metadataCandidate;
   const confined=(root,path)=>{const rel=relative(root,path);return rel===''||(rel!=='..'&&!rel.startsWith(`..${sep}`)&&!isAbsolute(rel));};
   if (!confined(runPath,mediaDir) || !confined(mediaDir,metadataPath)) throw new Error('Visioner source or metadata path escapes the canonical run/source directory');
-  const indexPath = join(runPath, 'vision-segment-index.json');
   const evidencePath = join(runPath, 'vision-evidence.json');
   if (existsSync(evidencePath)) throw new Error('Refusing to overwrite existing Visioner evidence');
   if (typeof context.runCommand !== 'function') throw new Error('Visioner host must provide its owned-process command runner');
@@ -148,18 +252,13 @@ export async function run(context) {
     if (!existsSync(metadataPath)) throw new Error('Markcut Vision exited without producing metadata.json');
   }
 
-  const indexScript = await realpath(join(vlogRoot, 'scripts/index-markcut-vision.mjs'));
-  const node = input.nodeCommand || process.execPath;
-  const indexed = await context.runCommand([node, indexScript, runPath], vlogRoot);
-  if (indexed?.code !== 0 || !existsSync(indexPath)) throw new Error('Existing Vlog Vision index script did not produce a valid index');
-  const indexBytes = await readFile(indexPath);
-  const index = JSON.parse(indexBytes.toString('utf8'));
+  // The original Markcut metadata is authoritative; project its observations
+  // directly to a source-verified Visioner artifact without storing an index.
   const manifestBytes=await readFile(manifestPath);
   const metadataBytes=await readFile(metadataPath);
-  if (!Array.isArray(index.sources) || index.sources.length!==manifest.media.length || index.sources.some(source=>!manifest.media.some(media=>media.id===source.source_id))) throw new Error('Vision index source identities differ from manifest');
-  if (!Array.isArray(index.findings) || index.findings.length > 0) {
-    throw new Error(`Vision index contains unresolved evidence gaps: ${(index.findings || []).join('; ')}`);
-  }
+  const metadata=JSON.parse(metadataBytes.toString('utf8'));
+  const evidence=buildVisionEvidence(manifest,metadata,mediaDir,manifestBytes,metadataBytes);
+
   // Even when Markcut metadata is cached, the media handed to Vision
   // Understanding must be its lightweight, source-linked .normalized copy.
   // The shared Markcut Vision normalization stays the only encoding engine.
@@ -200,18 +299,15 @@ export async function run(context) {
     sourceManifestSha256:sha256(manifestBytes),sourceTimeAuthority:'original',sourceGpsAuthority:'original-private-manifest',
     sources:mapped};
   await writeFile(normalizedManifestPath,JSON.stringify(normalizedManifest,null,2)+'\n',{flag:'wx'});
-  const evidence = evidenceFromIndex(index);
-  evidence.vision_segment_index_sha256 = sha256(indexBytes);
   await mkdir(dirname(evidencePath), { recursive: true });
   await writeFile(evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, { flag: 'wx' });
   const evidenceStat=await realpath(evidencePath);
   if (!confined(runPath,evidenceStat)) throw new Error('Vision evidence artifact escaped the canonical run');
-  const metadata = JSON.parse(await readFile(metadataPath, 'utf8'));
   const writtenEvidence = JSON.parse(await readFile(evidencePath, 'utf8'));
   return {
     status: 'COMPLETED',
-    output: { 'vision-evidence.json': evidencePath, 'vision-segment-index.json': indexPath, 'metadata.json': metadataPath, 'vision-normalized-manifest.json': normalizedManifestPath },
-    artifacts: { 'vision-evidence.json': writtenEvidence, 'vision-segment-index.json': index, 'metadata.json': metadata, 'vision-normalized-manifest.json': normalizedManifest },
+    output: { 'vision-evidence.json': evidencePath, 'metadata.json': metadataPath, 'vision-normalized-manifest.json': normalizedManifestPath },
+    artifacts: { 'vision-evidence.json': writtenEvidence, 'metadata.json': metadata, 'vision-normalized-manifest.json': normalizedManifest },
     evidence: writtenEvidence,
     markcut: markcutResult ? { invoked: true } : { invoked: false, reused: true },
   };

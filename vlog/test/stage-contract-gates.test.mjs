@@ -114,11 +114,13 @@ test('template preflight resolves declared asset files and HTTPS URLs, fails on 
 test('visioner contract fails closed, then passes after agent heals missing evidence',()=>{
  const f=fixture();try{
   const tool=join(f.vlog,'scripts/validate-stage.mjs');
-  write(f.run,'vision-segment-index.json',{status:'SOURCE_LINKED_UNREVIEWED',sources:[{source_id:'a'}]});
   let r=call(tool,['visioner',f.run]);assert.equal(r.status,1);assert.match(r.stdout,/REQUIRED_ARTIFACT_MISSING/);
-  write(f.run,'vision-evidence.json',{stage:'visioner',summary:[{source_id:'a'}]});write(f.run,'input/media/metadata.json',{a:{}});
+  const metadata={a:{}};write(f.run,'input/media/metadata.json',metadata);
   const sourceManifest={media:[{id:'a',path:'a.mov',sha256:'original-hash'}]};
   write(f.run,'source-manifest.json',sourceManifest);
+  const validEvidence={stage:'visioner',summary:[{source_id:'a'}],sources:[{source_id:'a',source_sha256:'original-hash'}],observations:[],
+   manifest_hash:hash(JSON.stringify(sourceManifest)),markcut_metadata_sha256:hash(JSON.stringify(metadata))};
+  write(f.run,'vision-evidence.json',validEvidence);
   mkdirSync(join(f.run,'input/media/.normalized'));
   write(f.run,'input/media/.normalized/a_0to1.mp4','tiny understanding bytes');
   write(f.run,'vision-normalized-manifest.json',{schemaVersion:1,
@@ -128,6 +130,10 @@ test('visioner contract fails closed, then passes after agent heals missing evid
     originalPath:'input/media/a.mov',normalizedPath:'input/media/.normalized/a_0to1.mp4',
     normalizedBytes:Buffer.byteLength('tiny understanding bytes'),maxDimension:360,sampled:false}]});
   r=call(tool,['visioner',f.run]);assert.equal(r.status,0,r.stdout);assert.match(r.stdout,/"status": "PASS"/);
+  write(f.run,'vision-evidence.json',{...validEvidence,manifest_hash:'0'.repeat(64)});
+  r=call(tool,['visioner',f.run]);assert.equal(r.status,1);assert.match(r.stdout,/VISION_SOURCE_PROVENANCE/);
+  write(f.run,'vision-evidence.json',{...validEvidence,sources:[{source_id:'a',source_sha256:'tampered'}]});
+  r=call(tool,['visioner',f.run]);assert.equal(r.status,1);assert.match(r.stdout,/VISION_SOURCE_IDENTITY/);
  }finally{f.clean();}
 });
 test('personal story must exist before shot planning; director/editor self-heal handoff IDs',()=>{

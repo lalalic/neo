@@ -2,13 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { execFile } from 'node:child_process';
-import { copyFile, mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
-import { indexFromRun } from '../scripts/index-markcut-vision.mjs';
 import { run } from '../agents/.shortcut/vlog-visioner.agent.mjs';
 
 const hash = value => createHash('sha256').update(value).digest('hex');
@@ -19,7 +17,6 @@ async function fixture(t, withMetadata = false) {
   t.after(() => rm(root, { recursive: true, force: true }));
   const vlogRoot = join(root, 'vlog');
   await mkdir(join(vlogRoot,'scripts'),{recursive:true});
-  await writeFile(join(vlogRoot,'scripts/index-markcut-vision.mjs'),'// fixture command target');
   const runPath = join(vlogRoot, 'runs', '2026-11-02-shortcut-test');
   const mediaDir = join(runPath, 'input', 'media');
   await mkdir(mediaDir, { recursive: true });
@@ -48,11 +45,6 @@ function fakeHost() {
     runCommand: async (args, cwd) => {
       calls.push({ args, cwd });
       if (args.includes('--help')) return { code: 0, stdout: 'vision --itt {prompt_quoted} --vtt {sample_interval}' };
-      if (args[1]?.endsWith('index-markcut-vision.mjs')) {
-        const index = indexFromRun(args[2]);
-        await writeFile(join(args[2], 'vision-segment-index.json'), `${JSON.stringify(index)}\n`);
-        return { code: 0, stdout: '{}' };
-      }
       if (args.includes('--normalize-only')) {
         const mediaArg=args[args.indexOf('vision')+1];
         const dir=join(mediaArg,'.normalized'); await mkdir(dir,{recursive:true});
@@ -81,10 +73,10 @@ test('reuses approved Markcut metadata and writes source-linked, explicitly unre
   assert.equal(result.status, 'COMPLETED');
   assert.deepEqual(result.markcut, { invoked: false, reused: true });
   assert.ok(result.artifacts['vision-evidence.json']);
-  assert.ok(result.artifacts['vision-segment-index.json']);
+  assert.equal(Object.hasOwn(result.artifacts,'vision-segment-index.json'),false);
   assert.ok(result.artifacts['metadata.json'].CLIP);
   assert.equal(result.artifacts['vision-normalized-manifest.json'].sources[0].normalizedPath,'input/media/.normalized/CLIP_0to4.mp4');
-  assert.equal(host.calls.length, 2);
+  assert.equal(host.calls.length, 1);
   const evidence = JSON.parse(await readFile(join(f.runPath, 'vision-evidence.json'), 'utf8'));
   assert.equal(evidence.status, 'EVIDENCE_READY_UNREVIEWED');
   assert.equal(evidence.sources[0].source_sha256, hash('fixture media bytes'));
@@ -93,15 +85,13 @@ test('reuses approved Markcut metadata and writes source-linked, explicitly unre
   assert.match(evidence.acceptance, /not Director acceptance, human approval/);
 });
 
-test('real subprocess indexes a pretty-printed approved manifest with byte-exact provenance', async t => {
+test('direct evidence preserves byte-exact provenance for a pretty-printed approved manifest', async t => {
   const f = await fixture(t, true);
   const manifestPath = join(f.runPath, 'source-manifest.json');
   const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
   const manifestBytes = Buffer.from(JSON.stringify(manifest, null, 2) + '\n');
   assert.notEqual(hash(manifestBytes), hash(JSON.stringify(manifest)));
   await writeFile(manifestPath, manifestBytes);
-  await copyFile(fileURLToPath(new URL('../scripts/index-markcut-vision.mjs', import.meta.url)),
-    join(f.vlogRoot, 'scripts/index-markcut-vision.mjs'));
   const stub=join(f.vlogRoot,'scripts','markcut-normalize-stub.mjs');
   await writeFile(stub,`import {writeFileSync,mkdirSync} from 'node:fs';
 import {join} from 'node:path';
@@ -119,10 +109,10 @@ console.log(JSON.stringify({status:'PASS',profile:'markcut-vision-normalized-v1'
   });
   assert.equal(result.status,'COMPLETED');
   assert.deepEqual(result.markcut,{invoked:false,reused:true});
-  assert.equal(commands.length,2);
-  const indexBytes = await readFile(join(f.runPath,'vision-segment-index.json'));
-  assert.equal(result.artifacts['vision-segment-index.json'].manifest_hash,hash(manifestBytes));
-  assert.equal(result.evidence.vision_segment_index_sha256,hash(indexBytes));
+  assert.equal(commands.length,1);
+  assert.equal(result.evidence.manifest_hash,hash(manifestBytes));
+  assert.equal(result.evidence.markcut_metadata_sha256,hash(await readFile(join(f.mediaDir,'metadata.json'))));
+  await assert.rejects(readFile(join(f.runPath,'vision-segment-index.json')),{code:'ENOENT'});
   assert.equal(result.evidence.sources.length,1);
   assert.equal(result.evidence.observations.length,1);
 });
@@ -195,22 +185,24 @@ test('rejects source symlink escapes without duplicate metadata checks', async t
   await symlink(outside,join(f.mediaDir,'CLIP.mp4'));
   const host=fakeHost();
   await assert.rejects(run({input:{projectPath:f.root,vlogRoot:f.vlogRoot,runPath:f.runPath},...host}),/out-of-scope source|source original/);
-  assert.equal(host.calls.length,1);
+  assert.equal(host.calls.length,0);
   const f2=await fixture(t,true); const manifest=JSON.parse(await readFile(join(f2.runPath,'source-manifest.json'),'utf8'));
   manifest.markcut_metadata_sha256='0'.repeat(64); await writeFile(join(f2.runPath,'source-manifest.json'),JSON.stringify(manifest));
   const success=await run({input:{projectPath:f2.root,vlogRoot:f2.vlogRoot,runPath:f2.runPath},...fakeHost()});
   assert.equal(success.status,'COMPLETED'); // Outdated checksum metadata does not block Stage output.
 });
 
-test('rejects fake index output with missing source identity', async t=>{
-  const f=await fixture(t,true); const host=fakeHost();
-  host.runCommand=async (args,cwd)=>{
-    host.calls.push({args,cwd});
-    if(args.includes('--help')) return {code:0,stdout:'vision --itt {prompt_quoted} --vtt {sample_interval}'};
-    await writeFile(join(args[2],'vision-segment-index.json'),JSON.stringify({status:'SOURCE_LINKED_UNREVIEWED',findings:[],sources:[],observations:[]}));
-    return {code:0,stdout:'{}'};
-  };
-  await assert.rejects(run({input:{projectPath:f.root,vlogRoot:f.vlogRoot,runPath:f.runPath},...host}),/source identities differ/);
+test('rejects incomplete Markcut metadata before normalization, not by trusting an index', async t=>{
+  const f=await fixture(t,true);
+  const metadataPath=join(f.mediaDir,'metadata.json');
+  const metadata=JSON.parse(await readFile(metadataPath,'utf8'));
+  delete metadata.CLIP;
+  await writeFile(metadataPath,JSON.stringify(metadata));
+  const host=fakeHost();
+  await assert.rejects(run({input:{projectPath:f.root,vlogRoot:f.vlogRoot,runPath:f.runPath},...host}),
+    /Missing Markcut metadata: CLIP/);
+  assert.equal(host.calls.length,0);
+  await assert.rejects(readFile(join(f.runPath,'vision-evidence.json')),{code:'ENOENT'});
 });
 
 test('Relay project-root and canonical Task text resolve the Vlog source without a nested vlog/vlog path',async t=>{
@@ -222,7 +214,7 @@ test('Relay project-root and canonical Task text resolve the Vlog source without
   },...host});
   assert.equal(result.status,'COMPLETED');
   assert.equal(result.markcut.reused,true);
-  assert.equal(host.calls.length,2);
+  assert.equal(host.calls.length,1);
 });
 test('Vlog project shortcut does not accept a run from a separate project',async t=>{
   const f=await fixture(t,true);
@@ -251,10 +243,10 @@ test('unverified speech and absent optional source-preview approval do not block
   const result = await run({ input: { projectPath: f.vlogRoot, runPath: f.runPath }, ...host });
   assert.equal(result.status, 'COMPLETED');
   assert.equal(result.evidence.status, 'EVIDENCE_READY_UNREVIEWED');
-  assert.equal(result.artifacts['vision-segment-index.json'].findings.length, 0);
+  assert.equal(result.evidence.uncertainty.length, 0);
   assert.equal(result.evidence.observations.length, 2);
   assert.ok(result.evidence.observations.every(item => item.status === 'MODEL_OUTPUT_UNREVIEWED'));
   assert.match(JSON.stringify(result.evidence), /Thank you/);
-  assert.equal(host.calls.length, 2, 'source indexer and native Markcut normalizer only; no mandatory preview or approval');
+  assert.equal(host.calls.length, 1, 'native Markcut normalizer only; no indexing CLI or mandatory preview');
   await assert.rejects(readFile(join(f.runPath, 'vision-human-review.json')), { code: 'ENOENT' });
 });

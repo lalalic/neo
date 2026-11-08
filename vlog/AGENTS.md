@@ -95,7 +95,7 @@ per-account authorization.
 ## Execution speed target, not a deadline
 
 For ordinary private Vlog generation, the Orchestrator should **aim to finish
-within about 20 minutes** by reusing source indexes, using the existing
+within about 20 minutes** by reusing Markcut metadata, using the existing
 Markcut Vision-normalized inputs, running shortcut scripts first, avoiding
 repeated model work, and resuming checkpointed artifacts. This is a quality
 and efficiency goal **not a code-enforced timeout**. Never cancel or mark

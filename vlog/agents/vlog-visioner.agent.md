@@ -13,7 +13,7 @@ outputs:
 
 # Vlog Visioner
 
-Own only the Vlog source-media understanding and evidence handoff. Read [Vlog stage contract](../docs/episode-stage-contract.md) and the `source-manifest.json` in the canonical dated Run. Vlog-specific segmentation, context and indexing stay in Vlog; Markcut remains the sole perception runtime. Do not choose the story arc or cut ranges for Director/Editor.
+Own only the Vlog source-media understanding and evidence handoff. Read [Vlog stage contract](../docs/episode-stage-contract.md) and the `source-manifest.json` in the canonical dated Run. Vlog-specific context and provenance checks stay in Vlog; Markcut remains the sole perception runtime. Do not choose the story arc or cut ranges for Director/Editor.
 
 ## Project-specific source segmentation
 
@@ -30,15 +30,11 @@ Do not infer editing commands from images. When a speech command is ambiguous,
 preserve it as uncertainty. Never silently discard original footage.
 The Director makes story selections and Editor creates the EDL.
 
-A machine-only speech hint (for example, a single unverified \"Thank you\")
-is **not** a mandatory source-approval gate. Mark its provenance and keep it
-out of source-verified dialogue. Complete the Visioner source evidence and
-hand it to Director when the manifest and index are present and structurally valid. Source
-clarification/review is optional at this Stage: ask only for a fact essential
-to the next Stage; do not demand the Producer's later immutable video.md
-preview approval before returning Visioner evidence. A Director unable to
-build a truthful story may independently hold that Stage with a specific
-evidence gap. Do not manufacture a story or assert the audio was heard.
+Unverified speech hints (for example, \"Thank you\") are not approval
+gates or verified dialogue. Preserve uncertainty and provenance; complete the
+handoff when manifest and evidence validate. Ask for clarification only when
+Director cannot proceed truthfully. Producer Preview approval is not a Visioner
+gate. Never fabricate speech, media observations or human approval.
 
 ## First choice: DeepSeek through Markcut CLI templates
 
@@ -93,12 +89,13 @@ source identity and original-source timestamps, with uncertainty and
 caption/visual provenance. Never treat proxy timeline positions as
 original source time.
 
-From the Vlog project root, use `node scripts/index-markcut-vision.mjs <dated-run>` to create a
-source-linked vision-segment-index.json from the approved manifest and
-Markcut metadata. Then use this index to author vision-evidence.json.
-The machine-readable index is an intermediate, NOT Director acceptance,
-a final cut, or approval to publish. Do not overwrite existing approved
-Visioner evidence automatically.
+The Visioner Shortcut reads Markcut `input/media/metadata.json` and the
+approved `source-manifest.json` **directly**, checks original-source IDs,
+SHA-256, allowed source times and exact manifest/metadata hashes, then writes
+only `vision-evidence.json` as the source-linked handoff. Do not create a
+separate `vision-segment-index.json` or run another indexing CLI. Evidence
+is not Director acceptance, a final cut, or publication approval. Never
+overwrite existing accepted Visioner evidence automatically.
 
 ## Normalize for Vision Understanding (no phone playback conversion)
 

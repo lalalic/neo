@@ -30,7 +30,7 @@
       "treat_machine_speech_as_verified",
       "create_director_story_in_visioner"
     ],
-    "task": "Approved Vlog run contains two photos and a 1.57-second creek clip. Media hashes and Markcut source index pass. One clip has only machine speech hint “Thank you.” and nobody has independently listened to it. No owner source-preview decision exists. What should Visioner do now, before Director?",
+    "task": "Approved Vlog run contains two photos and a 1.57-second creek clip. The approved source manifest and Markcut metadata agree. One clip has only machine speech hint “Thank you.” and nobody has independently listened to it. No owner source-preview decision exists. What should Visioner do now, before Director?",
     "expectedDecision": "record_uncertainty_and_handoff",
     "required": [
       "unverified",
@@ -204,10 +204,10 @@
     "id": "template-verify",
     "type": "node-tests",
     "role": "vlog-producer",
-    "capability": "canonical template identity and executable Markcut render",
+    "capability": "canonical Markcut BGM policy and Producer verification/render shortcut",
     "testFiles": [
-      "test/markcut-template-execution.test.mjs",
-      "test/cinematic-vlog-render.test.mjs"
+      "test/worknode-chattts-contract.test.mjs",
+      "test/vlog-publisher-shortcut.test.mjs"
     ]
   },
   {
@@ -615,6 +615,16 @@
       "narrate every landscape",
       "random cuts",
       "invented footage"
+    ]
+  },
+  {
+    "id": "visioner-direct-source-evidence",
+    "type": "node-tests",
+    "role": "vlog-visioner",
+    "capability": "direct source-linked Vision evidence without redundant segment index",
+    "testFiles": [
+      "test/vision-evidence-direct.test.mjs",
+      "test/vlog-visioner-shortcut.test.mjs"
     ]
   }
 ]

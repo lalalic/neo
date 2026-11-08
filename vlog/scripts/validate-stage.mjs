@@ -83,12 +83,29 @@ function schema(file,name){if(!valid[file])return;
  if(res.status!==0)errors.push({code:'SCHEMA_VALIDATION_FAILED',path:file,heal:(res.stderr||res.stdout||res.error?.message||'Run the existing agents-relay artifact validator and repair fields').slice(0,1800)});
 }
 if(stage==='visioner'){
- const evidence=json('vision-evidence.json'),index=json('vision-segment-index.json');
- check(evidence?.stage==='visioner'&&Array.isArray(evidence?.summary),'VISION_EVIDENCE_CONTRACT','Produce a Visioner summary from Markcut metadata, not new interpretation by downstream Agents');
- check(index?.status==='SOURCE_LINKED_UNREVIEWED'&&Array.isArray(index?.sources),'VISION_INDEX_CONTRACT','Regenerate the index using the existing index script');
- if(evidence&&index)check((evidence?.summary?.length??0)<=index.sources.length,'VISION_SOURCE_COUNT','Repair the source/index linkage');
+ const evidence=json('vision-evidence.json');
+ check(evidence?.stage==='visioner'&&Array.isArray(evidence?.summary)&&Array.isArray(evidence?.sources)&&Array.isArray(evidence?.observations),
+   'VISION_EVIDENCE_CONTRACT','Produce Visioner evidence directly from Markcut metadata and approved source-manifest.json');
  required('input/media/metadata.json');
  const raw=json('source-manifest.json'),norm=json('vision-normalized-manifest.json');
+ if(evidence&&raw){
+   const media=Array.isArray(raw.media)?raw.media:[];
+   check(evidence.manifest_hash===fingerprint('source-manifest.json')&&
+     evidence.markcut_metadata_sha256===fingerprint('input/media/metadata.json'),
+     'VISION_SOURCE_PROVENANCE','Bind Visioner evidence to the exact manifest and Markcut metadata bytes');
+   check(Array.isArray(evidence.sources)&&evidence.sources.length===media.length&&media.every(source=>
+     evidence.sources.some(item=>item.source_id===source.id&&item.source_sha256===source.sha256)),
+     'VISION_SOURCE_IDENTITY','Every approved source ID and SHA-256 must be represented exactly');
+   const known=new Map((Array.isArray(evidence.sources)?evidence.sources:[]).map(item=>[item.source_id,item]));
+   check(Array.isArray(evidence.observations)&&evidence.observations.every(ob=>{
+     const source=known.get(ob.source_id),range=source?.allowed_source_time_range_seconds;
+     return source&&ob.source_sha256===source.source_sha256&&
+       Number.isFinite(ob.source_time_start_seconds)&&Number.isFinite(ob.source_time_end_seconds)&&
+       ob.source_time_start_seconds>=0&&ob.source_time_end_seconds>ob.source_time_start_seconds&&
+       (range==null||(ob.source_time_start_seconds>=range[0]&&ob.source_time_end_seconds<=range[1]));
+   }),'VISION_SOURCE_TIMECODES','Observation source identity, approved range or original timeline is invalid');
+   check((evidence.summary?.length??0)<=media.length,'VISION_SOURCE_COUNT','Repair Markcut metadata/source linkage');
+ }
  check(norm?.profile==='markcut-vision-normalized-v1'&&norm?.usage==='vision-understanding-only'&&
    norm?.sourceTimeAuthority==='original'&&norm?.sourceGpsAuthority==='original-private-manifest'&&
    !!raw && norm.sourceManifestSha256===fingerprint('source-manifest.json'),
