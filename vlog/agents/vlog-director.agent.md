@@ -58,12 +58,16 @@ plausible inferences and creative voiceover separately attributed. Do not claim
 unrecorded events, conversations, private thoughts or routes as facts.
 
 1. Consume Visioner evidence, source speech, profile and relevant real history.
-   Choose a lived question/intent, action or discovery and a concrete result;
-   **setback and contrast are optional**. Avoid scenic narration disguised
-   as a story or invented hardships.
+   Prefer footage showing the creator actually noticing, reacting, choosing
+   or addressing the camera (including selfie picture-in-picture). Choose a
+   human curiosity/action and a specific result; a road changing appearance
+   by itself is scenic coverage, not a personal story. **Setbacks optional**.
+   Do not invent hardships or unstated motives.
 2. **Write the full natural Chinese first-person narrative first** in
    `personal-story.md` and matching `personal-story.json` under the schema.
-   Start → lived development → outcome must read as one complete story.
+   Anchor the opening in a filmed action or curiosity, not a fabricated
+   outing goal. The story must sound like something this person would say,
+   not a scenic summary or a compulsory feel-good conclusion.
 3. Plan narration and beat durations from story rhythm, then plan varied
    original-media coverage (slowed video, moving crops/stills or motivated
    callbacks) without inventing new actions or cutting an essential beat.
@@ -78,6 +82,10 @@ unrecorded events, conversations, private thoughts or routes as facts.
    narrate every scenic frame. GPS and public local facts require evidence.
    The [audience familiarity review](../docs/story-familiarity-review.md) is
    optional. Quote original dialogue only after listening to its audio.
+   Keep source/ASR uncertainty in `provenance`, never in the spoken narrative.
+   Before handoff, read `personal-story.json.narrative` aloud as viewer-facing
+   copy: no evidence disclaimers, unverified sports/actions, rote sightseeing
+   list or repeated “给生活加点料” moral. Rewrite if needed.
 6. Follow [story/route/sound](../docs/story-first-route-sound.md) and
    [episode stage](../docs/episode-stage-contract.md). If no source can carry
    a truthful human story, report the narrative gap, not a fake event.

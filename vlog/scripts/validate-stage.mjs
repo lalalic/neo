@@ -77,8 +77,13 @@ function personalStory(evidence){
  return story;
 }
 function schema(file,name){if(!valid[file])return;
- const cmd=process.env.AGENTS_RELAY_CLI||'npx';
- const args=process.env.AGENTS_RELAY_CLI?['artifact','validate','--artifact',valid[file],'--schema',resolve(root,'contracts',name)]:['-y','agents-relay','artifact','validate','--artifact',valid[file],'--schema',resolve(root,'contracts',name)];
+ // Use the already-installed Relay validator. npx -y may try a network-backed
+ // package install and hang inside an agent sandbox after artifacts are ready.
+ const localRelay=resolve(root,'../../agents-relay/dist/cli.js');
+ const configured=process.env.AGENTS_RELAY_CLI;
+ const nativeLocal=!configured&&existsSync(localRelay);
+ const cmd=configured||(nativeLocal?process.execPath:'agents-relay');
+ const args=[...(nativeLocal?[localRelay]:[]),'artifact','validate','--artifact',valid[file],'--schema',resolve(root,'contracts',name)];
  const res=spawnSync(cmd,args,{encoding:'utf8',timeout:30000,maxBuffer:1048576});
  if(res.status!==0)errors.push({code:'SCHEMA_VALIDATION_FAILED',path:file,heal:(res.stderr||res.stdout||res.error?.message||'Run the existing agents-relay artifact validator and repair fields').slice(0,1800)});
 }
