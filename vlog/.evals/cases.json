@@ -206,7 +206,7 @@
     "role": "vlog-producer",
     "capability": "canonical Markcut BGM policy and Producer verification/render shortcut",
     "testFiles": [
-      "test/worknode-chattts-contract.test.mjs",
+      "test/stage-contract-gates.test.mjs",
       "test/vlog-publisher-shortcut.test.mjs"
     ]
   },
