@@ -113,5 +113,10 @@ Browser click success alone is not proof of published content.
 The executable `video.md` is the authority for the actual video;
 all other artifacts are its evidence/inputs.
 
-Maintain `.evals/cases.json` and run `neo eval run --project vlog`
-where available, plus deterministic contract and no-post tests.
+**Primary Neo Project acceptance:** evaluate every Agent in `graph.mmd` with
+`neo eval run --project vlog --dag`. Use `--dag --smoke` for one real model
+decision per DAG Agent and `--dry-run` only to verify prompt assembly.
+The Eval Runner uses Relay's graph parser and real managed Worker prompts;
+case coverage alone is not a PASS. Keep `.evals/cases.json` up to date.
+Use targeted deterministic tests for source evidence, Stage contracts and
+no-post safety; Relay owns generic DAG and Shortcut Runner tests.

@@ -1,18 +1,19 @@
 #!/usr/bin/env node
 /** Neo Project capability eval runner. Model decisions and executable tests are distinct. */
 import {readFileSync,writeFileSync,mkdirSync,existsSync} from 'node:fs';
-import {resolve,join,relative,basename} from 'node:path';
+import {resolve,join,relative,basename,dirname} from 'node:path';
+import {pathToFileURL} from 'node:url';
 import {spawnSync} from 'node:child_process';
 import {randomUUID} from 'node:crypto';
 
 const root=resolve(import.meta.dirname,'..');
 const flags=process.argv.slice(2);
-const usage=`Usage: neo eval run --project NAME [--case ID] [--model MODEL] [--dry-run]\n       neo eval list --project NAME\n       neo eval audit\n\nCases live at <project>/.evals/cases.json; each run saves evidence under <project>/.evals/reports/.\n`;
+const usage=`Usage: neo eval run --project NAME [--case ID | --dag [--smoke]] [--model MODEL] [--dry-run]\n       neo eval list --project NAME [--dag]\n       neo eval audit\n\nCases live at <project>/.evals/cases.json; each run saves evidence under <project>/.evals/reports/.\n`;
 function options(argv){
  const out={};
  for(let i=0;i<argv.length;i++){
   const flag=argv[i];
-  if(flag==='--dry-run'||flag==='--list'||flag==='--help'){out[flag.slice(2)]=true;continue;}
+  if(flag==='--dry-run'||flag==='--list'||flag==='--help'||flag==='--dag'||flag==='--smoke'){out[flag.slice(2)]=true;continue;}
   if(!['--project','--model','--case','--adapter'].includes(flag))throw Error('Unknown eval option: '+flag);
   if(out[flag.slice(2)]!==undefined)throw Error('Repeated eval option: '+flag);
   const value=argv[++i];if(!value||value.startsWith('--'))throw Error(flag+' requires a value');
@@ -34,7 +35,27 @@ if(!existsSync(casePath))throw Error('NOT_EVALUATED: '+project+' has no .evals/c
 const cases=JSON.parse(readFileSync(casePath,'utf8'));
 if(!Array.isArray(cases)||!cases.length)throw Error('Project eval cases must be a nonempty array');
 if(new Set(cases.map(c=>c.id)).size!==cases.length)throw Error('Duplicate eval case IDs');
-const selected=opts.case?cases.filter(c=>c.id===opts.case):cases;
+if(opts.dag && opts.case)throw Error('--dag cannot be combined with --case');
+if(opts.smoke && !opts.dag)throw Error('--smoke requires --dag');
+let dagRoles = null;
+if(opts.dag){
+ const graphPath=join(projectRoot,'graph.mmd');
+ if(!existsSync(graphPath))throw Error('Project DAG eval requires graph.mmd: '+project);
+ // Use Relay's authoritative DAG parser. Neo Eval selects roles but does not
+ // duplicate graph syntax, dependency logic, or Shortcut Runner implementation.
+ const relayCliPath=process.env.AGENTS_RELAY_DIST_CLI || resolve(root,'../agents-relay/dist/cli.js');
+ const parserPath=join(dirname(relayCliPath),'agent-graph.js');
+ if(!existsSync(parserPath))throw Error('Relay Agent Graph parser unavailable: '+parserPath);
+ const {parseAgentGraph}=await import(pathToFileURL(parserPath).href);
+ const graph=parseAgentGraph(readFileSync(graphPath,'utf8'));
+ dagRoles=[...new Set(graph.nodes.map(node=>node.agent))];
+ const missing=dagRoles.filter(role=>!cases.some(c=>c.role===role && (c.type||'decision')==='decision'));
+ if(missing.length)throw Error('NOT_EVALUATED: DAG Agent(s) missing decision eval: '+missing.join(', '));
+}
+const selected = opts.case ? cases.filter(c=>c.id===opts.case)
+ : dagRoles ? (opts.smoke ? dagRoles.map(role=>cases.find(c=>c.role===role&&(c.type||'decision')==='decision'))
+                          : cases.filter(c=>dagRoles.includes(c.role)))
+ : cases;
 if(!selected.length)throw Error('Unknown eval case: '+opts.case);
 function safeProjectFile(path,base=projectRoot){
  const full=resolve(base,path),rel=relative(projectRoot,full);
@@ -64,7 +85,7 @@ function validate(c){
 }
 selected.forEach(validate);
 if(opts.list){
- console.log(JSON.stringify({project,cases:selected.map(c=>({id:c.id,role:c.role,type:c.type||'decision',capability:c.capability}))},null,2));
+ console.log(JSON.stringify({project,dagRoles,cases:selected.map(c=>({id:c.id,role:c.role,type:c.type||'decision',capability:c.capability}))},null,2));
  process.exit(0);
 }
 const reportDir=join(projectRoot,'.evals','reports',new Date().toISOString().replaceAll(':','-')+'-'+randomUUID().slice(0,8));
@@ -131,7 +152,7 @@ ${c.references?.length?'Relevant project contract references (read only if neede
  results.push({id:c.id,role:c.role,type,builder:built.builder,status:pass?'PASS':'FAIL',expected:c.expectedDecision,actual:parsed?.decision||null,exitCode:run.status,required,forbidden,error:run.error?.message||null,output:output.slice(0,1600)});
  console.log(`${pass?'PASS':'FAIL'} ${c.role}/${c.id} ${parsed?.decision||'INVALID_OUTPUT'}`);
 }
-const report={project,adapter,promptSource:'agents-relay/managedWorkerInput',model:opts.model||'codex default',mode:dryRun?'dry-run':'mixed',count:results.length,executed:dryRun?0:results.length,passed:results.filter(x=>x.status==='PASS').length,failed:failures,results};
+const report={project,dagRoles,dagCoverage:dagRoles?{total:dagRoles.length,selectedRoles:[...new Set(selected.map(c=>c.role))]}:null,adapter,promptSource:'agents-relay/managedWorkerInput',model:opts.model||'codex default',mode:dryRun?'dry-run':'mixed',count:results.length,executed:dryRun?0:results.length,passed:results.filter(x=>x.status==='PASS').length,failed:failures,results};
 writeFileSync(join(reportDir,'report.json'),JSON.stringify(report,null,2));
-console.log(JSON.stringify({project,mode:report.mode,executed:report.executed,passed:report.passed,failed:failures,report:join(reportDir,'report.json')},null,2));
+console.log(JSON.stringify({project,dagRoles,mode:report.mode,executed:report.executed,passed:report.passed,failed:failures,report:join(reportDir,'report.json')},null,2));
 if(failures)process.exitCode=1;

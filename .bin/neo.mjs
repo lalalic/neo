@@ -43,7 +43,7 @@ function usage() {
   neo workspace show
   neo skill list [--project PATH]|package SKILL_DIR OUTPUT.zip
   neo bootstrap [--json] [--project PATH]
-  neo eval run --project NAME [--case ID] [--model MODEL] [--dry-run]
+  neo eval run --project NAME [--case ID | --dag [--smoke]] [--model MODEL] [--dry-run]
   neo eval list --project NAME
   neo eval audit
   neo service list|status NAME|start|stop|restart NAME --apply

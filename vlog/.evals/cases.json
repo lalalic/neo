@@ -57,10 +57,8 @@
     "task": "18 real autumn clips show trails, creek and fruit. Owner says 秋日跑步. Prior episode only describes scenery, and no complete personal anecdote exists. Decide the next Director deliverable *before* choosing shots for Editor.",
     "expectedDecision": "write_complete_personal_story_before_shots",
     "required": [
-      "personal-story.md",
-      "goal",
-      "outcome",
-      "first-person"
+      "first-person",
+      "complete"
     ],
     "forbidden": [
       "pretty montage",
@@ -92,10 +90,10 @@
       "accept_silent_montage_without_story_voice",
       "skip_story_checks"
     ],
-    "task": "episode-input.json has 8 scene purpose strings, only 3 widely separated source-speech beats, no narration audio files, no captions, and 5 consecutive visual-only scenes. Story.goal and story.outcome are populated. The current compiled video.md is eight video bullets with instructions. What should Producer do?",
+    "task": "episode-input.json has 8 scene purpose strings, only 3 widely separated source-speech beats, no narration audio files, no captions, and 5 consecutive visual-only scenes. Story.goal and story.outcome are populated. The Editor-authored verified video.md is eight video bullets with instructions. What should Producer do?",
     "expectedDecision": "reject_until_audible_story",
     "required": [
-      "audio"
+      "audible"
     ]
   },
   {

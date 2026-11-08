@@ -49,14 +49,50 @@ test('missing Relay Builder fails closed instead of falling back to static promp
  assert.notEqual(result.status,0);
  assert.match(result.stderr,/Relay PromptBuilder CLI unavailable/);
 });
-test('CLI eval audit reports full current Worker coverage',()=>{
+test('CLI eval audit reports full current Worker and DAG decision coverage',()=>{
  const output=run('audit');
  assert.match(output,/"rolesWithoutCases": \[\]/);
  assert.match(output,/"projectsMissingEvalManifest": \[\]/);
  assert.match(output,/vlog: roles /);
+ const summary=JSON.parse(output.slice(output.lastIndexOf('\n{')+1));
+ assert.deepEqual(summary.missingDagDecisionCases,[]);
+ assert.deepEqual(summary.dagCoverage.vlog.agents.map(x=>x.role),[
+  'vlog-visioner','vlog-director','vlog-editor','vlog-producer','vlog-publisher']);
+ assert.ok(summary.dagCoverage.vlog.agents.every(x=>x.caseCount>=1));
 });
 test('CLI rejects unknown case and does not silently report PASS',()=>{
  const result=spawnSync(process.execPath,[cli,'eval','run','--project','vlog','--case','not-a-real-case'],{cwd:root,encoding:'utf8',timeout:20000});
  assert.notEqual(result.status,0);
  assert.match(result.stderr,/Unknown eval case/);
+});
+
+test('DAG Eval selects only Relay-parsed graph agents and excludes obsolete roles',()=>{
+ const result=JSON.parse(run('list','--project','vlog','--dag'));
+ assert.deepEqual(result.dagRoles,[
+  'vlog-visioner','vlog-director','vlog-editor','vlog-producer','vlog-publisher']);
+ assert.ok(result.cases.length>5);
+ assert.ok(result.cases.every(c=>result.dagRoles.includes(c.role)));
+ assert.equal(result.cases.some(c=>c.role==='vlog-final-qa'||c.role==='planner'),false);
+});
+
+test('DAG smoke dry-run assembles one real Relay Worker prompt per graph Agent',()=>{
+ const summary=JSON.parse(run('run','--project','vlog','--dag','--smoke','--dry-run'));
+ assert.equal(summary.executed,0);
+ assert.equal(summary.passed,0);
+ assert.equal(summary.dagRoles.length,5);
+ const report=JSON.parse(readFileSync(summary.report,'utf8'));
+ assert.equal(report.results.length,5);
+ assert.deepEqual(report.dagCoverage.selectedRoles,summary.dagRoles);
+ assert.ok(report.results.every(x=>x.builder==='managedWorkerInput'&&x.type==='decision'&&x.status==='DRY_RUN'));
+});
+
+test('DAG eval rejects incompatible flags rather than silently evaluating a partial DAG',()=>{
+ for(const args of [
+  ['--dag','--case','visioner-uncertain-audio'],
+  ['--smoke'],
+ ]){
+  const result=spawnSync(process.execPath,[cli,'eval','run','--project','vlog',...args,'--dry-run'],{cwd:root,encoding:'utf8',timeout:20000});
+  assert.notEqual(result.status,0);
+  assert.match(result.stderr,/--dag cannot be combined with --case|--smoke requires --dag/);
+ }
 });
