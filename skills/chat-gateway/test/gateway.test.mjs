@@ -20,6 +20,7 @@ test('in-process E2E: startup baseline, event, reconnection, dedupe, reports and
   jobs.push(job(10, 'ACTIVE', timestamp(-10)));
   const dashboard = { fetchJobs: async () => jobs };
   let receiveEvent;
+  const chatSubmissions = [];
   const makeSubscriber = ({ onEvent }) => {
     receiveEvent = onEvent;
     return { start() {}, async stop() {}, status: () => ({ connected: true, lastError: null }) };
@@ -27,7 +28,7 @@ test('in-process E2E: startup baseline, event, reconnection, dedupe, reports and
   const config = { ...resolveConfig(), stateDir: dir, port: 0, settleMs: 0,
     deliveryTickMs: 300_000, reconcileIntervalMs: 300_000 };
   const gateway = await createGateway({ config, notifier, dashboard, now: clock.now,
-    makeSubscriber, log: () => {} });
+    makeSubscriber, chatSubmit: async (request) => { chatSubmissions.push(request); return { status: 'submitted' }; }, log: () => {} });
   await gateway.start();
   t.after(() => gateway.stop());
   assert.equal(gateway.health().status, 'ok');
@@ -38,7 +39,7 @@ test('in-process E2E: startup baseline, event, reconnection, dedupe, reports and
   const initialized = await rpc(port, 'initialize', { protocolVersion: '2025-03-26', capabilities: {}, clientInfo: { name: 'test', version: '1.0' } });
   assert.equal(initialized.result.serverInfo.name, 'chat-gateway');
   const list = await rpc(port, 'tools/list');
-  assert.deepEqual(list.result.tools.map((tool) => tool.name), ['chat_report', 'chat_env']);
+  assert.deepEqual(list.result.tools.map((tool) => tool.name), ['chat_report', 'chat_bind', 'chat_head', 'chat_send', 'chat_jobs', 'chat_feed', 'chat_env']);
   const env = await rpc(port, 'tools/call', { name: 'chat_env', arguments: {} });
   assert.equal(env.result.structuredContent.mode, 'home');
   assert.equal(env.result.structuredContent.phone.channel, 'unknown');
@@ -63,6 +64,43 @@ test('in-process E2E: startup baseline, event, reconnection, dedupe, reports and
   assert.equal(attention.result.structuredContent.notificationQueued, true);
   await gateway.delivery.tick();
   assert.equal(notifier.sends.length, 2);
+  const jobsResponse = await rpc(port, 'tools/call', {
+    name: 'chat_jobs', arguments: { limit: 2 },
+  });
+  assert.equal(jobsResponse.result.structuredContent.jobs.length, 2);
+  assert.equal(jobsResponse.result.structuredContent.total, 10);
+  assert.deepEqual(Object.keys(jobsResponse.result.structuredContent.jobs[0]).sort(),
+    ['id', 'repository', 'status', 'title', 'updatedAt']);
+  const invalidJobs = await rpc(port, 'tools/call', {
+    name: 'chat_jobs', arguments: { limit: 999 },
+  });
+  assert.equal(invalidJobs.result.isError, true);
+  const feed = await rpc(port, 'tools/call', { name: 'chat_feed', arguments: { limit: 50 } });
+  assert.ok(feed.result.structuredContent.items.some((item) => item.kind === 'report' && item.text === 'Internal milestone'));
+  assert.ok(feed.result.structuredContent.items.some((item) => item.kind === 'job' && item.status === 'COMPLETED'));
+  assert.ok(!feed.result.structuredContent.items.some((item) => item.kind === 'job' && item.text.includes('historical')));
+  const invalidFeed = await rpc(port, 'tools/call', { name: 'chat_feed', arguments: { limit: 1001 } });
+  assert.equal(invalidFeed.result.isError, true);
+  const headBefore = await rpc(port, 'tools/call', { name: 'chat_head', arguments: {} });
+  assert.equal(headBefore.result.structuredContent.bound, false);
+  const noHead = await rpc(port, 'tools/call', { name: 'chat_send',
+    arguments: { text: 'Hello', requestId: 'request-12345678' } });
+  assert.equal(noHead.result.isError, true);
+  const bind = await rpc(port, 'tools/call', { name: 'chat_bind',
+    arguments: { threadId: 'orchestrator-thread-12345678' } });
+  assert.equal(bind.result.structuredContent.bound, true);
+  const send = await rpc(port, 'tools/call', { name: 'chat_send',
+    arguments: { text: 'Hello from iPhone', requestId: 'request-12345678' } });
+  assert.equal(send.result.structuredContent.status, 'submitted');
+  assert.equal(chatSubmissions.length, 1);
+  assert.equal(chatSubmissions[0].threadId, 'orchestrator-thread-12345678');
+  const duplicate = await rpc(port, 'tools/call', { name: 'chat_send',
+    arguments: { text: 'Hello from iPhone', requestId: 'request-12345678' } });
+  assert.equal(duplicate.result.structuredContent.status, 'submitted');
+  assert.equal(chatSubmissions.length, 1);
+  const ownerFeed = await rpc(port, 'tools/call', { name: 'chat_feed', arguments: {} });
+  assert.ok(ownerFeed.result.structuredContent.items.some((item) =>
+    item.kind === 'owner' && item.status === 'submitted' && item.text === 'Hello from iPhone'));
   const invalid = await rpc(port, 'tools/call', { name: 'chat_report', arguments: { text: '' } });
   assert.equal(invalid.result.isError, true);
 
@@ -73,5 +111,7 @@ test('in-process E2E: startup baseline, event, reconnection, dedupe, reports and
   await restarted.delivery.tick();
   assert.equal(notifier.sends.length, 2);
   assert.equal(restarted.ledger.counts().delivered, 2);
+  const persistedHead = await restarted.chat.head();
+  assert.equal(persistedHead.threadId, 'orchestrator-thread-12345678');
   await restarted.stop();
 });

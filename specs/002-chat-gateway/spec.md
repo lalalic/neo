@@ -2,7 +2,7 @@
 
 **Feature Branch**: `002-chat-gateway`
 **Created**: 2026-11-08
-**Status**: Phase 1 implemented and deployed; phone display confirmation outstanding
+**Status**: Backend Phase 1 deployed previously; mobile extension IN PROGRESS in restored hotfix worktrees; no new merge/live until phone E2E
 **Input**: Owner request for a Neo mobile entry point (the future Chat tab) so the owner does not need to visit ChatGPT, the Agents Relay dashboard, or CLIs to receive information and hand off work. Phase 1 is limited to job completion state plus orchestrator-initiated reports.
 
 ## Background
@@ -120,8 +120,17 @@ As the owner, I want the orchestrator to know whether I am in the office or at h
 
 ## Out of Scope (Future Phases)
 
-- Delivering owner messages from the mobile Chat tab to the orchestrator thread, including an environment header on each turn.
 - The thread chain: successor-thread creation, checkpoints, handoff packets and head tracking.
 - Linking jobs to the orchestrator chat and delivering merged terminal events to the head thread for an overall report.
-- The Chat tab UI and history view on Neo mobile.
 - Human-input events, approvals and interactive requests: these stay with the existing escalation and interactive-request flows by owner decision.
+
+
+## Mobile completion gate (supersedes earlier Phase 1 completion claim)
+
+The initial 24 tasks covered only the backend, and the packaged runtime was deployed prematurely. New acceptance scope is a real Neox Chat tab with authenticated history of job and orchestrator reports; a phone composer that sends idempotently through the existing Neo.app ChatGPT new-turn queue to a bound head thread; explicit orchestrator replies via chat_report; and direct-source PM2 lifecycle analogous to Vlog Watcher. The thread binding may be changed at a handoff. Automatic creation of successor threads is still out of scope.
+
+The full feature MUST NOT be merged, deployed or cleaned up until Node tests, iOS simulator tests, real iPhone authenticated send/receive, and on-device notification presentation are verified. A ChatGPT queue receipt is not an actual assistant reply; notification forwarding confirmation is not iPhone presentation.
+
+### Presentation acceptance: invisible recovery
+
+When there are no messages, the Chat tab displays a blank timeline, not a "no messages" placeholder. No connection, authentication, Project bootstrap, missing-head, network failure, or retry status is displayed. There is no top title or top button; the owner always has the composer. Messages are persisted to a protected iPhone outbox before clearing the composer, and automatically sent/retried with their stable identities. Backend readiness and failures remain in service health/diagnostics; UI silently retries while preserving content. The only enabled/disabled send-button gate is valid nonempty message text of bounded size.

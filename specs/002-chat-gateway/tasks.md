@@ -63,3 +63,37 @@
 - T001, T002 before everything else; T004 before Phase 3 and 4; T006 before all tests.
 - Research O1 was resolved with the Neo.app `setup` MCP tool and tested against the live loopback endpoint.
 - US1, US2, US3 are independently shippable after Phase 2; recommended order US1, US2, US3.
+
+
+## Phase 1b: Required mobile work before further merge/live (2026-11-08)
+
+- [x] T025 Restore Neo chat hotfix worktree and isolate Neox Mobile in a second hotfix worktree.
+- [x] T026 Add chat_feed, chat_head, chat_bind and idempotent chat_send with backend tests.
+- [x] T027 Implement a Neox Chat tab using its existing Master Keychain credential and authenticated MCP gateway.
+- [x] T028 Replace the package launcher with a direct tracked-source PM2 lifecycle as Vlog Watcher.
+- [ ] T029 Finish iOS Simulator UI/unit testing and cross-provider integration.
+- [ ] T030 Verify a real iPhone owner message through the actual bound orchestrator head and an explicit chat_report reply.
+- [ ] T031 Confirm on-device iOS notification presentation.
+- [ ] T032 Review, fix, merge both hotfix worktrees, run the canonical direct-source service live, verify and clean.
+
+The historical T023/T024 only describe what was prematurely deployed in Phase 1. They do not authorize packaging in the final solution or count as Mobile E2E.
+
+
+Remote-access finding: Neo.app intentionally keeps new federated MCP providers off the authenticated external allowlist. Local tools/list and mobile HTTPS tools/list differ. The Remote UI must explicitly allow chat-gateway and Apply without changing draft hostname/tunnel. Current iPhone E2E is blocked until that permission is enabled; local gateway proxy tests alone are insufficient.
+
+## Owner-facing UI refinement (2026-11-08)
+
+- [x] Chat tab omits navigation title, top action buttons, error banners, empty-history prompts and unbound-thread notices.
+- [x] Chat tab always accepts owner composition and persists a protected local outbox before clearing the composer; retry on reconnect uses the same stable request ID, with no user-facing retry controls.
+- [x] Node tests pass (32/32), Neox UI automation passes for offline queue and no errors (one selected UI test), and signed iPhone 17 debug build was installed for visual inspection.
+- [ ] Full inbound/outbound iPhone E2E remains gated on ChatGPT Project thread readiness and authenticated Neo remote provider exposure. No merge, PM2 migration or worktree removal until passed.
+
+
+## Neo Mobile four-tab navigation (2026-11-08)
+
+- [x] Root tabs reordered to Chat, Jobs, Review Inbox, Connector.
+- [x] Jobs tab uses live Relay dashboard metadata via gateway chat_jobs; no job objectives or prompts.
+- [x] Review Inbox promoted from Connector sheet to root tab; notification selection routes to that tab and target revision.
+- [x] Connector retains the existing bridge, Requests, Tools, Siri and Capture Tour sections; Create Vlog and Clear Temp are native buttons in its Actions section.
+- [x] Empty / disconnected Jobs and Review Inbox tabs remain blank, with background retries instead of explicit error/retry UI.
+- [ ] Four-tab real iPhone navigation and preview interaction must pass before merge/live.

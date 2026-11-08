@@ -22,6 +22,50 @@ export const TOOL_DEFS = Object.freeze([
     },
   },
   {
+    name: 'chat_bind',
+    description: 'Bind this logical Neo Mobile chat to its current orchestrator ChatGPT thread. Invoke on head-thread handoff.',
+    inputSchema: {
+      type: 'object',
+      properties: { threadId: { type: 'string', pattern: '^[A-Za-z0-9_-]{8,160}$' } },
+      required: ['threadId'], additionalProperties: false,
+    },
+  },
+  {
+    name: 'chat_head',
+    description: 'Return whether an orchestrator ChatGPT thread is bound for owner messages.',
+    inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+  },
+  {
+    name: 'chat_send',
+    description: 'Submit an owner message from Neo Mobile to the bound orchestrator thread. The receipt means queued, not answered.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        text: { type: 'string', minLength: 1, maxLength: 2000 },
+        requestId: { type: 'string', pattern: '^[A-Za-z0-9_-]{8,128}$' },
+      },
+      required: ['text', 'requestId'], additionalProperties: false,
+    },
+  },
+  {
+    name: 'chat_jobs',
+    description: 'List recent and active Relay jobs from the Neo Master dashboard. Returns only job ID, title, repository, status, and last update; no objectives or job prompts.',
+    inputSchema: {
+      type: 'object',
+      properties: { limit: { type: 'integer', minimum: 1, maximum: 100, default: 100 } },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'chat_feed',
+    description: 'Recent job completions, orchestrator reports and owner submissions for the authenticated Neo Mobile Chat tab.',
+    inputSchema: {
+      type: 'object',
+      properties: { limit: { type: 'integer', minimum: 1, maximum: 100, default: 50 } },
+      additionalProperties: false,
+    },
+  },
+  {
     name: 'chat_env',
     description: 'Return the owner\'s current execution environment: mode (office or home), how it was determined '
       + '(override, observed or heuristic), since when, and the phone channel when known.',
@@ -51,4 +95,16 @@ export function validateReport(args) {
     return { ok: false, error: 'needs must be work_node, phone or none' };
   }
   return { ok: true, value: { text, level, ...(jobId ? { jobId } : {}), ...(args.needs ? { needs: args.needs } : {}) } };
+}
+
+
+export function validateFeed(args = {}) {
+  if (!args || typeof args !== 'object' || Array.isArray(args) ||
+      Object.keys(args).some((key) => key !== 'limit')) {
+    throw new Error('chat_feed only accepts limit');
+  }
+  if (args.limit !== undefined && (!Number.isInteger(args.limit) || args.limit < 1 || args.limit > 100)) {
+    throw new Error('limit must be an integer from 1 to 100');
+  }
+  return args.limit ?? 50;
 }
