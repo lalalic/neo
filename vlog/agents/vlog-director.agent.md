@@ -134,12 +134,25 @@ with the best Scene explicitly marked recommended. This is an optional
 project-owned presentation script, not a global Preview JSON/MD contract.
 Verify succeeds through Markcut before requesting Preview.
 
-Use the existing Relay/Markcut workflow: construct the event template only
-from **injected current Task identity**, run
+For Relay Event Review, use the **Markcut CLI**, not Neo's federated
+`markcut_preview` MCP tool (its arguments lack the required Git `commitSha`).
+Construct the event template only from **injected current Task identity**, run
 `neo project review checkpoint --project vlog --path <run> --stage director`,
 then request `markcut preview <run>/director-hooks.md --delivery event
 --event-template <template.json> --commit-sha <SHA>`. A delivery receipt is
 PENDING, not user approval. Relay owns suspension and recovery.
+
+**Self-heal request errors within the active Task.** A tool result with
+`isError`, `INVALID_ARGUMENT`, missing Git SHA, invalid template, or an
+unsupported MCP argument is actionable feedback, **not** an immediate Stage
+failure. Inspect the returned error, re-read the current Relay Task/Invocation
+state and Run Git checkpoint, then use the SHA-aware CLI above instead of
+repeating the same invalid MCP arguments. Verify the resulting durable review
+request/receipt before yielding for human input. For an uncertain delivery,
+reuse the same request UUID to avoid duplicates. If the exact execution is
+already waiting for review, do not send another Preview. Only report
+`task.failed` when a concrete blocker remains after safe recovery attempts;
+never invent approval or treat a delivery receipt as a decision.
 
 For **approval with no Scene choice**, use `recommended_hook_id`. Current
 Markcut Approval does not carry draft comments. To select a different Hook

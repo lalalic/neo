@@ -2,18 +2,18 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {createServer} from 'node:http';
-import {mkdtempSync,writeFileSync,rmSync} from 'node:fs';
-import {spawn} from 'node:child_process';
+import {mkdtempSync,writeFileSync,rmSync,appendFileSync} from 'node:fs';
+import {spawn,execFileSync} from 'node:child_process';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {fileURLToPath} from 'node:url';
-import {federationConfiguration,operationIdFromResult,previewCall,relayControl,relayInteractiveArgs,notifyReview,reviewNotifyURL} from '../markcut.mjs';
+import {federationConfiguration,operationIdFromResult,previewCall,relayControl,relayInteractiveArgs,notifyReview,reviewNotifyURL,commitShaForPreview} from '../markcut.mjs';
 const id=randomUUID();
 const relay={jobId:'j1',taskId:'producer',executionId:'exec-1'};
 const eventTemplate={type:'task.interactive_decision',source:'job/j1/task/producer/execution/exec-1',
  data:{interactive:{...relay,invocationId:id}}};
 const receipt={...relay,invocationId:id,eventTemplate};
-const message={jsonrpc:'2.0',id:44,method:'tools/call',params:{name:'markcut.preview',arguments:{path:'/tmp/video.md',relay}}};
+const message={jsonrpc:'2.0',id:44,method:'tools/call',params:{name:'markcut.preview',arguments:{path:'/tmp/video.md',relay,review:{commitSha:'a'.repeat(40)}}}};
 test('stdio federation config points to wrapper, not original provider',()=>{
  const config=federationConfiguration({node:'/opt/homebrew/bin/node',wrapper:'/tmp/neox/wrapper.mjs',upstream:'/tmp/markcut/launch.sh'});
  assert.equal(config.name,'markcut');const url=new URL(config.url);
@@ -32,6 +32,32 @@ test('Preview wrapper requests Relay Invocation, preserves MCP UI output, then w
  assert.deepEqual(calls,['review.interactive.begin','persist','watch','review.interactive.wait']);
  assert.equal(passed[0].params.arguments.review.eventTemplate.data.interactive.invocationId,id);
  assert.equal(passed[0].params.arguments.path,'/tmp/video.md');
+});
+test('Managed Preview derives immutable 40-character Run Git SHA for the limited Neo tool schema',async()=>{
+ const dir=mkdtempSync(join(tmpdir(),'neo-preview-git-'));
+ try {
+   const file=join(dir,'director-hooks.md');writeFileSync(file,'# Source-grounded Director review\n');
+   const git=(...args)=>execFileSync('git',args,{cwd:dir,encoding:'utf8',timeout:8000}).trim();
+   git('init','-q');git('-c','user.name=Neo Test','-c','user.email=neo-test@localhost','add','--',file);
+   git('-c','user.name=Neo Test','-c','user.email=neo-test@localhost','commit','-qm','director checkpoint');
+   const sha=git('rev-parse','HEAD');assert.match(sha,/^[a-f0-9]{40}$/);
+   assert.equal(commitShaForPreview(file),sha);
+   let controls=[];
+   const request={...message,params:{...message.params,arguments:{path:file,relay}}};
+   const got=await previewCall(request,async forwarded=>{
+     assert.equal(forwarded.params.arguments.review.commitSha,sha);
+     assert.deepEqual(forwarded.params.arguments.review.eventTemplate,eventTemplate);
+     return {structuredContent:{operationId:randomUUID()}};
+   },{control:async command=>{controls.push(command);return command==='review.interactive.begin'?receipt:{waiting:true};},record:()=>{},notifyWatcher:()=>{}});
+   assert.ok(operationIdFromResult(got));
+   assert.deepEqual(controls,['review.interactive.begin','review.interactive.wait']);
+   appendFileSync(file,'Unreviewed change\n');
+   assert.throws(()=>commitShaForPreview(file),/differs from the immutable Run checkpoint/);
+   controls=[];
+   await assert.rejects(previewCall(request,async()=>{throw Error('must not compile');},
+     {control:async command=>{controls.push(command);throw Error('must not reserve');}}),/differs from the immutable Run checkpoint/);
+   assert.deepEqual(controls,[]);
+ } finally {rmSync(dir,{recursive:true,force:true});}
 });
 test('Preview wrapper keeps standalone Markcut independent of Relay',async()=>{
  const got=await previewCall({...message,params:{...message.params,arguments:{path:'/tmp/video.md'}}},

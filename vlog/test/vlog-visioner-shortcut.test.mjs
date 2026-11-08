@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { execFile } from 'node:child_process';
-import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -117,17 +117,60 @@ console.log(JSON.stringify({status:'PASS',profile:'markcut-vision-normalized-v1'
   assert.equal(result.evidence.observations.length,1);
 });
 
-test('missing metadata requires inference must be enabled for this execution and accepted CLI templates', async t => {
+test('raw phone folder without metadata auto-runs Markcut Vision, preserving sources and normalizing originals', async t => {
   const f = await fixture(t, false);
   const host = fakeHost();
-  await assert.rejects(run({ input: { projectPath:f.root, vlogRoot: f.vlogRoot, runPath: f.runPath }, ...host }), /inference must be enabled for this execution/);
-  assert.equal(host.calls.length, 0);
-  const result = await run({ input: {
-    projectPath:f.root, vlogRoot: f.vlogRoot, runPath: f.runPath, allowInference: true,
-    markcutCommand: ['node', '/mock/markcut/cli.mjs'], adapterCommand: ['node', '/mock/deepseek.mjs'],
-  }, ...host });
+  const result = await run({ input: { projectPath:f.root, vlogRoot: f.vlogRoot, runPath: f.runPath }, ...host });
   assert.equal(result.status, 'COMPLETED');
-  assert.deepEqual(host.calls[1].args.slice(0, 3), ['node', '/mock/markcut/cli.mjs', 'vision']);
+  assert.deepEqual(result.markcut, {invoked:true,reused:false});
+  assert.deepEqual(host.calls[0].args, ['markcut','vision',await realpath(f.mediaDir)]);
+  assert.ok(host.calls[1].args.includes('--normalize-only'));
+  assert.equal(result.evidence.sources[0].source_sha256,hash('fixture media bytes'));
+});
+
+test('default semantic-Agent failure retries through Markcut with a real Codex CLI template', async t => {
+  const f=await fixture(t,false);
+  const host=fakeHost();
+  const base=host.runCommand;
+  let attempts=0;
+  host.runCommand=async (args,cwd) => {
+    if(args.includes('vision')&&!args.includes('--normalize-only')&&!args.includes('--help')) {
+      attempts++;
+      if(attempts===1) {
+        host.calls.push({args,cwd});
+        return {code:1,stdout:'',stderr:'Semantic segmentation Agent returned no valid structured response'};
+      }
+    }
+    return base(args,cwd);
+  };
+  const result=await run({input:{projectPath:f.root,vlogRoot:f.vlogRoot,runPath:f.runPath},...host});
+  assert.equal(result.status,'COMPLETED');
+  assert.equal(attempts,2);
+  const agentAt=host.calls[1].args.indexOf('--agent');
+  assert.ok(agentAt>0);
+  assert.match(host.calls[1].args[agentAt+1],/^codex exec --profile zai .*\{prompt\}$/);
+});
+
+test('non-semantic Markcut failures do not trigger unrelated adapter retries', async t => {
+  const f=await fixture(t,false);
+  const host=fakeHost();
+  host.runCommand=async (args,cwd) => {
+    host.calls.push({args,cwd});
+    return {code:1,stdout:'',stderr:'Permission denied on original media'};
+  };
+  await assert.rejects(run({input:{projectPath:f.root,vlogRoot:f.vlogRoot,runPath:f.runPath},...host}),/Permission denied/);
+  assert.equal(host.calls.length,1);
+});
+
+test('explicitly configured ITT/VTT adapters remain supported for raw folders', async t => {
+  const f = await fixture(t, false);
+  const host = fakeHost();
+  const result = await run({ input: {
+    projectPath:f.root, vlogRoot:f.vlogRoot, runPath:f.runPath,
+    markcutCommand:['node','/mock/markcut/cli.mjs'], adapterCommand:['node','/mock/deepseek.mjs'],
+  }, ...host });
+  assert.equal(result.status,'COMPLETED');
+  assert.deepEqual(host.calls[1].args.slice(0,3),['node','/mock/markcut/cli.mjs','vision']);
   assert.ok(host.calls[1].args.includes('--itt'));
   assert.ok(host.calls[1].args.includes('--vtt'));
   assert.ok(host.calls.some(call=>call.args.includes('--normalize-only')));
@@ -148,15 +191,12 @@ test('fails closed on unsupported CLI options and preserves existing evidence', 
   assert.equal(host.calls.length, 1);
 });
 
-test('source-use approval is handled outside Visioner while CLI configuration still gates inference', async t => {
-  const f = await fixture(t, false);
-  const path = join(f.runPath, 'source-manifest.json');
-  const manifest = JSON.parse(await readFile(path, 'utf8'));
-  manifest.source_use.approved = false;
-  await writeFile(path, JSON.stringify(manifest));
-  const host = fakeHost();
-  await assert.rejects(run({ input: { projectPath:f.root, vlogRoot: f.vlogRoot, runPath: f.runPath, allowInference: true }, ...host }), /shortcut command must be an argument array/);
-  assert.equal(host.calls.length, 0);
+test('explicitly disabled inference fails closed for a raw folder; metadata is not fabricated', async t => {
+  const f=await fixture(t,false);
+  const host=fakeHost();
+  await assert.rejects(run({input:{projectPath:f.root,vlogRoot:f.vlogRoot,runPath:f.runPath,allowInference:false},...host}),/inference was explicitly disabled/);
+  assert.equal(host.calls.length,0);
+  await assert.rejects(readFile(join(f.runPath,'vision-evidence.json')),{code:'ENOENT'});
 });
 
 test('rejects a dated run symlink that escapes the private Vlog runs directory', async t => {
@@ -192,17 +232,18 @@ test('rejects source symlink escapes without duplicate metadata checks', async t
   assert.equal(success.status,'COMPLETED'); // Outdated checksum metadata does not block Stage output.
 });
 
-test('rejects incomplete Markcut metadata before normalization, not by trusting an index', async t=>{
+test('interrupted extraction-only metadata is refreshed through Markcut Vision',async t=>{
   const f=await fixture(t,true);
   const metadataPath=join(f.mediaDir,'metadata.json');
   const metadata=JSON.parse(await readFile(metadataPath,'utf8'));
   delete metadata.CLIP;
   await writeFile(metadataPath,JSON.stringify(metadata));
   const host=fakeHost();
-  await assert.rejects(run({input:{projectPath:f.root,vlogRoot:f.vlogRoot,runPath:f.runPath},...host}),
-    /Missing Markcut metadata: CLIP/);
-  assert.equal(host.calls.length,0);
-  await assert.rejects(readFile(join(f.runPath,'vision-evidence.json')),{code:'ENOENT'});
+  const result=await run({input:{projectPath:f.root,vlogRoot:f.vlogRoot,runPath:f.runPath},...host});
+  assert.equal(result.status,'COMPLETED');
+  assert.deepEqual(result.markcut,{invoked:true,reused:false});
+  assert.deepEqual(host.calls[0].args,['markcut','vision',await realpath(f.mediaDir)]);
+  assert.ok(host.calls[1].args.includes('--normalize-only'));
 });
 
 test('Relay project-root and canonical Task text resolve the Vlog source without a nested vlog/vlog path',async t=>{

@@ -89,10 +89,15 @@ source identity and original-source timestamps, with uncertainty and
 caption/visual provenance. Never treat proxy timeline positions as
 original source time.
 
-The Visioner Shortcut reads Markcut `input/media/metadata.json` and the
-approved `source-manifest.json` **directly**, checks original-source IDs,
-SHA-256, allowed source times and exact manifest/metadata hashes, then writes
-only `vision-evidence.json` as the source-linked handoff. Do not create a
+The Visioner Shortcut accepts a raw approved media folder: **Markcut
+`input/media/metadata.json` is optional**, normally already present only for
+Watcher-ingested runs. The Shortcut reuses complete metadata when available;
+otherwise it invokes Markcut Vision against the originals to create real
+perception data, and resumes an incomplete extraction cache when needed.
+The approved `source-manifest.json` is still required for source authorization
+and original identities. The Shortcut checks original-source IDs, source time
+ranges and provenance, then writes `vision-evidence.json` as the source-linked
+handoff; it never invents descriptions or timestamps. Do not create a
 separate `vision-segment-index.json` or run another indexing CLI. Evidence
 is not Director acceptance, a final cut, or publication approval. Never
 overwrite existing accepted Visioner evidence automatically.

@@ -32,6 +32,17 @@ async function validRunPath(vlogRoot, runPath) {
 }
 
 const isNum = n => typeof n === 'number' && Number.isFinite(n);
+function verifiedSourcePath(source, sourceDir) {
+  const id=source.id, filename=source.path;
+  if(typeof id!=='string'||!id||typeof filename!=='string'||!filename||filename!==basename(filename)||filename==='.'||filename==='..')
+    throw new Error('Invalid source identity');
+  const path=realpathSync(source.original_path||join(sourceDir,filename));
+  const rel=relative(sourceDir,path);
+  if (!isAbsolute(path)||!existsSync(path)||!rel||rel==='..'||rel.startsWith(`..${sep}`)||isAbsolute(rel)||!statSync(path).isFile())
+    throw new Error('Missing or out-of-scope source original: '+id);
+  return path;
+}
+
 function parseMarkcutSegmentRanges(perception, sourceId, limit) {
   const observations = [];
   const raw = perception?.segments || {};
@@ -65,13 +76,10 @@ function projectMarkcutMetadata(manifest, metadata, sourceDir) {
   const seenKeys = new Set();
   const findings = [];
   for (const source of manifest.media) {
-    const id = source.id, filename = source.path;
-    if (typeof id !== 'string' || !id || typeof filename !== 'string' || !filename || filename !== basename(filename) || filename==='.' || filename==='..') throw new Error('Invalid source identity');
+    const id=source.id, filename=source.path;
     if (seenKeys.has(id)) throw new Error('Duplicate source identity');
     seenKeys.add(id);
-    const path = realpathSync(source.original_path || join(sourceDir,filename));
-    const sourceRel=relative(sourceDir,path);
-    if (!isAbsolute(path) || !existsSync(path) || !sourceRel || sourceRel==='..' || sourceRel.startsWith(`..${sep}`) || isAbsolute(sourceRel) || !statSync(path).isFile()) throw new Error('Missing or out-of-scope source original: ' + id);
+    const path=verifiedSourcePath(source,sourceDir);
     // Source identity and path are checked; checksums are carried as opaque metadata, never recomputed.
     const meta = Object.hasOwn(metadata,id) ? metadata[id] : null;
     if (!meta) throw new Error('Missing Markcut metadata: ' + id);
@@ -193,7 +201,7 @@ export function buildVisionEvidence(manifest, metadata, sourceDir, manifestBytes
  * Context contract:
  * { input: { runPath, markcutCommand?: string[], markcutCli?: string,
  *   adapterCommand?: string[], visionContextPath?: string, episodeContext?: string,
- *   allowInference?: true }, runCommand(args, cwd) }
+ *   allowInference?: boolean, agentCommand?: string }, runCommand(args, cwd) }
  * runCommand is provided by the host so it can use its owned-process lifecycle.
  */
 export async function run(context) {
@@ -220,6 +228,13 @@ export async function run(context) {
   if (manifest.canonical_source_directory && !isAbsolute(manifest.canonical_source_directory)) throw new Error('Canonical source directory must be absolute');
   if (manifest.markcut_metadata_path && !isAbsolute(manifest.markcut_metadata_path)) throw new Error('Markcut metadata path must be absolute');
   const mediaDir = await realpath(resolve(manifest.canonical_source_directory || join(runPath, 'input/media')));
+  // Validate every original path before invoking an external inference adapter.
+  const ids=new Set();
+  for(const source of manifest.media){
+    if(ids.has(source.id))throw new Error('Duplicate source identity');
+    ids.add(source.id);
+    verifiedSourcePath(source,mediaDir);
+  }
   const metadataCandidate = resolve(manifest.markcut_metadata_path || join(mediaDir, 'metadata.json'));
   const metadataPath = existsSync(metadataCandidate) ? await realpath(metadataCandidate) : metadataCandidate;
   const confined=(root,path)=>{const rel=relative(root,path);return rel===''||(rel!=='..'&&!rel.startsWith(`..${sep}`)&&!isAbsolute(rel));};
@@ -228,33 +243,64 @@ export async function run(context) {
   if (existsSync(evidencePath)) throw new Error('Refusing to overwrite existing Visioner evidence');
   if (typeof context.runCommand !== 'function') throw new Error('Visioner host must provide its owned-process command runner');
 
-  let markcutResult = null;
-  if (!existsSync(metadataPath)) {
-    if (input.allowInference !== true) throw new Error('Missing Markcut metadata; inference must be enabled for this execution');
-    const cli = asArgs(input.markcutCommand);
-    if (!cli.length) throw new Error('Missing configured Markcut Vision CLI command');
-    const help = await context.runCommand([...cli, 'vision', '--help'], vlogRoot);
-    if (help?.code !== 0) throw new Error('Could not verify Markcut Vision CLI support');
-    const helpText = String(help?.stdout || '');
-    for (const option of ['--itt', '--vtt', '{prompt_quoted}', '{sample_interval}']) {
-      if (!helpText.includes(option)) throw new Error(`Markcut Vision CLI does not advertise required template support: ${option}`);
+  // Watcher submissions may carry completed Markcut metadata; newly selected
+  // camera-roll folders ordinarily do not. Treat metadata as a reusable cache,
+  // never as a required input or an implicit permission to bypass source checks.
+  const cli=asArgs(input.markcutCommand ?? ['markcut']);
+  if (!cli.length) throw new Error('Vision Understanding requires a Markcut CLI');
+  const manifestBytes=await readFile(manifestPath);
+  let reusableMetadata=false;
+  if (existsSync(metadataPath)) {
+    try {
+      const bytes=await readFile(metadataPath);
+      buildVisionEvidence(manifest,JSON.parse(bytes.toString('utf8')),mediaDir,manifestBytes,bytes);
+      reusableMetadata=true;
+    } catch {
+      // Extraction-only or interrupted Vision runs leave partial metadata.json.
+      // The Markcut pipeline resumes incomplete perception from real originals.
     }
-    const adapter = asArgs(input.adapterCommand);
-    if (!adapter.length) throw new Error('Missing configured ITT/VTT adapter command');
-    const contextPath=input.visionContextPath ? await realpath(resolve(input.visionContextPath)) : undefined;
-    if (contextPath && !confined(actualRoot,contextPath)) throw new Error('Visioner context path escapes the vetted project');
-    const contextText = [contextPath ? await readFile(contextPath, 'utf8') : '', input.episodeContext || ''].filter(Boolean).join('\n');
-    const adapterCommand = adapter.map(shellToken).join(' ');
-    const itt = `${adapterCommand} --input {input} --prompt {prompt_quoted}`;
-    const vtt = `${adapterCommand} --input {input} --prompt {prompt_quoted} --sample-interval {sample_interval}`;
-    markcutResult = await context.runCommand([...cli, 'vision', mediaDir, '--itt', itt, '--vtt', vtt, '--instruct', contextText], vlogRoot);
-    if (markcutResult?.code !== 0) throw new Error(`Markcut Vision failed with exit code ${String(markcutResult?.code)}`);
-    if (!existsSync(metadataPath)) throw new Error('Markcut Vision exited without producing metadata.json');
+  }
+  let markcutResult=null;
+  if (!reusableMetadata) {
+    if (input.allowInference === false) throw new Error('Markcut metadata is incomplete and inference was explicitly disabled');
+    const command=[...cli,'vision',mediaDir];
+    if (input.adapterCommand !== undefined) {
+      const adapter=asArgs(input.adapterCommand);
+      if (!adapter.length) throw new Error('Empty Markcut ITT/VTT adapter');
+      const help=await context.runCommand([...cli,'vision','--help'],vlogRoot);
+      if (help?.code!==0) throw new Error('Could not verify Markcut Vision CLI support');
+      for (const option of ['--itt','--vtt','{prompt_quoted}','{sample_interval}']) {
+        if (!String(help?.stdout||'').includes(option)) throw new Error('Markcut Vision CLI does not advertise required template support: '+option);
+      }
+      const adapterCommand=adapter.map(shellToken).join(' ');
+      command.push('--itt',`${adapterCommand} --input {input} --prompt {prompt_quoted}`,
+        '--vtt',`${adapterCommand} --input {input} --prompt {prompt_quoted} --sample-interval {sample_interval}`);
+    }
+    if (input.agentCommand !== undefined) {
+      if (typeof input.agentCommand!=='string'||!input.agentCommand.trim())throw new Error('Invalid Markcut semantic Agent CLI');
+      command.push('--agent',input.agentCommand);
+    }
+    const defaultContext=join(vlogRoot,'config','hey-neo-vision-context.md');
+    const contextPath=input.visionContextPath ? await realpath(resolve(input.visionContextPath))
+      : existsSync(defaultContext) ? await realpath(defaultContext) : undefined;
+    if (contextPath && !confined(actualRoot,contextPath))throw new Error('Vision context path escapes project');
+    const contextText=[contextPath ? await readFile(contextPath,'utf8') : '',input.episodeContext||''].filter(Boolean).join('\n');
+    if (contextText)command.push('--instruct',contextText);
+    markcutResult=await context.runCommand(command,vlogRoot);
+    // The default Markcut semantic Agent can be absent on a fresh Neo Master.
+    // Retry only that verified transport failure with the locally configured
+    // Codex profile, preserving all Markcut extraction/perception ownership.
+    if (markcutResult?.code!==0 && input.agentCommand===undefined &&
+        /Semantic segmentation Agent returned no valid structured response/.test(String(markcutResult?.stderr||''))) {
+      const fallback=`codex exec --profile zai --skip-git-repo-check --sandbox read-only --ephemeral -C ${shellToken(vlogRoot)} {prompt}`;
+      markcutResult=await context.runCommand([...command,'--agent',fallback],vlogRoot);
+    }
+    if (markcutResult?.code!==0)throw new Error('Markcut Vision inference failed with exit code '+String(markcutResult?.code)+': '+String(markcutResult?.stderr||''));
+    if (!existsSync(metadataPath))throw new Error('Markcut Vision exited without producing metadata.json');
   }
 
   // The original Markcut metadata is authoritative; project its observations
   // directly to a source-verified Visioner artifact without storing an index.
-  const manifestBytes=await readFile(manifestPath);
   const metadataBytes=await readFile(metadataPath);
   const metadata=JSON.parse(metadataBytes.toString('utf8'));
   const evidence=buildVisionEvidence(manifest,metadata,mediaDir,manifestBytes,metadataBytes);
@@ -262,8 +308,6 @@ export async function run(context) {
   // Even when Markcut metadata is cached, the media handed to Vision
   // Understanding must be its lightweight, source-linked .normalized copy.
   // The shared Markcut Vision normalization stays the only encoding engine.
-  const cli=asArgs(input.markcutCommand??['markcut']);
-  if (!cli.length)throw new Error('Vision Understanding requires Markcut Vision CLI');
   const normalized=await context.runCommand([...cli,'vision',mediaDir,'--normalize-only'],vlogRoot);
   if(normalized?.code!==0)throw new Error('Markcut Vision normalization failed: '+String(normalized?.stderr||normalized?.stdout||normalized?.code));
   let payload;
@@ -309,7 +353,7 @@ export async function run(context) {
     output: { 'vision-evidence.json': evidencePath, 'metadata.json': metadataPath, 'vision-normalized-manifest.json': normalizedManifestPath },
     artifacts: { 'vision-evidence.json': writtenEvidence, 'metadata.json': metadata, 'vision-normalized-manifest.json': normalizedManifest },
     evidence: writtenEvidence,
-    markcut: markcutResult ? { invoked: true } : { invoked: false, reused: true },
+    markcut: markcutResult ? { invoked: true, reused: false } : { invoked: false, reused: true },
   };
 }
 
