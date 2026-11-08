@@ -28,6 +28,9 @@ function hasRenderedVideo(run){
 function heading(path){try{return shorten(readFileSync(path,'utf8').split('\n').find(x=>/^#\s+/.test(x))?.replace(/^#\s+/,''),85);}catch{return '';}}
 export function entryFor(path){
  const run=canonicalRun(path);
+ // Testing/retesting runs are not creator episodes and must not enter story history.
+ const runId=relative(runsDir,run).split(sep).join('/');
+ if(/(?:^|[-_/])(?:e2e|retest|test|fixture|synthetic)(?:$|[-_/])/i.test(runId))return null;
  const personal=safeFile(run,'personal-story.md')&&safeFile(run,'personal-story.json');
  const story=personal?readJson(join(run,'personal-story.json')):null;
  if(!story&&!safeFile(run,'story.md'))return null;

@@ -58,6 +58,19 @@ test('rebuild scans dated runs only; broken index fails closed without overwriti
   assert.equal(success(f.call('rebuild')).indexed,3);
  }finally{f.clean();}
 });
+test('excludes E2E and retest runs from recorded and rebuilt creator history',()=>{
+ const f=fixture();try{
+  const e2e=f.create('2026-11-07-shortcut-review-e2e');
+  const retest=f.create('2026-11-07-shortcut-retest-last-multigps');
+  const real=f.create('2026-11-07-weekend-walk');
+  assert.equal(f.call('record','--run',e2e).status,0);
+  assert.equal(f.call('record','--run',retest).status,0);
+  assert.equal(success(f.call('search')).length,0);
+  add(f,real);
+  assert.equal(success(f.call('rebuild')).indexed,1);
+  assert.deepEqual(success(f.call('search')).map(x=>x.runId),['2026-11-07-weekend-walk']);
+ }finally{f.clean();}
+});
 test('rejects a source path escaping runs through symlinks',()=>{
  const f=fixture();try{
   const outside=join(f.root,'2026-11-07-outside');mkdirSync(outside);writeFileSync(join(outside,'story.md'),'# outside');
