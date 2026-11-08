@@ -43,8 +43,17 @@ export async function createProjectWithWebHelm({
       child.on('error', error => { clearTimeout(timeout); reject(error); });
       child.on('close', (code, signal) => {
         clearTimeout(timeout);
-        if (code !== 0) return reject(new Error('WebHelm project setup failed: ' + (signal || code) +
-          ' ' + stderr.slice(-180)));
+        if (code !== 0) {
+          // The CLI emits its Action error on STDOUT as structured JSON.
+          // Its stderr often contains only Node experimental warnings.
+          let diagnostic = null;
+          try {
+            const wrapper = parseLastJson(stdout, 'WebHelm failure receipt');
+            diagnostic = wrapper?.result?.error || wrapper?.error || null;
+          } catch { /* preserve actual exit signal if no receipt */ }
+          return reject(new Error('WebHelm project setup failed: ' +
+            String(diagnostic || signal || code).slice(0, 450)));
+        }
         try { resolve(parseLastJson(stdout, 'WebHelm project setup')); }
         catch (error) { reject(error); }
       });
