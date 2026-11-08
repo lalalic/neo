@@ -1,17 +1,29 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { symlink } from 'node:fs/promises';
 import { parseArgs, setupSteps } from '../cli/chat-gateway.mjs';
 import { fixture } from './helpers.mjs';
 
-test('CLI parses flags and constructs one authorized serviceman definition', () => {
-  assert.deepEqual(parseArgs(['setup', '--package', '/tmp/example.tgz', '--apply']).words, ['setup']);
-  assert.throws(() => parseArgs(['setup', '--invalid']));
-  const steps = setupSteps({ config: { port: 8791 }, packageSpec: '/tmp/example.tgz' });
-  assert.deepEqual(steps.service.slice(0, 7), ['serviceman', 'define', '--skill', 'chat-gateway', '--service', 'server', '--apply']);
+test('CLI setup uses canonical source and never a packaged service', () => {
+  assert.deepEqual(parseArgs(['setup', '--apply']).words, ['setup']);
+  assert.throws(() => parseArgs(['setup', '--package', '/tmp/example.tgz']));
+  const steps = setupSteps({ config: { port: 8791 } });
+  assert.equal(steps.service[0], 'bash');
+  assert.match(steps.service[1], /skills\/chat-gateway\/neo-project$/);
+  assert.match(steps.source, /skills\/chat-gateway\/cli\/chat-gateway\.mjs$/);
   assert.match(steps.federation, /127\.0\.0\.1:8791/);
+  assert.ok(!JSON.stringify(steps).includes('.tgz'));
+});
+
+test('direct-source lifecycle refuses live start from a disposable worktree', () => {
+  const script = readFileSync(new URL('../neo-project', import.meta.url), 'utf8');
+  assert.match(script, /assert_canonical/);
+  assert.match(script, /Refusing to start chat-gateway/);
+  assert.match(script, /pm2 start.*ENTRYPOINT/);
+  assert.match(script, /pm2 delete.*SERVICE/);
+  assert.doesNotMatch(script, /npm pack|--package|\.tgz/);
 });
 
 test('setup and env set have no disk writes unless --apply is provided', async (t) => {

@@ -1,0 +1,122 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Canonical tracked-source PM2 lifecycle, matching vlog/neo-project.
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SERVICE="chat-gateway/server"
+ENTRYPOINT="$ROOT/cli/chat-gateway.mjs"
+
+pm2() { npx --yes pm2 "$@"; }
+usage() { echo 'usage: ./neo-project {setup|start|stop|restart|status|health|uninstall|help}'; }
+
+process_record() {
+  pm2 jlist | node -e '
+    let raw="";
+    process.stdin.on("data", c => raw+=c);
+    process.stdin.on("end", () => {
+      const p=JSON.parse(raw).find(item=>item.name==="chat-gateway/server");
+      console.log(JSON.stringify(p ? {
+        exists:true, status:p.pm2_env?.status, pid:p.pid,
+        entrypoint:p.pm2_env?.pm_exec_path, cwd:p.pm2_env?.pm_cwd
+      } : {exists:false}));
+    });'
+}
+exists() { [ "$(process_record | node -p 'JSON.parse(require("fs").readFileSync(0,"utf8")).exists')" = 'true' ]; }
+current() {
+  process_record | node -e '
+    let raw=""; process.stdin.on("data", c=>raw+=c);
+    process.stdin.on("end", () => {
+      const p=JSON.parse(raw);
+      process.exit(p.exists && p.entrypoint===process.argv[1] && p.cwd===process.argv[2] ? 0 : 1);
+    });' "$ENTRYPOINT" "$ROOT"
+}
+status() {
+  process_record | node -e '
+    let raw=""; process.stdin.on("data",c=>raw+=c);
+    process.stdin.on("end",()=>{
+      const p=JSON.parse(raw);
+      const live=p.exists && p.status==="online" && Number(p.pid)>0;
+      console.log(JSON.stringify({
+        service:"chat-gateway/server", status:p.exists?p.status:"not-installed",
+        running:live,pid:live?p.pid:null,entrypoint:p.entrypoint??null,
+        source:p.exists && p.entrypoint===process.argv[1] && p.cwd===process.argv[2] ? "project-scripts" : "legacy-or-other"
+      }));
+    });' "$ENTRYPOINT" "$ROOT"
+}
+setup() {
+  command -v node >/dev/null
+  command -v npm >/dev/null
+  command -v npx >/dev/null
+  test -f "$ENTRYPOINT"
+  test -f "$ROOT/core/service.mjs"
+  node --check "$ENTRYPOINT"
+  node --check "$ROOT/core/service.mjs"
+  pm2 --version >/dev/null
+  echo 'Chat Gateway source verified; no pack, tarball or duplicated runtime.'
+}
+deps() {
+  if [ ! -d "$ROOT/node_modules/@nats-io/transport-node" ]; then
+    (cd "$ROOT" && npm ci --ignore-scripts --no-audit --no-fund)
+  fi
+}
+assert_canonical() {
+  # Production must never follow a disposable linked worktree.
+  local repo_root
+  repo_root="$(git -C "$ROOT" rev-parse --show-toplevel 2>/dev/null || true)"
+  if [ -n "$repo_root" ] && [ -f "$repo_root/.git" ]; then
+    echo 'Refusing to start chat-gateway/server from a linked worktree; merge first and run from canonical checkout.' >&2
+    return 1
+  fi
+}
+install_direct() {
+  (cd "$ROOT" && pm2 start "$ENTRYPOINT" --name "$SERVICE" --cwd "$ROOT" --interpreter "$(command -v node)" -- serve >/dev/null)
+}
+start() {
+  assert_canonical
+  setup >/dev/null
+  deps
+  if exists; then
+    if current; then
+      if [ "$(pm2 pid "$SERVICE" | tail -1 | tr -d '[:space:]')" != '0' ]; then status; return; fi
+      pm2 restart "$SERVICE" --update-env >/dev/null
+    else
+      pm2 delete "$SERVICE" >/dev/null
+      install_direct
+    fi
+  else
+    install_direct
+  fi
+  pm2 save >/dev/null
+  health >/dev/null
+  status
+}
+health() {
+  if ! exists || ! current || [ "$(pm2 pid "$SERVICE" | tail -1 | tr -d '[:space:]')" = '0' ]; then
+    echo '{"healthy":false,"reason":"not running from canonical source"}' >&2
+    return 1
+  fi
+  node "$ENTRYPOINT" health
+}
+case "${1:-help}" in
+  setup) setup ;;
+  start) start ;;
+  stop)
+    if exists; then pm2 stop "$SERVICE" >/dev/null; pm2 save >/dev/null; fi
+    status ;;
+  restart)
+    assert_canonical
+    setup >/dev/null; deps
+    if exists && current; then
+      pm2 restart "$SERVICE" --update-env >/dev/null
+      pm2 save >/dev/null
+      health >/dev/null
+      status
+    else start; fi ;;
+  status) status ;;
+  health) health ;;
+  uninstall)
+    if exists; then pm2 delete "$SERVICE" >/dev/null; pm2 save >/dev/null; fi
+    echo 'Chat Gateway process removed; tracked source and private ledger preserved.' ;;
+  help|--help|-h) usage ;;
+  *) usage >&2; exit 2 ;;
+esac

@@ -25,13 +25,35 @@ test('Neo notifier RPC errors are never treated as delivery acknowledgements', a
   await assert.rejects(notifier.send({ kind: 'completed', title: 'job', body: 'id' }), /unavailable/);
 });
 
-test('federation registration uses only the exact chat-gateway service endpoint', async () => {
-  let command;
-  const registered = await registerGateway({ endpoint: 'http://127.0.0.1:6767/mcp', port: 8791,
-    fetcher: async (url, init) => {
-      command = JSON.parse(init.body).params.arguments.command;
-      return Response.json({ jsonrpc: '2.0', id: 1, result: { content: [{ type: 'text', text: '{"ok":true}' }] } });
-    } });
+test('federation registration authorizes only this provider via Neo applied settings', async () => {
+  const commands = [];
+  const registered = await registerGateway({
+    endpoint: 'http://127.0.0.1:6767/mcp', port: 8791,
+    fetcher: async (_url, init) => {
+      const command = JSON.parse(init.body).params.arguments.command;
+      commands.push(command);
+      const receipt = command.startsWith('mcp add')
+        ? { configuration: { mcp_servers: [{ name: 'chat-gateway' }] }, ok: true }
+        : { ok: true, operation: 'deployment.provider' };
+      return Response.json({ jsonrpc: '2.0', id: 1,
+        result: { content: [{ type: 'text', text: JSON.stringify(receipt) }] } });
+    },
+  });
   assert.equal(registered.registered, true);
-  assert.equal(command, 'mcp add chat-gateway http://127.0.0.1:8791/mcp');
+  assert.equal(registered.remotelyExposed, true);
+  assert.deepEqual(commands, [
+    'mcp add chat-gateway http://127.0.0.1:8791/mcp',
+    'deployment provider enable chat-gateway',
+  ]);
+});
+
+test('never claims remote exposure if Neo rejects provider grant', async () => {
+  let index = 0;
+  await assert.rejects(registerGateway({
+    endpoint: 'http://127.0.0.1:6767/mcp', port: 8791,
+    fetcher: async () => Response.json({
+      result: { content: [{ type: 'text', text: JSON.stringify(index++ === 0
+        ? { ok: true } : { ok: false, error: 'rejected' }) }] },
+    }),
+  }), /did not acknowledge/);
 });
