@@ -73,7 +73,7 @@ test('WebHelm adapter verifies real project-setup receipts from a private config
     "if(a.slice(0,4).join(' ')!=='platform run chatgpt project-setup')process.exit(5);",
     "if(!a.includes('--auto-session'))process.exit(6);",
     "const c=JSON.parse(fs.readFileSync(a[a.indexOf('--config')+1],'utf8'));",
-    "if(c.project_name!=='orchestrator'||!c.instructions.includes('Test instructions'))process.exit(7);",
+    "if(c.project_name!=='orchestrator'||!c.instructions.includes('Test instructions')||c.thread_title_hint!=='Initialize Neo Orchestrator')process.exit(7);",
     "const r={status:'completed',project_id:'g-p-12345678901234567890123456789012',project_url:'https://chatgpt.com/g/g-p-12345678901234567890123456789012/project',thread_id:'a2345678-aaaa-bbbb-cccc-ddddeeeeffff',thread_url:'https://chatgpt.com/c/a2345678-aaaa-bbbb-cccc-ddddeeeeffff'};",
     "process.stdout.write(JSON.stringify({result:{ok:true,stdout:JSON.stringify(r)}})+'\\n');",
     '',
