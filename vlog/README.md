@@ -31,7 +31,10 @@ Preview is not publication authorization.
 The chosen [Markcut template](templates/cinematic-vlog.md) is authoritative for
 root BGM, aspect ratio, subtitles and transitions. Do not turn the episode
 into a scenery-only montage, fake filmed locations or silently replace music.
-Private artifacts stay in ignored `runs/<episode>/`. Visioner uses
+Private Run artifacts stay in ignored `runs/<episode>/`. Recorded Tour
+references are stored separately under ignored `assets/personal-library/`
+and indexed from accepted Tour recordings; Run story search uses
+`runs/.story-history/history-index.json`. Neither is public Git content. Visioner uses
 Markcut Vision's existing `.normalized` files (360px video, 384px
 still) for AI Vision Understanding; it records the original-to-normalized
 identity mapping in `vision-normalized-manifest.json`. They are not

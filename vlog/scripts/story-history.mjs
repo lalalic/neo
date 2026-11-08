@@ -6,7 +6,7 @@ import {fileURLToPath} from 'node:url';
 import {randomUUID} from 'node:crypto';
 const project=resolve(dirname(fileURLToPath(import.meta.url)),'..');
 const runsDir=resolve(project,'runs');
-const library=join(runsDir,'personal-library');
+const library=join(runsDir,'.story-history');
 const indexPath=join(library,'history-index.json');
 const profilePath=join(project,'user.md');
 const blank=()=>({schemaVersion:1,entries:[]});
@@ -81,7 +81,7 @@ function discover(dir,depth=0){
  if(depth>4||!existsSync(dir))return [];
  const paths=[];
  for(const item of readdirSync(dir,{withFileTypes:true})){
-  if(!item.isDirectory()||item.name.startsWith('.')||['personal-library','input','assets','output','reviews','execution','.service','.markcut','logs','generated'].includes(item.name))continue;
+  if(!item.isDirectory()||item.name.startsWith('.')||['input','assets','output','reviews','execution','.service','.markcut','logs','generated'].includes(item.name))continue;
   const p=join(dir,item.name);
   if(safeFile(p,'personal-story.json')||safeFile(p,'story.md'))paths.push(p);
   else paths.push(...discover(p,depth+1));

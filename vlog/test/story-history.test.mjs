@@ -17,7 +17,7 @@ function fixture(){
   writeFileSync(join(run,'story.md'),'# '+title+'\n故事大纲');return run;
  };
  const call=(...args)=>spawnSync(process.execPath,[script,...args],{encoding:'utf8'});
- return {root,vlog,script,create,call,index:join(vlog,'runs/personal-library/history-index.json'),clean:()=>rmSync(root,{recursive:true,force:true})};
+ return {root,vlog,script,create,call,index:join(vlog,'runs/.story-history/history-index.json'),clean:()=>rmSync(root,{recursive:true,force:true})};
 }
 const success=result=>{assert.equal(result.status,0,result.stderr+result.stdout);return JSON.parse(result.stdout);};
 const add=(f,run)=>success(f.call('record','--run',run));
@@ -76,6 +76,6 @@ test('concurrent writers preserve all distinct Run IDs and no lock remains',asyn
   })));
   const index=JSON.parse(readFileSync(f.index));assert.equal(index.entries.length,6);
   assert.equal(new Set(index.entries.map(item=>item.runId)).size,6);
-  assert.equal(existsSync(join(f.vlog,'runs/personal-library/.history.lock')),false);
+  assert.equal(existsSync(join(f.vlog,'runs/.story-history/.history.lock')),false);
  }finally{f.clean();}
 });

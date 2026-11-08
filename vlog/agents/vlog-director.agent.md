@@ -32,8 +32,8 @@ an episode. Historical creative fiction does not prove new footage or
 biographical facts. Do not create a second user-world profile.
 
 For Tour recordings, use the private
-`runs/personal-library/tour-director.json` with `selectTourReferences` from
-`lib/tour-director-index.mjs`. Select only archived active recordings; a prompt
+`assets/personal-library/tour-director.json` using `node scripts/tour-recordings.mjs list [--topics TOPIC]`
+(which checks archived files and hashes before returning them). Select only archived active recordings; a prompt
 without an accepted recording is not footage. Record the selected recording
 ID and source hash in `shot-selection.json`. Never attribute unrecorded speech.
 

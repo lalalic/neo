@@ -28,10 +28,14 @@ and Visioner evidence must exist before writing the story.
   It is private Git-ignored context; do not replicate it in public artifacts,
   infer filmed actions from it, or force personal hardship into each episode.
 - **Episode history** is a private, Git-ignored search index under
-  `runs/personal-library/history-index.json`. The Director consults relevant
+  `runs/.story-history/history-index.json`. The Director consults relevant
   prior Runs selectively; accepted Director and completed Producer stages
   update the index. A broken history index is an advisory warning, never a
   media-production failure or a second source of creator identity.
+- **Recorded Tour library** resides privately under `assets/personal-library/`.
+  Only accepted, locally archived Tour recordings are selectable as reusable
+  references; unrecorded prompts are not footage. The Tour archive is separate
+  from Run story history and is never committed to public Git.
 - **Director** writes a complete first-person lived-experience story
   (curiosity/intent, exploration or action, discovery/result; real setbacks
   only when evidenced), source-linked shot plan and `route-intent.json`. Director chooses

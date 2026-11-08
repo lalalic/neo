@@ -142,7 +142,7 @@ test('personal story must exist before shot planning; director/editor self-heal 
   r=call(tool,['director',f.run],env);assert.equal(r.status,1);assert.match(r.stdout,/SHOT_PERSONAL_STORY_BEAT/);
   write(f.run,'shot-selection.json',{schema_version:1,personal_story_id:'human-story-01',shots:[{id:'shotA',source_id:'a',story_beat_id:'b01'}]});
   r=call(tool,['director',f.run],env);assert.equal(r.status,0,r.stdout);
-  const historyPath=join(f.vlog,'runs/personal-library/history-index.json');
+  const historyPath=join(f.vlog,'runs/.story-history/history-index.json');
   assert.equal(JSON.parse(readFileSync(historyPath,'utf8')).entries.length,1,'successful Director gets indexed');
   writeFileSync(historyPath,'{corrupt-index');
   r=call(tool,['director',f.run],env);
