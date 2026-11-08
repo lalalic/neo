@@ -13,6 +13,28 @@ on an existing private dated Run. iCloud watcher ingestion is separate.
 Every stage works in the same ignored `runs/<episode>/`. A source manifest
 and Visioner evidence must exist before writing the story.
 
+## Private context and reusable media
+
+- **Creator context (Director):** Read private project-root `user.md`
+  before drafting. It informs everyday personality and tone, not filmed facts
+  or automatic permission to reveal private details. Do not build a second profile.
+- **Story history (Director):** Search the private, ignored
+  `runs/.story-history/history-index.json` using
+  `node scripts/story-history.mjs search [terms]`; `inspect RUN_ID` to
+  read only relevant original Run stories. Validated Director and Producer
+  stages update the index. Past episodes help continuity but cannot prove
+  present footage. Missing/corrupt history is advisory, not a production gate.
+- **Recorded personal library (Editor):** Private `assets/personal-library/`
+  contains one `tour-director.json` used both to guide Tour recording
+  (`tour-recordings.mjs manifest`) and index its accepted recordings.
+  Start Tour using the JSON emitted by `manifest`; after `tour.status`
+  reports an accepted take, download its original `/files/` media and call
+  `tour-recordings.mjs archive` to update this same index atomically.
+  Each recording file sits beside that JSON, never in per-Tour subfolders.
+  `node scripts/tour-recordings.mjs list [--topics TOPIC]` returns only
+  verified active takes. Empty library is normal. Historical inserts require
+  relevant permission; old takes are not new footage or voice-clone consent.
+
 ## Stage ownership
 
 - **Visioner** records real source IDs, timecodes and media observations,
@@ -23,19 +45,6 @@ and Visioner evidence must exist before writing the story.
   passed to Vision Understanding; original footage and GPS stay authoritative
   for shot selection, timecodes and final render. Long clips are sampled
   for understanding, never reused as timeline footage.
-- **Private creator profile**: Director reads project-root `user.md` if
-  present, solely as background for everyday story discovery and natural tone.
-  It is private Git-ignored context; do not replicate it in public artifacts,
-  infer filmed actions from it, or force personal hardship into each episode.
-- **Episode history** is a private, Git-ignored search index under
-  `runs/.story-history/history-index.json`. The Director consults relevant
-  prior Runs selectively; accepted Director and completed Producer stages
-  update the index. A broken history index is an advisory warning, never a
-  media-production failure or a second source of creator identity.
-- **Recorded Tour library** resides privately under `assets/personal-library/`.
-  Only accepted, locally archived Tour recordings are selectable as reusable
-  references; unrecorded prompts are not footage. The Tour archive is separate
-  from Run story history and is never committed to public Git.
 - **Director** writes a complete first-person lived-experience story
   (curiosity/intent, exploration or action, discovery/result; real setbacks
   only when evidenced), source-linked shot plan and `route-intent.json`. Director chooses

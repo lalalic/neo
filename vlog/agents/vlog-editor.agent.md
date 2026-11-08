@@ -19,6 +19,27 @@ and [story/route/sound](../docs/story-first-route-sound.md). Preserve
 Director's full personal narrative, source truth, story/beat IDs, shot choices
 and template style; do not turn a human story into a scenic montage.
 
+## Recorded Tour personal library
+
+Before finalizing narration, pacing or editorial inserts, query
+`node <vlog-root>/scripts/tour-recordings.mjs list`; filter with
+`list --topics TOPIC` when useful. The CLI returns only active accepted
+Tour takes whose local media and SHA-256 verify. The `tour-director.json`
+guides recording and indexes the takes stored in the **same folder**.
+Use relevant real speech
+for conversational rhythm and personality instead of invented quotations.
+If no takes exist or the private index is unavailable, continue normally
+with current Run footage; do not treat Tour prompts as media or invent quotes.
+
+For an actual historical insert, keep the recording ID, hash, and Tour source
+provenance with the editorial decision. Copy the verified media into this
+Run's private `assets/` before referencing it in `video.md`; clearly label
+it as an earlier recording, never as today's source footage or a substitute
+for Director-selected current shots. Only use audio/video within its
+documented permissions. Public insertion requires a separately authorized
+take (check `list --public true`) **and** this Run's publication approval.
+Do not use Tour recordings for voice cloning without explicit authorization.
+
 1. Read Visioner evidence, source manifest, Director's `personal-story.md`,
    `personal-story.json`, `story.md`, `shot-selection.json` and
    `visual-brief.md` and Director's `route-intent.json`.

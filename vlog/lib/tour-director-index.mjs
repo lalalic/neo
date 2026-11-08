@@ -1,5 +1,3 @@
-import path from 'node:path';
-
 const SHA256 = /^[a-f0-9]{64}$/i;
 const ID = /^[a-z0-9][a-z0-9_-]*$/i;
 
@@ -27,9 +25,8 @@ export function validateTourDirector(index) {
 }
 
 function isSafeMediaPath(p) {
-  if (typeof p !== 'string' || !/^[0-9]{4}-[0-9]{2}-[0-9]{2}[^/]*\/media\//.test(p) || p.includes('\\') || p.includes('\0')) return false;
-  const normalized = path.posix.normalize(p);
-  return normalized === p && !p.split('/').includes('..') && p.split('/').length >= 3;
+  // The Tour director index and every archived recording share one private folder.
+  return typeof p === 'string' && /^[a-z0-9][a-z0-9_-]*\.(?:mov|mp4|m4v)$/i.test(p);
 }
 
 /** Append an immutable take; replacing means changing only the active pointer. */
@@ -60,7 +57,7 @@ export function appendTourRecording(index, shotId, take) {
   return next;
 }
 
-/** Director reads only verified indexed media, never unrecorded prompts. */
+/** Editor selects only accepted indexed Tour recordings, never unrecorded prompts. */
 export function selectTourReferences(index, { topics = [], publicInsert = false } = {}) {
   if (validateTourDirector(index).length) throw new Error('Invalid Tour Director index');
   return index.shots.flatMap(shot => {

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { copyFileSync, chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve, join } from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
@@ -57,6 +57,9 @@ test('archive a real local file once, verify hash, and expose only archived acti
     const selected = ok(f.command('list', '--topics', 'daily_life'));
     assert.equal(selected.length, 1);
     assert.equal(selected[0].recording_id, 'record01');
+    assert.equal(selected[0].media_path, 'pv01-record01.mov');
+    assert.equal(realpathSync(selected[0].local_path), realpathSync(join(f.library, 'pv01-record01.mov')));
+    assert.equal(existsSync(join(f.library, 'media')), false);
     assert.equal(readFileSync(selected[0].local_path, 'utf8'), readFileSync(f.movie, 'utf8'));
     assert.equal(selected[0].sha256, first.sha256);
     assert.equal(ok(f.command('archive', ...f.archiveFlags, '--recording-id', 'record02')).reused, true);

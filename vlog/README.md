@@ -16,6 +16,13 @@ Visioner (source video/audio evidence)
   → Publisher Agent + Shortcut (conditional authorized WeChat Channels/XHS publication)
 ```
 
+Director reads private `user.md` and searches related prior Run stories
+via `story-history.mjs search/inspect` before drafting; history informs
+continuity and avoids repetition, never invents source events. Editor checks
+the private Tour personal library via `tour-recordings.mjs list` for real
+accepted voice/story takes to guide authentic delivery or permissioned,
+clearly labeled historical inserts. An empty library does not block editing.
+
 Director writes the human goal/setback/actions/payoff before selecting shots.
 Director decides **if/why** the route serves the narrative and which filmed
 stops are verified. Editor decides **how** that route appears on the movie
@@ -32,8 +39,9 @@ The chosen [Markcut template](templates/cinematic-vlog.md) is authoritative for
 root BGM, aspect ratio, subtitles and transitions. Do not turn the episode
 into a scenery-only montage, fake filmed locations or silently replace music.
 Private Run artifacts stay in ignored `runs/<episode>/`. Recorded Tour
-references are stored separately under ignored `assets/personal-library/`
-and indexed from accepted Tour recordings; Run story search uses
+references live beside the single guiding/indexing `tour-director.json` in
+ignored `assets/personal-library/` (no recording subdirectories); Run story
+search uses
 `runs/.story-history/history-index.json`. Neither is public Git content. Visioner uses
 Markcut Vision's existing `.normalized` files (360px video, 384px
 still) for AI Vision Understanding; it records the original-to-normalized

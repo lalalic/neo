@@ -50,3 +50,30 @@ test('assembled roles have verified Markcut Editor, Producer render, conditional
  assert.match(text('templates/cinematic-vlog.md'),/license_status.*unverified/);
  assert.match(text('docs/story-first-route-sound.md'),/pre-mixed continuous asset/);
 });
+
+
+test('Director loads creator profile and relevant Run history; Editor selects only verified Tour recordings',()=>{
+ const project=text('AGENTS.md');
+ const director=text('agents/vlog-director.agent.md');
+ const editor=text('agents/vlog-editor.agent.md');
+ const story=text('docs/personal-story-first.md');
+ assert.match(project,/Creator context \(Director\)/);
+ assert.match(project,/Story history \(Director\)/);
+ assert.match(project,/Recorded personal library \(Editor\)/);
+ assert.match(project,/tour\.status/);
+ assert.match(project,/recording file sits beside that JSON/);
+ assert.match(director,/user\.md/);
+ assert.match(director,/story-history\.mjs search/);
+ assert.match(director,/story-history\.mjs inspect/);
+ assert.match(director,/before writing/);
+ assert.doesNotMatch(director,/tour-recordings\.mjs list/);
+ assert.match(editor,/tour-recordings\.mjs list/);
+ assert.match(editor,/SHA-256/);
+ assert.match(editor,/If no takes exist/);
+ assert.match(editor,/earlier recording/);
+ assert.match(editor,/list --public true/);
+ assert.match(story,/story-history\.mjs search\/inspect/);
+ assert.match(story,/assets\/personal-library/);
+ assert.ok(existsSync(resolve(root,'scripts/story-history.mjs')));
+ assert.ok(existsSync(resolve(root,'scripts/tour-recordings.mjs')));
+});

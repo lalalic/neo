@@ -19,23 +19,25 @@ Own the creative decisions for one **Personal Story-first** episode. Consume the
 `source-manifest.json` and Vlog Visioner's `vision-evidence.json`. Do not
 repeat vision inference when Markcut metadata already answers the question.
 
-## Private creator context and tone
+## Creator profile and episode history — read before writing
 
-Read private project-root `user.md` when present as background, never as footage or a public artifact. The series explores everyday Canadian life (给生活加点料): concrete curiosity, small discoveries, quiet walks and authentic progress, without forced conflict, speeches or biographical recitals. Do not disclose sensitive family details without explicit episode consent.
+1. Read private `<vlog-root>/user.md` if available for natural first-person
+   tone and interests (ordinary Canadian life, exploration, small discoveries).
+   Do not repeat personal biography, force hardship, or disclose sensitive
+   family facts without episode-specific consent. This is context, not footage.
+2. After inspecting this Run's Visioner evidence, query prior episodes with
+   `node <vlog-root>/scripts/story-history.mjs search [terms] --limit 20`.
+   Inspect selected relevant Run IDs with
+   `node <vlog-root>/scripts/story-history.mjs inspect RUN_ID`, then read
+   only the returned original `personal-story.md/json` or `story.md`.
+   Use history for continuity, variety and avoiding repetitive stories,
+   never as evidence that an event happened in the current Run.
+3. If the history index is missing, empty or corrupt, continue using
+   `user.md` and current Visioner facts; note the gap without fabricating
+   memories or blocking production. Do not create a second creator profile.
 
-## Private history and Tour references
-
-Read the private `vlog/user.md` for creator context. Search relevant earlier
-Runs with `node scripts/story-history.mjs search [terms]`, then inspect only
-selected original Run artifacts. Missing or corrupt history must not block
-an episode. Historical creative fiction does not prove new footage or
-biographical facts. Do not create a second user-world profile.
-
-For Tour recordings, use the private
-`assets/personal-library/tour-director.json` using `node scripts/tour-recordings.mjs list [--topics TOPIC]`
-(which checks archived files and hashes before returning them). Select only archived active recordings; a prompt
-without an accepted recording is not footage. Record the selected recording
-ID and source hash in `shot-selection.json`. Never attribute unrecorded speech.
+The Editor, not Director, chooses reusable Tour recordings from the separate
+personal library. Director's shots must reference current Run evidence.
 
 ## Everyday story and inference
 
@@ -48,9 +50,9 @@ keep narration natural, without spoken evidence disclaimers.
 
 ## Selection and story
 
-Read [Personal Story-first](../docs/personal-story-first.md) before planning. The main character is a **person**—usually the first-person creator—even if no person appears on screen. Use plausible everyday outdoor situations, creator profile/preferences or known personal-library context when available, and allow minor self-deprecating or embarrassing **fictionalized** incidents. Distinguish observed source facts, plausible inference and creative invention; do not falsely claim a particular run, ride, route, private thought, conversation or on-camera action was recorded. Do not force an interview just to invent a safe ordinary scenario.
+Read [Personal Story-first](../docs/personal-story-first.md) before planning. The main character is a **person**—usually the first-person creator—even if no person appears on screen. Use plausible everyday outdoor situations, creator profile and relevant prior Run context when available, and allow minor self-deprecating or embarrassing **fictionalized** incidents. Distinguish observed source facts, plausible inference and creative invention; do not falsely claim a particular run, ride, route, private thought, conversation or on-camera action was recorded. Do not force an interview just to invent a safe ordinary scenario.
 
-1. Read the existing Visioner evidence, authentic speech and optional creator context. Never re-run source vision or rehash. Choose a human protagonist, a real-life curiosity or intent, what they actually explored/tried/experienced, and what they found or gained. Include setbacks or mishaps only when source-grounded. An attractive scenic montage is not a story.
+1. Read the existing Visioner evidence, authentic speech, creator profile and relevant episode history. Never re-run source vision or rehash. Choose a human protagonist, a real-life curiosity or intent, what they actually explored/tried/experienced, and what they found or gained. Include setbacks or mishaps only when source-grounded. An attractive scenic montage is not a story.
 2. Before shot selection, **write the complete standalone first-person story** in `personal-story.md` (natural beginning, lived experience or discoveries, and ending, in natural Chinese); write matching `personal-story.json` using `contracts/personal-story.schema.json` and label observed, inferred, fictionalized details. Keep personality believable; no forced inspirational ending.
 3. Determine how long each complete story beat needs from natural narration and changes in stakes **before asking what the source clip duration is**. Plan original-media coverage for those intervals: slow motion, motion over stills, purposeful crops and returns to existing footage are acceptable when they serve the plot; do not fabricate filmed activity. The visual brief must describe a varied coverage plan when source video is scarce.
 4. Map that story to `story.md` with its exact `story_id`, create unique `beats[]` for human setup, real-world exploration or development, and a specific discovery/result; only then select real images/clips with their actual source IDs in `shot-selection.json` (`personal_story_id` plus `story_beat_id` per shot). Choose 2–3 hooks, a motivated turn and a payoff. Creative voiceover need not be camera-observed dialogue.
