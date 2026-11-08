@@ -35,3 +35,10 @@ Findings were read from the installed `agents-relay`, the Events Bus Skill, the 
 - **O4** Observing phone connection type (phone harness versus Wi-Fi or USB). Not verified; Phase 1 reports `unknown`.
 - **O5** Whether `/api/runtime-summary` is a lighter source for reconciliation than `/api/jobs`.
 - **O6** How a Neo "feature" is declared (`feature install|complete` exists, `feature list` is empty). It could replace manual `neo mcp add`; not required for Phase 1.
+
+## Phase 1 live verification (2026-11-08)
+
+- Packaged build `chat-gateway-skill-0.1.2.tgz` runs via `npx --package` independently of the Git checkout. Production PM2 service `chat-gateway/server` is online, status `ok`; NATS and dashboard are reachable, and Neo event policy enables completed notifications. The first start baselined 15 historical terminal jobs without sending a notification.
+- Real isolated NATS synthetic completion reached Neo.app's `events notify completed` through the notifier, yielding one forwarding acknowledgement. The production `mcp.chat-gateway` federated proxy returns `chat_env`, persists an `info` report silently and forwards an `attention` report once. Its ledger shows no pending reports afterward.
+- Node tests: 25 passed, 0 failed; npm dependency audit: 0 vulnerabilities. PM2 process list was saved. An on-device iPhone application responded to `agent.pilot` snapshot, but iOS notification-centre presentation of this push was **not** independently observed; Neo forwarding confirmation is not proof of visible device display.
+- The current Neo MCP federation has a proxy tool `mcp.chat-gateway` whose `command` subcommands are `chat_env` and `chat_report`, not two separate top-level tools.

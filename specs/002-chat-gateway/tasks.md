@@ -56,7 +56,7 @@
 - [x] T021 Test CLI parsing, dry-run zero-write behavior, and `setup` argv in `test/cli.test.mjs`.
 - [x] T022 [P] Write `docs/chat-gateway-orchestrator.md` with the Project instruction text and the report guidance from `quickstart.md`.
 - [x] T023 Verify packaging: private immutable tarball launched through `npx --package` resolves the CLI without a source checkout; registry publication and `@latest` require separate authorization.
-- [ ] T024 Run `npm test`, then on the host `chat-gateway setup --apply`, `neo service status chat-gateway/server` and `chat-gateway health`; confirm one real completion notification path end to end.
+- [x] T024 Run `npm test`, then on the host `chat-gateway setup --apply`, `neo service status chat-gateway/server` and `chat-gateway health`; confirm one real completion notification path end to end (NATS to Neo.app forward acknowledgement; device-level presentation not independently confirmed).
 
 ## Dependencies
 
