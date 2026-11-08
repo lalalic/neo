@@ -30,6 +30,7 @@ export async function createProjectWithWebHelm({
       project_name: projectName,
       instructions,
       initial_prompt: initialPrompt,
+      thread_title_hint: 'Initialize Neo Orchestrator',
     }), { mode: 0o600 });
     const args = ['platform', 'run', 'chatgpt', 'project-setup', '--auto-session', '--config', configPath];
     const wrapper = await new Promise((resolve, reject) => {
