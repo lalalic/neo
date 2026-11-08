@@ -59,7 +59,6 @@
     "required": [
       "personal-story.md",
       "goal",
-      "setback",
       "outcome",
       "first-person"
     ],
@@ -536,6 +535,86 @@
     "forbidden": [
       "assume prompt is actual footage",
       "choose without checking content"
+    ]
+  },
+  {
+    "id": "director-quiet-discovery-no-setback",
+    "role": "vlog-director",
+    "capability": "complete lived story without mandatory conflict",
+    "references": [
+      "docs/personal-story-first.md",
+      "agents/vlog-director.agent.md",
+      "contracts/personal-story.schema.json"
+    ],
+    "choices": [
+      "quiet_complete_discovery_story",
+      "invent_unfilmed_problem",
+      "narrate_every_landscape_shot"
+    ],
+    "task": "Six source-linked clips show a peaceful afternoon walk beside a creek in Canada, an interesting little detail, and the creator at a path. No difficulty, accident, or frustration is witnessed. Owner requests 给生活加点料, a complete natural Chinese story for viewers in China, without fake conflict or a nature slideshow. Decide the Director treatment and optional setback policy.",
+    "expectedDecision": "quiet_complete_discovery_story",
+    "required": [
+      "first-person",
+      "discovery",
+      "optional"
+    ],
+    "forbidden": [
+      "invent a setback",
+      "every scenic frame needs narration",
+      "fake accident"
+    ]
+  },
+  {
+    "id": "director-china-viewer-route-context",
+    "role": "vlog-director",
+    "capability": "source-grounded Canadian route context for China audience",
+    "references": [
+      "docs/story-first-route-sound.md",
+      "docs/geo-story-production.md",
+      "agents/vlog-director.agent.md"
+    ],
+    "choices": [
+      "source_backed_concise_map_orientation",
+      "invent_travelled_track_and_local_history",
+      "omit_all_context_for_chinese_viewers"
+    ],
+    "task": "Filmed clips from multiple GPS-tagged stops in Ontario can orient Chinese viewers to a Canadian neighborhood outing, but the files do not prove the actual path or transport method. A place introduction is useful if sourced. Should Director show a concise route/location overview, tell what the visited places mean, or claim an exact route and fill with unsourced trivia?",
+    "expectedDecision": "source_backed_concise_map_orientation",
+    "required": [
+      "Chinese",
+      "GPS",
+      "source"
+    ],
+    "forbidden": [
+      "invent a filmed path",
+      "guess local history",
+      "geography lecture"
+    ]
+  },
+  {
+    "id": "editor-story-paced-media-bridges",
+    "role": "vlog-editor",
+    "capability": "natural pacing and transitions without scenic narration",
+    "references": [
+      "docs/personal-story-first.md",
+      "docs/story-first-route-sound.md",
+      "agents/vlog-editor.agent.md"
+    ],
+    "choices": [
+      "story_paced_transitions_with_ambient_space",
+      "voiceover_description_for_every_frame",
+      "equal_length_hard_cuts_without_continuity"
+    ],
+    "task": "Director supplied a complete lived story with a quiet pause by the water, a small source-visible amusing camera wobble, and an outcome. Source clips have different lengths and the natural ambience helps. Choose the edit with story-based timing, motivated visual/sound transitions, and meaningful pauses rather than scenic narration for every frame.",
+    "expectedDecision": "story_paced_transitions_with_ambient_space",
+    "required": [
+      "story",
+      "sound"
+    ],
+    "forbidden": [
+      "narrate every landscape",
+      "random cuts",
+      "invented footage"
     ]
   }
 ]

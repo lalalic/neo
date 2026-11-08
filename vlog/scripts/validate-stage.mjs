@@ -53,8 +53,8 @@ function personalStory(evidence){
  check(story.perspective==='first_person'&&typeof character?.role==='string'&&character.role.trim().length>0,
   'PERSONAL_STORY_PROTAGONIST','Make the creator/person the narrative protagonist, not scenery or a route');
  check(typeof story.narrative==='string'&&story.narrative.trim().length>=100&&
-  !!arc?.everyday_goal&&!!arc?.setback&&Array.isArray(arc?.actions)&&arc.actions.length>0&&!!arc?.outcome&&!!arc?.contrast,
-  'PERSONAL_STORY_ARC','Write a complete standalone first-person story: everyday goal -> setback -> actions -> human outcome/contrast, with a relatable flaw or ordinary mishap where it fits');
+  !!arc?.everyday_goal&&Array.isArray(arc?.actions)&&arc.actions.length>0&&!!arc?.outcome,
+  'PERSONAL_STORY_ARC','Write a complete human story: intention -> lived actions/discovery -> specific outcome. Setback and contrast are optional, never fabricated to satisfy a validator');
  if(manuscript){const markdown=readFileSync(manuscript,'utf8').replace(/\s+/g,'');
   check(markdown.includes(String(story.narrative||'').replace(/\s+/g,'')),
    'PERSONAL_STORY_MANUSCRIPT','Put the complete standalone narrative in personal-story.md; not only labels, clips or a beat list');}
@@ -69,8 +69,9 @@ function personalStory(evidence){
   'PERSONAL_STORY_PROFILE_SOURCE','Use actual private profile/owner context references or explicitly label creative assumptions; do not invent personal profile facts');
  const beats=Array.isArray(story.beats)?story.beats:[];
  const roles=new Set(beats.map(x=>x?.role));const ids=new Set(beats.map(x=>x?.id));
- check(beats.length>=3&&ids.size===beats.length&&roles.has('setup')&&roles.has('complication')&&roles.has('payoff'),
-  'PERSONAL_STORY_BEATS','Provide unique beat IDs for human setup, complication, and payoff; scenic-only montage is not a story');
+ check(beats.length>=3&&ids.size===beats.length&&roles.has('setup')&&roles.has('payoff')&&
+  [...roles].some(role=>['development','complication','response'].includes(role)),
+  'PERSONAL_STORY_BEATS','Provide unique beats for human setup, lived development/response, and a specific payoff. A setback is optional; a scenic-only montage is not a story');
  for(const beat of beats)for(const id of Array.isArray(beat?.source_ids)?beat.source_ids:[])check(sources.has(id),'PERSONAL_STORY_BEAT_SOURCE',
   'Repair beat '+String(beat?.id)+' source '+id+' to a real Visioner source ID; creative narration can still be fictionalized');
  return story;
@@ -107,6 +108,12 @@ if(stage==='visioner'){
  const evidence=json('vision-evidence.json');const story=personalStory(evidence);const shots=json('shot-selection.json');const storyPlan=required('story.md');required('visual-brief.md');required('post.md');
  const route=json('route-intent.json');schema('route-intent.json','route-intent.schema.json');
  check(['include','omit'].includes(route?.decision)&&!!route?.reason,'DIRECTOR_ROUTE_DECISION','Describe why real GPS route helps or omit when unsupported');
+ if(route?.audienceContext!==undefined){
+  check(Array.isArray(route.audienceContext)&&route.audienceContext.every(item=>
+   typeof item?.fact==='string'&&item.fact.trim().length>1&&
+   typeof item?.sourceRef==='string'&&item.sourceRef.trim().length>1),
+   'DIRECTOR_AUDIENCE_CONTEXT_SOURCE','Canadian place/culture facts for viewers in China need a sourceRef; omit speculative introductions');
+ }
  if(route?.decision==='include'){
   const sourceIds=new Set((evidence?.sources||evidence?.summary||[]).map(x=>x.source_id));
   const beatIds=new Set((story?.beats||[]).map(x=>x.id));

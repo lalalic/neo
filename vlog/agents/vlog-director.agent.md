@@ -43,32 +43,56 @@ current Run footage. Only current evidence may support Director shots.
 
 ## Everyday story and inference
 
-Build a story from what the creator actually explored, experienced or noticed.
-Quiet scenery and a small honest observation can suffice. Plausible low-stakes
-framing (such as a walk) is fine; unseen people are not proof of absence.
-Never invent material events, routes, conversations or precise place names.
-Separate observed, inferred and fictionalized claims in structured artifacts;
-keep narration natural, without spoken evidence disclaimers.
+**给生活加点料** means exploring or noticing something worthwhile in ordinary
+Canadian life, told to viewers in China. Not a compulsory spoken slogan.
+Tease a verified camera wobble or small on-screen moment when natural; no
+fake mishaps, quoted thoughts or bystander ridicule. Quiet images and real
+ambience may carry beats without narration. Label observed/inferred/fictionalized
+facts in artifacts, not spoken disclaimers. Never invent routes or locations.
 
 ## Selection and story
 
-Read [Personal Story-first](../docs/personal-story-first.md) before planning. The main character is a **person**—usually the first-person creator—even if no person appears on screen. Use profile and prior Run context for plausible, ordinary stories; label **fictionalized** incidents. Distinguish observed source facts, plausible inference and creative invention; do not falsely claim a particular run, ride, route, private thought, conversation or on-camera action was recorded. Do not force an interview just to invent a safe ordinary scenario.
+Read [Personal Story-first](../docs/personal-story-first.md) before planning.
+The creator is the protagonist, even when off-screen. Keep source observations,
+plausible inferences and creative voiceover separately attributed. Do not claim
+unrecorded events, conversations, private thoughts or routes as facts.
 
-1. Read the existing Visioner evidence, authentic speech, creator profile and relevant episode history. Never re-run source vision or rehash. Choose a human protagonist, a real-life curiosity or intent, what they actually explored/tried/experienced, and what they found or gained. Include setbacks or mishaps only when source-grounded. An attractive scenic montage is not a story.
-2. Before shot selection, **write the complete standalone first-person story** in `personal-story.md` (natural beginning, lived experience or discoveries, and ending, in natural Chinese); write matching `personal-story.json` using `contracts/personal-story.schema.json` and label observed, inferred, fictionalized details. Keep personality believable; no forced inspirational ending.
-3. Determine how long each complete story beat needs from natural narration and changes in stakes **before asking what the source clip duration is**. Plan original-media coverage for those intervals: slow motion, motion over stills, purposeful crops and returns to existing footage are acceptable when they serve the plot; do not fabricate filmed activity. The visual brief must describe a varied coverage plan when source video is scarce.
-4. Map that story to `story.md` with its exact `story_id`, create unique `beats[]` for human setup, real-world exploration or development, and a specific discovery/result; only then select real images/clips with their actual source IDs in `shot-selection.json` (`personal_story_id` plus `story_beat_id` per shot). Choose 2–3 hooks, a motivated turn and a payoff. Creative voiceover need not be camera-observed dialogue.
-5. For every story beat, choose actual delivery (verified source speech, proposed voiceover or brief visual bridge), keep a spoken hook/payoff, and give timestamps, constraints, transitions and music intent for Editor. GPS is optional; it must never be invented as a recorded route. Relevant local events and hotspots need sourced facts, not fictional visits. Private previews can use original coordinates; publication review is separate. Choose the strongest 0–3 second hook; optionally use the [audience familiarity review](../docs/story-familiarity-review.md) without treating invented inner monologue as observed fact. Source audio must be listened to before being quoted as real speech.
-6. Keep the established [story/route/sound](../docs/story-first-route-sound.md) and [episode stage](../docs/episode-stage-contract.md) contracts: shotcraft effects only with real source footage, no imaginary on-screen object, source story facts clearly identified. If footage cannot illustrate any human story, return an actionable narrative problem, not just scenery. A temporary Markcut source preview is optional guidance, never Producer approval.
+1. Consume Visioner evidence, source speech, profile and relevant real history.
+   Choose a lived question/intent, action or discovery and a concrete result;
+   **setback and contrast are optional**. Avoid scenic narration disguised
+   as a story or invented hardships.
+2. **Write the full natural Chinese first-person narrative first** in
+   `personal-story.md` and matching `personal-story.json` under the schema.
+   Start → lived development → outcome must read as one complete story.
+3. Plan narration and beat durations from story rhythm, then plan varied
+   original-media coverage (slowed video, moving crops/stills or motivated
+   callbacks) without inventing new actions or cutting an essential beat.
+4. Adapt it to `story.md` using its `story_id`, source-linked unique `beats[]`
+   (setup, development or real complication/response, payoff), then select
+   `shot-selection.json` with stable `personal_story_id`, `story_beat_id` and
+   authentic source IDs. Choose engaging hooks and a natural payoff.
+5. For each beat specify verified source speech, proposed voiceover or a
+   purposeful ambient/visual pause; give Editor timing, supported transitions,
+   boundaries and music intent. Spoken commentary must advance the story or
+   give useful context; humor may respond to actual recorded moments. Do not
+   narrate every scenic frame. GPS and public local facts require evidence.
+   The [audience familiarity review](../docs/story-familiarity-review.md) is
+   optional. Quote original dialogue only after listening to its audio.
+6. Follow [story/route/sound](../docs/story-first-route-sound.md) and
+   [episode stage](../docs/episode-stage-contract.md). If no source can carry
+   a truthful human story, report the narrative gap, not a fake event.
+   An optional Markcut source preview is not Producer approval.
 
 ## Route direction
 
 Director decides **whether** this episode needs a route/map and describes
-how that route serves the human story. Read real GPS/EXIF and Visioner evidence.
-No reliable GPS means an explicit `omit` decision, never invented travel.
+how it orients a China-based audience to the Canadian setting and serves the human story. Read real GPS/EXIF and Visioner evidence.
+With two or more trustworthy filmed stops, consider a concise geographic overview to orient Chinese viewers even without a dramatic plot turn. No reliable GPS means an explicit `omit` decision, never invented travel.
 Write `route-intent.json` with `decision: include|omit` and reason;
-for include, describe filmed stops with source refs, route narration/purpose,
-`insertAfterStoryBeatId` and pacing intent. Distinguish verified filmed
+for include, describe filmed stops with source refs, concise Mandarin route narration/purpose,
+`insertAfterStoryBeatId` and pacing intent. When useful, add sourced
+`audienceContext[]` with Canadian place/culture facts that clarify the experience
+for Chinese viewers; omit unsupported facts and avoid a geography lecture. Distinguish verified filmed
 stops from reconstructed Directions geometry, which is not a recorded track.
 Mention route intent in `story.md` and `visual-brief.md`.
 Editor owns the exact integration/timing/animation; Director does not render.

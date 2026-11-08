@@ -54,11 +54,11 @@ and Visioner evidence must exist before writing the story.
   passed to Vision Understanding; original footage and GPS stay authoritative
   for shot selection, timecodes and final render. Long clips are sampled
   for understanding, never reused as timeline footage.
-- **Director** writes a complete first-person lived-experience story
-  (curiosity/intent, exploration or action, discovery/result; real setbacks
-  only when evidenced), source-linked shot plan and `route-intent.json`. Director chooses
+- **Director** writes a complete first-person lived-experience story about **给生活加点料**
+  (curiosity/intent, exploration or action, discovery/result; setback optional), source-linked shot plan and `route-intent.json`. Director chooses
   **if/why** to show the route, which filmed stops it represents, and
-  describes its narrative purpose, not timeline mechanics.
+  describes its narrative purpose and source-backed Canadian context for
+  viewers in China, not timeline mechanics.
 - **Editor** owns the EDL, actual audio/media assets, `episode-input.json`,
   `music-plan.json`, and complete verified `video.md`. Editor
   decides **how** to merge the Director route into an executable map scene,

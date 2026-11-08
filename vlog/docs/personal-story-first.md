@@ -1,34 +1,27 @@
-# Personal Story-first — people before scenery
+# Personal Story-first — 给生活加点料
 
-**The subject of an ordinary Vlog is the creator or another person, not the landscape.** Source photos, route footage and music support a human experience. A pretty sequence, or a JSON field called `goal`, is **not** enough to pass Director or Editor.
+**方向：给生活加点料。** 讲一个在加拿大生活的人主动尝试、走出去、观察、体验或发现了什么，让中国观众认识这个人和他遇到的生活。不是景点解说词，也不是每集重复口号或人生履历。媒体承载经历，风景不必逐幅讲解。
 
-## Creative process inside Director
+## Director：先有完整故事，再考虑镜头
 
-1. Read existing Visioner observations and the creator's private `user.md` and relevant prior Run stories via `story-history.mjs search/inspect`. Do not demand a new owner interview for everyday material. For an ambiguous outdoor path, cycling/running/walking are **possible stories**, not verified activities.
-2. Pick a concrete first-person **everyday goal** (get exercise, buy groceries, meet a friend), a relatable **setback/embarrassing mishap**, actions, and an **outcome with contrast**. Keep it human, ordinary, conversational and sometimes self-deprecating; do not force a beautiful destination, inspiration or grand lesson. A quiet episode still needs a human intention and change.
-3. **Write the complete standalone first-person narrative first** in `personal-story.md`. Someone should be able to read it as a little story without watching the video or seeing a shot list. Its beginning, trouble, response and ending must connect. Not just four labels or separate captions.
-4. Describe the same story in `personal-story.json` against `contracts/personal-story.schema.json`: `protagonist`, `arc`, `narrative`, `beats`, `provenance`, and optional `tone`. `narrative` must appear verbatim in the Markdown file. Each beat gets a stable ID and one or more actual source IDs for editorial illustration.
-5. First decide **story beats and narration timing from the complete story**—not from media file durations. Each beat must survive in the listener-facing video, including the setback, consequential action and payoff. Then write `story.md` as the **shot-ready adaptation** referring to `story_id`, choose `shot-selection.json` with `personal_story_id` + each shot's `story_beat_id`, and write the visual brief.
-6. Plan media **coverage** for every beat: prefer verified original photos/video with variations such as 0.5× slow motion of real movement, different crops, slow pan/push/zoom-out of photos, and deliberate visual callbacks. A 1.55-second source clip can cover 3.10 timeline seconds at 0.5×; original source timecodes and identity stay unchanged. These are editorial treatments, not additional recorded events. Do not invent footage or pad long gaps with a single motionless image.
-7. Assess the video as a complete, audible story without looking at the images. If all source frames are visually repetitive, shorten unnecessary pauses or create *varied editorial treatments*—do not amputate story beats to meet source duration. The Editor carries the IDs into the EDL unchanged, trims/rearranges as needed for pacing and preserves the human premise, setback, and ending. Editor may separately query the accepted Tour recordings in `assets/personal-library/` for speaking style or clearly labeled historical inserts, never as new Run evidence. Producer carries `personal_story_id` into `episode-input.json.story` and does not invent a new story.
+1. 读本集 source manifest、Visioner 的时间码/画面/真实语音、私人 `user.md` 与通过 `story-history.mjs search/inspect` 获取的真实故事；可按需查 `assets/personal-library` 中的已验收口述素材。找出**本集最值得讲的一件事**：为什么出门或动手、发生了什么、注意到什么、结果怎样。缺少本人确认的动机可以作为创作框架，但必须在结构化记录里标 `fictionalized`，不得伪装成亲身事实。
+2. 先写一篇**读起来通顺的第一人称完整小故事** `personal-story.md`：起因/好奇 → 实际经历或探索 → 一个具体发现/结果/余味。**挫折、冲突、反转和前后对比均为可选**；有真实小插曲再写，没有就自然结束。不要为凑三幕硬编失败、任务、目标达成或励志总结。
+3. 可以**调侃镜头里真正出现的事**，例如镜头歪了、风吹乱头发、手机总想拍、脚步突然停下等（具体例子必须有该 Run 证据）。允许轻微自嘲、生活化观察及适度想象的幽默比喻；笑点要自然，不把虚构事件/台词/心理活动讲成经过验证的事实，不嘲弄未经同意出镜的人。
+4. 根据生活场景选择讲述密度：引人好奇的开头 → 真实行动/发现逐步展开 → 一个自然的落点。允许静音、环境声、停顿和视觉叙事；**不要尬讲风景**，也不要连续罗列“这里是树、那里是水”。每句话须推进故事、揭示人物、提供有用语境或营造笑点；否则删去。
+5. 先写自然口语的完整故事及 `personal-story.json`（`protagonist`、`arc`、`narrative`、`beats`、`provenance`）。`arc.everyday_goal` 是日常动机；`actions` 是实际发展；`outcome` 是具体发现/结果。`setback`/`contrast` 可省略。情节至少有 `setup`、`development`（或真实 `complication`/`response`）和 `payoff`，不强制冲突。`narrative` 与 Markdown 正文一致；每个 beat 有来源镜头 ID。
+6. **按叙事节奏决定段落/旁白时长，再规划素材覆盖**。镜头挑选/复用/慢动作/照片运镜均只能来自可追溯原素材；避免为塞满视频而拖慢或反复画面。输出 `story.md`、`shot-selection.json` 和 `visual-brief.md`，保留每个 beat 的 `story_id`、`story_beat_id` 与真实 source ID，规划情节之间的自然画面与声音桥接。
+7. 面向**主要生活在中国的中文观众**，把加拿大生活中不易理解但与本集相关的地域、季节、交通、生活习惯或地标用一两句口语化解释；不要假定观众知道安大略省、渥太华或当地道路名称，也不要硬塞百科。地点/文化/历史等外部知识需要可靠来源，不能凭 GPS 推断到访地标或发生过的事。可信 GPS 及解释性地图的具体条件见 [story/route/sound](story-first-route-sound.md)。
+8. 阅读 `personal-story.md` 时应感觉**一个人在讲自己的这一次经历**，而不是配乐风光片。Editor 按情节完整性和听感节奏剪辑，Producer 不重新编故事。完整故事不等于每秒都要旁白。
 
-## What can be imagined
+## 事实与创作边界
 
-Truthfulness applies to **what the media actually shows**, not to every line of an explicitly fictionalized first-person script. Distinguish:
+- `provenance.observed`：镜头/实听录音中可核对的事实，附 Visioner `source_id`。
+- `provenance.inferred`：根据素材/时间/创作者画像作出的可能推断，写明依据，不能冒充确证。
+- `provenance.fictionalized`：口语化的假设、主观表达或想象的笑话，单独标注；不能声称发生过未见证的人物对话、事件、路线或亲密家庭细节。正文不念证据声明。
+- 个人背景用于语气和理解动机，私密家庭信息及精确位置不自动公开；外部事实附可靠查询出处。
 
-- `provenance.observed`: visible/audible source facts, each with an actual Visioner `source_id` (e.g. a path, stream, bicycle if clearly visible).
-- `provenance.inferred`: plausible context with a named basis (e.g. a person paused beside a creek; running/cycling/walking is uncertain).
-- `provenance.fictionalized`: permissible creative details (e.g. "came out to exercise but got distracted taking pictures", "I was embarrassingly lazy"). They are **story invention**, not an assertion of documentary fact or owner testimony.
-- `protagonist.persona_basis`: cite relevant saved profile/owner context by a private reference when used; otherwise use `creative_assumption`. Do not invent private biographical facts.
+## 静谧散步示例（创作表达，不代表某条真实 Run）
 
-A person need **not appear on camera**. Voiceover can provide the first-person perspective. Do not fabricate a visible person, on-screen bicycle, GPS track, witnessed conversation, or specific real-life event; do not treat a comedic invention as source evidence. Original source audio and exact locations remain subject to their own existing evidence rules.
+“周末下午，想出门透透气。走到河边，才发现这里安静得连脚步都很清楚。手机举起来又放下去，有些时候什么也不说，反而挺舒服的。就沿着路继续走了一段，今天没发生什么大事，但多记住了一个可以发会儿呆的地方。”
 
-## Example with only a trail photo and creek footage
-
-**Full-story premise:** "I left home determined to get some exercise; a creek distracted me into taking pictures and a tiny video; I returned with more camera footage than exercise." It has a human goal, a small failure, an action and a self-mocking payoff. It's a fictionalized mundane story **illustrated by** real creek footage; it does not claim the camera proved the creator was jogging or cycling.
-
-**Short-video adaptation:** first finish the beginning → setback → action → payoff in the narration. Then use the path photo (moving reframing), creek photo (different pan), source creek video (optional 0.5× slow motion, clearly editorial), and creek photo as a motivated closing callback (different crop/zoom-out). Let TTS and plot determine beat times, not the 1.55-second camera recording. If narration needs longer than a single clip, continue the audio naturally across additional media coverage. Do not confuse the short voiceover with the full readable `personal-story.md`.
-
-## Acceptance and repair
-
-Director must deliver `personal-story.md`, `personal-story.json`, `story.md`, `shot-selection.json`, `visual-brief.md`, `post.md`. Existing `scripts/validate-stage.mjs director <run>` runs the Relay JSON Schema validator and enforces personal narrative references. Editor runs the same human-story gate plus shot-to-beat link checks on EDL. On failure, **repair within the owning Agent** before completing. Reviewer should reject scenic-only descriptive montages or false documentary claims even if the mechanical JSON checks pass. User-requested fictionalized storytelling is compatible with genuine source footage; publication rights remain a separate workflow.
+镜头安排：小路引入 → 河边环境声留白 → 有记录的细节与自然观察 → 走路的结束镜头。**不添加虚构麻烦**，适时切换大中近景或实拍声音，保持连贯，不强制每个风景镜头有旁白。

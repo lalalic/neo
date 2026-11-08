@@ -170,9 +170,41 @@ test('scenic-only notes and fake persona references fail; creative everyday fict
   const fixed=personalStoryFixture(f);
   r=call(tool,['director',f.run],env);assert.equal(r.status,0,r.stdout);
   assert.equal(fixed.provenance.fictionalized.length,1,'explicit fictional mishap should be accepted');
-  fixed.beats=[{id:'a',role:'setup',purpose:'只有风景',scene_intent:'天空照片',source_ids:['a']},{id:'b',role:'response',purpose:'更多风景',scene_intent:'河流照片',source_ids:['a']},{id:'c',role:'payoff',purpose:'结束镜头',scene_intent:'山的照片',source_ids:['a']}];
+  fixed.beats=[{id:'a',role:'setup',purpose:'只有风景',scene_intent:'天空照片',source_ids:['a']},{id:'b',role:'payoff',purpose:'更多风景',scene_intent:'河流照片',source_ids:['a']},{id:'c',role:'payoff',purpose:'结束镜头',scene_intent:'山的照片',source_ids:['a']}];
   write(f.run,'personal-story.json',fixed);
   r=call(tool,['director',f.run],env);assert.equal(r.status,1);assert.match(r.stdout,/PERSONAL_STORY_BEATS/);
+ }finally{f.clean();}
+});
+test('a complete quiet exploration without setback or contrast passes Director and Editor',()=>{
+ const f=fixture();try{
+  const tool=join(f.vlog,'scripts/validate-stage.mjs');const env={AGENTS_RELAY_CLI:f.cli,MARKCUT_CLI:f.cli};
+  write(f.run,'vision-evidence.json',{stage:'visioner',summary:[{source_id:'a'}],sources:[{source_id:'a'}]});
+  const story=personalStoryFixture(f);
+  delete story.arc.setback;delete story.arc.contrast;
+  story.arc.everyday_goal='出门看看加拿大社区周末有什么新鲜事';
+  story.arc.actions=['沿小路散步并观察路边变化','在溪水旁停留了一会儿'];
+  story.arc.outcome='发现平常走过的小路还有值得讲给朋友听的小细节';
+  story.beats[1]={...story.beats[1],role:'development',purpose:'人在路边发现有趣的小细节'};
+  write(f.run,'personal-story.json',story);
+  for(const name of ['visual-brief.md','post.md'])write(f.run,name,'test');
+  write(f.run,'shot-selection.json',{schema_version:1,personal_story_id:'human-story-01',shots:[{id:'shotA',source_id:'a',story_beat_id:'b01'}]});
+  let r=call(tool,['director',f.run],env);assert.equal(r.status,0,r.stdout);
+  editorReady(f);
+  write(f.run,'edit-decision-list.json',{schema_version:1,personal_story_id:'human-story-01',edits:[{shot_id:'shotA',source_id:'a',story_beat_id:'b01',in_seconds:0,out_seconds:1}]});
+  r=call(tool,['editor',f.run],env);assert.equal(r.status,0,r.stdout);
+ }finally{f.clean();}
+});
+test('Canadian audience context requires a source reference, even when route is omitted',()=>{
+ const f=fixture();try{
+  const tool=join(f.vlog,'scripts/validate-stage.mjs');const env={AGENTS_RELAY_CLI:f.cli};
+  write(f.run,'vision-evidence.json',{stage:'visioner',summary:[{source_id:'a'}],sources:[{source_id:'a'}]});
+  personalStoryFixture(f);
+  write(f.run,'shot-selection.json',{schema_version:1,personal_story_id:'human-story-01',shots:[{id:'shotA',source_id:'a',story_beat_id:'b01'}]});
+  for(const name of ['post.md','visual-brief.md'])write(f.run,name,'test');
+  write(f.run,'route-intent.json',{schemaVersion:1,decision:'omit',reason:'Single stationary point',audienceContext:[{fact:'附近属于加拿大某省'}]});
+  let r=call(tool,['director',f.run],env);assert.equal(r.status,1);assert.match(r.stdout,/DIRECTOR_AUDIENCE_CONTEXT_SOURCE/);
+  write(f.run,'route-intent.json',{schemaVersion:1,decision:'omit',reason:'Single stationary point',audienceContext:[{fact:'附近属于加拿大某省',sourceRef:'source-manifest.json#a'}]});
+  r=call(tool,['director',f.run],env);assert.equal(r.status,0,r.stdout);
  }finally{f.clean();}
 });
 test('malformed personal-story fields yield actionable FAIL instead of crashing',()=>{

@@ -45,11 +45,13 @@ If no acceptable recording/device is available, edit with existing Run media.
    **how** to merge that route into the movie: insertion scene, map camera,
    subvideo length, verified narration, transition and continuous root BGM.
    Map `route-intent.json` to `episode-input.geo` using the shared
-   `geo-story.md` template. Route omit means no map. Never fabricate a ride.
+   `geo-story.md` template. Include only source-backed audience context in
+   concise, natural Chinese; orient viewers in China without interrupting the
+   Canadian lived-experience story. Route omit means no map. Never fabricate a ride.
 2. Write `edit-decision-list.json` with exact source IDs and in/out points,
    stable `sceneId`, playbackSpeed, actual/timeline durations, boundary
-   transitions, framing, speech and audio intent. Preserve authentic speech,
-   source facts, human setup/setback/actions/payoff and original provenance.
+   transitions, framing, speech and audio intent. Sequence scenes by story beats; vary shot length according to speech and action, use cut-on-action/sound bridges for continuity and allow silence/ambient sound instead of unnecessary scenic commentary. Preserve authentic speech,
+   source facts, human intention/development/outcome (optional setback) and original provenance.
 3. Prepare all final assets: template-selected continuous BGM (root volume
    **`0.7`**), narration, meaningful source ambience, captions and optional
    supported effects. For the owner's Chinese personal Vlogs, the narrator

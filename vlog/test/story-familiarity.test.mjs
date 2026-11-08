@@ -14,5 +14,6 @@ test('five source-grounded checks are in the story and production contracts', ()
   assert.match(contract, /Do not infer private thoughts/);
   assert.match(director, /audience familiarity review/);
   assert.match(editor, /story\/route\/sound/);
-  assert.match(stages, /Complete personal goal/);
+  assert.match(stages, /Complete human intent/);
+  assert.match(stages, /setbacks optional/);
 });

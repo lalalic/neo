@@ -77,10 +77,8 @@
       "type": "object",
       "required": [
         "everyday_goal",
-        "setback",
         "actions",
-        "outcome",
-        "contrast"
+        "outcome"
       ],
       "properties": {
         "everyday_goal": {
@@ -203,6 +201,7 @@
           "role": {
             "enum": [
               "setup",
+              "development",
               "complication",
               "response",
               "payoff"

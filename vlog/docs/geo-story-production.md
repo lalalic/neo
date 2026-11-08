@@ -4,7 +4,7 @@ Executable route scenes come from [geo-story.md](../templates/geo-story.md), and
 
 ## Director route decision and Editor integration
 
-Director writes `route-intent.json` (include/omit, observed filmed stops, story purpose and desired beat). Editor maps it to `episode-input.geo` and produces the route media.
+Director writes `route-intent.json` (include/omit, observed filmed stops, story purpose and desired beat). The primary viewers are in China: include concise, sourced Mandarin orientation when Canadian place/region context helps them follow the experience. Optional `audienceContext[]` facts have `fact` and `sourceRef` (e.g. original GPS/verified place evidence or a credible public URL); introduce relevant local geography, history or culture without guessing visited landmarks. Where GPS verifies only a stop, explain the stop, not a fictional journey. Editor maps the accepted route/story context to `episode-input.geo` and produces the route media, preserving natural pacing and audio/visual continuity.
 
 ## Editor geo block
 
