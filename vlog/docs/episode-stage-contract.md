@@ -22,9 +22,10 @@ story beat. `route-intent.json` has `decision: include|omit`,
 `reason`, and for inclusion `insertAfterStoryBeatId`, `narration`
 and source-linked `observedStops`. An omitted route is a normal success.
 
-Editor converts that narrative decision into `episode-input.geo`,
-choosing the exact scene placement, geo/map subvideo, timing, transitions,
-narration and BGM. If it generates a `route.md` it must verify that file.
+Editor records the selected geography in `episode-input.geo` and authors
+Markcut-native map/route scenes in `video.md` (or separate `route.md` when
+necessary), choosing precise placement, timing, transitions, narration and BGM.
+If it generates `route.md`, it must verify that file.
 It verifies the route Markdown and source-linked asset references before handing off. A map
 Directions line is inferred navigation, never a claimed recorded track.
 See [geo production](geo-story-production.md).

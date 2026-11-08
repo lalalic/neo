@@ -88,6 +88,8 @@ test('Producer verifies Editor exact revision, renders and probes before deliver
  }});
  assert.equal(output.status,'COMPLETED');
  assert.equal(calls[0][1],'verify');assert.equal(calls[1][1],'render');assert.equal(calls[2][0],'ffprobe');
+ assert.equal(calls.some(c=>c[0]==='ffmpeg'),false,'Producer does not apply a duplicate mean-dBFS gate');
+ assert.equal(Object.hasOwn(output.output,'bgmAudibility'),false);
  assert.equal(output.output.videoMdSha256,checksum);
  assert.equal(calls.some(c=>c.includes('preview')),false);
 });

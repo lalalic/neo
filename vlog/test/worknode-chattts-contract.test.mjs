@@ -1,7 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { parseCinematicTemplate } from '../lib/cinematic-vlog.mjs';
 
 test('owner Vlog narration uses male ChatTTS inference on Worknode, not Tingting on Neo Master',()=>{
   const editor=readFileSync(new URL('../agents/vlog-editor.agent.md',import.meta.url),'utf8');
@@ -12,7 +11,10 @@ test('owner Vlog narration uses male ChatTTS inference on Worknode, not Tingting
   assert.match(editor,/noncommercial/);
 });
 test('cinematic Vlog BGM root gain is 0.7 in the canonical template',()=>{
-  const {config}=parseCinematicTemplate();
+  const template=readFileSync(new URL('../templates/cinematic-vlog.md',import.meta.url),'utf8');
+  const matched=template.match(/<!-- VLOG:CONFIG\s*([\s\S]*?)\s*VLOG:END_CONFIG -->/);
+  assert.ok(matched,'canonical template config missing');
+  const config=JSON.parse(matched[1]);
   assert.equal(config.audio.bgm_plain_volume,0.7);
   assert.equal(config.audio.bgm_preducked_volume,0.7);
 });

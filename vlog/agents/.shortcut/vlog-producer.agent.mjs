@@ -1,7 +1,6 @@
 import { mkdir, writeFile, stat, readFile, rename } from 'node:fs/promises';
 import { join } from 'node:path';
 import { scope, file, digest, command, sha256 } from './_vlog-contract.mjs';
-import { rootBackgroundMusic, evaluateMusicAudibility } from '../../lib/bgm-audibility.mjs';
 
 /** Markcut resolveAll may insert a deterministic seed into the Markdown
  * before rendering. It must not silently change any other Editor content. */
@@ -25,16 +24,6 @@ export async function run(context) {
  // Editor no longer requires a native player or viewer receipt; verify the
  // exact current Markdown revision before performing any render side effects.
  await command(context,['markcut','verify',md],run);
- // A valid Markcut file can still encode nearly silent background music.
- // Measure the actual source at its authored gain before expensive rendering.
- const music=rootBackgroundMusic(await readFile(md,'utf8'));
- let bgmAudibility=null;
- if(music){
-   const bgm=await file(run,music.src);
-   const measured=await command(context,
-     ['ffmpeg','-hide_banner','-nostats','-i',bgm,'-vn','-af','volumedetect','-f','null','-'],run);
-   bgmAudibility=evaluateMusicAudibility(music,String(measured.stderr||'')+'\n'+String(measured.stdout||''));
- }
  const output=join(run,'output','video.mp4');
  const receiptPath=join(run,'production-receipt.json');
  await mkdir(join(run,'output'),{recursive:true});
@@ -88,7 +77,7 @@ export async function run(context) {
  }else{
   receipt={schemaVersion:1,status:'RENDERED',videoMdSha256:renderedMdSha,
     videoSha256:hash,videoPath:'output/video.mp4',durationSeconds:Number(info.format.duration),
-    verifiedAt:new Date().toISOString(),...(bgmAudibility?{bgmAudibility}:{})};
+    verifiedAt:new Date().toISOString()};
   await writeFile(receiptPath,JSON.stringify(receipt,null,2)+'\n',{flag:'wx'});
  }
 

@@ -41,6 +41,7 @@ test('assembled roles have verified Markcut Editor, Producer render, conditional
  assert.match(project,/Visioner/);assert.match(project,/Publisher/);
  assert.match(director,/route-intent.json/);
  assert.match(editor,/markcut verify/);
+ assert.doesNotMatch(editor,/compile-cinematic-vlog\.mjs/,'Editor directly authors Markcut DSL');
  assert.doesNotMatch(editor,/markcut preview <run>/);
  assert.match(editor,/Do not launch or require/);
  assert.match(producer,/markcut verify/);
@@ -77,6 +78,6 @@ test('Director reads user and Run history; both roles can capture with Neo.app o
  assert.match(story,/story-history\.mjs search\/inspect/);
  assert.match(story,/assets\/personal-library/);
  assert.ok(existsSync(resolve(root,'scripts/story-history.mjs')));
- assert.ok(existsSync(resolve(root,'lib/tour-director-index.mjs')));
+ assert.doesNotMatch(skill,/tour-director-index\.mjs/, 'Tour contract is JSON, not an extra library');
  assert.ok(!existsSync(resolve(root,'scripts/tour-recordings.mjs')),'no duplicate Tour CLI');
 });

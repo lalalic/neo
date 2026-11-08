@@ -29,7 +29,7 @@ The existing `tour-director.json` owns both the recording instructions and all m
 - Filename convention: `<shot_id>-<actual-content-slug>-<YYYYMMDD>-<recording_id>.<actual-extension>` (e.g. `pv01-weekend-walk-opening-20261107-take01.mov`). The slug has **two or more meaningful words** about the *accepted clip*, preferably derived from listening/transcript/visual review; `filename_hint` is a starting suggestion, **not a claim** about actual content. Keep the capture-local calendar date, shot ID and unique take ID. The basename must be recognizable in Finder without opening the index. Avoid secrets and exact private addresses.
 - `media_path` must be an original local regular video (`.mov`, `.mp4`, `.m4v`) or audio (`.m4a`, `.wav`) file **in the same directory**, never a nested path, remote URL or symlink. An unrecorded prompt is **not** footage.
 
-Use `<vlog-root>/lib/tour-director-index.mjs`'s `validateTourDirector`, `appendTourRecording` and `selectTourReferences` when updating/selecting the JSON; these are pure library helpers, **not** a CLI or another storage layer.
+**The JSON format above is the contract; no Vlog-side Tour index library or CLI is needed.** On append, read and validate the existing JSON structure, keep existing accepted takes immutable, reject duplicate IDs and unsafe paths, and atomically write the updated same file. Only original local regular media files with verified SHA-256 may be indexed.
 
 ## Record on either device
 
@@ -46,7 +46,7 @@ Use `<vlog-root>/lib/tour-director-index.mjs`'s `validateTourDirector`, `appendT
 ## Use the recording in a Vlog
 
 - Director still writes the story based on `user.md`, relevant old Run history and current Visioner evidence; it may **initiate** Tour recording but must not relabel old takes as today’s events.
-- Editor opens `tour-director.json` and uses each recorded take's **filename, title, description and topics** to choose the most relevant clip. The pure `selectTourReferences(index, { allTakes: true })` helper can enumerate older archived alternatives; the default returns active takes only. Verify any chosen file beside the index against its SHA-256 before using it. Filter by shot `notes.topic` or take `topics` as relevant.
+- Editor opens `tour-director.json` and uses each recorded take's **filename, title, description and topics** to choose the most relevant clip. Use each shot's `active_recording_id` to select current takes; inspect older `recordings[]` when explicitly choosing archived alternatives. Verify any chosen file beside the index against its SHA-256 before using it. Filter by shot `notes.topic` or take `topics` as relevant.
 - A reference take can guide pacing and natural phrasing without adding historical video to the timeline. If actually inserting historical video/audio, preserve take ID/hash/provenance, copy the chosen media into this Run's private assets, and clearly present it as archival material. No automatic public insertion, voice cloning or fabricated present-day source evidence. Existing Run-scoped publication permissions still apply.
 - If the index is missing, empty, the device is unavailable or no take fits, continue the current Vlog normally. Do not substitute prompts or synthesized speech as “recorded Tour” evidence.
 

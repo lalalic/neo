@@ -27,6 +27,6 @@ All `observed` content requires a Vision or owner source reference; unsupported 
 
 ## Rendering and QA
 
-Editor pre-renders narrated Markcut geographic scenes to a verified `route.mp4` and inserts it at Director's chosen story beat, preserving Editor transitions. The final episode keeps one continuous root BGM. For unreliable or absent GPS, omit the map without inventing movement. Verified place and knowledge facts require explicit evidence references. Any failed render or missing sound halts production; final release still needs separate owner authorization.
+Editor authors Markcut-native route/map scenes directly in `video.md` (or `route.md` when a separately rendered chapter is needed), at Director's chosen story beat. The Producer renders the Markcut composition; do not introduce a duplicate Vlog route renderer. The final episode keeps one continuous root BGM. For unreliable or absent GPS, omit the map without inventing movement. Verified place and knowledge facts require explicit evidence references. Any failed render or missing sound halts production; final release still needs separate owner authorization.
 
 Editor must run `markcut verify` on `route.md` and `video.md` and check source-linked route narration, media paths and transitions without requiring playback.

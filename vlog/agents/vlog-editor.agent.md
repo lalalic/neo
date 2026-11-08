@@ -92,10 +92,13 @@ If no acceptable recording/device is available, edit with existing Run media.
    text, measured audio and batch receipt with real byte lengths.
    Do not use
    instruction-only placeholders or replace missing assets with substitutes.
-4. Assemble ordered `episode-input.json`, `music-plan.json`, then run
-   `node <vlog-root>/scripts/compile-cinematic-vlog.mjs episode-input.json video.md`
-   from the canonical run. The resulting `video.md` and its referenced
-   assets must be renderable without Producer creatively changing anything.
+4. Assemble ordered `episode-input.json` and `music-plan.json` as Stage
+   handoff evidence, then **author the complete executable `video.md`
+   directly** using the canonical [Markcut style template](../templates/cinematic-vlog.md)
+   with Markcut native trims, playback rates, maps, audio, effects
+   and transitions. `episode-input.json` is an Editor handoff, **not** a
+   source to compile with a second Vlog-specific video generator. Renderable
+   assets and authoring decisions belong to Editor, not Producer.
 5. **Any Agent that creates or edits a Markcut .md must call
    `markcut verify <actual-file>` on the current revision (including route.md if created), fix errors and
    re-verify until PASS.** This applies after every edit, not only before
