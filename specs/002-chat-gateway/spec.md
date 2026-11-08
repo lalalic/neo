@@ -2,7 +2,7 @@
 
 **Feature Branch**: `002-chat-gateway`
 **Created**: 2026-11-08
-**Status**: Draft
+**Status**: Phase 1 implemented and deployed; phone display confirmation outstanding
 **Input**: Owner request for a Neo mobile entry point (the future Chat tab) so the owner does not need to visit ChatGPT, the Agents Relay dashboard, or CLIs to receive information and hand off work. Phase 1 is limited to job completion state plus orchestrator-initiated reports.
 
 ## Background
