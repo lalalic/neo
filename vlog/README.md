@@ -19,9 +19,12 @@ Visioner (source video/audio evidence)
 Director reads private `user.md` and searches related prior Run stories
 via `story-history.mjs search/inspect` before drafting; history informs
 continuity and avoids repetition, never invents source events. Editor checks
-the private Tour personal library via `tour-recordings.mjs list` for real
-accepted voice/story takes to guide authentic delivery or permissioned,
-clearly labeled historical inserts. An empty library does not block editing.
+the private `tour-director.json` for accepted voice/story takes. Director
+or Editor can load the [Tour Skill](skills/tour/SKILL.md) to record on Mac
+(Neo.app) or iPhone (Neo Mobile). Accepted files use meaningful filenames;
+the JSON records each take's title and actual-content description. Files
+live beside that JSON;
+an empty library does not block editing.
 
 Director writes the human goal/setback/actions/payoff before selecting shots.
 Director decides **if/why** the route serves the narrative and which filmed

@@ -52,28 +52,31 @@ test('assembled roles have verified Markcut Editor, Producer render, conditional
 });
 
 
-test('Director loads creator profile and relevant Run history; Editor selects only verified Tour recordings',()=>{
+test('Director reads user and Run history; both roles can capture with Neo.app or Neo Mobile Tour skill',()=>{
  const project=text('AGENTS.md');
  const director=text('agents/vlog-director.agent.md');
  const editor=text('agents/vlog-editor.agent.md');
  const story=text('docs/personal-story-first.md');
+ const skill=text('skills/tour/SKILL.md');
  assert.match(project,/Creator context \(Director\)/);
  assert.match(project,/Story history \(Director\)/);
- assert.match(project,/Recorded personal library \(Editor\)/);
- assert.match(project,/tour\.status/);
- assert.match(project,/recording file sits beside that JSON/);
+ assert.match(project,/Capture Tour \(Director or Editor\)/);
  assert.match(director,/user\.md/);
  assert.match(director,/story-history\.mjs search/);
  assert.match(director,/story-history\.mjs inspect/);
- assert.match(director,/before writing/);
- assert.doesNotMatch(director,/tour-recordings\.mjs list/);
- assert.match(editor,/tour-recordings\.mjs list/);
- assert.match(editor,/SHA-256/);
- assert.match(editor,/If no takes exist/);
- assert.match(editor,/earlier recording/);
- assert.match(editor,/list --public true/);
+ assert.match(director,/skills\/tour\/SKILL\.md/);
+ assert.match(editor,/skills\/tour\/SKILL\.md/);
+ assert.match(editor,/tour-director\.json/);
+ assert.match(skill,/Neo\.app/);
+ assert.match(skill,/Neo Mobile/);
+ assert.match(skill,/tour\.start/);
+ assert.match(skill,/tour\.status/);
+ assert.match(skill,/media_path/);
+ assert.match(skill,/same directory/);
+ assert.match(skill,/SHA-256/);
  assert.match(story,/story-history\.mjs search\/inspect/);
  assert.match(story,/assets\/personal-library/);
  assert.ok(existsSync(resolve(root,'scripts/story-history.mjs')));
- assert.ok(existsSync(resolve(root,'scripts/tour-recordings.mjs')));
+ assert.ok(existsSync(resolve(root,'lib/tour-director-index.mjs')));
+ assert.ok(!existsSync(resolve(root,'scripts/tour-recordings.mjs')),'no duplicate Tour CLI');
 });

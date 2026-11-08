@@ -24,16 +24,16 @@ and Visioner evidence must exist before writing the story.
   read only relevant original Run stories. Validated Director and Producer
   stages update the index. Past episodes help continuity but cannot prove
   present footage. Missing/corrupt history is advisory, not a production gate.
-- **Recorded personal library (Editor):** Private `assets/personal-library/`
-  contains one `tour-director.json` used both to guide Tour recording
-  (`tour-recordings.mjs manifest`) and index its accepted recordings.
-  Start Tour using the JSON emitted by `manifest`; after `tour.status`
-  reports an accepted take, download its original `/files/` media and call
-  `tour-recordings.mjs archive` to update this same index atomically.
-  Each recording file sits beside that JSON, never in per-Tour subfolders.
-  `node scripts/tour-recordings.mjs list [--topics TOPIC]` returns only
-  verified active takes. Empty library is normal. Historical inserts require
-  relevant permission; old takes are not new footage or voice-clone consent.
+- **Capture Tour (Director or Editor):** Load project-local
+  [Vlog Tour Skill](skills/tour/SKILL.md) when real speech/video is needed.
+  `Neo.app` records on Mac; `Neo Mobile` records on iPhone. The private
+  `assets/personal-library/tour-director.json` is **both** the Tour recording
+  guide and index of accepted media, stored beside that JSON with descriptive
+  filenames and actual-clip `title`/`description` for Editor selection.
+  Discover and call the connected device's Tour tools; there is no separate
+  Tour CLI, manifest, catalog or index. An empty library never blocks editing.
+  Only verified accepted takes can be used, and past recordings cannot be
+  presented as new footage or reused publicly without authorization.
 
 ## Stage ownership
 

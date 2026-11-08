@@ -414,5 +414,128 @@
       "duplicate"
     ],
     "forbidden": []
+  },
+  {
+    "id": "director-tour-mac-on-demand",
+    "role": "vlog-director",
+    "capability": "on-demand Capture Tour recording on Neo.app Mac",
+    "references": [
+      "skills/tour/SKILL.md",
+      "agents/vlog-director.agent.md"
+    ],
+    "choices": [
+      "use_mac_tour_with_canonical_director_index",
+      "create_duplicate_manifest_or_cli",
+      "invent_recording_without_acceptance"
+    ],
+    "task": "An episode needs a new first-person Mac webcam introduction. Neo.app on the Mac exposes Capture Tour, and the private Vlog tour-director.json has suitable shot guidance. How should Director request and identify the recording for later editing?",
+    "expectedDecision": "use_mac_tour_with_canonical_director_index",
+    "required": [
+      "Neo.app",
+      "tour-director.json",
+      "accepted"
+    ],
+    "forbidden": [
+      "new manifest file",
+      "invented media"
+    ]
+  },
+  {
+    "id": "editor-tour-iphone-on-demand",
+    "role": "vlog-editor",
+    "capability": "on-demand Capture Tour recording on Neo Mobile",
+    "references": [
+      "skills/tour/SKILL.md",
+      "agents/vlog-editor.agent.md"
+    ],
+    "choices": [
+      "use_neo_mobile_tour_and_archive_into_shared_folder",
+      "require_mac_only_capture",
+      "create_second_personal_library"
+    ],
+    "task": "An Editor needs a natural iPhone-camera reaction shot. Neo Mobile is connected and supports Capture Tour, while Neo.app on the Mac is not nearby. Choose the recording mechanism and storage location.",
+    "expectedDecision": "use_neo_mobile_tour_and_archive_into_shared_folder",
+    "required": [
+      "Neo Mobile",
+      "tour.status",
+      "personal-library"
+    ],
+    "forbidden": [
+      "Mac-only",
+      "second index"
+    ]
+  },
+  {
+    "id": "editor-tour-unaccepted-take",
+    "role": "vlog-editor",
+    "capability": "reject unaccepted or missing personal Tour footage",
+    "references": [
+      "skills/tour/SKILL.md"
+    ],
+    "choices": [
+      "continue_without_unverified_tour_media",
+      "index_pending_recording_as_archived",
+      "replace_with_prompt_video"
+    ],
+    "task": "Tour.start on Neo.app succeeded but tour.status shows only a pending take and no accepted export. The timeline needs an authentic reaction. What does Editor do now?",
+    "expectedDecision": "continue_without_unverified_tour_media",
+    "required": [
+      "accepted",
+      "current Run"
+    ],
+    "forbidden": [
+      "fake recording",
+      "mark pending as archived"
+    ]
+  },
+  {
+    "id": "editor-tour-old-footage",
+    "role": "vlog-editor",
+    "capability": "reuse Tour references without fabricating current scene",
+    "references": [
+      "skills/tour/SKILL.md"
+    ],
+    "choices": [
+      "verify_archival_take_and_label_old_footage",
+      "insert_old_clip_as_today",
+      "voice_clone_from_private_tour"
+    ],
+    "task": "The personal-library has a verified, accepted MOV captured on a previous day. It might help the current video as a brief memory. Choose safe use and approval checks.",
+    "expectedDecision": "verify_archival_take_and_label_old_footage",
+    "required": [
+      "sha256",
+      "archival",
+      "permission"
+    ],
+    "forbidden": [
+      "pretend filmed today",
+      "voice cloning"
+    ]
+  },
+  {
+    "id": "editor-choose-archived-tour-by-description",
+    "role": "vlog-editor",
+    "capability": "select genuine recorded Tour media by explanatory basename and actual-content metadata",
+    "references": [
+      "skills/tour/SKILL.md",
+      "agents/vlog-editor.agent.md"
+    ],
+    "choices": [
+      "inspect_all_archived_takes_choose_by_filename_title_description_and_verify_hash",
+      "use_latest_take_without_reading_metadata",
+      "invent_short_clip_title_from_tour_prompt"
+    ],
+    "task": "The private personal-library contains two verified accepted takes for the same Tour shot. One file is named pv01-weekend-walk-opening-20261107-take01.mov and its indexed title/description say it discusses a quiet weekend walk. The other is an Ottawa groceries anecdote. The Vlog needs a brief personal walk reflection. How should Editor select?",
+    "expectedDecision": "inspect_all_archived_takes_choose_by_filename_title_description_and_verify_hash",
+    "required": [
+      "filename",
+      "title",
+      "description",
+      "sha256"
+    ],
+    "forbidden": [
+      "assume prompt is actual footage",
+      "choose without checking content"
+    ]
   }
 ]

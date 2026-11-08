@@ -30,14 +30,16 @@ repeat vision inference when Markcut metadata already answers the question.
    Inspect selected relevant Run IDs with
    `node <vlog-root>/scripts/story-history.mjs inspect RUN_ID`, then read
    only the returned original `personal-story.md/json` or `story.md`.
-   Use history for continuity, variety and avoiding repetitive stories,
-   never as evidence that an event happened in the current Run.
+   Use history to avoid repetition, never as current-Run evidence.
 3. If the history index is missing, empty or corrupt, continue using
    `user.md` and current Visioner facts; note the gap without fabricating
    memories or blocking production. Do not create a second creator profile.
 
-The Editor, not Director, chooses reusable Tour recordings from the separate
-personal library. Director's shots must reference current Run evidence.
+If a new recording is helpful, load [Vlog Tour Skill](../skills/tour/SKILL.md)
+and start Capture Tour on Neo.app (Mac) or Neo Mobile (iPhone).
+The single `assets/personal-library/tour-director.json` guides recording
+and indexes accepted takes. Recording is optional; old takes never prove
+current Run footage. Only current evidence may support Director shots.
 
 ## Everyday story and inference
 
@@ -50,7 +52,7 @@ keep narration natural, without spoken evidence disclaimers.
 
 ## Selection and story
 
-Read [Personal Story-first](../docs/personal-story-first.md) before planning. The main character is a **person**—usually the first-person creator—even if no person appears on screen. Use plausible everyday outdoor situations, creator profile and relevant prior Run context when available, and allow minor self-deprecating or embarrassing **fictionalized** incidents. Distinguish observed source facts, plausible inference and creative invention; do not falsely claim a particular run, ride, route, private thought, conversation or on-camera action was recorded. Do not force an interview just to invent a safe ordinary scenario.
+Read [Personal Story-first](../docs/personal-story-first.md) before planning. The main character is a **person**—usually the first-person creator—even if no person appears on screen. Use profile and prior Run context for plausible, ordinary stories; label **fictionalized** incidents. Distinguish observed source facts, plausible inference and creative invention; do not falsely claim a particular run, ride, route, private thought, conversation or on-camera action was recorded. Do not force an interview just to invent a safe ordinary scenario.
 
 1. Read the existing Visioner evidence, authentic speech, creator profile and relevant episode history. Never re-run source vision or rehash. Choose a human protagonist, a real-life curiosity or intent, what they actually explored/tried/experienced, and what they found or gained. Include setbacks or mishaps only when source-grounded. An attractive scenic montage is not a story.
 2. Before shot selection, **write the complete standalone first-person story** in `personal-story.md` (natural beginning, lived experience or discoveries, and ending, in natural Chinese); write matching `personal-story.json` using `contracts/personal-story.schema.json` and label observed, inferred, fictionalized details. Keep personality believable; no forced inspirational ending.

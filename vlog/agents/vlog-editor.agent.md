@@ -19,26 +19,23 @@ and [story/route/sound](../docs/story-first-route-sound.md). Preserve
 Director's full personal narrative, source truth, story/beat IDs, shot choices
 and template style; do not turn a human story into a scenic montage.
 
-## Recorded Tour personal library
+## Capture Tour and personal recordings
 
-Before finalizing narration, pacing or editorial inserts, query
-`node <vlog-root>/scripts/tour-recordings.mjs list`; filter with
-`list --topics TOPIC` when useful. The CLI returns only active accepted
-Tour takes whose local media and SHA-256 verify. The `tour-director.json`
-guides recording and indexes the takes stored in the **same folder**.
-Use relevant real speech
-for conversational rhythm and personality instead of invented quotations.
-If no takes exist or the private index is unavailable, continue normally
-with current Run footage; do not treat Tour prompts as media or invent quotes.
+Load [Vlog Tour Skill](../skills/tour/SKILL.md) before selecting or requesting
+Tour media. Read `assets/personal-library/tour-director.json`: its shot
+instructions guide recording and its `library.recordings` entries index
+accepted media stored alongside it. Compare archived takes by descriptive
+filename, actual-clip `title`, `description` and `topics` (including older
+takes where useful); verify the chosen local file's SHA-256.
+Use authenticated historical speech as a delivery reference; never invent a
+quotation. When a new pickup would improve the video, invoke Capture Tour
+via Neo.app (Mac) or Neo Mobile (iPhone) as the Skill describes. No Tour CLI.
 
-For an actual historical insert, keep the recording ID, hash, and Tour source
-provenance with the editorial decision. Copy the verified media into this
-Run's private `assets/` before referencing it in `video.md`; clearly label
-it as an earlier recording, never as today's source footage or a substitute
-for Director-selected current shots. Only use audio/video within its
-documented permissions. Public insertion requires a separately authorized
-take (check `list --public true`) **and** this Run's publication approval.
-Do not use Tour recordings for voice cloning without explicit authorization.
+For a genuine historical insert, preserve recording ID, hash and provenance,
+copy the verified file into this Run's private assets, and label it as an
+earlier recording. Public insertion requires that take's permission plus this
+Run's publication approval; never clone a voice without separate consent.
+If no acceptable recording/device is available, edit with existing Run media.
 
 1. Read Visioner evidence, source manifest, Director's `personal-story.md`,
    `personal-story.json`, `story.md`, `shot-selection.json` and
