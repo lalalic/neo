@@ -30,8 +30,14 @@ Use `agents/.shortcut/vlog-producer.agent.mjs` for the normal path:
 2. Run `markcut render <run>/video.md --output <run>/output/video.mp4`.
 3. Probe the actual MP4 for decodable video and audio. Store execution
    evidence and the source revision.
-4. Only on demand, when the run explicitly requests interactive human Review/Preview, call
-   `markcut preview` with the requested delivery and current task event
+4. Only on demand, when the run explicitly requests interactive human Review/Preview,
+   build the **single-Scene finished-film view** with
+   `node <vlog-root>/scripts/final-film-to-md.mjs <run>` and call `markcut preview`
+   on `<run>/final-film-preview.md` (not the Editor's multi-Scene `video.md`).
+   The script strictly verifies the production receipt and finished MP4 SHA,
+   references `output/video.mp4` directly, includes guide in Scene metadata,
+   and does not run another full render. The original Editor MD stays unchanged.
+   Use the requested delivery and current task event
    template. Default is no interactive review. When a review is requested,
    store the request receipt (PENDING is not approval) and let an interactive
    Producer Worker handle the later human decision through Relay hostInvocation.

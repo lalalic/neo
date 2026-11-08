@@ -132,6 +132,10 @@ test('Producer optional interactive preview sends event only on request and reco
   calls.push(args);
   if(args[1]==='render'){await writeFile(join(f.run,'output','video.mp4'),'render with audio');return {code:0}}
   if(args[0]==='ffprobe')return {code:0,stdout:JSON.stringify({streams:[{codec_type:'video'},{codec_type:'audio'}],format:{duration:'4'}})};
+  if(args[1]?.endsWith('final-film-to-md.mjs')){
+   await writeFile(join(f.run,'final-film-preview.md'),'# video\nwidth:1080 height:1920 fps:30 layout:series\n\n## finished-film\n- video src:output/video.mp4 duration:4\n');
+   return {code:0,stdout:JSON.stringify({status:'VALID',scenes:1,videoSha256:hash('render with audio')})};
+  }
   if(args[0]==='neo'&&args[2]==='review')return {code:0,stdout:JSON.stringify({status:'ready',commitSha:'a'.repeat(40)})};
   if(args[1]==='preview')return {code:0,stdout:JSON.stringify({status:'review_requested',requestId:'req',commitSha:'a'.repeat(40),delivery:'event'})};
   if(args[1]?.endsWith('validate-stage.mjs'))return {code:0,stdout:JSON.stringify({status:'PASS'})};
@@ -140,6 +144,9 @@ test('Producer optional interactive preview sends event only on request and reco
  assert.equal(result.status,'COMPLETED');
  assert.equal(result.output.preview.humanDecision,'PENDING');
  assert.ok(calls.some(args=>args.includes('--delivery')&&args.includes('event')));
+ const previewCall=calls.find(args=>args[0]==='markcut'&&args[1]==='preview');
+ assert.ok(previewCall[2].endsWith('/final-film-preview.md'), 'Producer reviews one Scene of rendered film, not source EDL');
+ assert.equal(calls.filter(args=>args[1]?.endsWith('final-film-to-md.mjs')).length,1);
  const pending=JSON.parse(await readFile(join(f.run,'preview-request.json')));
  assert.equal(pending.status,'review_requested');
  assert.equal(pending.humanDecision,'PENDING');

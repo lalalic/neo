@@ -83,20 +83,29 @@ export async function run(context) {
 
  let previewReceipt=null;
  if(input.preview){
+   // Present the already-rendered finished film as ONE Markcut Scene. Do not
+   // recompile Editor cuts or re-render each source Scene for human review.
+   const singleScene=await command(context,[process.execPath,
+     join(project,'scripts/final-film-to-md.mjs'),run],run);
+   let reviewMdInfo;try{reviewMdInfo=JSON.parse(singleScene.stdout)}
+   catch{throw Error('Producer one-Scene Preview script returned invalid JSON')}
+   if(reviewMdInfo.status!=='VALID'||reviewMdInfo.scenes!==1||reviewMdInfo.videoSha256!==hash)
+     throw Error('One-Scene Review MD is not bound to the produced MP4');
+   const reviewMd=await file(run,'final-film-preview.md');
    if(input.preview.mode==='event'){
      const template=await file(run,input.preview.eventTemplatePath);
      const prepared=await command(context,['neo','project','review','checkpoint','--project','vlog','--path',run,'--stage','producer'],run);
      const reviewIdentity=JSON.parse(prepared.stdout);
      if(reviewIdentity.status!=='ready'||!/^[a-f0-9]{40}$/.test(reviewIdentity.commitSha))
        throw Error('Runner did not produce an immutable Review Git Commit SHA');
-     const submitted=await command(context,['markcut','preview',md,'--delivery','event','--event-template',template,'--commit-sha',reviewIdentity.commitSha],run);
+     const submitted=await command(context,['markcut','preview',reviewMd,'--delivery','event','--event-template',template,'--commit-sha',reviewIdentity.commitSha],run);
      try{previewReceipt=JSON.parse(submitted.stdout)}catch{throw Error('missing machine-readable Markcut preview receipt')}
      if(previewReceipt.status!=='review_requested'||!previewReceipt.requestId||!previewReceipt.commitSha||previewReceipt.commitSha!==reviewIdentity.commitSha)
        throw Error('Markcut did not confirm the requested interactive review revision');
      previewReceipt={...previewReceipt,videoMdSha256:renderedMdSha,humanDecision:'PENDING'};
      await writeFile(join(run,'preview-request.json'),JSON.stringify(previewReceipt,null,2)+'\n',{flag:'wx'});
    }else if(input.preview.mode==='native'){
-     await command(context,['markcut','preview',md],run);
+     await command(context,['markcut','preview',reviewMd],run);
    }else throw Error('Unsupported preview mode');
  }
  const checked=await command(context,[process.execPath,join(project,'scripts/validate-stage.mjs'),'producer',run],run);
