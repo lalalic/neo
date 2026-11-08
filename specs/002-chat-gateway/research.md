@@ -27,11 +27,11 @@ Findings were read from the installed `agents-relay`, the Events Bus Skill, the 
 - **D5** Environment source order: override, observed, heuristic; the owner's weekday 08:00 to 18:00 pattern is a fallback only.
 - **D6** Human-input events, approvals and interactive requests are out of scope (owner decision).
 
-## Open items
+## Resolved decisions and open items
 
-- **O1 (blocks US1 delivery)** How a PM2 service invokes `events notify`. `neo setup ...` is not a shell subcommand; it exists on the Neo MCP. Candidate: act as an MCP client using a token from `neo mcp token issue`. Verify the token scope and the tool name before implementing `core/notify.mjs`.
-- **O2** Mapping for `CANCELLED`. Default assumed: kind `completed` with a "Cancelled" title prefix, because no cancelled kind exists.
-- **O3** Distribution. Default assumed: published npm package launched with `@latest`. Alternative: project-owned local service run from the checkout.
+- **O1 RESOLVED (2026-11-08)** Neo.app MCP loopback endpoint exposes the `setup` tool. A JSON-RPC `tools/call` with `arguments.command = "events notify completed \"Title\" body"` is accepted; `events status` returned enabled policies. A private NATS test-subject terminal event triggered one successful Neo forwarding acknowledgement.
+- **O2 RESOLVED** `CANCELLED` uses the existing `completed` notification kind with an explicit `cancelled` title. Neo events exposes no cancelled kind.
+- **O3 RESOLVED for Phase 1** Use a private packaged npm tarball launched with `npx --package <absolute tarball> chat-gateway serve`. No registry publication or checkout execution. If later authorized for npm publication, switch the launcher to published `@latest` and validate the upgrade path.
 - **O4** Observing phone connection type (phone harness versus Wi-Fi or USB). Not verified; Phase 1 reports `unknown`.
 - **O5** Whether `/api/runtime-summary` is a lighter source for reconciliation than `/api/jobs`.
 - **O6** How a Neo "feature" is declared (`feature install|complete` exists, `feature list` is empty). It could replace manual `neo mcp add`; not required for Phase 1.

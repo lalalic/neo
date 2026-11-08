@@ -20,8 +20,8 @@ chat-gateway health                 # NATS, dashboard, notify path, last reconci
 ## Use
 
 - Job completion: no action; terminal jobs notify the phone. The first start baselines existing jobs silently.
-- Orchestrator thread: calls `mcp.chat-gateway.chat_report` when it decides the owner should know, and `mcp.chat-gateway.chat_env` to learn the owner's environment.
-- Environment override: `chat-gateway env set home|office|auto`; `chat-gateway env get`.
+- Orchestrator thread: calls `mcp.chat-gateway` with `command: "chat_report"` when it decides the owner should know, and `mcp.chat-gateway` with `command: "chat_env"` to learn the owner's environment.
+- Environment override: `chat-gateway env set home|office|auto --apply`; `chat-gateway env get`.
 
 ## Project instruction text for the orchestrator
 

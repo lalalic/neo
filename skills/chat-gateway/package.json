@@ -1,0 +1,18 @@
+{
+  "name": "chat-gateway-skill",
+  "version": "0.1.2",
+  "private": true,
+  "description": "Neo Relay terminal-state and orchestrator report notification gateway",
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "files": ["SKILL.md", "cli", "core", "mcp"],
+  "dependencies": { "@nats-io/transport-node": "^3.4.0" },
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "serve": "node cli/chat-gateway.mjs serve",
+    "health": "node cli/chat-gateway.mjs health",
+    "status": "node cli/chat-gateway.mjs status",
+    "setup": "node cli/chat-gateway.mjs setup"
+  },
+  "bin": { "chat-gateway": "cli/chat-gateway.mjs" }
+}
