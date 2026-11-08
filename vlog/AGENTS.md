@@ -59,6 +59,18 @@ and Visioner evidence must exist before writing the story.
   **if/why** to show the route, which filmed stops it represents, and
   describes its narrative purpose and source-backed Canadian context for
   viewers in China, not timeline mechanics.
+- **Visioner / Director optional Interactive Review:** absent an explicit
+  per-Stage request, both proceed noninteractively and Director generates one
+  story. An owner-supplied private `review-stages.json` may opt in with
+  `{"visioner":true,"director":true}` (either stage independently), or the
+  current Task can explicitly request one. Visioner uses
+  `scripts/visioner-review-to-md.mjs` (each source → Scene); Director creates
+  2–3 contrasting Hooks only when requested and uses
+  `scripts/director-hooks-to-md.mjs` (each Hook → Scene, best recommended).
+  Guide is visibly included in Scene preview. JSON/evidence contracts remain
+  authoritative; Markcut MD is only a generated private Review view. Relay
+  manages event-bound decision and resume; no new DAG nodes and no changes
+  to Markcut/Relay. Read [review workflow](docs/stage-interactive-review.md).
 - **Editor** owns the EDL, actual audio/media assets, `episode-input.json`,
   `music-plan.json`, and complete verified `video.md`. Editor
   decides **how** to merge the Director route into an executable map scene,

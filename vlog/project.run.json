@@ -35,7 +35,10 @@
       "production-receipt.json",
       "vision-normalized-manifest.json",
       "vision-evidence.json",
-      "route-intent.json"
+      "route-intent.json",
+      "visioner-review.md",
+      "director-hooks.json",
+      "director-hooks.md"
     ]
   }
 }

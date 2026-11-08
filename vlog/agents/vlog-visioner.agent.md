@@ -113,6 +113,40 @@ ranges remain authoritative. Director/Editor select shots using the original
 source IDs and timecodes. Editor/Producer render from the original files;
 never substitute a normalized understanding input as final timeline media.
 
+## Optional source-by-source Interactive Review
+
+Default **OFF**. Enable only when current Task instructions explicitly request
+Visioner Interactive Review, or owner-supplied Run `review-stages.json` has
+`{"visioner":true}`. This is a source-correction checkpoint, not a new DAG
+role, a mandatory Final Review or a condition for normal evidence handoff.
+
+Finish the original `vision-evidence.json` and Stage validation first. Then
+run `node <vlog-root>/scripts/visioner-review-to-md.mjs <run>` to produce
+`visioner-review.md` with **one Scene per source**. Its Guide is included in
+the MD and visibly displayed at each Scene's start; preview proxies use
+faithful original time ranges, not sampled Markcut Vision understanding copies.
+Each Scene is named `media-<source_id>` so source-bound scene/time comments
+can be mapped to `vision-evidence.json`. Previews of long clips explicitly
+show a limited excerpt, never imply the entire footage was reviewed.
+
+Use the installed Markcut Skill and existing Relay interactive event contract:
+get the **current Task's actual** `{jobId,taskId,executionId,invocationId}`
+Event Template, run `neo project review checkpoint --project vlog --path
+<run> --stage visioner` to create an immutable Stage Git SHA, then call
+`markcut preview <run>/visioner-review.md --delivery event --event-template
+<template.json> --commit-sha <SHA>`. Never invent the template or substitute
+Markcut's content hash as Relay revision. An Inbox ACK is merely PENDING; let
+Relay own the waiting/resume transition. Do not report Task completed while
+human input is outstanding.
+
+On resume, read the actual accepted decision, Scene/time comments and current
+Task context. On `changes_requested`, correct only source-linked
+understanding/uncertainty through the owning Visioner flow, retain original
+source IDs/hashes/timecodes, rerun validation and re-preview if requested.
+Never mutate an owner's original media or silently mark unverified AI text
+as a verified human observation. On approved current revision, finish the
+normal Visioner handoff. No source review requested → no Review MD required.
+
 ## Stage contract gate
 
 Before emitting task.completed, run `node <vlog-root>/scripts/validate-stage.mjs visioner <run>`. Repair missing or invalid evidence with the existing Markcut output and revalidate. Do not perform media or metadata SHA-256 checks. The Visioner is the only Stage allowed to generate source understanding; downstream Agents consume its artifacts.

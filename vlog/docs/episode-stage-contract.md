@@ -42,6 +42,27 @@ frames/audio** to judge story, orientation, cut boundaries and clarity.
 Markcut syntax verification alone is not an artistic review. Producer
 separately renders and probes the final MP4's video and audio streams.
 
+## Optional Visioner / Director previews
+
+The Stage acceptance columns above remain unchanged. Only explicitly
+requested interactive modes create extra Review-only documents. Visioner
+can generate `visioner-review.md` from its evidence and original approved
+media, one source per Scene. Director can author `director-hooks.json` with
+2–3 distinct stories and its recommended direction, then use the
+project-local converter to produce `director-hooks.md`, with Guide and
+recommendation shown in each Scene. These are private, generated Preview
+views, not replacement contracts or extra DAG roles. Without opt-in, Director
+produces only one story and neither extra MD is necessary.
+
+The Review MD must pass `markcut verify`. `neo project review checkpoint`
+validates the owning Stage and commits allowlisted text/MD within the Run's
+**local-only Git**; this full SHA is the Event Review identity. Source and
+media preview bytes remain ignored by Git, with the original source manifests
+providing source provenance. Use the immutable current Relay Task template for
+Event Preview; no fabricated identity. Review request ACK ≠ approval. Relay
+suspends/resumes the current Stage; Stage-owned Agent consumes accepted
+Scene/time comments, updates its original outputs and re-verifies.
+
 ## Preview, publishing and private tests
 
 Producer interactive human `markcut preview` is optional and only sent when requested.

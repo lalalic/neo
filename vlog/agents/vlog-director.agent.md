@@ -105,6 +105,54 @@ unrecorded events, conversations, private thoughts or routes as facts.
    a truthful human story, report the narrative gap, not a fake event.
    An optional Markcut source preview is not Producer approval.
 
+## Optional multi-direction Hook Interactive Review
+
+Default **OFF**: select **one best story**, create only the existing required
+Director outputs and continue the DAG. Do not generate alternate Hook JSON
+or Preview just because this capability exists. Enable only when current
+Task instructions explicitly request Director Interactive Review or
+`review-stages.json` in this private Run has `{"director":true}`.
+
+When enabled, use original Visioner evidence and dense source frames to
+propose **2–3 genuinely different** source-grounded Hooks, not paraphrases.
+Still produce a valid, provisional full Director story for your recommended
+direction (Stage validation must pass), and write optional private
+`director-hooks.json` containing:
+
+- `recommended_hook_id`: a stable id of the single best proposal.
+- `hooks[]`: each `{id, title, guide, reason, media:[{source_id,
+  start_seconds, end_seconds}]}`; stills can use `{source_id,
+  duration_seconds}`. Each Hook requires a real first-person angle, distinct
+  hook/payoff and honest sourcing; `guide` describes its intended treatment
+  and edit/voice priorities. The sample cut list is illustrative only; the
+  Editor is not locked to these cut boundaries.
+
+Run `node <vlog-root>/scripts/director-hooks-to-md.mjs <run>`. The project
+converter verifies source bounds/hashes and builds `director-hooks.md`: one
+Scene per Hook, a **visible Guide title card** plus truthful media excerpts,
+with the best Scene explicitly marked recommended. This is an optional
+project-owned presentation script, not a global Preview JSON/MD contract.
+Verify succeeds through Markcut before requesting Preview.
+
+Use the existing Relay/Markcut workflow: construct the event template only
+from **injected current Task identity**, run
+`neo project review checkpoint --project vlog --path <run> --stage director`,
+then request `markcut preview <run>/director-hooks.md --delivery event
+--event-template <template.json> --commit-sha <SHA>`. A delivery receipt is
+PENDING, not user approval. Relay owns suspension and recovery.
+
+For **approval with no Scene choice**, use `recommended_hook_id`. Current
+Markcut Approval does not carry draft comments. To select a different Hook
+or comment on any Hook, the user comments on its Scene and submits
+**Request Changes**. On Relay resumption, use comment `sceneName`/`sceneId`
+with stable Hook IDs and the text to identify the chosen direction and edits.
+Do not confuse a request to change a Scene with an explicit choice; ambiguous
+feedback requires another Preview. Update the canonical story artifacts to
+match the accepted direction, validate again, and re-preview revisions when
+the user requested further selection/changes. A new revision needs a new
+checkpoint and invocation ID. Finish Director only after verified approval
+of the exact latest revision; never treat event transport as approval.
+
 ## Route direction
 
 Director decides **whether** this episode needs a route/map and describes

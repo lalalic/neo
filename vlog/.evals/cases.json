@@ -675,5 +675,59 @@
     "expectedDecision": "use_real_original_speech_with_picture_no_uncertain_subtitle_and_context",
     "required": [],
     "forbidden": []
+  },
+  {
+    "id": "visioner-explicit-scene-review",
+    "role": "vlog-visioner",
+    "capability": "optional per-source Markcut Review without changing original evidence contract",
+    "references": [
+      "agents/vlog-visioner.agent.md",
+      "docs/stage-interactive-review.md"
+    ],
+    "choices": [
+      "validate_source_evidence_generate_per_media_review_md_checkpoint_then_request_event",
+      "require_review_for_every_run",
+      "invent_source_dialogue_and_rewrite_manifest"
+    ],
+    "task": "A Vlog owner explicitly enabled Visioner Interactive Review. The Visioner already produced valid source-manifest-linked vision-evidence.json for six approved source media, including a long clip whose understanding proxy sampled frames. What is the next stage-appropriate step before Director starts? Preserve the source/evidence contract; present every media as a Markcut Scene with a visible Guide, use time-faithful private excerpts, validate and bind a private Stage Git SHA to an Event Preview, then wait for Relay decision.",
+    "expectedDecision": "validate_source_evidence_generate_per_media_review_md_checkpoint_then_request_event",
+    "required": [],
+    "forbidden": []
+  },
+  {
+    "id": "director-opt-in-hook-scene-choice",
+    "role": "vlog-director",
+    "capability": "optional contrasting Hooks with recommended Guide and scene-referenced feedback",
+    "references": [
+      "agents/vlog-director.agent.md",
+      "docs/stage-interactive-review.md"
+    ],
+    "choices": [
+      "create_valid_recommended_story_plus_2to3_hook_json_convert_to_md_with_guide_request_event_and_apply_scene_feedback",
+      "always_create_three_hook_previews_even_without_request",
+      "replace_director_contract_with_markcut_md_only"
+    ],
+    "task": "User opted in to Director Interactive Review on a source-backed Vlog with person speaking, hand-to-mouth movement and a quiet trail. They want to choose among different genuine directions and add a comment. What should the Director do? Keep its standard outputs, create 2–3 different source-linked Hooks in optional JSON, mark best, use the Vlog-owned JSON→MD script to render Scene Guides, get Relay SHA and request existing Event Preview, then apply accepted comments after Relay recovery.",
+    "expectedDecision": "create_valid_recommended_story_plus_2to3_hook_json_convert_to_md_with_guide_request_event_and_apply_scene_feedback",
+    "required": [],
+    "forbidden": []
+  },
+  {
+    "id": "director-default-one-hook",
+    "role": "vlog-director",
+    "capability": "default autonomous story mode avoids unnecessary review alternatives",
+    "references": [
+      "agents/vlog-director.agent.md",
+      "docs/stage-interactive-review.md"
+    ],
+    "choices": [
+      "pick_one_best_source_grounded_story_and_continue_dag",
+      "generate_three_hook_proposals_and_wait_for_relay",
+      "request_user_review_before_finding_story"
+    ],
+    "task": "A normal Vlog Run has correct source evidence and no interactive review requested in current Task or private Run. What does Director output and when does it continue to Editor?",
+    "expectedDecision": "pick_one_best_source_grounded_story_and_continue_dag",
+    "required": [],
+    "forbidden": []
   }
 ]

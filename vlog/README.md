@@ -40,6 +40,12 @@ Producer re-verifies/renders without editorial changes.
 There is no independent Final QA or mandatory final review. Optional owner
 Preview is not publication authorization.
 
+Visioner and Director support optional, project-owned Markcut Review views;
+regular JSON contracts stay unchanged and the DAG has no extra Review Agent.
+Without explicit opt-in, Director produces one story. For source-by-source
+Visioner review and recommended multi-Hook Director selection, see
+[Stage Interactive Review](docs/stage-interactive-review.md).
+
 The chosen [Markcut template](templates/cinematic-vlog.md) is authoritative for
 root BGM, aspect ratio, subtitles and transitions. Do not turn the episode
 into a scenery-only montage, fake filmed locations or silently replace music.
