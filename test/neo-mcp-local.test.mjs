@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import {
   localMcpEndpoint, readArgumentsFile, callLocalComputer, runComputerUseCli,
+  listLocalMcpTools, callLocalMcpTool, runLocalMcpCli,
 } from '../.bin/neo-mcp-local.mjs';
 
 const dir = mkdtempSync(join(tmpdir(), 'neo-mcp-local-'));
@@ -108,13 +109,53 @@ test('tool-level isError remains visible to nonzero-exit CLI wrapper', async () 
   assert.equal(result.content[0].text, 'operation denied');
 });
 
-test('CLI no longer exposes generic MCP tools/list or tools/call', () => {
-  const cli = resolve('.bin/neo.mjs');
-  const help = execFileSync(process.execPath, [cli,'--help'], {encoding:'utf8'});
-  assert.match(help, /neo computer-use help/);
-  assert.doesNotMatch(help, /neo mcp tools/);
-  assert.doesNotMatch(help, /neo mcp call TOOL/);
-  for (const args of [['mcp','tools'],['mcp','call','setup'],['computer-use','call','shell']]) {
-    assert.throws(() => execFileSync(process.execPath,[cli,...args], {encoding:'utf8', stdio:['ignore','pipe','pipe']}), {status:1});
-  }
+test('Neo CLI exposes only registered preview tool and does not unlock privileged MCP tools', async()=>{
+ const calls=[];
+ const fetcher=async(_url,init)=>{
+  const body=JSON.parse(init.body);calls.push({body,init});
+  if(body.method==='tools/list')return Response.json({jsonrpc:'2.0',id:1,result:{tools:[
+   {name:'markcut.preview',description:'Video preview',inputSchema:{type:'object'}},
+   {name:'computer',description:'macOS actions'},
+   {name:'shell',description:'system shell'},
+   {name:'setup',description:'Neo admin'},
+  ]}});
+  if(body.method==='tools/call')return Response.json({jsonrpc:'2.0',id:1,result:{isError:false,
+   structuredContent:{operationId:'f'.repeat(32),status:'pending'}}});
+  throw Error('unexpected method');
+ };
+ const options={fetcher,endpoint};
+ const inventory=await listLocalMcpTools(options);
+ assert.deepEqual(inventory.tools.map(x=>x.name),['markcut.preview']);
+ assert.deepEqual((await runLocalMcpCli(['tools'],options)).tools.map(x=>x.name),['markcut.preview']);
+ const params={path:'/private/runs/2026-11-09/visioner-review.md',relay:{jobId:'583',taskId:'content-run',executionId:'run-execution-id'}};
+ const result=await runLocalMcpCli(['call','markcut.preview','--args-file',file('preview.json',JSON.stringify(params))],options);
+ assert.equal(result.isError,false);
+ assert.equal(calls.at(-1).body.method,'tools/call');
+ assert.deepEqual(calls.at(-1).body.params,{name:'markcut.preview',arguments:params});
+ assert.equal(calls.at(-1).init.redirect,'error');
+ assert.equal(calls.at(-1).init.headers.authorization,undefined);
+ for(const name of ['computer','setup','shell','cluster','mcp.markcut','markcut.preview.submit','__proto__'])
+  await assert.rejects(callLocalMcpTool(name,params,options),/not exposed/);
+ assert.equal(calls.filter(x=>x.body.method==='tools/call').length,1);
+});
+
+test('Neo preview refuses invalid arguments and unregistered providers',async()=>{
+ const options={endpoint,fetcher:async()=>Response.json({jsonrpc:'2.0',id:1,result:{tools:[]}})};
+ await assert.rejects(callLocalMcpTool('markcut.preview',{path:'relative.md'},options),/absolute/);
+ await assert.rejects(callLocalMcpTool('markcut.preview',{path:'/private/video.md',relay:{jobId:'583',taskId:'content-run'}},options),/executionId/);
+ await assert.rejects(callLocalMcpTool('markcut.preview',{path:'/private/video.md'},options),/not currently registered/);
+ await assert.rejects(runLocalMcpCli(['call','markcut.preview'],options),/args-file/);
+ await assert.rejects(runLocalMcpCli(['call','setup','--args-file',file('setup.json','{}')],options),/not exposed/);
+ await assert.rejects(runLocalMcpCli(['call','markcut.preview','--wrong','/tmp/f.json'],options),/args-file/);
+ await assert.rejects(callLocalMcpTool('markcut.preview',{path:'/tmp/file.md'},{endpoint:'https://example.com/mcp',fetcher:options.fetcher}),/local Neo.app listener/);
+});
+
+test('Neo CLI help shows approved local MCP preview access without unrestricted tool calls',()=>{
+ const cli=resolve('.bin/neo.mjs');
+ const help=execFileSync(process.execPath,[cli,'--help'],{encoding:'utf8'});
+ assert.match(help,/neo mcp tools/);
+ assert.match(help,/neo mcp call markcut.preview/);
+ assert.match(help,/neo computer-use help/);
+ for(const args of [['mcp','call','setup','--args-file',file('deny.json','{}')],['computer-use','call','shell']])
+  assert.throws(()=>execFileSync(process.execPath,[cli,...args],{encoding:'utf8',stdio:['ignore','pipe','pipe']}),{status:1});
 });

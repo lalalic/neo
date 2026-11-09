@@ -6,8 +6,11 @@ const DEFAULT_DEPLOYMENT_FILE = join(homedir(), 'Library/Application Support/Neo
 const DEFAULT_PORT = 6767;
 const CALL_TIMEOUT_MS = 120_000;
 
-// This is the sole Neo.app tool exposed through Neo CLI. Shell and WebHelm
-// are local skills/CLIs, not arbitrary Neo.app MCP tools.
+// Only explicitly approved local Neo.app MCP tools are CLI-callable.
+// Generic tools/list discovery must not grant access to setup/shell/cluster etc.
+// The computer facade remains under its own subcommand whitelist.
+const CLI_MCP_TOOLS = new Set(['markcut.preview']);
+
 const COMPUTER_COMMANDS = new Set([
   'list_apps', 'get_app_state', 'click', 'drag', 'key', 'scroll',
   'type', 'select_text', 'set_value', 'perform_secondary_action',
@@ -72,7 +75,65 @@ function computerHelpOnly(result) {
   };
 }
 
-/** The only Neo.app call permitted by this module is its Computer Use facade. */
+/** Only allow the running Neo.app listener on loopback, never a discovered remote URI. */
+async function localRpc(method, params, {
+  fetcher=fetch, endpoint=localMcpEndpoint(), timeoutMs=CALL_TIMEOUT_MS,
+}={}){
+  if(!/^http:\/\/127\.0\.0\.1:\d+\/mcp$/.test(endpoint))
+    throw new Error('Neo CLI MCP requires a local Neo.app listener');
+  let response;
+  try{
+    response=await fetcher(endpoint,{
+      method:'POST',redirect:'error',
+      headers:{'content-type':'application/json',accept:'application/json'},
+      body:JSON.stringify({jsonrpc:'2.0',id:1,method,params}),
+      signal:AbortSignal.timeout(timeoutMs),
+    });
+  }catch(error){throw new Error(`Cannot reach local Neo.app MCP: ${error.message}`)}
+  if(!response.ok)throw new Error(`Neo.app MCP returned HTTP ${response.status}`);
+  let payload;
+  try{payload=await response.json()}catch{throw new Error('Neo.app MCP returned invalid JSON')}
+  if(payload?.error)throw new Error(`Neo.app MCP error ${payload.error.code}: ${payload.error.message}`);
+  if(payload?.id!==1 || !payload.result || typeof payload.result!=='object')
+    throw new Error('Neo.app MCP returned an invalid JSON-RPC result');
+  return payload.result;
+}
+
+/** Live list; CLI exposure remains an explicit subset, not a permission bypass. */
+export async function listLocalMcpTools(options={}){
+ const result=await localRpc('tools/list',{},options);
+ if(!Array.isArray(result.tools))throw Error('Neo.app MCP tools/list response lacks tools');
+ return {tools:result.tools.filter(t=>CLI_MCP_TOOLS.has(t?.name))};
+}
+
+/** Invoke a permitted registered tool through Neo's own federated MCP endpoint. */
+export async function callLocalMcpTool(name,args={},options={}){
+ if(!CLI_MCP_TOOLS.has(name))throw Error(`Neo MCP CLI tool is not exposed: ${String(name)}`);
+ if(!args || typeof args!=='object' || Array.isArray(args))throw Error('Neo MCP arguments must be a JSON object');
+ if(name==='markcut.preview'){
+  if(typeof args.path!=='string'||!args.path.startsWith('/')||!args.path.endsWith('.md'))
+   throw Error('markcut.preview requires an absolute .md path');
+  if(args.relay!==undefined && (!args.relay||typeof args.relay!=='object'||
+    !String(args.relay.jobId||'')||!String(args.relay.taskId||'')||
+    typeof args.relay.executionId!=='string'||!args.relay.executionId))
+   throw Error('Managed markcut.preview requires relay.jobId, relay.taskId, and relay.executionId');
+ }
+ const inventory=await listLocalMcpTools(options);
+ if(!inventory.tools.some(t=>t.name===name))throw Error(`Neo.app MCP tool not currently registered: ${name}`);
+ return localRpc('tools/call',{name,arguments:args},options);
+}
+
+export async function runLocalMcpCli(argv,options={}){
+ const [action,name,...args]=argv;
+ if(action==='tools'&&name===undefined)return listLocalMcpTools(options);
+ if(action!=='call'||!name||name.startsWith('-'))
+  throw Error('Usage: neo mcp tools | neo mcp call markcut.preview --args-file PATH');
+ if(args.length!==2||args[0]!=='--args-file')
+  throw Error('neo mcp call requires --args-file PATH');
+ return callLocalMcpTool(name,readArgumentsFile(args[1]),options);
+}
+
+/** Computer Use retains its fine-grained subcommand whitelist. */
 export async function callLocalComputer(command, args = {}, {
   fetcher = fetch, endpoint = localMcpEndpoint(), timeoutMs = CALL_TIMEOUT_MS,
 } = {}) {

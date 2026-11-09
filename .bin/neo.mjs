@@ -14,7 +14,7 @@ import { runLearningSession } from './neo-escalation-learn.mjs';
 import { beginChallenge, finishChallenge, checkpointChallenge, listChallenges } from './neo-escalation-challenges.mjs';
 import { runEscalationSelfTest } from './neo-escalation-self-test.mjs';
 import {withGlobalEscalationLock, escalationLockConfig} from './neo-escalation-lock.mjs';
-import { runComputerUseCli } from './neo-mcp-local.mjs';
+import { runComputerUseCli, runLocalMcpCli } from './neo-mcp-local.mjs';
 import { loadWorkspaceConfig } from './workspace-config.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -47,6 +47,8 @@ function usage() {
   neo eval list --project NAME
   neo eval audit
   neo service list|status NAME|start|stop|restart NAME --apply
+  neo mcp tools                                List permitted local Neo.app MCP tools
+  neo mcp call markcut.preview --args-file PATH  Call Neo.app preview (managed relay optional)
   neo mcp token issue (--stdout | --output ABSOLUTE_PATH) [--origin HTTPS_URL] [--client-name NAME]
   neo mcp token revoke --file ABSOLUTE_PATH [--origin HTTPS_URL]
   neo computer-use help | call COMMAND [--args-file PATH]
@@ -142,7 +144,12 @@ async function main(argv) {
     return 0;
   }
   if (command === 'mcp') {
-    if (args[0] !== 'token') throw new Error('usage: neo mcp token issue|revoke');
+    if (args[0] === 'tools' || args[0] === 'call') {
+      const result = await runLocalMcpCli(args);
+      process.stdout.write(JSON.stringify(result, null, 2) + '\n');
+      return result.isError ? 2 : 0;
+    }
+    if (args[0] !== 'token') throw new Error('usage: neo mcp tools|call|token');
     if (args.includes('--help') || args.includes('-h')) {
       process.stdout.write(usage());
       return 0;
