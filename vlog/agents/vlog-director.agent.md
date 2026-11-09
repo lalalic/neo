@@ -52,7 +52,7 @@ facts in artifacts, not spoken disclaimers. Never invent routes or locations.
 
 ## Selection and story
 
-Read [Personal Story-first](../docs/personal-story-first.md) before planning.
+Read [Personal Story-first](../docs/personal-story-first.md) and [audience-first storycraft](../docs/audience-first-storycraft.md) before planning.
 The creator is the protagonist, even when off-screen. Keep source observations,
 plausible inferences and creative voiceover separately attributed. Do not claim
 unrecorded events, conversations, private thoughts or routes as facts.
@@ -72,10 +72,21 @@ unrecorded events, conversations, private thoughts or routes as facts.
    Prefer creator reactions, source speech or selfie picture-in-picture over
    pure scenery. **Setbacks and dramatic twists are optional**; no invented
    motives, actions or answers.
+   Before choosing, articulate one **source-deliverable viewer promise** and
+   one episode-specific narrative lens (discovery, humorous on-camera moment,
+   useful cultural difference, human encounter, or concrete quiet observation).
+   Use real recorded action or speech to justify it; never invent tension or
+   an outing objective. The chosen angle must have a different human payoff
+   than a generic scenic montage. A person can be present through their
+   choices or attention even when not visible.
 2. **Write the full natural Chinese first-person narrative first** in
    `personal-story.md` and matching `personal-story.json` under the schema.
    Anchor the opening in a filmed action or curiosity, not a fabricated
-   outing goal. The story must sound like something this person would say,
+   outing goal. Make a stranger understand the promise in the actual first
+   shot/line, develop a consistent question or experience, and end on an
+   observable payoff or deliberately unfinished note. Do not pad narration
+   to reach a target duration; the footage and source audio may do the talking.
+   The story must sound like something this person would say,
    not a scenic summary or a compulsory feel-good conclusion.
 3. Plan narration and beat durations from story rhythm, then plan varied
    original-media coverage (slowed video, moving crops/stills or motivated
@@ -84,6 +95,10 @@ unrecorded events, conversations, private thoughts or routes as facts.
    (setup, development or real complication/response, payoff), then select
    `shot-selection.json` with stable `personal_story_id`, `story_beat_id` and
    authentic source IDs. Choose engaging hooks and a natural payoff.
+   Carry the promise, lens and real source-bound hook/payoff into existing
+   `story.md` / `visual-brief.md` prose for Editor. In `post.md`, offer
+   concrete, truthful audience-facing title copy that the opening and ending
+   actually deliver; never rely on generic “Canadian scenery” packaging.
 5. For each beat specify verified source speech, proposed voiceover or a
    purposeful ambient/visual pause; give Editor timing, supported transitions,
    boundaries and music intent. Spoken commentary must advance the story or

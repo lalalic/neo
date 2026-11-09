@@ -15,7 +15,8 @@ outputs:
 
 Own the exact timeline and **complete executable Markcut `video.md`**, not merely
 an EDL. Read [episode stage contract](../docs/episode-stage-contract.md)
-and [story/route/sound](../docs/story-first-route-sound.md). Preserve
+and [story/route/sound](../docs/story-first-route-sound.md), plus
+[audience-first storycraft](../docs/audience-first-storycraft.md). Preserve
 Director's human story intent, source truth, story/beat IDs and template
 style, **but not a fixed shot order or cut list**. Editor is a creative
 co-author of the film: remove dull or misleading Director shots, add or replay
@@ -70,11 +71,19 @@ If no acceptable recording/device is available, edit with existing Run media.
      has volume:0, provide an explicit audio/story alternative and a
      specific non-generic editorial reason; a BGM-only talking-head story
      normally fails creative review.
+     Check the Director's viewer promise against actual frames and audio:
+     could someone new understand the first shot/line, follow the same small
+     human experience, and find its honest payoff? If not, change the cut,
+     request a source-bound Director revision when essential, or make the film
+     shorter. This is editorial judgment, not a fixed-length hook rule.
    - **Rhythm/sound cut:** trim within actions, contrast shot sizes, allow
      breathing room. Prefer straight action/match cuts and sound bridges;
      dissolve only when real elapsed time merits it. Check orientation and
      composition at start/middle/end of every retained interval. Duck BGM
-     around speech and keep source ambience when it adds presence.
+     around speech and keep source ambience when it adds presence. Preserve
+     gesture/reaction continuity across cuts (including a teaser's payoff),
+     and use establishing shots only when they clarify space. Real sound and
+     deliberate quiet can carry more character than extra narration.
    - **Watch and revise:** render a private Markcut draft using the
      installed Markcut CLI. If the Agent sandbox cannot write Remotion or
      Chrome caches, delegate the same render command to the connected Neo
@@ -82,7 +91,11 @@ If no acceptable recording/device is available, edit with existing Run media.
      package in /tmp or trying to download a browser. If no usable host
      renderer exists, report `REVIEW_RENDER_UNAVAILABLE`, do not claim
      creative PASS. Inspect real frames across the whole film and audit
-     output sound. Reject twisted/blank frames,
+     output sound. Review opening clarity, creator specificity, coherent
+     progression, source sound/picture continuity, and honest ending/title
+     using the audience-first rubric; cite weak timestamps and revise rather
+     than treating Markcut syntax verification as creative PASS.
+     Reject twisted/blank frames,
      abrupt jumps, repetitive scenic beats and inaudible voice; revise and
      re-render. No human review or approval gate is required. If genuine
      **audio listening** is unavailable in the executing Agent's tool
