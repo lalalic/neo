@@ -6,7 +6,7 @@ import {join} from 'node:path';
 import {createHash} from 'node:crypto';
 import {reviewRequested,waitForSourceReview} from '../lib/visioner-shortcut-review.mjs';
 
-const input={jobId:'583',taskId:'content-run',repository:'lalalic/neo',
+const input={jobId:583,taskId:'content-run',repository:'lalalic/neo',
  executionId:'123e4567-e89b-12d3-a456-426614174000',projectPath:'/fake/vlog'};
 const revision='c'.repeat(40);
 const setup=()=>{

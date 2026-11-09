@@ -33,6 +33,8 @@ function identity(input){
 }
 const receiptName='visioner-review-result.json';
 export async function waitForSourceReview(context,run,input){
+ // Relay Job IDs are commonly numeric; the CLI and receipt use string IDs.
+ input={...input,jobId:String(input?.jobId??'')};
  identity(input);
  const check=await call(context,[process.execPath,join(input.projectPath,'scripts/validate-stage.mjs'),'visioner',run],run);
  if(check.status!=='PASS')throw Error('Visioner evidence failed Stage validation before human Review');
