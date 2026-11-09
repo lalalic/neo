@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {guideCard,mediaNode,quote} from '../lib/review-markcut.mjs';
+import {pillars,validateHookFocus} from '../scripts/director-hooks-to-md.mjs';
 
 // Stage Review uses standard Markcut Components, not a new review schema.
 test('Director Guide displays recommendation and safe literal text in Markcut JSX',()=>{
@@ -18,4 +19,15 @@ test('Source-bound Review uses original footage proxies without a new edit contr
  assert.equal(mediaNode({type:'image',path:'assets/review/visioner/source-001.jpg',duration:3}),
    '- image src:assets/review/visioner/source-001.jpg duration:3 fit:contain');
  assert.equal(quote('Hook A\nGo'), '"Hook A Go"');
+});
+
+
+test('each Director Hook has one of the six channel directions and a viewer reason',()=>{
+ assert.equal(Object.keys(pillars).length,6);
+ const hook={id:'walk',primary_pillar:'travel_explore',viewer_reason:'对加拿大普通街头散步生活好奇的中国观众',media:[{source_id:'013',start_seconds:0,end_seconds:5}]};
+ assert.equal(validateHookFocus(hook,'travel_explore'),'加国旅探 / 生活');
+ assert.throws(()=>validateHookFocus({...hook,primary_pillar:'scenery'}),/six channel.md pillars/);
+ assert.throws(()=>validateHookFocus({...hook,viewer_reason:'好看'}),/viewer reason/);
+ assert.throws(()=>validateHookFocus(hook,'ai'),/match selected episode primary/);
+ assert.throws(()=>validateHookFocus({...hook,media:[]}),/real source/);
 });

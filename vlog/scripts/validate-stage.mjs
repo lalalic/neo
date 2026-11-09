@@ -5,7 +5,7 @@
 import {readFileSync,existsSync,statSync,realpathSync,readdirSync} from 'node:fs';
 import {createHash} from 'node:crypto';
 import {spawnSync} from 'node:child_process';
-import {resolve,dirname,relative,isAbsolute,sep} from 'node:path';
+import {resolve,dirname,relative,isAbsolute,sep,join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {record as recordStoryHistory} from './story-history.mjs';
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
@@ -72,6 +72,17 @@ function personalStory(evidence){
     Array.isArray(focus.source_ids)&&focus.source_ids.length>0&&
     focus.source_ids.every(x=>sources.has(x))&&new Set(focus.source_ids).size===focus.source_ids.length,
     'DIRECTOR_CHANNEL_FOCUS','Select at least one of the six channel.md pillars as primary; give a specific viewer reason and cite real Visioner sources. Secondary pillars are optional.');
+ }
+ if(runDate&&runDate>='2026-11-09' && existsSync(join(run,'director-hooks.json'))){
+  const hooks=json('director-hooks.json');
+  const allowed=new Set(['ai','it_work','work_permit_pr','family_education','travel_explore','midlife']);
+  const entries=Array.isArray(hooks?.hooks)?hooks.hooks:[];
+  const recommended=entries.find(h=>h.id===hooks?.recommended_hook_id);
+  check(hooks?.schema_version===2&&entries.length>=2&&entries.length<=3&&
+    entries.every(h=>allowed.has(h?.primary_pillar)&&typeof h.viewer_reason==='string'&&h.viewer_reason.trim().length>=8&&
+      Array.isArray(h.media)&&h.media.length>0&&h.media.every(m=>sources.has(m?.source_id)))&&
+    recommended?.primary_pillar===story.channel_focus?.primary,
+    'DIRECTOR_HOOK_PILLARS','Every Hook must cite its primary content pillar, specific viewer reason and real source media; recommended pillar must match the story focus');
  }
  const facts=story.provenance||{};
  check(Array.isArray(facts.observed)&&facts.observed.length>0&&Array.isArray(facts.inferred)&&Array.isArray(facts.fictionalized),

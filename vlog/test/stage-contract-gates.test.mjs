@@ -71,6 +71,31 @@ test('new Vlogs require a real-source-backed primary channel pillar, old Runs re
  }finally{f.clean();}
 });
 
+test('new Run Director Hook options must each declare a channel pillar with real source evidence',()=>{
+ const f=fixture('2026-11-09-hook-pillar-gate');
+ try{
+  const tool=join(f.vlog,'scripts/validate-stage.mjs'),env={AGENTS_RELAY_CLI:f.cli};
+  write(f.run,'vision-evidence.json',{stage:'visioner',sources:[{source_id:'a'}],summary:[{source_id:'a'}]});
+  const story=personalStoryFixture(f);
+  story.channel_focus={primary:'travel_explore',viewer_reason:'普通观众想看看加拿大的真实生活体验',source_ids:['a']};
+  write(f.run,'personal-story.json',story);
+  const hooks={schema_version:2,recommended_hook_id:'walk',hooks:[
+   {id:'walk',primary_pillar:'travel_explore',viewer_reason:'好奇加拿大散步的真实小发现',media:[{source_id:'a',start_seconds:0,end_seconds:5}]},
+   {id:'new',primary_pillar:'ai',viewer_reason:'想了解AI软件如何用来剪真实生活视频',media:[{source_id:'a',start_seconds:2,end_seconds:6}]}]};
+  const errors=()=>JSON.parse(call(tool,['director',f.run],env).stdout).errors.map(x=>x.code);
+  write(f.run,'director-hooks.json',hooks);
+  assert.ok(!errors().includes('DIRECTOR_HOOK_PILLARS'));
+  hooks.hooks[1].primary_pillar='random'; write(f.run,'director-hooks.json',hooks);
+  assert.ok(errors().includes('DIRECTOR_HOOK_PILLARS'));
+  hooks.hooks[1].primary_pillar='ai'; hooks.hooks[1].media=[{source_id:'invented'}]; write(f.run,'director-hooks.json',hooks);
+  assert.ok(errors().includes('DIRECTOR_HOOK_PILLARS'));
+  hooks.hooks[1].media=[{source_id:'a'}];hooks.hooks[0].viewer_reason='';write(f.run,'director-hooks.json',hooks);
+  assert.ok(errors().includes('DIRECTOR_HOOK_PILLARS'));
+  hooks.hooks[0].viewer_reason='普通观众想看看加拿大散步的真实生活';hooks.hooks[0].primary_pillar='midlife'; write(f.run,'director-hooks.json',hooks);
+  assert.ok(errors().includes('DIRECTOR_HOOK_PILLARS'));
+ }finally{f.clean();}
+});
+
 test('Editor validates sourceDuration versus story-paced timelineDuration instead of equating them',()=>{
  const f=fixture();try{
   const tool=join(f.vlog,'scripts/validate-stage.mjs');const env={AGENTS_RELAY_CLI:f.cli,MARKCUT_CLI:f.cli};

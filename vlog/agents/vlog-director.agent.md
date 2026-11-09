@@ -144,12 +144,21 @@ direction (Stage validation must pass), and write optional private
 `director-hooks.json` containing:
 
 - `recommended_hook_id`: a stable id of the single best proposal.
-- `hooks[]`: each `{id, title, guide, reason, media:[{source_id,
-  start_seconds, end_seconds}]}`; stills can use `{source_id,
-  duration_seconds}`. Each Hook requires a real first-person angle, distinct
-  hook/payoff and honest sourcing; `guide` describes its intended treatment
-  and edit/voice priorities. The sample cut list is illustrative only; the
-  Editor is not locked to these cut boundaries.
+- `schema_version: 2` on newly generated `director-hooks.json`.
+- `hooks[]`: each `{id, title, primary_pillar, viewer_reason, guide,
+  reason, media:[{source_id,start_seconds,end_seconds}]}`; stills can use
+  `{source_id,duration_seconds}`. `primary_pillar` MUST be exactly one of the
+  six IDs in `channel.md`: `ai`, `it_work`, `work_permit_pr`,
+  `family_education`, `travel_explore`, `midlife`. `viewer_reason` must explain
+  why a real viewer interested in that pillar would watch THIS Hook. Base the
+  choice on actual media; two genuinely different Hooks may share a pillar.
+  Do not pretend footage about a walk is about IT/AI or PR without evidence.
+  The recommended Hook's pillar MUST equal `personal-story.json.channel_focus.primary`.
+- Each Hook requires a real first-person angle, distinct hook/payoff and honest
+  sourcing; `guide` describes its intended treatment and edit/voice priorities.
+  The sample cut list is illustrative only; Editor is not locked to boundaries.
+- The Review title card must visibly show each Hook's content pillar and
+  viewer reason in addition to its proposed cut. Do not send unlabelled choices.
 
 Run `node <vlog-root>/scripts/director-hooks-to-md.mjs <run>`. The project
 converter verifies source bounds/hashes and builds `director-hooks.md`: one
