@@ -43,7 +43,7 @@ Use for neouse installation, iPhone testing, app enumeration, QA tool registrati
 
 Tool names must match `^[a-zA-Z][a-zA-Z0-9_.-]{0,127}$` and be unique within the App. `effect` is `read` or `write`. Runner checks session UUID and bundle ID against the active lease. Discovery must not run a tool.
 
-**Call:** `POST /neouse/qa/v1/call` with `{"id":"UUID","name":"qa.model.inspect","arguments":{}}`. Success HTTP 200: `{"id":"UUID","ok":true,"result":<JSON value>}`. Failure HTTP 4xx/5xx: `{"id":"UUID","ok":false,"error":{"code":"unauthorized|not_ready|unknown_tool|bad_arguments|forbidden|timeout|internal","message":"..."}}`. Same-session repeated call IDs cannot re-execute side effects; cache or reject duplicates. Write effects are not authorization to send messages, pay, delete or publish.
+**Call:** `POST /neouse/qa/v1/call` with `{"id":"UUID","name":"qa.model.inspect","arguments":{}}`. Success HTTP 200: `{"id":"UUID","ok":true,"result":<JSON value>}`. Failure HTTP 4xx/5xx: `{"id":"UUID","ok":false,"error":{"code":"unauthorized|not_ready|unknown_tool|bad_arguments|forbidden|timeout|internal","message":"..."}}`. Same-session repeated call IDs cannot re-execute side effects; cache or reject duplicates. Write effects are not authorization to send messages, pay, delete or publish. An authenticated `POST /neouse/qa/v1/close` returns HTTP 200 with `{"ok":true,"session_id":"UUID"}` and then closes the App's QA listener. The Runner MUST call it on Session.close or expiration before forgetting the temporary token. A repeated close is safe and never revives an old Session.
 
 ## Operating the Runner
 
