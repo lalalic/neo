@@ -41,10 +41,28 @@ export const TOOL_DEFS = Object.freeze([
     inputSchema: {
       type: 'object',
       properties: {
-        text: { type: 'string', minLength: 1, maxLength: 2000 },
+        text: { type: 'string', maxLength: 2000 },
+        attachments: { type: 'array', maxItems: 4, items: { type: 'object', properties: {
+          id: { type: 'string' }, name: { type: 'string' },
+        }, required: ['id', 'name'], additionalProperties: false } },
         requestId: { type: 'string', pattern: '^[A-Za-z0-9_-]{8,128}$' },
       },
       required: ['text', 'requestId'], additionalProperties: false,
+    },
+  },
+  {
+    name: 'chat_upload',
+    description: 'Upload a protected chunk of a real attachment for a phone Chat turn. Duplicate chunks are idempotent.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        requestId: { type: 'string' }, attachmentId: { type: 'string' },
+        name: { type: 'string' }, chunkIndex: { type: 'integer' },
+        chunkCount: { type: 'integer' }, contentBase64: { type: 'string' },
+        sha256: { type: 'string' }, size: { type: 'integer' },
+      },
+      required: ['requestId', 'attachmentId', 'name', 'chunkIndex', 'chunkCount',
+        'contentBase64', 'sha256', 'size'], additionalProperties: false,
     },
   },
   {

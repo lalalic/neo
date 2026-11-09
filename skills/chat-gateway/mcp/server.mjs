@@ -1,6 +1,6 @@
 import http from 'node:http';
 
-const MAX_BODY_BYTES = 64 * 1024;
+const MAX_BODY_BYTES = 256 * 1024;
 const PROTOCOL_VERSION = '2025-03-26';
 const HOST_PATTERN = /^(127\.0\.0\.1|localhost)(:\d+)?$/;
 const ORIGIN_PATTERN = /^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/;

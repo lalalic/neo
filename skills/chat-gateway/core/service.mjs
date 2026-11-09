@@ -11,6 +11,7 @@ import { createDelivery } from './delivery.mjs';
 import { createReporter } from './report.mjs';
 import { createFeed } from './feed.mjs';
 import { createChat } from './chat.mjs';
+import { createAttachmentStore } from './attachments.mjs';
 import { createChatGPTSubmitter } from './chatgpt-client.mjs';
 import { createOrchestratorBootstrap } from './orchestrator.mjs';
 import { createEnvStore } from './env.mjs';
@@ -52,9 +53,10 @@ export async function createGateway({
   const delivery = createDelivery({ ledger, notifier, now, log, settleMs: config.settleMs });
   const reporter = createReporter({ ledger, now });
   const feed = createFeed({ ledger });
+  const attachmentStore = createAttachmentStore({ root: config.stateDir });
   const chat = createChat({
-    ledger, files, dir: config.stateDir, now,
-    submit: chatSubmit ?? createChatGPTSubmitter({ endpoint: config.neoMcpEndpoint }),
+    ledger, files, dir: config.stateDir, now, attachmentStore,
+    submit: chatSubmit ?? createChatGPTSubmitter(),
   });
   const orchestrator = createOrchestratorBootstrap({
     chat, log, now, ...(createProject ? { createProject } : {}),
@@ -90,6 +92,7 @@ export async function createGateway({
           a.id.localeCompare(b.id));
         return { jobs: jobs.slice(0, limit), total: jobs.length };
       }
+      if (name === 'chat_upload') return attachmentStore.upload(args);
       if (name === 'chat_feed') return feed.list(args);
       if (name === 'chat_head') {
         if (Object.keys(args).length) throw new Error('chat_head accepts no arguments');

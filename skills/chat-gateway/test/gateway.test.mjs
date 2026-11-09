@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { createGateway } from '../core/service.mjs';
 import { fixture, fakeNotifier, job, timestamp } from './helpers.mjs';
 import { resolveConfig } from '../core/config.mjs';
+import { createHash } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
 
 async function rpc(port, method, params = {}) {
   const response = await fetch(`http://127.0.0.1:${port}/mcp`, {
@@ -39,7 +41,7 @@ test('in-process E2E: startup baseline, event, reconnection, dedupe, reports and
   const initialized = await rpc(port, 'initialize', { protocolVersion: '2025-03-26', capabilities: {}, clientInfo: { name: 'test', version: '1.0' } });
   assert.equal(initialized.result.serverInfo.name, 'chat-gateway');
   const list = await rpc(port, 'tools/list');
-  assert.deepEqual(list.result.tools.map((tool) => tool.name), ['chat_report', 'chat_bind', 'chat_head', 'chat_send', 'chat_jobs', 'chat_feed', 'chat_env']);
+  assert.deepEqual(list.result.tools.map((tool) => tool.name), ['chat_report', 'chat_bind', 'chat_head', 'chat_send', 'chat_upload', 'chat_jobs', 'chat_feed', 'chat_env']);
   const env = await rpc(port, 'tools/call', { name: 'chat_env', arguments: {} });
   assert.equal(env.result.structuredContent.mode, 'home');
   assert.equal(env.result.structuredContent.phone.channel, 'unknown');
@@ -101,6 +103,27 @@ test('in-process E2E: startup baseline, event, reconnection, dedupe, reports and
   const ownerFeed = await rpc(port, 'tools/call', { name: 'chat_feed', arguments: {} });
   assert.ok(ownerFeed.result.structuredContent.items.some((item) =>
     item.kind === 'owner' && item.status === 'submitted' && item.text === 'Hello from iPhone'));
+  // Binary attachment travels through MCP chunks, protected storage and
+  // chat_send to the direct WebHelm CLI file path without OCR/conversion.
+  const original = Buffer.from([0, 255, 137, 80, 78, 71, 0, 12, 252]);
+  const sha256 = createHash('sha256').update(original).digest('hex');
+  const upload = await rpc(port, 'tools/call', { name:'chat_upload', arguments: {
+    requestId:'phone-binary-12345678',attachmentId:'asset-binary-12345678',
+    name:'capture.png',chunkIndex:0,chunkCount:1,
+    contentBase64:original.toString('base64'),sha256,size:original.length,
+  }});
+  assert.equal(upload.result.structuredContent.complete,true);
+  const uploadedSend = await rpc(port, 'tools/call', { name:'chat_send', arguments: {
+    text:'Look at this file',requestId:'phone-binary-12345678',
+    attachments:[{id:'asset-binary-12345678',name:'capture.png'}],
+  }});
+  assert.equal(uploadedSend.result.structuredContent.status,'submitted');
+  assert.equal(chatSubmissions.length,2);
+  assert.equal(chatSubmissions[1].requestId,'phone-binary-12345678');
+  assert.deepEqual(await readFile(chatSubmissions[1].file[0]),original);
+  const afterUploadFeed = await rpc(port,'tools/call',{name:'chat_feed',arguments:{}});
+  assert.ok(afterUploadFeed.result.structuredContent.items.some(item =>
+    item.kind === 'owner' && item.text.includes('capture.png')));
   const invalid = await rpc(port, 'tools/call', { name: 'chat_report', arguments: { text: '' } });
   assert.equal(invalid.result.isError, true);
 
