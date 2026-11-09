@@ -10,7 +10,7 @@ export async function scope(context){
  const input=context?.input;
  if(!input||typeof input!=='object'||Array.isArray(input)||typeof context.runCommand!=='function')
    throw Error('shortcut requires structured input and host command runner');
- const project=await realpath(resolve(input.projectPath||new URL('../',import.meta.url).pathname));
+ const project=await realpath(resolve(input.projectPath||new URL('../../',import.meta.url).pathname));
  if(basename(project)!=='vlog')throw Error('vlog project root required');
  const text=typeof input.taskInput==='string'?input.taskInput:'';
  const path=input.runPath??text.match(/^- Canonical run:\s*(\/[^\r\n]+)$/m)?.[1];

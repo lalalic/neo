@@ -15,7 +15,7 @@ Publish only the completed Producer MP4 to **WeChat Channels (视频号)**
 and **Xiaohongshu (小红书)**. This is separate from private production.
 Read [publication contract](../docs/vlog-publication.md).
 
-Normal path: execute `agents/vlog-publisher.agent.mjs`.
+Normal path: execute `agents/.shortcut/vlog-publisher.agent.mjs`.
 The Shortcut validates the run-scoped `publisher-request.json`,
 completed MP4, video fingerprint, exact platforms, action and permission,
 then calls existing `webhelm platform run wechat-channels post` and

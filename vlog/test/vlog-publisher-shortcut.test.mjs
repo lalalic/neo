@@ -4,8 +4,8 @@ import { createHash } from 'node:crypto';
 import { mkdtemp, mkdir, readFile, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { run as publish } from '../agents/vlog-publisher.agent.mjs';
-import { run as produce,assertMarkcutAutoSeedOnly } from '../agents/vlog-producer.agent.mjs';
+import { run as publish } from '../agents/.shortcut/vlog-publisher.agent.mjs';
+import { run as produce,assertMarkcutAutoSeedOnly } from '../agents/.shortcut/vlog-producer.agent.mjs';
 
 const hash=s=>createHash('sha256').update(s).digest('hex');
 async function fixture(t){

@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { promisify } from 'node:util';
-import { run } from '../agents/vlog-visioner.agent.mjs';
+import { run } from '../agents/.shortcut/vlog-visioner.agent.mjs';
 
 const hash = value => createHash('sha256').update(value).digest('hex');
 const execFileAsync = promisify(execFile);

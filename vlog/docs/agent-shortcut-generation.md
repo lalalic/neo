@@ -2,8 +2,8 @@
 
 Shortcuts are optional executable counterparts to Agent contracts. Project-specific
 roles (such as `vlog-visioner`) own shortcuts under
-`<project>/agents/<agent>.agent.mjs`. Reserve Neo shared
-`agents/` for behaviors genuinely independent of project sources,
+`<project>/agents/.shortcut/<agent>.agent.mjs`. Reserve shared
+`agents/.shortcut/` for behaviors genuinely independent of project sources,
 artifact schemas and run paths. Reuse Markcut Vision and its existing CLI,
 not a copied inference pipeline. Keep the matching `.agent.md`, project
 contracts and eval cases as the source of truth. Do not bypass a Worker when
@@ -37,7 +37,7 @@ or templates, and must pass the normal tests/evals before use.
 
 ## Vlog Visioner
 
-`vlog/agents/vlog-visioner.agent.mjs` is the first concrete example. It requires
+`vlog/agents/.shortcut/vlog-visioner.agent.mjs` is the first concrete example. It requires
 a dated private run, an owner-approved source manifest and a host-provided
 owned-process command runner. Existing `input/media/metadata.json` is reused.
 Missing metadata requires explicit inference authorization and a configured

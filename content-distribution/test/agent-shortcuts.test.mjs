@@ -6,9 +6,9 @@ import { cpSync, existsSync, mkdtempSync, mkdirSync, readFileSync, realpathSync,
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { run as acquire } from '../agents/distribution-acquirer.agent.mjs';
-import { run as transcribe } from '../agents/distribution-transcriber.agent.mjs';
-import { run as resolveSpeaker } from '../agents/distribution-speaker-resolver.agent.mjs';
+import { run as acquire } from '../agents/.shortcut/distribution-acquirer.agent.mjs';
+import { run as transcribe } from '../agents/.shortcut/distribution-transcriber.agent.mjs';
+import { run as resolveSpeaker } from '../agents/.shortcut/distribution-speaker-resolver.agent.mjs';
 
 const projectSource=dirname(dirname(fileURLToPath(import.meta.url)));
 const sha=b=>createHash('sha256').update(b).digest('hex');

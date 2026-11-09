@@ -4,7 +4,7 @@ import {createHash} from 'node:crypto';
 import {mkdtempSync,mkdirSync,writeFileSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {buildVisionEvidence} from '../agents/vlog-visioner.agent.mjs';
+import {buildVisionEvidence} from '../agents/.shortcut/vlog-visioner.agent.mjs';
 const hash=s=>createHash('sha256').update(s).digest('hex');
 function fixture(t) {
   const dir=mkdtempSync(join(tmpdir(),'vlog-markcut-evidence-'));

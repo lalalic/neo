@@ -12,7 +12,7 @@ The [creative strategy library](templates/creative-strategies.md) guides the Str
 
 ## Cached-artifact shortcuts
 
-Deterministic project-local `agents/<agent>.agent.mjs` modules expose Relay's `run({ input, runCommand })` interface. They call the **existing** validators and VTT bridge rather than duplicating their logic:
+Deterministic project-local `agents/.shortcut/<agent>.agent.mjs` modules expose Relay's `run({ input, runCommand })` interface. They call the **existing** validators and VTT bridge rather than duplicating their logic:
 
 | Agent | Shortcut completes only when | Still requires Worker for |
 | --- | --- | --- |
