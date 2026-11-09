@@ -10,13 +10,13 @@ const run=(...args)=>execFileSync(process.execPath,[cli,'eval',...args],{cwd:roo
 test('Neo CLI lists Vlog project eval cases from the canonical .evals path',()=>{
  const result=JSON.parse(run('list','--project','vlog'));
  assert.equal(result.project,'vlog');
- const template=result.cases.find(c=>c.id==='template-verify');
- assert.equal(template.type,'node-tests');
- assert.equal(template.role,'vlog-producer');
+ const artifactEval=result.cases.find(c=>c.id==='editor-creative-markdown-quality');
+ assert.equal(artifactEval.type,'node-tests');
+ assert.equal(artifactEval.role,'vlog-editor');
  assert.ok(result.cases.length>=11);
 });
-test('Neo CLI dry-run never executes Codex or template tests',()=>{
- const output=run('run','--project','vlog','--case','template-verify','--dry-run');
+test('Neo CLI dry-run never executes Codex or artifact quality tests',()=>{
+ const output=run('run','--project','vlog','--case','editor-creative-markdown-quality','--dry-run');
  const summary=JSON.parse(output);
  assert.equal(summary.mode,'dry-run');
  assert.equal(summary.executed,0);
@@ -94,5 +94,29 @@ test('DAG eval rejects incompatible flags rather than silently evaluating a part
   const result=spawnSync(process.execPath,[cli,'eval','run','--project','vlog',...args,'--dry-run'],{cwd:root,encoding:'utf8',timeout:20000});
   assert.notEqual(result.status,0);
   assert.match(result.stderr,/--dag cannot be combined with --case|--smoke requires --dag/);
+ }
+});
+
+
+test('Neo Eval accepts explicit Codex zai profile with GLM Flash high and records immutable routing intent',()=>{
+ const summary=JSON.parse(run('run','--project','vlog','--case','producer-original-bgm-substitution',
+  '--model','glm-5.3-flash','--profile','zai','--reasoning','high','--dry-run'));
+ const report=JSON.parse(readFileSync(summary.report,'utf8'));
+ assert.equal(report.model,'glm-5.3-flash');
+ assert.equal(report.profile,'zai');
+ assert.equal(report.reasoning,'high');
+ assert.equal(report.results[0].status,'DRY_RUN');
+});
+
+test('Neo Eval rejects malformed Codex profile and reasoning instead of using default OpenAI',()=>{
+ for(const args of [
+  ['--profile','zai'],
+  ['--profile','../unsafe','--model','glm-5.3-flash'],
+  ['--reasoning','bad','--model','glm-5.3-flash']
+ ]){
+  const result=spawnSync(process.execPath,[cli,'eval','run','--project','vlog','--case','producer-original-bgm-substitution',...args],
+   {cwd:root,encoding:'utf8',timeout:20000});
+  assert.notEqual(result.status,0);
+  assert.match(result.stderr,/requires --model|Invalid Codex profile|Invalid Codex reasoning effort/);
  }
 });

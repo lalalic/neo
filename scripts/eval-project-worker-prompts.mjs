@@ -8,13 +8,13 @@ import {randomUUID} from 'node:crypto';
 
 const root=resolve(import.meta.dirname,'..');
 const flags=process.argv.slice(2);
-const usage=`Usage: neo eval run --project NAME [--case ID | --dag [--smoke]] [--model MODEL] [--dry-run]\n       neo eval list --project NAME [--dag]\n       neo eval audit\n\nCases live at <project>/.evals/cases.json; each run saves evidence under <project>/.evals/reports/.\n`;
+const usage=`Usage: neo eval run --project NAME [--case ID | --dag [--smoke]] [--model MODEL] [--profile CODEX_PROFILE] [--reasoning high] [--dry-run]\n       neo eval list --project NAME [--dag]\n       neo eval audit\n\nCases live at <project>/.evals/cases.json; each run saves evidence under <project>/.evals/reports/.\n`;
 function options(argv){
  const out={};
  for(let i=0;i<argv.length;i++){
   const flag=argv[i];
   if(flag==='--dry-run'||flag==='--list'||flag==='--help'||flag==='--dag'||flag==='--smoke'){out[flag.slice(2)]=true;continue;}
-  if(!['--project','--model','--case','--adapter'].includes(flag))throw Error('Unknown eval option: '+flag);
+  if(!['--project','--model','--profile','--reasoning','--case','--adapter'].includes(flag))throw Error('Unknown eval option: '+flag);
   if(out[flag.slice(2)]!==undefined)throw Error('Repeated eval option: '+flag);
   const value=argv[++i];if(!value||value.startsWith('--'))throw Error(flag+' requires a value');
   out[flag.slice(2)]=value;
@@ -23,6 +23,9 @@ function options(argv){
 }
 const opts=options(flags);
 const dryRun=Boolean(opts['dry-run']);
+if(opts.reasoning&&!['low','medium','high','xhigh'].includes(opts.reasoning))throw Error('Invalid Codex reasoning effort');
+if(opts.profile&&!/^[a-zA-Z0-9_-]+$/.test(opts.profile))throw Error('Invalid Codex profile');
+if(opts.profile&&!opts.model)throw Error('Explicit Codex profile requires --model');
 if(opts.help){console.log(usage);process.exit(0);}
 const project=opts.project||(resolve(process.cwd())!==root?basename(process.cwd()):null);
 if(!project||!/^[a-z0-9-]+$/.test(project))throw Error('Specify --project NAME (or run inside a Neo Project)');
@@ -135,8 +138,10 @@ ${c.references?.length?'Relevant project contract references (read only if neede
  writeFileSync(join(reportDir,c.id+'.prompt.txt'),prompt);
  writeFileSync(join(reportDir,c.id+'.production.prompt.txt'),built.productionPrompt);
  if(dryRun){results.push({id:c.id,role:c.role,type,status:'DRY_RUN',promptCharacters:prompt.length,builder:built.builder,productionPromptCharacters:built.productionPrompt.length});continue;}
- const args=['-C',projectRoot,'exec','--sandbox','read-only','--skip-git-repo-check'];
+ const args=['exec','--sandbox','read-only','--skip-git-repo-check','-C',projectRoot];
+ if(opts.profile)args.push('-p',opts.profile);
  if(opts.model)args.push('--model',opts.model);
+ if(opts.reasoning)args.push('-c',`model_reasoning_effort=${opts.reasoning}`);
  args.push('--output-last-message',join(reportDir,c.id+'.response.txt'),'-');
  const run=spawnSync('codex',args,{input:prompt,cwd:projectRoot,encoding:'utf8',timeout:180000,maxBuffer:4*1024*1024});
  const path=join(reportDir,c.id+'.response.txt');
@@ -152,7 +157,7 @@ ${c.references?.length?'Relevant project contract references (read only if neede
  results.push({id:c.id,role:c.role,type,builder:built.builder,status:pass?'PASS':'FAIL',expected:c.expectedDecision,actual:parsed?.decision||null,exitCode:run.status,required,forbidden,error:run.error?.message||null,output:output.slice(0,1600)});
  console.log(`${pass?'PASS':'FAIL'} ${c.role}/${c.id} ${parsed?.decision||'INVALID_OUTPUT'}`);
 }
-const report={project,dagRoles,dagCoverage:dagRoles?{total:dagRoles.length,selectedRoles:[...new Set(selected.map(c=>c.role))]}:null,adapter,promptSource:'agents-relay/managedWorkerInput',model:opts.model||'codex default',mode:dryRun?'dry-run':'mixed',count:results.length,executed:dryRun?0:results.length,passed:results.filter(x=>x.status==='PASS').length,failed:failures,results};
+const report={project,dagRoles,dagCoverage:dagRoles?{total:dagRoles.length,selectedRoles:[...new Set(selected.map(c=>c.role))]}:null,adapter,promptSource:'agents-relay/managedWorkerInput',model:opts.model||'codex default',profile:opts.profile||null,reasoning:opts.reasoning||null,mode:dryRun?'dry-run':'mixed',count:results.length,executed:dryRun?0:results.length,passed:results.filter(x=>x.status==='PASS').length,failed:failures,results};
 writeFileSync(join(reportDir,'report.json'),JSON.stringify(report,null,2));
 console.log(JSON.stringify({project,dagRoles,mode:report.mode,executed:report.executed,passed:report.passed,failed:failures,report:join(reportDir,'report.json')},null,2));
 if(failures)process.exitCode=1;
