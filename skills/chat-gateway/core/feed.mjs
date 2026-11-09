@@ -18,7 +18,9 @@ export function createFeed({ ledger }) {
           id: r.key, kind: 'report', text: r.text,
           level: r.level, needs: r.needs ?? 'none', jobId: r.jobId ?? null, at,
         };
-        return { id: r.key, kind: 'owner', text: r.text, status: r.status, at };
+        return { id: r.key, kind: 'owner',
+          text: r.text + (r.attachments ?? []).map(a => '\n📎 ' + a.name).join(''),
+          status: r.status, at };
       }).sort((a, b) => (a.at ?? '').localeCompare(b.at ?? '') || a.id.localeCompare(b.id));
       return { items: items.slice(-limit), total: items.length };
     },

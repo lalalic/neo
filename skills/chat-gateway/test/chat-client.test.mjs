@@ -6,29 +6,35 @@ import { openLedger } from '../core/ledger.mjs';
 import { files } from '../core/files.mjs';
 import { fixture } from './helpers.mjs';
 
-test('ChatGPT transport accepts only explicit queued submission receipts', async () => {
-  let args;
+test('chat transport directly executes CLI new-turn and uses a stable idempotency key', async () => {
+  const { PassThrough } = await import('node:stream');
+  const { readFileSync } = await import('node:fs');
+  let command, args, payload;
   const submit = createChatGPTSubmitter({
-    endpoint: 'http://127.0.0.1:6767/mcp',
-    fetcher: async (_url, options) => {
-      args = JSON.parse(options.body).params.arguments;
-      return { ok: true, headers: new Headers({ 'content-type': 'application/json' }),
-        json: async () => ({ result: {
-          structuredContent: { result: { status: 'submitted', mode: 'new-turn' } },
-        } }) };
+    spawnProcess: (cmd, argv) => {
+      command = cmd;
+      args = argv;
+      payload = JSON.parse(readFileSync(argv.at(-1), 'utf8'));
+      const stdout = new PassThrough(), stderr = new PassThrough();
+      const proc = { stdout, stderr, once(name, cb) { if (name === 'close') this.done = cb; },
+        kill() {} };
+      queueMicrotask(() => {
+        stdout.write(JSON.stringify({ result: {ok: true,status:'submitted',mode:'new-turn',
+          queue_id:'queue-123',thread_id:payload.thread_id} }) + '\n');
+        proc.done?.(0, null);
+      });
+      return proc;
     },
   });
-  await submit({ threadId: 'orchestrator-12345', text: 'Hello' });
-  assert.equal(args.command, 'turn');
-  assert.equal(args.args.thread_id, 'orchestrator-12345');
-  assert.equal(args.args.mode, 'async');
-  assert.equal(args.args.mergeable, false);
-  assert.throws(() => createChatGPTSubmitter({ endpoint: 'https://example.org/mcp' }));
-  const rejected = createChatGPTSubmitter({ endpoint: 'http://127.0.0.1:6767/mcp',
-    fetcher: async () => ({ ok: true, headers: new Headers({ 'content-type': 'application/json' }),
-      json: async () => ({ result: { structuredContent: { status: 'completed' } } }) }),
-  });
-  await assert.rejects(rejected({ threadId: 'valid-123456', text: 'a' }), /durable queue/);
+  const result = await submit({ threadId:'orchestrator-12345', projectId:'g-p-project-12345678',
+    text:'Hello', requestId:'phone-12345678', file:['/tmp/photo.png'] });
+  assert.equal(command,'webhelm');
+  assert.deepEqual(args.slice(0,4), ['platform','run','chatgpt','new-turn']);
+  assert.equal(payload.idempotency_key,'phone-12345678');
+  assert.equal(payload.mode,'async');
+  assert.equal(payload.thread_id,'orchestrator-12345');
+  assert.deepEqual(payload.file,['/tmp/photo.png']);
+  assert.equal(result.queueId,'queue-123');
 });
 
 test('chat binding persists privately, validates input, and failed submits never claim success', async (t) => {
