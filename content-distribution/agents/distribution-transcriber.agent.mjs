@@ -28,7 +28,7 @@ export async function run(context) {
   const transcriptSha=createHash('sha256').update(await readFile(transcript.path)).digest('hex');
   if(route==='fixture') {
     const policy=await jsonRun(run,'fixture-policy.json');
-    const {scribeToVtt}=await import('../../scripts/speaker-vtt.mjs');
+    const {scribeToVtt}=await import('../scripts/speaker-vtt.mjs');
     if(source.source_kind!=='owned_test_fixture' || policy.data.mode!=='synthetic-local-e2e' ||
       policy.data.publicationAllowed!==false) throw Error('fixture_route_requires_owned_private_source');
     scribeToVtt(transcript.data,{allowUnknownSpeaker:true});
@@ -43,7 +43,7 @@ export async function run(context) {
       manifest.data.method!=='synthetic_authored_timed_script')
       throw Error('cached_fixture_provenance_mismatch');
   } else if(route==='local-asr') {
-    const {normalizeLocalAsr}=await import('../../scripts/speaker-vtt.mjs');
+    const {normalizeLocalAsr}=await import('../scripts/speaker-vtt.mjs');
     const localTranscript=normalizeLocalAsr(transcript.data);
     const checks={
       schema:manifest.data.schema==='content-distribution.local-asr-source.v1',
@@ -97,7 +97,7 @@ export async function run(context) {
   // Recompute the canonical expected VTT/boundaries using the existing
   // bridge's public pure functions, rather than trusting stale cached outputs.
   const {scribeToVtt,localAsrToVtt,speechBoundaryEvidence,localAsrSpeechBoundaries,parseVtt}=
-    await import('../../scripts/speaker-vtt.mjs');
+    await import('../scripts/speaker-vtt.mjs');
   const expectedVtt=route==='fixture' ? scribeToVtt(transcript.data,{allowUnknownSpeaker:true}) : route==='local-asr' ? localAsrToVtt(transcript.data) : scribeToVtt(transcript.data);
   const expectedBounds=route==='local-asr' ? localAsrSpeechBoundaries(transcript.data) : speechBoundaryEvidence(transcript.data);
   if(sourceVtt.text!==expectedVtt||JSON.stringify(boundaries.data)!==JSON.stringify(expectedBounds)||

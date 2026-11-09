@@ -3,10 +3,10 @@ import { existsSync, realpathSync, statSync } from 'node:fs';
 import { mkdir, readFile, realpath, stat, writeFile } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import {reviewRequested,waitForSourceReview} from '../../lib/visioner-shortcut-review.mjs';
+import {reviewRequested,waitForSourceReview} from '../lib/visioner-shortcut-review.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const neoRoot = resolve(here, '../../..');
+const neoRoot = resolve(here, '../..');
 const sha256 = value => createHash('sha256').update(value).digest('hex');
 
 function asArgs(value) {

@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 // Only secure path resolution and invocation plumbing live here.
 // Domain validation belongs to the existing project CLI and schema contracts.
 const here=dirname(fileURLToPath(import.meta.url));
-const defaultProject=resolve(here,'../..');
+const defaultProject=resolve(here,'..');
 
 export function inside(root,target) {
   const rel=relative(root,target);

@@ -42,10 +42,10 @@ test('projects own distinct Visioner identities and domain-specific handoffs', (
   assert.doesNotMatch(base, /source-manifest\.json|hey-neo-vision-context|index-markcut-vision\.mjs/);
   assert.doesNotMatch(distribution, /source-manifest\.json|index-markcut-vision\.mjs/);
   assert.doesNotMatch(vlog, /speaker-name\.vtt|RS Boost Content Hub/);
-  assert.ok(existsSync(join(root, '../vlog/agents/.shortcut/vlog-visioner.agent.mjs')));
+  assert.ok(existsSync(join(root, '../vlog/agents/vlog-visioner.agent.mjs')));
   for (const prohibited of [
-    '../agents/.shortcut/visioner.agent.mjs',
-    'agents/.shortcut/visioner.agent.mjs',
+    '../agents/visioner.agent.mjs',
+    'agents/visioner.agent.mjs',
     'docs/vision-context.md',
   ]) assert.equal(existsSync(join(root, prohibited)), false, prohibited);
 });

@@ -22,7 +22,7 @@ EDL, rewrite scenes, replace BGM or generate new speech.
 
 ## Shortcut-first
 
-Use `agents/.shortcut/vlog-producer.agent.mjs` for the normal path:
+Use `agents/vlog-producer.agent.mjs` for the normal path:
 1. Re-run `markcut verify <run>/video.md` on Editor's exact revision.
    It checks Markcut validity; it is **not a perceptual loudness judgment**.
    Do not use an arbitrary BGM mean-dBFS threshold as an extra render gate.

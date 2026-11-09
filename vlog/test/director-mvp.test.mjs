@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {join} from 'node:path';
-import {buildVisionEvidence} from '../agents/.shortcut/vlog-visioner.agent.mjs';
+import {buildVisionEvidence} from '../agents/vlog-visioner.agent.mjs';
 import {resolve} from 'node:path';
 import {collectDirectorMvpCues,preflight} from '../scripts/director-mvp-preflight.mjs';
 import {validateHookFocus,pillars} from '../scripts/director-hooks-to-md.mjs';
