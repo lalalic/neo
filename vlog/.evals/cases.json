@@ -788,5 +788,14 @@
     "testFiles": [
       "test/director-mvp.test.mjs"
     ]
+  },
+  {
+    "id": "editor-mvp-eight-capabilities",
+    "type": "node-tests",
+    "role": "vlog-editor",
+    "capability": "Editor eight MVP capabilities: full-source story cut, Hey Neo source intent, shotcraft effects, JSX graphics, sound, permanent brand/Tour, real geo, render-watch-eval",
+    "testFiles": [
+      "test/editor-mvp.test.mjs"
+    ]
   }
 ]

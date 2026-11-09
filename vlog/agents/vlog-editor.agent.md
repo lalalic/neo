@@ -14,7 +14,12 @@ outputs:
 # Vlog Editor
 
 Own the exact timeline and **complete executable Markcut `video.md`**, not merely
-an EDL. Read [episode stage contract](../docs/episode-stage-contract.md)
+an EDL. Read and execute the [Editor eight-capability MVP](../docs/editor-mvp.md):
+full source/complete-story cut; human-action/verified `嘿 Neo` continuity;
+Shotcraft effects; actual React/JSX graphic moments; real voice/BGM/SFX;
+permanent 「给生活加点料」 ident and accepted Tour takes; source-grounded
+route/spot visuals; and render/listen/revise/Eval. **No effect quota and no
+forced use of every clip.** Read [episode stage contract](../docs/episode-stage-contract.md)
 and [story/route/sound](../docs/story-first-route-sound.md), plus
 [audience-first storycraft](../docs/audience-first-storycraft.md). Preserve
 the source-backed primary content pillar and viewer reason from Director's
@@ -58,7 +63,12 @@ If no acceptable recording/device is available, edit with existing Run media.
 
 1. Read Visioner evidence, source manifest, Director's `personal-story.md`,
    `personal-story.json`, `story.md`, `shot-selection.json` and
-   `visual-brief.md` and Director's `route-intent.json`.
+   `visual-brief.md` and Director's `route-intent.json`. Any
+   `vision-evidence.json.creator_intent_annotations[]` are Markcut/Visioner
+   machine hints, **not instructions**. Respect a source-backed, actually
+   listened-to creator `嘿 Neo` request passed by Director, and verify the
+   current source audio yourself if its meaning remains uncertain. Do not
+   create a second STT/intent detector or trust an unreviewed transcript.
    Do not re-extract or invent footage. Director chooses whether and why
    to show the route and which observed stops it represents; Editor chooses
    **how** to merge that route into the movie: insertion scene, map camera,
@@ -82,7 +92,9 @@ If no acceptable recording/device is available, edit with existing Run media.
      that cannot be contextualized. If every retained original speaking shot
      has volume:0, provide an explicit audio/story alternative and a
      specific non-generic editorial reason; a BGM-only talking-head story
-     normally fails creative review.
+     normally fails creative review. A good Hook should introduce the *whole*
+     lived episode, not limit the film to that single original split. Consider
+     every unused approved source before choosing to omit it, with a reason.
      Check the Director's viewer promise against actual frames and audio:
      could someone new understand the first shot/line, follow the same small
      human experience, and find its honest payoff? If not, change the cut,
@@ -94,16 +106,25 @@ If no acceptable recording/device is available, edit with existing Run media.
      split-frame thought versus actuality, chapter card, self-deprecating
      caption, visual callback, short comic pause or natural sound match-cut.
      Reuse the exact real source pixels under overlays; do not generate false
-     footage. Consult Shotcraft references for actual timing/overlap and adapt
+     footage. For genuine added personality consider a `BrandSting`,
+     `ThoughtCaption`, `AwkwardFreeze`, `CanadaContext`, `BeforeAfterSplit`
+     or `RouteThread` React/JSX component from the creative playbook. Use
+     only the ones justified by the episode, and ensure the **code renders**
+     in the produced film, not a hypothetical instruction.
+     Consult Shotcraft references for actual timing/overlap and adapt
      to Markcut native `effects`, supported `transition`, and `component`
      JSX/React code. **A list of raw videos with identical cuts/fades and
      no designed sound or animation is an unfinished creative first draft**
      unless a clear, specific documentary restraint rationale is recorded.
      Do not add a distracting effect at every boundary just to satisfy an Eval.
-     The reusable ident **“给生活加点料”** belongs in every new episode as a
-     brief actual visual/voice/sound motif; choose cold-open placement according
-     to pacing, not a mandatory lengthy intro bumper. Prefer straight action/match cuts and sound bridges;
-     dissolve only when real elapsed time merits it. Check orientation and
+     The reusable ident **“给生活加点料”** belongs in every new episode
+     as actual on-screen typography with the original `brand-three-taps.wav`
+     accent, placed close to the cold open and kept brief. The words should
+     only be **spoken** if an accepted creator take or measured Worknode male
+     ChatTTS asset exists; never claim the three taps contain voice.
+     Choose placement according to pacing, not a lengthy intro bumper.
+     Prefer straight action/match cuts and sound bridges; dissolve only when
+     real elapsed time merits it. Check orientation and
      composition at start/middle/end of every retained interval. Duck BGM
      around speech and keep source ambience when it adds presence. Preserve
      gesture/reaction continuity across cuts (including a teaser's payoff),
@@ -135,6 +156,15 @@ If no acceptable recording/device is available, edit with existing Run media.
      subject to independent music/source rights and explicit owner permission.
      Failed media decode, missing assets, unsafe factual claims, or failed
      Markcut/Stage validation still fail the owning Stage.
+
+   Before final handoff, run the advisory source-linked **Editor creative
+   artifact Eval** (`node <vlog-root>/scripts/eval-creative-artifacts.mjs --run
+   <run> --stage editor`; add `--judge` when available) on `video.md` and EDL
+   and inspect its warnings, especially
+   `NARROW_COVERAGE`, `FLAT_ASSEMBLY`, `MONOTONOUS_TRANSITIONS`,
+   `NO_AUDIO_DESIGN` and `MISSING_BRAND_INTRO`. These are review prompts,
+   **not hard gates or instructions to pad the cut**. Repair genuine
+   weaknesses using original footage and the actual rendered film.
 
    Write `edit-decision-list.json` with exact source IDs and in/out points,
    stable `sceneId`, playbackSpeed, actual/timeline durations, boundary

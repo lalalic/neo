@@ -85,6 +85,11 @@ and Visioner evidence must exist before writing the story.
   authoritative; Markcut MD is only a generated private Review view. Relay
   manages event-bound decision and resume; no new DAG nodes and no changes
   to Markcut/Relay. Read [review workflow](docs/stage-interactive-review.md).
+- **Editor MVP**: follow [Editor eight-capability MVP](docs/editor-mvp.md)
+  for complete source/story cut, creator-intent continuity, Shotcraft effects,
+  executable Markcut React/JSX, real speech/Worknode ChatTTS/BGM, reusable
+  intro, trustworthy maps, and independent render/watch/revise. Creative Evals
+  inform changes; do not substitute scores for actually viewing the film.
 - **Editor** owns the EDL, actual audio/media assets, `episode-input.json`,
   `music-plan.json`, and complete verified `video.md`. Editor
   decides **how** to merge the Director route into an executable map scene,
