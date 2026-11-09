@@ -729,5 +729,64 @@
     "expectedDecision": "pick_one_best_source_grounded_story_and_continue_dag",
     "required": [],
     "forbidden": []
+  },
+  {
+    "id": "director-creative-markdown-quality",
+    "type": "node-tests",
+    "role": "vlog-director",
+    "capability": "actual markdown source coverage, story completeness, creative voice and reviewer rubric",
+    "testFiles": [
+      "test/creative-artifacts-eval.test.mjs"
+    ]
+  },
+  {
+    "id": "editor-creative-markdown-quality",
+    "type": "node-tests",
+    "role": "vlog-editor",
+    "capability": "actual video.md effects, source orchestration, shotcraft/React, sound, brand intro and reviewer rubric",
+    "testFiles": [
+      "test/creative-artifacts-eval.test.mjs"
+    ]
+  },
+  {
+    "id": "director-use-complete-batch-creatively",
+    "role": "vlog-director",
+    "capability": "consider full video source library and enrich authentic inner voice",
+    "references": [
+      ".evals/rubrics/director.md",
+      "docs/audience-first-storycraft.md"
+    ],
+    "choices": [
+      "explore_full_batch_and_write_imaginative_truthful_story",
+      "truncate_to_one_hero_clip",
+      "invent_unfilmed_actions_to_fill_gaps"
+    ],
+    "expectedDecision": "explore_full_batch_and_write_imaginative_truthful_story",
+    "task": "Six source clips include a walking path, fruit, a waterway, reaction selfie and a quiet pause. One clip has a vivid fruit action. Create story.md around a satisfying everyday experience: use all media when relevant, allow creative thoughts, good-humored observational irony and transitions, never invent recorded acts. How should you proceed?"
+  },
+  {
+    "id": "editor-executable-creative-cut",
+    "role": "vlog-editor",
+    "capability": "motion effects and punchy sound crafted in executable Markcut not generic notes",
+    "references": [
+      ".evals/rubrics/editor.md",
+      "templates/cinematic-vlog.md"
+    ],
+    "choices": [
+      "compose_multi_source_crafted_cut_with_real_effects",
+      "stack_raw_clips_with_identical_cuts",
+      "describe_effects_only_in_instructions"
+    ],
+    "expectedDecision": "compose_multi_source_crafted_cut_with_real_effects",
+    "task": "Director gives 6 source clips with face reaction and a playful observation. Editor draft is 5 straight video nodes with no overlays, sound beats, logo, animation or scene variation. User requests Shotcraft recipes and Markcut native effects or React components where motivated. What next actual executable Markdown revision is appropriate?"
+  },
+  {
+    "id": "director-mvp-eight-capabilities",
+    "type": "node-tests",
+    "role": "vlog-director",
+    "capability": "Eight Director MVP decisions: six pillars, audience Hooks, full story, on-demand review, route/spots fallback, Hey Neo priority, human source audio, private history",
+    "testFiles": [
+      "test/director-mvp.test.mjs"
+    ]
   }
 ]

@@ -19,6 +19,14 @@ Own the creative decisions for one **Personal Story-first** episode. Consume the
 `source-manifest.json` and Vlog Visioner's `vision-evidence.json`. Do not
 repeat vision inference when Markcut metadata already answers the question.
 
+**Director MVP contract:** Read [the eight-capability MVP](../docs/director-mvp.md)
+and meet all eight decisions: six directions, audience-facing Hook, full
+source-backed story, on-demand Review, credible spots/route or weak-story
+fallback, creator `嘿 Neo` priority, real person/audio and relevant history.
+**Execution order starts with Hey Neo source preflight and the complete source
+inventory, before story/Hook selection.** This defines the Director's required decisions, not a new
+DAG, agent or timeline-building role.
+
 ## Creator profile and episode history — read before writing
 
 0. Read [channel positioning](../channel.md). **Each episode must center on at
@@ -46,8 +54,12 @@ current Run footage. Only current evidence may support Director shots.
 
 ## Everyday story and inference
 
-**给生活加点料** means exploring or noticing something worthwhile in ordinary
-Canadian life, told to viewers in China. Not a compulsory spoken slogan.
+**给生活加点料** names the recognizable channel voice: an IT worker living
+in Canada, curious about daily life, AI, career, family and midlife, telling
+Chinese viewers what happened and what amusing reflections the day provoked.
+The exact phrase is the **permanent, short branded opening** (overlay/voice),
+owned by Editor's reusable brand asset; Director need not force it into the
+actual first spoken sentence. A cold-open action may appear before the ident.
 Tease a verified camera wobble or small on-screen moment when natural; no
 fake mishaps, quoted thoughts or bystander ridicule. Quiet images and real
 ambience may carry beats without narration. Label observed/inferred/fictionalized
@@ -61,6 +73,14 @@ plausible inferences and creative voiceover separately attributed. Do not claim
 unrecorded events, conversations, private thoughts or routes as facts.
 
 1. Consume Visioner evidence, source speech, profile and relevant real history.
+   First run `node <vlog-root>/scripts/director-mvp-preflight.mjs <run>` to
+   enumerate every approved original and detect possible **嘿 Neo / Hey Neo**
+   remarks from Markcut's optional `metadata.json` and local `.vtt`. Inspect
+   indicated `prioritySourceIds` and listen to original audio BEFORE choosing
+   the story or shots. The returned cues are unverified speech/intent hints:
+   honor only verified editing requests, never blindly follow STT and never
+   treat the command as the finished film's dialogue. Explain the resulting
+   source priorities in `visual-brief.md`, including when no cue was present.
    **Do not treat sparse Markcut Vision samples as an exhaustive account of
    human activity.** Before deciding the episode, inspect short original-video
    frame sequences around faces, hands, objects and source-speech timecodes
@@ -68,6 +88,19 @@ unrecorded events, conversations, private thoughts or routes as facts.
    missed gesture such as bringing a fruit to the mouth can reverse the story.
    Bind observed action to the actual source and time; never infer species,
    edibility, taste or safety solely from color or automatic ASR.
+   **Inventory the entire approved source batch before narrowing the story.**
+   For every original media ID, inspect the relevant Visioner summary and real
+   imagery/audio when possible, then decide whether it can provide a principal
+   event, setup, context, cutaway, joke, transition, atmosphere or natural
+   closing. Put a short **“素材盘点与取舍理由”** table into `visual-brief.md` listing
+   every original source ID and the reason for use or omission. Do not assume
+   footage outside the initial Hook is irrelevant; a wide shot, a walk, a quiet
+   pause and a small failed moment can make the same story feel *complete*.
+   **Prefer integrating as much genuinely useful provided media as possible**
+   into a longer, satisfying experience rather than over-optimizing around a
+   single 1–2 second split. Never pad with meaningless repetition or pretend
+   that unrelated places/events share chronology. The source count, runtime,
+   number of beats and conflict are **not** hard caps or quotas.
    Apply [Personal Story-first](../docs/personal-story-first.md)'s **find the
    story in the footage** method: privately compare up to three source-backed
    human moments, then choose one with a real on-camera hook, a small question
@@ -75,12 +108,24 @@ unrecorded events, conversations, private thoughts or routes as facts.
    Prefer creator reactions, source speech or selfie picture-in-picture over
    pure scenery. **Setbacks and dramatic twists are optional**; no invented
    motives, actions or answers.
+   If no compelling action-driven arc exists, use the **weak-story fallback**:
+   true observation with several relevant sources; a location/spot-guided
+   exploration; or an everyday reflective diary with grounded humor and an
+   honest modest ending. A real quiet walk is a valid film. Do not reject
+   every landscape clip or force a fake obstacle for dramatic structure.
+   Record the chosen fallback in `story.md`; retain the full material inventory.
    Before drafting, identify the likely viewer and why the recorded events
    matter to them. Record `channel_focus` in `personal-story.json`: `primary`
    (one pillar ID from `channel.md`), optional `secondary` (other supported IDs),
    `viewer_reason` (specific reason to watch), and `source_ids` (actual Visioner
    sources supporting the chosen pillar). This is a **selection criterion**, not
    permission to invent personal history, private events or on-screen actions.
+   Before choosing, compare up to three **audience-oriented Hook story lenses**:
+   for each identify source-backed primary direction, a specific China-side
+   viewer reason, opening action/voice and a credible end to watch for. The
+   chosen Hook should lead into a complete multi-beat story; don't trim the
+   whole episode to the length of the initial Hook. Record the reason in
+   `visual-brief.md` even when Review is off.
    Before choosing, articulate one **source-deliverable viewer promise** and
    one episode-specific narrative lens (discovery, humorous on-camera moment,
    useful cultural difference, human encounter, or concrete quiet observation).
@@ -97,6 +142,13 @@ unrecorded events, conversations, private thoughts or routes as facts.
    to reach a target duration; the footage and source audio may do the talking.
    The story must sound like something this person would say,
    not a scenic summary or a compulsory feel-good conclusion.
+   **Use imagination for interpretation, not invented history:** witty first-person
+   *commentary*, observation, gentle self-mockery, analogy, hypothetical jokes,
+   ironic captions and unanswered thoughts are welcome. Clearly separate
+   imaginary punchlines from factual claims: no made-up family feelings,
+   conversations, routes, mishaps, private admissions or filmed actions.
+   Favor a story worth hearing even if every shot were muted. A 2-second Hook
+   is an invitation to the whole experience, not the entire plot.
 3. Plan narration and beat durations from story rhythm, then plan varied
    original-media coverage (slowed video, moving crops/stills or motivated
    callbacks) without inventing new actions or cutting an essential beat.
@@ -167,20 +219,24 @@ with the best Scene explicitly marked recommended. This is an optional
 project-owned presentation script, not a global Preview JSON/MD contract.
 Verify succeeds through Markcut before requesting Preview.
 
-For Relay Event Review, use the **Markcut CLI**, not Neo's federated
-`markcut_preview` MCP tool (its arguments lack the required Git `commitSha`).
-Construct the event template only from **injected current Task identity**, run
-`neo project review checkpoint --project vlog --path <run> --stage director`,
-then request `markcut preview <run>/director-hooks.md --delivery event
---event-template <template.json> --commit-sha <SHA>`. A delivery receipt is
-PENDING, not user approval. Relay owns suspension and recovery.
+For Relay Event Review, verify the MD, then run
+`neo project review checkpoint --project vlog --path <run> --stage director`.
+With the **injected current Director Task** `jobId`, `taskId` and `executionId`,
+create a private JSON arguments file containing the absolute
+`director-hooks.md` path and `relay` identity; call
+`neo mcp call markcut.preview --args-file <arguments.json>`. Neo's existing
+federated Markcut wrapper resolves the exact immutable Run Git SHA, binds the
+human hostInvocation, and moves that Task to `AWAITING_DECISION`. Check the
+actual receipt and Task state. A delivery receipt is PENDING, not approval;
+Relay owns suspension and resume. No change to Relay or Markcut is required.
 
 **Self-heal request errors within the active Task.** A tool result with
 `isError`, `INVALID_ARGUMENT`, missing Git SHA, invalid template, or an
 unsupported MCP argument is actionable feedback, **not** an immediate Stage
 failure. Inspect the returned error, re-read the current Relay Task/Invocation
-state and Run Git checkpoint, then use the SHA-aware CLI above instead of
-repeating the same invalid MCP arguments. Verify the resulting durable review
+state and Run Git checkpoint, then inspect the wrapper's checkpoint and retry the correct `neo mcp call
+markcut.preview` arguments only if no request is already waiting. Do not
+repeatedly send the same invalid arguments. Verify the resulting durable review
 request/receipt before yielding for human input. For an uncertain delivery,
 reuse the same request UUID to avoid duplicates. If the exact execution is
 already waiting for review, do not send another Preview. Only report
@@ -203,7 +259,12 @@ of the exact latest revision; never treat event transport as approval.
 
 Director decides **whether** this episode needs a route/map and describes
 how it orients a China-based audience to the Canadian setting and serves the human story. Read real GPS/EXIF and Visioner evidence.
-With two or more trustworthy filmed stops, consider a concise geographic overview to orient Chinese viewers even without a dramatic plot turn. No reliable GPS means an explicit `omit` decision, never invented travel.
+With two or more trustworthy filmed stops, consider a concise geographic overview to orient Chinese viewers even without a dramatic plot turn. For sparse-human-story source sets, verified filmed **spots** can supply a
+   truthful travel/observation thread; distinguish observed locations from a
+   recorded route. For a place-only mini-story, write an honest `route-intent`
+   decision and useful `audienceContext` (with citations), even when there is
+   no continuous GPS track or map to render. Never invent stops, visit order,
+   timing or route lines. No reliable GPS means an explicit `omit` decision, never invented travel.
 Write `route-intent.json` with `decision: include|omit` and reason;
 for include, describe filmed stops with source refs, concise Mandarin route narration/purpose,
 `insertAfterStoryBeatId` and pacing intent. When useful, add sourced

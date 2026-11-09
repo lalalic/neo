@@ -8,7 +8,12 @@ Tasks and dependencies, not this project.
 
 The shared public content positioning and six episode directions live in
 [channel.md](channel.md). From 2026-11-09 onward, every new Director story
-selects at least one source-backed direction. Historical Runs remain unchanged.
+selects at least one source-backed direction. Historical Runs remain unchanged. Read [creative editing recipes](docs/creative-editing-recipes.md)
+for meaningfully using a full source batch, reusable branded intros, Shotcraft,
+and actually executable Markcut effects. Run advisory **Director/Editor Markdown
+creative Evals** with `node scripts/eval-creative-artifacts.mjs --run runs/<episode>
+--stage both`; optional `--judge` performs independent artistic scoring.
+Never substitute this report for rendering/viewing/listening or for Stage gates.
 
 ## Local service lifecycle
 
@@ -58,6 +63,11 @@ and Visioner evidence must exist before writing the story.
   passed to Vision Understanding; original footage and GPS stay authoritative
   for shot selection, timecodes and final render. Long clips are sampled
   for understanding, never reused as timeline footage.
+- **Director MVP**: follow [eight-capability MVP](docs/director-mvp.md) with
+  all six content directions, audience Hook + complete story, Review on request,
+  filmed spots and weak-story fallback, verified `嘿 Neo` intent priority,
+  human behavior/audio and private indexed history. The preflight is read-only:
+  `node scripts/director-mvp-preflight.mjs runs/<episode>`; no new DAG node.
 - **Director** writes a complete first-person lived-experience story about **给生活加点料**
   (curiosity/intent, exploration or action, discovery/result; setback optional), source-linked shot plan and `route-intent.json`. Director chooses
   **if/why** to show the route, which filmed stops it represents, and
