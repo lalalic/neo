@@ -74,10 +74,12 @@ unrecorded events, conversations, private thoughts or routes as facts.
 
 1. Consume Visioner evidence, source speech, profile and relevant real history.
    First run `node <vlog-root>/scripts/director-mvp-preflight.mjs <run>` to
-   enumerate every approved original and detect possible **嘿 Neo / Hey Neo**
-   remarks from Markcut's optional `metadata.json` and local `.vtt`. Inspect
-   indicated `prioritySourceIds` and listen to original audio BEFORE choosing
-   the story or shots. The returned cues are unverified speech/intent hints:
+   enumerate the approved original sources and consume Visioner's canonical
+   `vision-evidence.json.creator_intent_annotations` already projected from
+   Markcut semantic segmentation. Do **not** re-run STT, VTT parsing or a
+   second Hey Neo classifier in Director. Inspect indicated `prioritySourceIds`
+   and listen to original audio BEFORE choosing the story or shots. The
+   returned cues are unverified speech/intent hints:
    honor only verified editing requests, never blindly follow STT and never
    treat the command as the finished film's dialogue. Explain the resulting
    source priorities in `visual-brief.md`, including when no cue was present.

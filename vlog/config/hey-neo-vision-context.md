@@ -10,3 +10,10 @@ This is a Neo Project semantic instruction passed to the Markcut segmentation Ag
 - For keep/remove/emphasize/pacing/original sound requests, record in each related segment's optional instructions array the utterance, semantic intent, source-local time_seconds and confidence. Do not execute any edit.
 - Uncertain references remain unresolved; leave uninteresting source footage represented.
 - Only the Director selects story/shot order, Editor creates EDL and Producer renders.
+
+- Visioner projects every segment `instructions[]` into the canonical
+  `vision-evidence.json.creator_intent_annotations[]`, with stable source IDs,
+  original source times, metadata pointers and an unreviewed status. Its
+  source summary marks `director_priority:review_creator_intent_first`.
+  Director reads these annotations directly (not another VTT/ASR detector),
+  listens to the original audio, and only then acts on verified intent.

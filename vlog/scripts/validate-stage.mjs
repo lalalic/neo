@@ -135,6 +135,23 @@ if(stage==='visioner'){
        (range==null||(ob.source_time_start_seconds>=range[0]&&ob.source_time_end_seconds<=range[1]));
    }),'VISION_SOURCE_TIMECODES','Observation source identity, approved range or original timeline is invalid');
    check((evidence.summary?.length??0)<=media.length,'VISION_SOURCE_COUNT','Repair Markcut metadata/source linkage');
+   if(evidence.creator_intent_annotations!==undefined){
+    const observations=new Map((evidence.observations??[]).map(x=>[x.evidence_id,x]));
+    check(Array.isArray(evidence.creator_intent_annotations)&&evidence.creator_intent_annotations.every(cue=>{
+      const ob=observations.get(cue?.evidence_id),source=known.get(cue?.source_id);
+      return ob&&source&&cue.source_sha256===source.source_sha256&&ob.source_id===cue.source_id&&
+        cue.status==='MODEL_OUTPUT_UNREVIEWED'&&cue.origin==='markcut_metadata.perception.segments.instructions'&&
+        Number.isFinite(cue.source_time_start_seconds)&&Number.isFinite(cue.source_time_end_seconds)&&
+        cue.source_time_start_seconds===ob.source_time_start_seconds&&
+        cue.source_time_end_seconds===ob.source_time_end_seconds&&
+        (cue.source_time_seconds===null || (Number.isFinite(cue.source_time_seconds)&&
+          cue.source_time_seconds>=ob.source_time_start_seconds&&cue.source_time_seconds<=ob.source_time_end_seconds))&&
+        typeof cue.metadata_pointer==='string'&&cue.metadata_pointer.startsWith(ob.metadata_pointer+'/instructions/')&&
+        (typeof cue.utterance==='string'||typeof cue.intent_hint==='string')&&
+        typeof cue.note==='string'&&cue.note.length>0;
+    }), 'VISION_CREATOR_INTENT_PROVENANCE',
+    'Keep Markcut creator-intent annotations linked to original source/time/segment with UNREVIEWED status; do not execute or invent commands');
+   }
  }
  check(norm?.profile==='markcut-vision-normalized-v1'&&norm?.usage==='vision-understanding-only'&&
    norm?.sourceTimeAuthority==='original'&&norm?.sourceGpsAuthority==='original-private-manifest'&&

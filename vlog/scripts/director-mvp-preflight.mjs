@@ -1,75 +1,50 @@
 #!/usr/bin/env node
-/** Read-only Director source inventory, especially unverified "嘿 Neo" cues.
- * Never converts STT/segment hints into verified speech or executes commands.
+/** Read-only Director inventory of canonical Visioner evidence annotations.
+ * Markcut/Visioner have already segmented creator speech. Never reparse or
+ * reinterpret raw VTT/metadata here, and never auto-execute model hints.
  */
 import {existsSync,readFileSync,realpathSync,statSync} from 'node:fs';
-import {join,basename,resolve,relative,sep} from 'node:path';
+import {join,resolve,relative,sep} from 'node:path';
 import {fileURLToPath} from 'node:url';
 
 const root=resolve(fileURLToPath(new URL('..',import.meta.url)));
 const runs=join(root,'runs');
-const wake=/\b(?:hey|hei|hi)\s*[,，!！-]?\s*neo\b|[嘿嗨]\s*neo\b/iu;
-const trim=(text,n=240)=>String(text??'').trim().replace(/\s+/g,' ').slice(0,n);
-const json=(path,defaultValue=null)=>existsSync(path)?JSON.parse(readFileSync(path,'utf8')):defaultValue;
-export const hasHeyNeo=text=>wake.test(String(text??''));
+const json=path=>JSON.parse(readFileSync(path,'utf8'));
 
-export function collectDirectorMvpCues({manifest,vision,metadata={},vttBySource={}}){
- const observed=new Set((vision?.sources??vision?.summary??[]).map(x=>x.source_id));
- const inventory=[],signals=[];
- for(const source of manifest?.media??[]){
-  const id=source.id;
-  const media=metadata?.[id]?.perception??{};
-  const found=[];
-  for(const [range,segment] of Object.entries(media.segments??{})){
-   for(const hint of Array.isArray(segment?.instructions)?segment.instructions:[]){
-    if(!hasHeyNeo(hint?.utterance))continue;
-    found.push({origin:'markcut_segment_instruction_unverified',source_id:id,
-     range,utterance:trim(hint.utterance),intent_hint:trim(hint.intent),
-     time_seconds:Number.isFinite(hint.time_seconds)?hint.time_seconds:null,
-     confidence_hint:trim(hint.confidence)});
-   }
-  }
-  const vtt=vttBySource[id]??'';
-  const blocks=vtt.split(/\r?\n\s*\r?\n/);
-  for(const block of blocks){
-   if(!hasHeyNeo(block))continue;
-   const lines=block.split(/\r?\n/);
-   const timing=lines.find(x=>x.includes('-->'))??'';
-   const speech=lines.filter(x=>!x.includes('-->')&&!/^WEBVTT\s*$/i.test(x)&&!/^[0-9]+$/.test(x.trim())).join(' ');
-   if(!hasHeyNeo(speech))continue;
-   found.push({origin:'source_vtt_unverified',source_id:id,
-    range:trim(timing,120),utterance:trim(speech),intent_hint:null,time_seconds:null,confidence_hint:'unverified'});
-  }
-  inventory.push({source_id:id,filename:source.path,has_vision_evidence:observed.has(id),
-   priority:found.length?'inspect_hey_neo_audio_first':'normal',
-   role_candidates:['story_action','context','transition','reaction','ambience','spot','omit_with_reason'],
-   hint_count:found.length});
-  signals.push(...found);
- }
- return {schemaVersion:1,status:'PREVIEW_UNVERIFIED_NOT_AN_EDIT_DECISION',
+export function collectDirectorMvpCues({manifest,vision}){
+ const sources=new Map((vision?.sources??vision?.summary??[]).map(x=>[x.source_id,x]));
+ const sourceIds=new Set((manifest?.media??[]).map(x=>x.id));
+ const annotationsPresent=Array.isArray(vision?.creator_intent_annotations);
+ const verifiedShape=(vision?.creator_intent_annotations??[]).filter(x=>
+  x && sourceIds.has(x.source_id) && typeof x.evidence_id==='string' &&
+  x.status==='MODEL_OUTPUT_UNREVIEWED' &&
+  typeof x.source_time_start_seconds==='number' &&
+  typeof x.source_time_end_seconds==='number');
+ const inventory=(manifest?.media??[]).map(source=>{
+  const annotations=verifiedShape.filter(x=>x.source_id===source.id);
+  return {source_id:source.id,filename:source.path,has_vision_evidence:sources.has(source.id),
+    priority:annotations.length?'inspect_hey_neo_audio_first':'normal',
+    role_candidates:['story_action','context','transition','reaction','ambience','spot','omit_with_reason'],
+    hint_count:annotations.length};
+ });
+ return {schemaVersion:2,status:'PREVIEW_UNVERIFIED_NOT_AN_EDIT_DECISION',
+  annotationSource:annotationsPresent?'vision-evidence.json.creator_intent_annotations':'LEGACY_VISION_EVIDENCE_NO_INTENT_FIELD',
   prioritySourceIds:inventory.filter(x=>x.hint_count).map(x=>x.source_id),
-  sourceInventory:inventory,heyNeoCandidates:signals,
-  policy:'Listen to actual source sound and confirm intent and source time before honoring an owner command; not narration, not automatic cut, and never delete footage merely from STT.'};
+  sourceInventory:inventory,heyNeoCandidates:verifiedShape,
+  policy:'Use existing Markcut/Visioner annotations as candidate creator intentions. Listen to original source audio and confirm intent/time before acting; never execute unverified text or treat it as narration.',
+  ...(annotationsPresent?{}:{legacyNote:'This older Visioner result predates intent annotations; do not infer that no creator command was spoken. Inspect the original if the command matters.'})};
 }
 
 export function preflight(run){
  const path=realpathSync(resolve(run));
  const rel=relative(realpathSync(runs),path);
- if(!rel||rel==='..'||rel.startsWith('..'+sep)||!/^\d{4}-\d{2}-\d{2}(?:$|[-_])/.test(rel)||!statSync(path).isDirectory())
+ if(!rel||rel==='..'||rel.startsWith('..'+sep)||!/^[0-9]{4}-[0-9]{2}-[0-9]{2}(?:$|[-_])/.test(rel)||!statSync(path).isDirectory())
   throw Error('Director MVP preflight requires an actual dated run under vlog/runs');
  const manifest=json(join(path,'source-manifest.json'));
  if(!Array.isArray(manifest?.media)||!manifest.media.length)throw Error('Missing approved media inventory');
- const vision=json(join(path,'vision-evidence.json'),{});
- const meta=json(join(path,'input','media','metadata.json'),json(join(path,'metadata.json'),{}));
- const transcripts={};
- for(const m of manifest.media){
-  if(m.id!==basename(m.id)||m.path!==basename(m.path)||!m.path||m.id==='.'||m.id==='..')throw Error('Unsafe media identity');
-  if(/^[a-zA-Z0-9._-]+$/.test(m.id)){
-   const p=join(path,'input','media',m.id+'.vtt');
-   if(existsSync(p)&&statSync(p).isFile()&&statSync(p).size<=1024*1024)transcripts[m.id]=readFileSync(p,'utf8');
-  }
- }
- return collectDirectorMvpCues({manifest,vision,metadata:meta,vttBySource:transcripts});
+ const evidencePath=join(path,'vision-evidence.json');
+ if(!existsSync(evidencePath))throw Error('Missing canonical Visioner evidence; Director cannot infer source intent');
+ return collectDirectorMvpCues({manifest,vision:json(evidencePath)});
 }
 if(process.argv[1]&&resolve(process.argv[1])===fileURLToPath(import.meta.url)){
  try{

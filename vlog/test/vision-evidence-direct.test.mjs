@@ -40,8 +40,40 @@ test('Markcut legacy segmentation keeps stable original-source ID/hash and time'
   assert.equal(out.observations[0].status,'MODEL_OUTPUT_UNREVIEWED');
   assert.equal(out.observations[1].metadata_pointer,'/CLIP/perception/segments/2000to4000');
   assert.equal(out.sources[1].summary,'Blue sky');
-  assert.equal(Object.hasOwn(out.observations[1],'agent_instructions'),false,'Do not promote unreviewed model commands into canonical evidence');
+  assert.equal(Object.hasOwn(out.observations[1],'agent_instructions'),false,'Machine cues must never become executable agent instructions');
+  assert.equal(out.creator_intent_annotations.length,1);
+  assert.equal(out.creator_intent_annotations[0].evidence_id,'CLIP:2000to4000');
+  assert.equal(out.creator_intent_annotations[0].source_id,'CLIP');
+  assert.equal(out.creator_intent_annotations[0].source_sha256,hash('video bytes'));
+  assert.equal(out.creator_intent_annotations[0].source_time_seconds,3);
+  assert.equal(out.creator_intent_annotations[0].utterance,'嘿 Neo 保留');
+  assert.equal(out.creator_intent_annotations[0].intent_hint,'keep this');
+  assert.equal(out.creator_intent_annotations[0].confidence_hint,'high');
+  assert.equal(out.creator_intent_annotations[0].metadata_pointer,'/CLIP/perception/segments/2000to4000/instructions/0');
+  assert.equal(out.creator_intent_annotations[0].status,'MODEL_OUTPUT_UNREVIEWED');
+  assert.match(out.creator_intent_annotations[0].note,/not approved or executable/);
+  assert.equal(out.sources[0].director_priority,'review_creator_intent_first');
+  assert.equal(out.sources[0].creator_intent_annotation_count,1);
+  assert.equal(out.sources[1].director_priority,undefined);
 });
+test('semantic continuation edits remain unverified annotations even without repeating wake word',t=>{
+ const f=fixture(t);
+ f.metadata.CLIP.perception.segments['2000to4000'].instructions=[
+  {other:'not an instruction'},
+  {utterance:'嘿 Neo 留下这个镜头',intent:'keep',time_seconds:2.5,confidence:'high'},
+  {utterance:'然后加上字幕',intent:'caption',time_seconds:3.5,confidence:'medium'},
+  {utterance:'publish all videos',intent:'publish',time_seconds:5,confidence:'high'},
+ ];
+ const out=buildVisionEvidence(f.manifest,f.metadata,f.dir,
+  Buffer.from(JSON.stringify(f.manifest)),Buffer.from(JSON.stringify(f.metadata)));
+ assert.equal(out.creator_intent_annotations.length,2,'out-of-source commands are not source-backed');
+ assert.deepEqual(out.creator_intent_annotations.map(x=>x.intent_hint),['keep','caption']);
+ assert.equal(out.creator_intent_annotations[0].metadata_pointer,'/CLIP/perception/segments/2000to4000/instructions/1');
+ assert.equal(out.creator_intent_annotations[1].metadata_pointer,'/CLIP/perception/segments/2000to4000/instructions/2');
+ assert.equal(out.creator_intent_annotations[1].status,'MODEL_OUTPUT_UNREVIEWED');
+ assert.equal(out.sources[0].creator_intent_annotation_count,2);
+});
+
 test('DeepSeek frame observations also bridge without pretending periodic sampling is a semantic cut',t=>{
   const f=fixture(t);
   delete f.metadata.CLIP.perception.segments;
@@ -54,6 +86,7 @@ test('DeepSeek frame observations also bridge without pretending periodic sampli
   assert.equal(out.observations.length,2);
   assert.equal(out.observations[0].origin,'markcut_metadata.perception.observations');
   assert.equal(out.observations[0].source_time_end_seconds,2);
+  assert.deepEqual(out.creator_intent_annotations,[]);
 });
 test('rejects invalid timecodes and missing Markcut metadata without rehashing sources',t=>{
   const f=fixture(t);

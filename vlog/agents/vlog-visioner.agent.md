@@ -86,7 +86,14 @@ perception.subtitle, and time-keyed perception.segments or observations.
 Those are model observations, NOT accepted editorial or observed facts.
 Visioner must produce a separate vision-evidence.json citing source_id,
 source identity and original-source timestamps, with uncertainty and
-caption/visual provenance. Never treat proxy timeline positions as
+caption/visual provenance. **Preserve Markcut's per-segment `instructions[]`
+as `creator_intent_annotations[]` in the same evidence artifact**, including
+source ID/hash, original time interval, utterance, intended edit and confidence
+hint, metadata pointer, `MODEL_OUTPUT_UNREVIEWED` status and explanatory note.
+Mark the corresponding source `director_priority:review_creator_intent_first`.
+Director uses this annotation directly; do not make Director parse VTT again.
+Neither Visioner nor Director may silently execute a machine-suggested command;
+listen to original audio and verify meaning first. Never treat proxy timeline positions as
 original source time.
 
 The Visioner Shortcut accepts a raw approved media folder: **Markcut

@@ -1,8 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
+import {join} from 'node:path';
+import {buildVisionEvidence} from '../agents/.shortcut/vlog-visioner.agent.mjs';
 import {resolve} from 'node:path';
-import {collectDirectorMvpCues,hasHeyNeo,preflight} from '../scripts/director-mvp-preflight.mjs';
+import {collectDirectorMvpCues,preflight} from '../scripts/director-mvp-preflight.mjs';
 import {validateHookFocus,pillars} from '../scripts/director-hooks-to-md.mjs';
 const root=resolve(import.meta.dirname,'..');
 const read=x=>readFileSync(resolve(root,x),'utf8');
@@ -50,23 +52,32 @@ test('5. route+spots fallback remains factual, not invented travel across isolat
  assert.match(mvp,/Do not manufacture a problem/);
 });
 
-test('6. Hey/Hei Neo candidates outrank ordinary material for listening, not automatic execution',()=>{
- for(const utterance of ['嘿 Neo 保留这段','Hey Neo, keep the reaction','hei neo 加一个字幕','嗨Neo 留下环境声'])
-  assert.equal(hasHeyNeo(utterance),true,utterance);
- assert.equal(hasHeyNeo('No command, a quiet footpath'),false);
+test('6. Director consumes canonical Visioner annotations, never repeats raw STT/VTT parsing',()=>{
  const manifest=media('A','B','C');
- const metadata={B:{perception:{segments:{'2to4':{instructions:[
-  {utterance:'嘿 Neo 留下这个表情',intent:'keep important reaction',time_seconds:2.9,confidence:'high'}]}}}}};
- const r=collectDirectorMvpCues({manifest,vision:{sources:[{source_id:'A'},{source_id:'B'},{source_id:'C'}]},metadata,
-  vttBySource:{C:'WEBVTT\n\n00:00:05.000 --> 00:00:08.000\nhey neo 加点搞笑的字幕',A:'WEBVTT\n\n00:00:00.000 --> 00:00:03.000\n那天天气挺好'}});
+ const annotation={annotation_id:'B:2000to4000:intent:1',evidence_id:'B:2000to4000',
+  source_id:'B',source_time_start_seconds:2,source_time_end_seconds:4,
+  source_time_seconds:2.9,utterance:'嘿 Neo 留下这个表情',intent_hint:'keep important reaction',
+  confidence_hint:'high',status:'MODEL_OUTPUT_UNREVIEWED',note:'Not confirmed'};
+ const next={...annotation,annotation_id:'C:5000to8000:intent:0',evidence_id:'C:5000to8000',
+  source_id:'C',source_time_start_seconds:5,source_time_end_seconds:8,
+  utterance:'然后加点幽默字幕',intent_hint:'caption'};
+ const r=collectDirectorMvpCues({manifest,vision:{sources:[{source_id:'A'},{source_id:'B'},{source_id:'C'}],
+  creator_intent_annotations:[annotation,next]}});
  assert.deepEqual(r.prioritySourceIds,['B','C']);
  assert.equal(r.sourceInventory.length,3);
  assert.equal(r.heyNeoCandidates[0].source_id,'B');
- assert.equal(r.heyNeoCandidates[0].origin,'markcut_segment_instruction_unverified');
+ assert.equal(r.heyNeoCandidates[0].intent_hint,'keep important reaction');
  assert.equal(r.heyNeoCandidates[1].source_id,'C');
- assert.equal(r.heyNeoCandidates[1].origin,'source_vtt_unverified');
- assert.match(r.policy,/Listen to actual source sound/);
+ assert.equal(r.heyNeoCandidates[1].utterance,'然后加点幽默字幕');
+ assert.equal(r.annotationSource,'vision-evidence.json.creator_intent_annotations');
+ assert.match(r.policy,/Listen to original source audio/);
  assert.equal(r.status,'PREVIEW_UNVERIFIED_NOT_AN_EDIT_DECISION');
+ const clear=collectDirectorMvpCues({manifest,vision:{sources:[{source_id:'A'}],creator_intent_annotations:[]},
+  metadata:{B:{perception:{segments:{'2to4':{instructions:[{utterance:'Hey Neo keep',intent:'keep'}]}}}}}});
+ assert.deepEqual(clear.heyNeoCandidates,[]);
+ assert.deepEqual(clear.prioritySourceIds,[]);
+ const legacy=collectDirectorMvpCues({manifest,vision:{sources:[{source_id:'A'}]}});
+ assert.match(legacy.legacyNote,/predates intent annotations/);
 });
 
 test('7. real human action and sound are required to substantiate quotation and story payoff',()=>{
@@ -81,6 +92,27 @@ test('8. private indexed history guides continuity, not invented current events'
  assert.match(agent,/story-history\.mjs inspect/);
  assert.match(agent,/never as current-Run evidence/);
  assert.match(mvp,/Missing history does not block the Run/);
+});
+
+test('real approved source batch carries a simulated Markcut segment cue end-to-end to Director',()=>{
+ const run=resolve(root,'runs/2026-11-07-shortcut-fresh-no-review-e2e');
+ const manifestBytes=readFileSync(join(run,'source-manifest.json'));
+ const manifest=JSON.parse(manifestBytes.toString('utf8'));
+ const metadata=JSON.parse(readFileSync(join(run,'input/media/metadata.json'),'utf8'));
+ const chosen=manifest.media.find(m=>Object.keys(metadata[m.id]?.perception?.segments??{}).length);
+ assert.ok(chosen,'real Run should have at least one semantic segment');
+ const segment=Object.entries(metadata[chosen.id].perception.segments)[0];
+ const [start,end]=segment[0].split('to').map(Number);
+ const time=(start+end)/2000;
+ segment[1].instructions=[{utterance:'嘿 Neo 留下这一小段',intent:'keep_this_moment',time_seconds:time,confidence:'high'}];
+ const bytes=Buffer.from(JSON.stringify(metadata));
+ const evidence=buildVisionEvidence(manifest,metadata,join(run,'input','media'),manifestBytes,bytes);
+ const director=collectDirectorMvpCues({manifest,vision:evidence});
+ assert.ok(director.prioritySourceIds.includes(chosen.id));
+ assert.equal(director.heyNeoCandidates.find(x=>x.source_id===chosen.id).intent_hint,'keep_this_moment');
+ assert.equal(director.heyNeoCandidates.find(x=>x.source_id===chosen.id).source_time_seconds,time);
+ assert.equal(director.annotationSource,'vision-evidence.json.creator_intent_annotations');
+ // This injection is in memory only; the original Run and its review state are untouched.
 });
 
 test('real existing approved Run can be preflighted read-only with complete inventory',()=>{

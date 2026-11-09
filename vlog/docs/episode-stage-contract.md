@@ -8,7 +8,7 @@ required for an ordinary private MP4.
 | Stage | Output | Acceptance |
 | --- | --- | --- |
 | Source | `source-manifest.json` | Owner-authorized real evidence; `INPUT_NEEDED` blocks |
-| Visioner | `vision-evidence.json`, `vision-normalized-manifest.json` | Source-bound observations projected directly from Markcut metadata; timecodes, hashes and ASR uncertainty (sparse samples are not an exhaustive action inventory) |
+| Visioner | `vision-evidence.json`, `vision-normalized-manifest.json` | Source-bound observations and optional `creator_intent_annotations[]` from Markcut semantic segments; source ID/time/hash, uncertain machine interpretation, no auto-applied edit (sparse samples are not an exhaustive action inventory) |
 | Director | `personal-story.md/json`, `story.md`, `shot-selection.json`, `visual-brief.md`, `post.md`, `route-intent.json` | Complete human intent → exploration/development → real result; setbacks optional, source-linked route or omit |
 | Editor | `edit-decision-list.json`, assets, `episode-input.json`, `music-plan.json`, `video.md` | Independent source-backed shot selection, sound and rhythm cut, private rough-cut render with real frame/audio inspection, final Markcut verify and Stage validation; no human gate |
 | Producer | `output/video.mp4`, `production-receipt.json` | Verify again, render exact Editor revision, probe playable video **and audio**, Preview only on request |

@@ -18,9 +18,14 @@ export async function build(runPath){
   const range=asset.type==='video'?`片段 ${asset.from}–${asset.to}s（仅为前段预览，非整片）`:'原始照片的缩小预览';
   const prompt='请检查本素材理解是否准确；指出漏掉的人物动作、错误描述、重要原声和具体原始时间点。';
   const summary=clamp(item.summary,180);
+  const cues=(Array.isArray(evidence.creator_intent_annotations)?evidence.creator_intent_annotations:[])
+   .filter(cue=>cue.source_id===id && cue.source_sha256===src.sha256);
+  const cueNote=cues.map(cue=>
+   `「嘿 Neo」候选 · 原始 ${cue.source_time_start_seconds}–${cue.source_time_end_seconds}s · `+
+   `原话：${clamp(cue.utterance,140)} · 意图：${clamp(cue.intent_hint,110)}（待核听，不自动执行）`).join('\n');
   scenes.push({id:'media-'+id,title:'素材 '+id+' · '+src.media_type,
-   guide:`${prompt}\n${range}\nAI: ${summary}`,
-   instruction:`source_id=${id}; sha256=${src.sha256}; ${range}; Visioner 原文:${clamp(item.summary,1800)}; 此内容未经人工确认。反馈应引用源媒体原始时间，不要臆造。`,
+   guide:`${prompt}\n${range}\nAI: ${summary}${cueNote?'\n'+cueNote:''}`,
+   instruction:`source_id=${id}; sha256=${src.sha256}; ${range}; Visioner 原文:${clamp(item.summary,1800)}; ${cueNote}; 此内容未经人工确认。反馈应引用源媒体原始时间，不要臆造。`,
    media:[asset]});
  }
  const output=join(run,'visioner-review.md');

@@ -64,6 +64,20 @@ function parseMarkcutSegmentRanges(perception, sourceId, limit) {
       sample_time_seconds: isNum(value?.sampleSeconds) ? value.sampleSeconds : null,
       origin: 'markcut_metadata.perception.segments',
       observation_status: 'MODEL_OUTPUT_UNREVIEWED',
+      // Markcut has already matched a voice-controlled edit intent to this
+      // semantic source segment. Preserve it as annotation DATA for Director,
+      // never as an instruction the Visioner/Director may blindly execute.
+      creator_intent_hints: Array.isArray(value?.instructions) ? value.instructions
+        .map((x,i) => ({value:x, instruction_index:i}))
+        .filter(({value:x}) => x && typeof x === 'object' &&
+          (typeof x.utterance === 'string' || typeof x.intent === 'string'))
+        .map(({value:x,instruction_index}) => ({
+          instruction_index,
+          utterance: typeof x.utterance === 'string' ? x.utterance.slice(0,2000) : null,
+          intent_hint: typeof x.intent === 'string' ? x.intent.slice(0,2000) : null,
+          time_seconds: isNum(x.time_seconds) ? x.time_seconds : null,
+          confidence_hint: typeof x.confidence === 'string' ? x.confidence.slice(0,40) : null,
+        })) : [],
     });
   }
   return observations.sort((a,b)=>a.source_time_start_seconds-b.source_time_start_seconds);
@@ -169,6 +183,33 @@ export function buildVisionEvidence(manifest, metadata, sourceDir, manifestBytes
     metadata_pointer: item.metadata_pointer,
     status: item.observation_status,
   }));
+  // Expose the semantic edit-intent markers already authored by Markcut.
+  // Each cue points to a real original segment and remains UNREVIEWED until
+  // a human/agent listens to the actual audio. Do not treat it as a command.
+  const creator_intent_annotations = projection.observations.flatMap(item =>
+    (item.creator_intent_hints ?? [])
+      .filter(hint => hint.time_seconds == null ||
+        (hint.time_seconds >= item.source_time_start_seconds &&
+         hint.time_seconds <= item.source_time_end_seconds))
+      .map(hint => ({
+      annotation_id: item.evidence_id + ':intent:' + hint.instruction_index,
+      evidence_id: item.evidence_id,
+      source_id: item.source_id,
+      source_sha256: item.source_sha256,
+      source_time_start_seconds: item.source_time_start_seconds,
+      source_time_end_seconds: item.source_time_end_seconds,
+      source_time_seconds: hint.time_seconds != null &&
+        hint.time_seconds >= item.source_time_start_seconds &&
+        hint.time_seconds <= item.source_time_end_seconds ? hint.time_seconds : null,
+      utterance: hint.utterance,
+      intent_hint: hint.intent_hint,
+      confidence_hint: hint.confidence_hint,
+      metadata_pointer: item.metadata_pointer + '/instructions/' + hint.instruction_index,
+      origin: 'markcut_metadata.perception.segments.instructions',
+      status: 'MODEL_OUTPUT_UNREVIEWED',
+      note: 'Potential creator editing request. Prioritize listening to original source audio; not approved or executable.',
+    })));
+  const priorityIds = new Set(creator_intent_annotations.map(x => x.source_id));
   const findings = [...projection.findings];
   return {
     schema_version: 1,
@@ -183,8 +224,15 @@ export function buildVisionEvidence(manifest, metadata, sourceDir, manifestBytes
       text: source.summary,
       status: source.summary_status,
     })),
-    sources,
+    sources: sources.map(source => ({
+      ...source,
+      ...(priorityIds.has(source.source_id) ? {
+        director_priority: 'review_creator_intent_first',
+        creator_intent_annotation_count: creator_intent_annotations.filter(x => x.source_id === source.source_id).length,
+      } : {}),
+    })),
     observations,
+    creator_intent_annotations,
     uncertainty: findings,
     evidence: observations.map(item => ({
       evidence_id: item.evidence_id,
