@@ -231,6 +231,21 @@ if(stage==='visioner'){
  if(route?.decision==='include'){
    check(input?.geo?.required!==false&&typeof input?.geo?.insertAfterSceneId==='string',
     'EDITOR_ROUTE_INTEGRATION','Merge Director route plan into episode-input.geo and Markcut timeline');
+   const dated=relative(runs,run).split(sep)[0].slice(0,10);
+   if(dated >= '2026-11-09'){
+    const md=valid['video.md']?readFileSync(valid['video.md'],'utf8'):'';
+    const views=input?.geo?.mapViews;
+    check(Array.isArray(views)&&views.length>0&&views.length<=4&&
+      new Set(views).size===views.length&&
+      views.every(v=>['overview','route','cinematic','streetview'].includes(v)&&
+        md.split('\n').some(line=>line.trim().startsWith('- map view:'+v+' ')))&&
+      typeof input?.geo?.mapReason==='string'&&input.geo.mapReason.trim().length>=12,
+      'EDITOR_MAP_VIEW_CHOICE',
+      'Editor must choose grounded native Markcut map view(s), explain story reason, and render each view in video.md');
+    if(views?.includes('streetview'))
+      check(typeof input?.geo?.streetviewCoverageRef==='string'&&input.geo.streetviewCoverageRef.length>0,
+        'EDITOR_STREETVIEW_COVERAGE','Verify real Street View imagery coverage for observed stop before use');
+   }
  }else if(route?.decision==='omit'){
    check(!input?.geo||input.geo.required===false,
     'EDITOR_ROUTE_OMISSION','Do not create a route when Director explicitly omitted it');
@@ -242,8 +257,11 @@ if(stage==='visioner'){
  const runDate=relative(runs,run).split(sep)[0].slice(0,10);
  if(/^\d{4}-\d{2}-\d{2}$/.test(runDate)&&runDate>='2026-11-07'){
    const md=valid['video.md']?readFileSync(valid['video.md'],'utf8'):'';
-   check(/^- audio src:[^\n]*isBackground:true volume:0\.7\s*$/m.test(md),'EDITOR_BGM_07',
-    'Use the canonical cinematic Vlog template root BGM volume 0.7');
+   const newTemplate = runDate >= '2026-11-09';
+   check(newTemplate ? /^- audio src:[^\n]*isBackground:true volume:1\.0\s*$/m.test(md)
+       : /^- audio src:[^\n]*isBackground:true volume:0\.7\s*$/m.test(md),
+    newTemplate?'EDITOR_BGM_10':'EDITOR_BGM_07',
+    newTemplate?'Use canonical prepared root BGM volume 1.0':'Legacy Vlog root BGM volume 0.7');
    const voices=(input?.scenes||[]).filter(scene=>scene?.audioPath &&
      !['source-speech','dialogue','meaningful-original-sound','ambience'].includes(scene.audioIntent));
    if(voices.length){

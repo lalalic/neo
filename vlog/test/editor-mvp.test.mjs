@@ -52,16 +52,14 @@ test('4. React/JSX graphics are rendered with real sources; not fake on-screen s
  assert.match(editor,/code renders/);
 });
 
-test('5. Worknode male ChatTTS, source speech, 0.7 bed and original SFX are not interchangeable',()=>{
+test('5. Worknode male ChatTTS and original sound evidence are distinct',()=>{
  assert.match(editor,/Worknode/);
  assert.match(editor,/ChatTTS/);
- assert.match(editor,/BGM \(root volume\s+\*\*`0\.7`\*\*\)/);
- assert.match(editor,/brand-three-taps\.wav/);
  assert.match(mvp,/original voice and environment/);
  assert.match(mvp,/don't substitute local OS TTS or clone voices/);
 });
 
-test('6. permanent brand ident has real original sound and no fabricated accepted Tour take',()=>{
+test('6. original audio effect assets decode as PCM and Tour cannot invent accepted takes',()=>{
  const effects=['brand-three-taps.wav','awkward-pluck.wav','discovery-chime.wav','tiny-flop.wav'];
  for(const name of effects){
   const path=resolve(root,'assets/brand',name);
@@ -81,7 +79,7 @@ test('7. map and geographic spots use actual Director route and source evidence,
  assert.ok(schema.properties.observedStops);
  assert.ok(schema.properties.audienceContext);
  assert.match(editor,/route-intent\.json/);
- assert.match(mvp,/don't manufacture a route between isolated GPS points/);
+ assert.match(mvp,/don't manufacture a route between isolated GPS points/i);
 });
 
 test('8. real creative handoff requires 3 passes, Markcut verify, actual render and stage gate',()=>{

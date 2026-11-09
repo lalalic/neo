@@ -98,7 +98,7 @@ access a voice reference; do not weaken the Worknode provenance requirement.
 Record the real Worknode `result.json` as
 `assets/narration/chattts-male/worknode-result.json` with original generated
 `.m4a` assets and duration-matched scene references. Stage validation rejects
-local Tingting or unverified fallback and enforces root BGM `volume:0.7`.
+local Tingting or unverified fallback and enforces legacy root BGM `volume:0.7` before 2026-11-09 and template-prepared root `volume:1.0` with permanent Brand-Intro after that date.
 Original recorded speech and ambience are not synthetic narration and are
 not substituted by ChatTTS. Existing earlier Runs retain historical voice provenance. Voice and soundtrack
 rights must be cleared separately before commercial/public distribution.

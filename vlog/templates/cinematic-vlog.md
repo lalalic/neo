@@ -25,8 +25,14 @@
   },
   "audio": {
     "source_video_volume": 0.72,
-    "bgm_plain_volume": 0.7,
-    "bgm_preducked_volume": 0.7
+    "bgm_plain_volume": 1.0,
+    "bgm_preducked_volume": 1.0
+  },
+  "brand": {
+    "title": "给生活加点料",
+    "scene_id": "Brand-Intro",
+    "duration_seconds": 0.96,
+    "sound": "assets/brand/brand-three-taps.wav"
   },
   "pacing": {
     "hook_seconds": [
@@ -58,51 +64,19 @@
 }
 VLOG:END_CONFIG -->
 
+<!-- VLOG:TEMPLATE:cinematic-vlog-v1 -->
 # video
 title:{{variant}}
 width:{{width}} height:{{height}} fps:{{fps}} layout:series{{transition}}{{subtitle}} stt:"" metadata:{{metadata}}
 
-- audio src:{{music.path}} isBackground:true volume:{{music.volume}}
+<!-- Root BGM is a PREPARED bed (voice windows and optional SFX mixed beforehand). -->
+- audio src:{{music.path}} isBackground:true volume:1.0
+
+<!-- VLOG:BRAND_IDENT:BEGIN -->
+## Brand-Intro
+layout:parallel
+- component duration:0.96 jsx:"<div style={{height:'100%',width:'100%',display:'flex',justifyContent:'center',alignItems:'center',background:'#152436',color:'#ffffff',fontFamily:'Arial, sans-serif',fontSize:64,fontWeight:800,letterSpacing:5}}>给生活加点料</div>"
+- audio src:assets/brand/brand-three-taps.wav duration:0.96 volume:1
+<!-- VLOG:BRAND_IDENT:END -->
 
 {{scenes}}
-
-<!-- VLOG:SCENE_HOOK:BEGIN -->
-## {{scene.id}}
-layout:parallel
-instruction:{{scene.instruction}}
-{{scene.media}}
-<!-- VLOG:SCENE_HOOK:END -->
-
-<!-- VLOG:SCENE_BODY:BEGIN -->
-## {{scene.id}}
-layout:parallel
-instruction:{{scene.instruction}}
-{{scene.media}}
-<!-- VLOG:SCENE_BODY:END -->
-
-<!-- VLOG:SCENE_CLOSING:BEGIN -->
-## {{scene.id}}
-layout:parallel
-instruction:{{scene.instruction}}
-{{scene.media}}
-<!-- VLOG:SCENE_CLOSING:END -->
-
-<!-- VLOG:VIDEO:BEGIN -->
-- video src:{{scene.path}} duration:{{scene.duration}} volume:{{scene.volume}}
-<!-- VLOG:VIDEO:END -->
-
-<!-- VLOG:IMAGE_MOTION:BEGIN -->
-- image src:{{scene.path}} duration:{{scene.duration}} fit:cover{{scene.background}} effects:[{"animation":"custom","duration":{{scene.duration}},"customKeyframes":{"0":{"transform":{{scene.motionStart}}},"100":{"transform":{{scene.motionEnd}}}}}]
-<!-- VLOG:IMAGE_MOTION:END -->
-
-<!-- VLOG:IMAGE_STATIC:BEGIN -->
-- image src:{{scene.path}} duration:{{scene.duration}} fit:cover{{scene.background}}
-<!-- VLOG:IMAGE_STATIC:END -->
-
-<!-- VLOG:VOICE:BEGIN -->
-- audio src:{{scene.audio.path}} duration:{{scene.audio.duration}} volume:1
-<!-- VLOG:VOICE:END -->
-
-<!-- VLOG:SUBTITLE:BEGIN -->
- subtitle:{type:"Fade",fontSize:48,fontFamily:"Arial, sans-serif",style:"align-items:flex-end;justify-content:center;padding:0 10% 12% 10%",src:{{captions.path}}}
-<!-- VLOG:SUBTITLE:END -->

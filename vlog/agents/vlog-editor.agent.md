@@ -73,8 +73,14 @@ If no acceptable recording/device is available, edit with existing Run media.
    to show the route and which observed stops it represents; Editor chooses
    **how** to merge that route into the movie: insertion scene, map camera,
    subvideo length, verified narration, transition and continuous root BGM.
-   Map `route-intent.json` to `episode-input.geo` using the shared
-   `geo-story.md` template. Include only source-backed audience context in
+   Editor selects the **native Markcut map view(s)** (`overview`, `route`,
+   `cinematic`, `streetview`) to suit the story, not a fixed default.
+   Record `episode-input.geo.mapViews[]` and the source-grounded `mapReason`;
+   include only selected `- map view:<type>` leaves in `video.md`. Verify
+   public Street View coverage at observed source-backed spots before using
+   `streetview`; never pretend a map flyover is camera footage or computed
+   directions were the path actually traveled. Map `route-intent.json` to
+   `episode-input.geo` using the shared `geo-story.md` template. Include only source-backed audience context in
    concise, natural Chinese; orient viewers in China without interrupting the
    Canadian lived-experience story. Route omit means no map. Never fabricate a ride.
 2. **Edit in three genuine passes**, not as a shot-assembler:
@@ -110,7 +116,9 @@ If no acceptable recording/device is available, edit with existing Run media.
      `ThoughtCaption`, `AwkwardFreeze`, `CanadaContext`, `BeforeAfterSplit`
      or `RouteThread` React/JSX component from the creative playbook. Use
      only the ones justified by the episode, and ensure the **code renders**
-     in the produced film, not a hypothetical instruction.
+     in the produced film, not a hypothetical instruction. Use Markcut's native
+     `- map view:<type>` for geographic storytelling, not an improvised
+     `RouteThread` React replacement of the native map.
      Consult Shotcraft references for actual timing/overlap and adapt
      to Markcut native `effects`, supported `transition`, and `component`
      JSX/React code. **A list of raw videos with identical cuts/fades and
@@ -170,8 +178,8 @@ If no acceptable recording/device is available, edit with existing Run media.
    stable `sceneId`, playbackSpeed, actual/timeline durations, boundary
    transitions, framing, speech and audio intent. Sequence scenes by story beats; vary shot length according to speech and action, use cut-on-action/sound bridges for continuity and allow silence/ambient sound instead of unnecessary scenic commentary. Preserve authentic speech,
    source facts, human intention/development/outcome (optional setback) and original provenance.
-3. Prepare all final assets: template-selected continuous BGM (root volume
-   **`0.7`**), narration, meaningful source ambience, captions and optional
+3. Prepare all final assets: template-selected continuous PREPARED BGM (root
+   volume **`1.0`** from 2026-11-09 forward), narration, meaningful source ambience, captions and optional
    supported effects. For the owner's Chinese personal Vlogs, the narrator
    is **male ChatTTS on Worknode**: discover the connected `work` node using
    the **Neo cluster MCP** (`status work`, `invoke work exec/fs`), not the
@@ -217,8 +225,17 @@ If no acceptable recording/device is available, edit with existing Run media.
    instruction-only placeholders or replace missing assets with substitutes.
 4. Assemble ordered `episode-input.json` and `music-plan.json` as Stage
    handoff evidence, then **author the complete executable `video.md`
-   directly** using the canonical [Markcut style template](../templates/cinematic-vlog.md)
-   with Markcut native trims, playback rates, maps, audio, effects
+   directly** by **instantiating** the canonical [executable Markcut template](../templates/cinematic-vlog.md)
+   (not merely using it as a visual reference). Preserve its `VLOG:TEMPLATE`
+   identity and exact `Brand-Intro` scene, replace scene placeholders with
+   source-linked scenes, copy the original `assets/brand/brand-three-taps.wav`
+   to the Run, and bind its verified prepared bed to the root
+   `isBackground:true volume:1.0` leaf. Use the shared
+   `node <neo-root>/scripts/audio-bed.mjs --plan <run>/audio-bed-plan.json`
+   only when music/SFX ducking or timed effects need preparing; its rendered
+   audio track is already mixed, so do not re-add included effects or duck
+   twice. This is a scaffolding template, **not** a second Vlog timeline compiler.
+   Add Markcut native trims, playback rates, maps, audio, effects
    and transitions. `episode-input.json` is an Editor handoff, **not** a
    source to compile with a second Vlog-specific video generator. Renderable
    assets and authoring decisions belong to Editor, not Producer.

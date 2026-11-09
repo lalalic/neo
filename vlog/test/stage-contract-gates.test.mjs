@@ -8,11 +8,10 @@ import {createHash} from 'node:crypto';
 const source=resolve(import.meta.dirname,'..');
 function fixture(runName='2026-11-04-contract'){
  const root=mkdtempSync(join(tmpdir(),'vlog-contract-'));
- const vlog=join(root,'vlog');mkdirSync(join(vlog,'scripts'),{recursive:true});mkdirSync(join(vlog,'templates'));mkdirSync(join(vlog,'assets/music'),{recursive:true});mkdirSync(join(vlog,'contracts'));
+ const vlog=join(root,'vlog');mkdirSync(join(vlog,'scripts'),{recursive:true});mkdirSync(join(vlog,'assets/music'),{recursive:true});mkdirSync(join(vlog,'contracts'));
  const run=join(vlog,'runs',runName);mkdirSync(join(run,'input/media'),{recursive:true});
  for(const f of ['validate-stage.mjs','story-history.mjs'])copyFileSync(join(source,'scripts',f),join(vlog,'scripts',f));
  for(const f of ['shot-selection.schema.json','edit-decision-list.schema.json','personal-story.schema.json','route-intent.schema.json'])copyFileSync(join(source,'contracts',f),join(vlog,'contracts',f));
- copyFileSync(join(source,'templates/cinematic-vlog.md'),join(vlog,'templates/cinematic-vlog.md'));
  const cli=join(root,'fake-relay');writeFileSync(cli,'#!/bin/sh\nexit 0\n',{mode:0o755});
  writeFileSync(join(run,'route-intent.json'),JSON.stringify({schemaVersion:1,decision:'omit',reason:'No trusted GPS route'}));
  return {root,vlog,run,cli,clean:()=>rmSync(root,{recursive:true,force:true})};
