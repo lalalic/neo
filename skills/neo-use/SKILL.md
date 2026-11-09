@@ -66,11 +66,12 @@ QA Bridge. No App package, UI overlay, App Group, or developer-defined
   and FFmpeg recording subscribe to the same stream; do not implement a
   second App-local or Mac-only UI rendering engine. WDA's standard raw
   screenshot route remains available for debugging.
-- Timing: `start_recording`/`stop_recording` record *only timestamped event
-  metadata* and accurately report `video_recorded:false`. Video is captured
-  by an independent Mac consumer of the annotated stream. Do not claim MP4
-  capture from event recording alone. `say` currently captions an event;
-  mixing narration audio into the MP4 is a separate capability.
+- Timing: native `start_recording`/`stop_recording` record timestamped events
+  and return `video_recorded:false` because the XCTest process does not itself
+  write Mac files. To deliver a video, start the task-owned Mac capture
+  companion *before* the native recording, or use its managed capture mode.
+  It consumes annotated MJPEG and generates Markcut `video.md`; `say` events
+  become timed speech audio tracks in the Markcut export, not on live MJPEG.
 - Security: upstream WDA MJPEG is unauthenticated; expose it only over a
   trusted local connection or authenticated tunnel. Secure the native MCP
   control route with its separate bearer token and Session lease.
@@ -80,6 +81,16 @@ QA Bridge. No App package, UI overlay, App Group, or developer-defined
 
 See [conformance cases](references/conformance.md). Simulator tests establish
 protocol compatibility; require physical iPhone E2E for real-device PASS.
+
+## Deliver a recorded Demo as Markcut video
+
+A user's request for a finished Demo means **real video + timeline + Markcut
+`video.md`**, not merely successful `agent.demo` tool receipts. Choose a
+complete automatic capture or a watcher for user-controlled MCP start/stop,
+verify the recorded MP4 with ffprobe, and validate/render through Markcut.
+See [Demo → Markcut workflow](references/demo-markcut.md) for tested commands,
+required companion process, timestamps, voice generation and output files.
+The target App needs no Demo UI or shared package.
 
 ## Operating the Runner
 

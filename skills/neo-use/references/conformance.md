@@ -36,3 +36,12 @@ Use both protocol-level negative tests and real iPhone XCTest. Compilation, simu
 6. Raw WDA screenshot remains unmodified; demo output must not intercept
    touches or change the physical target App screen.
 7. Test on Simulator first, then physical iPhone before declaring complete.
+
+## Markcut Demo artifact gates
+
+1. A native Session's actual MJPEG is recorded with wall-clock timestamps.
+2. Automatic capture starts and stops the native event timeline, generates a real annotated MP4, `timeline.json`, Markcut `video.md`, and voice assets from `say`.
+3. Manual MCP `start_recording`/`stop_recording` works with a prestarted Mac watcher; without watcher it must not falsely claim MP4.
+4. `markcut verify` accepts the generated Markdown; `markcut render` generates a playable MP4 with actual video and AAC narration.
+5. Previously existing output is never silently overwritten; missing video, invalid session, and bad protocol produce errors.
+6. Device iPhone requires physical E2E before real-device PASS; Simulator and iOS target compilation are distinct proof.
