@@ -31,6 +31,36 @@ The existing `tour-director.json` owns both the recording instructions and all m
 
 **The JSON format above is the contract; no Vlog-side Tour index library or CLI is needed.** On append, read and validate the existing JSON structure, keep existing accepted takes immutable, reject duplicate IDs and unsafe paths, and atomically write the updated same file. Only original local regular media files with verified SHA-256 may be indexed.
 
+## Voice-only assets: Worknode TTS, no Capture Tour video needed
+
+For a shot with a **fixed reusable spoken script**, do not launch a camera
+Tour just to obtain that audio. Use the Worknode TTS voice profiles in
+`<vlog-root>/config/tour-voice-profiles.json` and run the Worknode-only
+`<vlog-root>/scripts/generate-tour-tts.py --tour <tour-director.json>
+--profiles <tour-voice-profiles.json> --output <empty-output-directory>`.
+Transfer resulting MP3 bytes from Worknode, verify their SHA-256 against the
+batch receipt, decode/ASR-check and listen to the actual generated words.
+
+Index synthetic MP3s in the same `tour-director.json` under the corresponding
+`shots[].library.tts_variants[]` with source text, `voice_name`, model,
+`voice_style`, file/hash/duration, `source_type:synthetic_tts`, and QA state.
+Keep `recordings[]`, `active_recording_id` and `status:unrecorded` unchanged:
+TTS is **not** a real accepted owner recording, not original event evidence,
+and has no Capture Tour session. An `active` synthetic candidate is permitted
+for **private draft previews** only until the exact audio is checked. Never
+claim a voice clone or attribute synthetic speech as an utterance on the day.
+
+Current voices: Uncle_Fu for mature/warm motto and closing, Dylan for a
+bright playful variation, Eric for mildly Sichuan-flavored dry humor and AI
+self-mockery. Select voice by the **function of the actual text**, not a
+mandatory voice for every video. `pv15` is a silent real facial reaction and
+cannot be replaced by generated speech. `pv01`–`pv12` are open prompts about
+actual experiences, not literal scripts to synthesize or fictitious evidence.
+The public `assets/brand/brand-intro-voice.mp3` is the neutral permanent
+motto already in the video template; don't add that same speech twice. More
+playful versions are private choices for Editor. Confirm the original Qwen3
+model and the actual inference/runtime license before public distribution.
+
 ## Record on either device
 
 1. **Director** may request a Tour when a real personal introduction, observation or story bridge would improve the narrative. **Editor** may request a Tour when an authentic voice/video pickup or reaction is needed for the planned timeline. Do not make a new Tour mandatory for ordinary Vlog processing.

@@ -31,8 +31,10 @@
   "brand": {
     "title": "给生活加点料",
     "scene_id": "Brand-Intro",
-    "duration_seconds": 0.96,
-    "sound": "assets/brand/brand-three-taps.wav"
+    "duration_seconds": 2.05,
+    "sound": "assets/brand/brand-three-taps.wav",
+    "voice": "assets/brand/brand-intro-voice.mp3",
+    "voice_source": "Worknode Qwen3-TTS CustomVoice; generated, not owner-recorded"
   },
   "pacing": {
     "hook_seconds": [
@@ -75,8 +77,9 @@ width:{{width}} height:{{height}} fps:{{fps}} layout:series{{transition}}{{subti
 <!-- VLOG:BRAND_IDENT:BEGIN -->
 ## Brand-Intro
 layout:parallel
-- component duration:0.96 jsx:"<div style={{height:'100%',width:'100%',display:'flex',justifyContent:'center',alignItems:'center',background:'#152436',color:'#ffffff',fontFamily:'Arial, sans-serif',fontSize:64,fontWeight:800,letterSpacing:5}}>给生活加点料</div>"
-- audio src:assets/brand/brand-three-taps.wav duration:0.96 volume:1
+- component duration:2.05 jsx:"<div style={{height:'100%',width:'100%',display:'flex',justifyContent:'center',alignItems:'center',background:'#152436',color:'#ffffff',fontFamily:'Arial, sans-serif',fontSize:64,fontWeight:800,letterSpacing:5}}>给生活加点料</div>"
+- audio src:assets/brand/brand-three-taps.wav duration:0.96 volume:0.25
+- audio src:assets/brand/brand-intro-voice.mp3 duration:1.92 volume:1
 <!-- VLOG:BRAND_IDENT:END -->
 
 {{scenes}}

@@ -115,9 +115,8 @@ test('real approved source batch carries a simulated Markcut segment cue end-to-
  // This injection is in memory only; the original Run and its review state are untouched.
 });
 
-test('real existing approved Run can be preflighted read-only with complete inventory',()=>{
- const r=preflight(resolve(root,'runs/2026-11-07-shortcut-fresh-no-review-e2e'));
- assert.equal(r.sourceInventory.length,6);
- assert.ok(r.sourceInventory.every(x=>x.has_vision_evidence));
- assert.equal(r.status,'PREVIEW_UNVERIFIED_NOT_AN_EDIT_DECISION');
+test('Director preflight rejects an input-only clean Run until Visioner evidence exists',()=>{
+ // Owner intentionally reset this three-Run fixture to original media only.
+ assert.throws(()=>preflight(resolve(root,'runs/2026-11-07-shortcut-fresh-no-review-e2e')),
+   /Missing canonical Visioner evidence/);
 });

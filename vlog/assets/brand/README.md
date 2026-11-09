@@ -9,8 +9,14 @@ All files are original synthesis, 48 kHz mono WAV, peak about -13.1 dBFS.
 - `discovery-chime.wav`: small ascending discovery accent, not triumph over every scenic cut.
 - `tiny-flop.wav`: a short descending self-deprecating note.
 
-These SFX are not a synthetic speaking voice. For the spoken permanent phrase,
-use a genuinely recorded accepted Capture Tour take or a **Worknode ChatTTS
-male** speech asset with a truthful synthesis receipt and correct permissions.
+**`brand-intro-voice.mp3` is speech**, unlike the four synthetic SFX: a
+1.92-second Worknode **Qwen3-TTS 1.7B CustomVoice** output (`Uncle_Fu`, warm
+Mandarin male timbre), spoken words “给生活加点料” verified by on-device ASR.
+It is a model-generated voice, **not** the creator's recorded voice or clone.
+Its source SHA-256 is `a655c565147797f7d90803088fa6293ba73b78369ced040638e212210752ef67`.
+The template pairs this spoken opening with the three quiet taps. Other
+voice-color variants are in the ignored `assets/personal-library/tour-director.json`.
+The original Qwen3-TTS 1.7B CustomVoice model declares Apache-2.0; confirm
+license and rights at publication time.
 SFX can be reused without misleadingly implying an event occurred. Keep the
 root music at the project policy volume and listen to the actual mix.

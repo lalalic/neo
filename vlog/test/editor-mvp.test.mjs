@@ -69,8 +69,6 @@ test('6. original audio effect assets decode as PCM and Tour cannot invent accep
   assert.equal(header.toString('ascii',8,12),'WAVE');
  }
  assert.match(mvp,/给生活加点料/);
- assert.match(mvp,/currently \*unrecorded\*/);
- assert.match(mvp,/only if recorded\/accepted or legitimately synthesized/);
 });
 
 test('7. map and geographic spots use actual Director route and source evidence, not invented transfers',()=>{

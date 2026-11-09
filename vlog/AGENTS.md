@@ -91,6 +91,15 @@ and Visioner evidence must exist before writing the story.
   authoritative; Markcut MD is only a generated private Review view. Relay
   manages event-bound decision and resume; no new DAG nodes and no changes
   to Markcut/Relay. Read [review workflow](docs/stage-interactive-review.md).
+- **Worknode voice-only Tour assets:** Use the existing private
+  `assets/personal-library/tour-director.json` index with
+  `shots[].library.tts_variants[]` for scripted TTS (not authentic
+  `recordings[]`). Qwen3-TTS Worknode voice profiles (`Uncle_Fu` warm,
+  `Dylan` playful, `Eric` dry Sichuan/AI humor) are declared in
+  `config/tour-voice-profiles.json`. The branded normal-motto audio
+  `assets/brand/brand-intro-voice.mp3` ships with the Markcut template;
+  use alternatives only when appropriate to story content. No camera
+  or Capture Tour session is needed for prewritten sound cues.
 - **Editor MVP**: follow [Editor eight-capability MVP](docs/editor-mvp.md)
   for complete source/story cut, creator-intent continuity, Shotcraft effects,
   executable Markcut React/JSX, real speech/Worknode ChatTTS/BGM, reusable

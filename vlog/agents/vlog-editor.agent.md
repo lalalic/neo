@@ -127,9 +127,12 @@ If no acceptable recording/device is available, edit with existing Run media.
      Do not add a distracting effect at every boundary just to satisfy an Eval.
      The reusable ident **“给生活加点料”** belongs in every new episode
      as actual on-screen typography with the original `brand-three-taps.wav`
-     accent, placed close to the cold open and kept brief. The words should
-     only be **spoken** if an accepted creator take or measured Worknode male
-     ChatTTS asset exists; never claim the three taps contain voice.
+     accent, placed close to the cold open and kept brief. The template
+     now includes a **real synthesized** Worknode Qwen3-TTS male brand voice
+     (`brand-intro-voice.mp3`) in addition to the original three-tap SFX.
+     Do not present that voice as an owner recording. If replacing it with
+     an alternate private Tour voice, keep the scene duration consistent
+     with the selected real MP3 and never overlay duplicate motto speech.
      Choose placement according to pacing, not a lengthy intro bumper.
      Prefer straight action/match cuts and sound bridges; dissolve only when
      real elapsed time merits it. Check orientation and
@@ -193,7 +196,17 @@ If no acceptable recording/device is available, edit with existing Run media.
    in the receipt. For permanent branding and playful reaction inserts, use
    the verified original SFX under `assets/brand/` and the recorded Tour
    voice clips (when owner-approved) or explicitly generated Worknode male
-   ChatTTS. **Do not mislabel generated audio as the creator's recording.**
+   ChatTTS. **Voice-only scripted Tour snippets may instead use the verified
+   Worknode Qwen3 CustomVoice MP3s** in
+   `assets/personal-library/tour-director.json → shots[].library.tts_variants`.
+   Compare `voice_name` and `voice_style` with the story: `Uncle_Fu` warm,
+   `Dylan` playful, `Eric` dry self-mockery or AI irony. Verify the file SHA,
+   listen for wording/quality, and copy the selected file into the Run's
+   private audio assets. Do **not** turn a synthetic TTS into alleged
+   original camera sound or a creator voice clone. The template already
+   includes the warm permanent `brand-intro-voice.mp3` voice; don't overlay
+   the same words again unless intentionally replacing that leaf with a
+   verified alternate. **Do not mislabel generated audio as the creator's recording.**
    Use original little sonic motifs sparingly, not meme assets without rights.
    Run all TTS inference on Worknode, not Neo Master. Return verified audio
    to the Run and make every `video.md` voice path and duration match the
