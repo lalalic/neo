@@ -3,6 +3,7 @@ import { existsSync, realpathSync, statSync } from 'node:fs';
 import { mkdir, readFile, realpath, stat, writeFile } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {reviewRequested,waitForSourceReview} from '../../lib/visioner-shortcut-review.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const neoRoot = resolve(here, '../../..');
@@ -348,6 +349,21 @@ export async function run(context) {
   const evidenceStat=await realpath(evidencePath);
   if (!confined(runPath,evidenceStat)) throw new Error('Vision evidence artifact escaped the canonical run');
   const writtenEvidence = JSON.parse(await readFile(evidencePath, 'utf8'));
+  if(await reviewRequested(runPath)){
+    // The normal Vlog Shortcut owns perception; a durable review child Task
+    // uses Relay's EXISTING AWAITING_DECISION/hostInvocation lifecycle.
+    // Never let Director proceed merely because a Preview was delivered.
+    const accepted=await waitForSourceReview(context,runPath,input);
+    const [revisedEvidence,revisedNormalized,revisedMetadata]=await Promise.all([
+      readFile(evidencePath,'utf8'),readFile(normalizedManifestPath,'utf8'),readFile(metadataPath,'utf8')]);
+    const checked=JSON.parse(revisedEvidence);
+    return {status:'COMPLETED',output:{'vision-evidence.json':evidencePath,
+      'metadata.json':metadataPath,'vision-normalized-manifest.json':normalizedManifestPath},
+      artifacts:{'vision-evidence.json':checked,
+        'metadata.json':JSON.parse(revisedMetadata),'vision-normalized-manifest.json':JSON.parse(revisedNormalized)},
+      evidence:checked,markcut:markcutResult?{invoked:true,reused:false}:{invoked:false,reused:true},
+      review:{approved:true,revision:accepted.revision,taskId:accepted.taskId}};
+  }
   return {
     status: 'COMPLETED',
     output: { 'vision-evidence.json': evidencePath, 'metadata.json': metadataPath, 'vision-normalized-manifest.json': normalizedManifestPath },

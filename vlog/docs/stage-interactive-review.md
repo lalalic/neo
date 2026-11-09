@@ -8,7 +8,13 @@ uses Markcut MD. Stage Review is **off by default**.
 
 The current Relay Task instructions may explicitly request one or both Stage
 reviews. For a prepared private Run, an owner may instead create the ignored
-`review-stages.json` in that Run:
+`review-stages.json` in that Run. Visioner opt-in is hosted by its
+Shortcut's durable child source-review Task; that child, not a nonhuman
+Shortcut event, owns the existing Relay `AWAITING_DECISION` state. No Relay
+core change or extra Vlog DAG node is required. An approved latest SHA-bound
+receipt must be verified before Director can start.
+
+Example opt-in file:
 
 ```json
 {"visioner": true, "director": true}

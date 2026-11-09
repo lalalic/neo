@@ -125,8 +125,20 @@ Visioner Interactive Review, or owner-supplied Run `review-stages.json` has
 `{"visioner":true}`. This is a source-correction checkpoint, not a new DAG
 role, a mandatory Final Review or a condition for normal evidence handoff.
 
-Finish the original `vision-evidence.json` and Stage validation first. Then
-run `node <vlog-root>/scripts/visioner-review-to-md.mjs <run>` to produce
+Finish the original `vision-evidence.json` and Stage validation first. The
+**Visioner Shortcut** implements this opt-in by generating the source-linked
+Preview and creating a durable, child Visioner source-review Task inside the
+same Relay Job (not another Graph node). The child uses the **existing** Relay
+`hostInvocation`/`AWAITING_DECISION` lifecycle and supplies the approved
+SHA-bound receipt. The Shortcut must not hand Visioner output to Director
+until the child has durably SUCCEEDED with an approved latest invocation.
+This child is a reviewer transport, not another perception engine; source media
+and Markcut understanding remain owned by the original Visioner Shortcut.
+Do not use `WAITING_EVENT` to impersonate a human decision, do not modify
+Agents Relay core, and do not issue a new Preview if an existing task is still
+awaiting a decision. Normal no-review Shortcut execution remains unchanged.
+
+Then run `node <vlog-root>/scripts/visioner-review-to-md.mjs <run>` to produce
 `visioner-review.md` with **one Scene per source**. Its Guide is included in
 the MD and visibly displayed at each Scene's start; preview proxies use
 faithful original time ranges, not sampled Markcut Vision understanding copies.
