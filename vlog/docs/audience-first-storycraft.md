@@ -1,6 +1,6 @@
 # Audience-first everyday Vlog — research and creative review
 
-**Goal:** Make a viewer in China care about a recognizable person experiencing ordinary Canadian life. The content is not a tourism montage, a diary of everything recorded, a forced adversity arc, or an inspirational speech. This guide informs the existing Director → Editor stages; it does not add another agent, schema, approval gate, or compulsory duration.
+**Goal:** Make a viewer in China care about a recognizable person experiencing ordinary Canadian life. The content is not a tourism montage, an arbitrary diary of everything recorded, a forced adversity arc, or an inspirational speech. **But an overfocused one-gesture edit that discards useful footage is also a failure**: a complete lived experience needs meaningful context, lead-in, interlude, reaction and aftertaste. Favor generous source coverage with reasoned exclusions instead of counting scenes or cutting to one fragment. This guide informs the existing Director → Editor stages; it does not add another agent, schema, approval gate, or compulsory duration.
 
 ## Research cases and transferable decisions (reviewed 2026-11-09)
 
@@ -29,6 +29,15 @@
 5. **Viewer-check cut:** Watch the complete rendered draft with picture and sound (technical decode is insufficient). At natural pauses ask: *Do I know whose moment this is? What changed since the previous shot? Do I want to see the next one? Does the ending honor the opening?* Cut or rebuild weak sequences, then verify the actual Markcut revision.
 
 ## Creative evaluation (human/model judgment, separate from stage validator)
+
+Run the optional [Director creative artifact evaluation](../.evals/rubrics/director.md) and
+[Editor rubric](../.evals/rubrics/editor.md) against the **real Markdown**:
+`node scripts/eval-creative-artifacts.mjs --run runs/<id> --stage both --prompt-only`.
+This produces a source-coverage and craft report plus grounded judge prompts;
+`--judge` invokes an independent model reviewer if available. Compare the
+repaired cut against the same Run, but never allow keyword counts, transition
+quantity or a model score to overrule truthful artistic judgement. No
+publication gate is added.
 
 Evaluate each 0–2: **opening clarity**, **creator specificity**, **one coherent progression**, **source audio/picture continuity**, **honest ending and title**. `0` = absent/misleading, `1` = present but weak, `2` = convincing. Record the concrete timestamp and improvement for each weakness in the existing Editor private review notes. This is a comparison rubric, **not** an automated publish gate or viral-score prediction. Test two differently structured short cuts from the *same real source* where feasible; choose by observed clarity, not by mechanical duration or perfect scenery.
 

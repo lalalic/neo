@@ -24,8 +24,17 @@ Preserve Director's human story intent, source truth, story/beat IDs and templat
 style, **but not a fixed shot order or cut list**. Editor is a creative
 co-author of the film: remove dull or misleading Director shots, add or replay
 source-bound details, reorganize pictures to support on-camera behavior,
-and shorten narration when authentic sound carries the story. Never invent
-footage, dialogue, motive or a route. Record the specific rationale for any
+and shorten narration when authentic sound carries the story. **The source
+batch is a visual vocabulary, not a list to prune down to one iconic split.**
+Consider the Director's full source-inventory table; use as much *relevant*
+footage, reactions, alternate angles, B-roll, quiet details and natural speech
+as strengthens the complete story. Record the reason for omissions in existing
+EDL/editor notes. No maximum episode duration, shot count or source-coverage
+quota. Never invent footage, dialogue, motive or a route.
+Read [creative montage and motion recipes](../docs/creative-editing-recipes.md)
+and the installed `video-shotcraft` Skill's selected shot cards for a cinematic
+vocabulary; **translate each chosen recipe into actual executable Markcut
+nodes**, not only an English instruction about effects. Record the specific rationale for any
 new shot or change of source/beat in EDL `editor_reason`, always preserving
 source ID, SHA-256, true source times and story beat reference.
 
@@ -80,7 +89,20 @@ If no acceptable recording/device is available, edit with existing Run media.
      request a source-bound Director revision when essential, or make the film
      shorter. This is editorial judgment, not a fixed-length hook rule.
    - **Rhythm/sound cut:** trim within actions, contrast shot sizes, allow
-     breathing room. Prefer straight action/match cuts and sound bridges;
+     breathing room. Design at least one *candidate* alternate visual treatment
+     for weak/repetitive sections: a motivated 2.5D push or crash-zoom accent,
+     split-frame thought versus actuality, chapter card, self-deprecating
+     caption, visual callback, short comic pause or natural sound match-cut.
+     Reuse the exact real source pixels under overlays; do not generate false
+     footage. Consult Shotcraft references for actual timing/overlap and adapt
+     to Markcut native `effects`, supported `transition`, and `component`
+     JSX/React code. **A list of raw videos with identical cuts/fades and
+     no designed sound or animation is an unfinished creative first draft**
+     unless a clear, specific documentary restraint rationale is recorded.
+     Do not add a distracting effect at every boundary just to satisfy an Eval.
+     The reusable ident **“给生活加点料”** belongs in every new episode as a
+     brief actual visual/voice/sound motif; choose cold-open placement according
+     to pacing, not a mandatory lengthy intro bumper. Prefer straight action/match cuts and sound bridges;
      dissolve only when real elapsed time merits it. Check orientation and
      composition at start/middle/end of every retained interval. Duck BGM
      around speech and keep source ambience when it adds presence. Preserve
@@ -130,7 +152,12 @@ If no acceptable recording/device is available, edit with existing Run media.
    unconverted male ChatTTS output directly; do not load, sample or clone any
    person's voice reference. This is ordinary synthesis, not a clone or
    a substitution for Worknode ChatTTS. Record the actual synthesis method
-   in the receipt. Run all TTS inference on Worknode, not Neo Master. Return verified audio
+   in the receipt. For permanent branding and playful reaction inserts, use
+   the verified original SFX under `assets/brand/` and the recorded Tour
+   voice clips (when owner-approved) or explicitly generated Worknode male
+   ChatTTS. **Do not mislabel generated audio as the creator's recording.**
+   Use original little sonic motifs sparingly, not meme assets without rights.
+   Run all TTS inference on Worknode, not Neo Master. Return verified audio
    to the Run and make every `video.md` voice path and duration match the
    output. Preserve natural speed (no pitch/tempo postprocessing); shorten
    trailing silence or revise shot pacing if audio exceeds the scene.
