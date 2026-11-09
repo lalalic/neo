@@ -13,7 +13,13 @@ for meaningfully using a full source batch, reusable branded intros, Shotcraft,
 and actually executable Markcut effects. Run advisory **Director/Editor Markdown
 creative Evals** with `node scripts/eval-creative-artifacts.mjs --run runs/<episode>
 --stage both`; optional `--judge` performs independent artistic scoring.
-Never substitute this report for rendering/viewing/listening or for Stage gates.
+The artifact-quality evaluator can inspect **every DAG Agent output** with
+`node scripts/eval-creative-artifacts.mjs --run runs/<episode> --stage all --judge
+--model glm-5.3-flash --profile zai --effort high`; each stage sees only its
+own accepted inputs and outputs, not downstream results. Missing artifacts
+are `NOT_EVALUATED`; an unauthorized Publisher is
+`SKIPPED_NO_AUTHORIZATION`, never a fake creative PASS. Never substitute this
+report for rendering/viewing/listening or for Stage gates.
 
 ## Local service lifecycle
 

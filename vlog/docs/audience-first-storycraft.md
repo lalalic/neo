@@ -32,7 +32,7 @@
 
 Run the optional [Director creative artifact evaluation](../.evals/rubrics/director.md) and
 [Editor rubric](../.evals/rubrics/editor.md) against the **real Markdown**:
-`node scripts/eval-creative-artifacts.mjs --run runs/<id> --stage both --prompt-only`.
+`node scripts/eval-creative-artifacts.mjs --run runs/<id> --stage all --prompt-only`.
 This produces a source-coverage and craft report plus grounded judge prompts;
 `--judge` invokes an independent model reviewer if available. Compare the
 repaired cut against the same Run, but never allow keyword counts, transition

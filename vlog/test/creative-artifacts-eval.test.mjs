@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {mkdtempSync,readFileSync,rmSync,writeFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {inspectDirector,inspectEditor,buildJudgePrompt,evaluateRun} from '../scripts/eval-creative-artifacts.mjs';
+import {inspectDirector,inspectEditor,buildJudgePrompt,evaluateRun,buildCodexJudgeArgs,parseJudgeResponse} from '../scripts/eval-creative-artifacts.mjs';
 const manifest={media:['001','002','003','004','005','006'].map(id=>({id,path:id+'.mov',media_type:'video'}))};
 const personal={arc:{outcome:'Find something small worth noticing'},beats:[{source_ids:['001','002']},{source_ids:['003']},{source_ids:['005']}],channel_focus:{primary:'travel_explore'}};
 const baselineEdits=ids=>ids.map((id,i)=>({shot_id:'scene'+i,source_id:id,transition:'cut'}));
@@ -48,9 +48,9 @@ test('Creative judge prompts contain distinct stage rubrics, real-source context
   const prompt=buildJudgePrompt({stage,run:'/vlog/runs/2026-11-09-test',inspection,
    manifest,vision:{sources:[{source_id:'001',summary:'person walks beside fruit trees'}]},
    story:'我的周末',personalStory:'给生活加点料',visualBrief:'素材盘点：只用001',video:flat().video});
-  assert.match(prompt,/unverifiable audio|unverifiable|unseen/i);
-  assert.match(prompt,/Return ONLY one JSON object/);
-  assert.match(prompt,/source_id/);
+  assert.match(prompt,/watch(ed|ing)|listen(ing)?|unverified|uninspected/i);
+  assert.match(prompt,/Return ONLY valid JSON/);
+  assert.match(prompt,/source_id|source-manifest\.json/);
   assert.match(prompt,/001/);
   if(stage==='director')assert.match(prompt,/whole_batch_judgment/);
   else assert.match(prompt,/visual_craft/);
@@ -61,9 +61,47 @@ test('A real private historical Run can be evaluated without changing its assets
  const dir=join(import.meta.dirname,'..','runs','2026-11-08-editor-craft-pilot');
  if(!readFileSync(join(dir,'source-manifest.json'),'utf8'))throw Error('fixture missing');
  const {out}=evaluateRun(dir,'both');
- assert.equal(out.schemaVersion,1);
+ assert.equal(out.schemaVersion,2);
  assert.equal(out.stages.director.sourceCoverage.available,6);
  assert.equal(out.stages.editor.metrics.sceneCount,7);
  assert.equal(out.stages.editor.metrics.componentCount,0);
- assert.ok(out.limitations.some(s=>s.includes('watching real frames')));
+ assert.ok(out.limitations.some(s=>s.includes('watching original frames')));
+});
+
+
+test('GLM 5.3 Flash high creative Eval uses the Relay-supported Codex zai profile',()=>{
+ const args=buildCodexJudgeArgs({projectRoot:'/tmp/test-project',output:'/tmp/test-result.txt'});
+ assert.deepEqual(args.slice(0,5),['exec','--sandbox','read-only','--skip-git-repo-check','-C']);
+ assert.equal(args[args.indexOf('-p')+1],'zai');
+ assert.equal(args[args.indexOf('-m')+1],'glm-5.3-flash');
+ assert.ok(args.includes('model_reasoning_effort=high'));
+ const alt=buildCodexJudgeArgs({output:'/tmp/out',model:'gpt-5.6-luna'});
+ assert.ok(!alt.includes('-p'),'Other models should not be forced to Z.ai');
+});
+
+
+test('Creative JSON parser accepts a single missing scores close brace but not invented scores',()=>{
+ const scores=Object.fromEntries(['a','b','c','d','e','f'].map(x=>[x,{score:3,evidence:'e',repair:'r'}]));
+ const valid=JSON.stringify({stage:'director',scores,overall:3,verdict:'REVISE'});
+ assert.equal(parseJudgeResponse(valid).overall,3);
+ const malformed=valid.replace('},"overall":',',"overall":');
+ assert.equal(parseJudgeResponse(malformed).scores.a.score,3);
+ const short=JSON.stringify({stage:'director',scores:Object.fromEntries(Object.entries(scores).slice(0,5)),overall:3,verdict:'REVISE'}).replace('},"overall":',',"overall":');
+ assert.throws(()=>parseJudgeResponse(short),/incomplete or malformed/);
+});
+
+
+test('Each of the five DAG agents has a separate artifact-quality stage; no downstream leakage',()=>{
+ const run=join(import.meta.dirname,'..','runs','2026-11-08-editor-craft-pilot');
+ const {out,source}=evaluateRun(run,'all');
+ assert.deepEqual(Object.keys(out.stages),['visioner','director','editor','producer','publisher']);
+ assert.equal(out.stages.visioner.status,'INSPECTED');
+ assert.equal(out.stages.producer.status,'INSPECTED');
+ assert.equal(out.stages.publisher.status,'SKIPPED_NO_AUTHORIZATION');
+ const director=buildJudgePrompt({stage:'director',run,inspection:out.stages.director,...source});
+ const editor=buildJudgePrompt({stage:'editor',run,inspection:out.stages.editor,...source});
+ assert.ok(director.includes('story.md'));
+ assert.ok(!director.includes('VIDEO.MD:')&&!director.includes('edit-decision-list.json'));
+ assert.ok(editor.includes('video.md'));
+ assert.ok(!editor.includes('production-receipt.json'));
 });

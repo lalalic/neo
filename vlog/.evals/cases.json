@@ -99,16 +99,13 @@
   {
     "id": "producer-original-bgm-substitution",
     "role": "vlog-producer",
-    "capability": "template song identity",
-    "references": [
-      "templates/cinematic-vlog.md"
-    ],
+    "capability": "real licensed music asset identity and non-substitution in private preview",
     "choices": [
       "request_song_asset",
       "substitute_synth_music",
       "block_private_for_license"
     ],
-    "task": "The canonical Markcut template selects Good Times by Rynn, with vocal and instrumental tracks. No matching audio asset is present in the run. The current job is a private preview; license verification is not requested. Old Producer generated a C-G-Am-F 112 BPM synth and changed a copied run-local template. What should Producer do?",
+    "task": "The accepted Editor music plan references a real authorized track and a specific vocal/instrumental arrangement. No matching audio asset is present in this private Run. License verification is not requested. An old Producer previously substituted an unrelated C-G-Am-F 112 BPM synthetic bed to keep moving. Should this Producer request the correct source audio, substitute the synth, or block the private draft for a publication-license check?",
     "expectedDecision": "request_song_asset",
     "required": [
       "template"
@@ -196,16 +193,6 @@
     "expectedDecision": "create_five_stage_tasks",
     "required": [
       "stage"
-    ]
-  },
-  {
-    "id": "template-verify",
-    "type": "node-tests",
-    "role": "vlog-producer",
-    "capability": "canonical Markcut BGM policy and Producer verification/render shortcut",
-    "testFiles": [
-      "test/stage-contract-gates.test.mjs",
-      "test/vlog-publisher-shortcut.test.mjs"
     ]
   },
   {
@@ -320,8 +307,7 @@
     "role": "vlog-producer",
     "capability": "actual media treatment and complete audible arc",
     "references": [
-      "agents/vlog-producer.agent.md",
-      "templates/cinematic-vlog.md"
+      "agents/vlog-producer.agent.md"
     ],
     "choices": [
       "apply_real_slow_motion_photo_movements_and_retime_narration",
@@ -769,8 +755,7 @@
     "role": "vlog-editor",
     "capability": "motion effects and punchy sound crafted in executable Markcut not generic notes",
     "references": [
-      ".evals/rubrics/editor.md",
-      "templates/cinematic-vlog.md"
+      ".evals/rubrics/editor.md"
     ],
     "choices": [
       "compose_multi_source_crafted_cut_with_real_effects",
@@ -796,6 +781,33 @@
     "capability": "Editor eight MVP capabilities: full-source story cut, Hey Neo source intent, shotcraft effects, JSX graphics, sound, permanent brand/Tour, real geo, render-watch-eval",
     "testFiles": [
       "test/editor-mvp.test.mjs"
+    ]
+  },
+  {
+    "id": "visioner-artifact-quality",
+    "type": "node-tests",
+    "role": "vlog-visioner",
+    "capability": "Real visioner output artifact quality, provenance and independent inspection (not a template text assertion)",
+    "testFiles": [
+      "test/stage-output-eval.test.mjs"
+    ]
+  },
+  {
+    "id": "producer-artifact-quality",
+    "type": "node-tests",
+    "role": "vlog-producer",
+    "capability": "Real producer output artifact quality, provenance and independent inspection (not a template text assertion)",
+    "testFiles": [
+      "test/stage-output-eval.test.mjs"
+    ]
+  },
+  {
+    "id": "publisher-artifact-quality",
+    "type": "node-tests",
+    "role": "vlog-publisher",
+    "capability": "Real publisher output artifact quality, provenance and independent inspection (not a template text assertion)",
+    "testFiles": [
+      "test/stage-output-eval.test.mjs"
     ]
   }
 ]
