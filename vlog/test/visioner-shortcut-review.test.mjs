@@ -24,6 +24,14 @@ const success=(f,{approval=true,created=true}={})=>{
    if(args[1]?.includes('validate-stage.mjs'))return {code:0,stdout:JSON.stringify({status:'PASS'})};
    if(args[1]?.includes('visioner-review-to-md.mjs'))return {code:0,stdout:JSON.stringify({stage:'visioner',review:'NOT_REQUESTED'})};
   }
+  if(args[0]==='agents-relay'&&args[1]==='job'&&args[2]==='show'){
+   return {code:0,stdout:JSON.stringify({id:'583',repository:'lalalic/neo',state:'ACTIVE',
+    executionMode:'shortcut',contentOnly:true,projectPath:'vlog'})};
+  }
+  if(args[0]==='agents-relay'&&args[1]==='task'&&args[2]==='show'&&args.includes('content-run')){
+   return {code:0,stdout:JSON.stringify({id:'content-run',state:'RUNNING',leaseOwner:'shortcut-test-owner',
+    executionId:input.executionId,output:{kind:'file',path:join(f.dir,'neo-project-run.result.json')}})};
+  }
   if(args[0]==='agents-relay'&&args[1]==='task'&&args[2]==='show'){
    show++;
    if(show===1&&created)return {code:1,stderr:'Task not found'};
@@ -73,6 +81,6 @@ test('Visioner Review does not treat changes requested as approval',async()=>{
 test('Visioner Review rejects missing authoritative Job identity',async()=>{
  const f=setup();try{
   const {context}=success(f);
-  await assert.rejects(()=>waitForSourceReview(context,f.dir,{...input,jobId:''}),/authenticated current/);
+  await assert.rejects(()=>waitForSourceReview(context,f.dir,{...input,jobId:''}),/Invalid bound Visioner Shortcut Job/);
  }finally{f.clean();}
 });

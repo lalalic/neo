@@ -33,8 +33,23 @@ function identity(input){
 }
 const receiptName='visioner-review-result.json';
 export async function waitForSourceReview(context,run,input){
- // Relay Job IDs are commonly numeric; the CLI and receipt use string IDs.
- input={...input,jobId:String(input?.jobId??'')};
+ // Existing Shortcut context supplies a Job ID but not repository or parent
+ // executionId. Resolve both from authoritative ACTIVE Relay SQLite state,
+ // instead of modifying Relay core or inventing a Task identity.
+ const jobId=String(input?.jobId??''),repository=input?.repository||process.env.NEO_RELAY_REPOSITORY||'lalalic/neo';
+ if(!/^\d+$/.test(jobId)||input?.taskId!=='content-run')throw Error('Invalid bound Visioner Shortcut Job/Task identity');
+ const job=await call(context,['agents-relay','job','show','--repo',repository,'--id',jobId,'--no-github'],run);
+ if(String(job.id)!==jobId||job.repository!==repository||job.state!=='ACTIVE'||
+    job.executionMode!=='shortcut'||job.contentOnly!==true||job.projectPath!=='vlog')
+  throw Error('Visioner Review Job is not the active canonical shortcut Project');
+ const parent=await call(context,['agents-relay','task','show',
+   '--repo',repository,'--id',jobId,'--task-id',input.taskId,'--no-github'],run);
+ if(parent.id!==input.taskId||parent.state!=='RUNNING'||!parent.leaseOwner||
+    typeof parent.executionId!=='string'||!parent.executionId||
+    parent.output?.kind!=='file'||parent.output?.path!==join(run,'neo-project-run.result.json')||
+    (input.executionId && input.executionId!==parent.executionId))
+  throw Error('Visioner Review cannot bind to a current leased Shortcut execution');
+ input={...input,jobId,repository,executionId:parent.executionId};
  identity(input);
  const check=await call(context,[process.execPath,join(input.projectPath,'scripts/validate-stage.mjs'),'visioner',run],run);
  if(check.status!=='PASS')throw Error('Visioner evidence failed Stage validation before human Review');
@@ -51,11 +66,13 @@ Review MD: ${join(run,'visioner-review.md')}
 Review result file: ${receiptPath}
 Source manifest SHA256: ${manifestSha}
 
-Only use your own *injected current child Task* jobId/taskId/executionId/invocationId and its official Relay event template, NEVER the parent Shortcut execution identity. Validate Visioner Stage, run:
+Use only your *injected current child Task* jobId/taskId/executionId, NEVER the parent Shortcut execution identity. Validate Visioner Stage and run:
   neo project review checkpoint --project vlog --path ${run} --stage visioner
-This creates an immutable Git SHA. Then request the actual human Preview via:
-  markcut preview ${join(run,'visioner-review.md')} --delivery event --event-template <current-child-template.json> --commit-sha <full Git SHA>
-Use the existing Relay human hostInvocation lifecycle: begin, wait (AWAITING_DECISION), ready. Never invent the template or mark a notification ACK as approval. On resumed approved decision for this same full SHA, validate Stage and write the receipt below. On changes_requested, examine specific Scene/time comments, correct source-grounded data with true originals, revalidate, make a fresh commit and repeat Preview until approved. Never invent approval or modify input media.
+The checkpoint commits the exact review Markdown to immutable Run Git SHA. Then create a private local JSON arguments file (do not commit it) containing:
+  {"path":"${join(run,'visioner-review.md')}","relay":{"jobId":"<CURRENT_CHILD_JOB_ID>","taskId":"<CURRENT_CHILD_TASK_ID>","executionId":"<CURRENT_CHILD_EXECUTION_ID>"}}
+Call the existing Neo.app federated Preview tool through its local CLI facade:
+  neo mcp call markcut.preview --args-file <ABSOLUTE_ARGS_JSON_PATH>
+Neo's registered MCP wrapper automatically binds the Relay hostInvocation and transitions this current child Task to AWAITING_DECISION. Do not call review.interactive begin/wait/ready yourself. A successful Preview delivery receipt is PENDING, not user approval. Upon actual resumed approved decision for the same revision, validate Stage and write the receipt below. On changes_requested, inspect Scene/time comments, correct source-grounded data against originals, revalidate, commit a fresh revision and call the same tool again. Never invent approval or modify input media.
 
 After a proven approved final revision, write ${receiptPath} JSON exactly:
 {"status":"APPROVED","jobId":"${input.jobId}","taskId":"${childTaskId}","sourceManifestSha256":"${manifestSha}","revision":"<the exact full approved 40-character Git SHA>"}
