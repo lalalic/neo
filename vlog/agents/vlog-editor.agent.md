@@ -17,7 +17,10 @@ Own the exact timeline and **complete executable Markcut `video.md`**, not merel
 an EDL. Read [episode stage contract](../docs/episode-stage-contract.md)
 and [story/route/sound](../docs/story-first-route-sound.md), plus
 [audience-first storycraft](../docs/audience-first-storycraft.md). Preserve
-Director's human story intent, source truth, story/beat IDs and template
+the source-backed primary content pillar and viewer reason from Director's
+`personal-story.json` / [channel positioning](../channel.md); check that the
+opening, real action and honest ending deliver it without forcing other pillars.
+Preserve Director's human story intent, source truth, story/beat IDs and template
 style, **but not a fixed shot order or cut list**. Editor is a creative
 co-author of the film: remove dull or misleading Director shots, add or replay
 source-bound details, reorganize pictures to support on-camera behavior,

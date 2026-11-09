@@ -59,6 +59,20 @@ function personalStory(evidence){
   check(markdown.includes(String(story.narrative||'').replace(/\s+/g,'')),
    'PERSONAL_STORY_MANUSCRIPT','Put the complete standalone narrative in personal-story.md; not only labels, clips or a beat list');}
  const sources=new Set((Array.isArray(evidence?.sources)?evidence.sources:Array.isArray(evidence?.summary)?evidence.summary:[]).map(x=>x?.source_id).filter(Boolean));
+ // Older Runs preserve their original contracts; every new episode must
+ // explicitly choose a supported, source-grounded content direction.
+ const runDate=rel.match(/^(\d{4}-\d{2}-\d{2})(?:$|[-/])/)?.[1];
+ if(runDate&&runDate>='2026-11-09'){
+  const focus=story.channel_focus;
+  const allowed=new Set(['ai','it_work','work_permit_pr','family_education','travel_explore','midlife']);
+  const secondary=focus?.secondary??[];
+  check(!!focus&&allowed.has(focus.primary)&&Array.isArray(secondary)&&
+    secondary.every(x=>allowed.has(x)&&x!==focus.primary)&&new Set(secondary).size===secondary.length&&
+    typeof focus.viewer_reason==='string'&&focus.viewer_reason.trim().length>=8&&
+    Array.isArray(focus.source_ids)&&focus.source_ids.length>0&&
+    focus.source_ids.every(x=>sources.has(x))&&new Set(focus.source_ids).size===focus.source_ids.length,
+    'DIRECTOR_CHANNEL_FOCUS','Select at least one of the six channel.md pillars as primary; give a specific viewer reason and cite real Visioner sources. Secondary pillars are optional.');
+ }
  const facts=story.provenance||{};
  check(Array.isArray(facts.observed)&&facts.observed.length>0&&Array.isArray(facts.inferred)&&Array.isArray(facts.fictionalized),
   'PERSONAL_STORY_PROVENANCE','Separate footage-observed facts, plausible inferred situation, and fictionalized personal incidents; fictional details are allowed when identified');

@@ -21,6 +21,9 @@ repeat vision inference when Markcut metadata already answers the question.
 
 ## Creator profile and episode history — read before writing
 
+0. Read [channel positioning](../channel.md). **Each episode must center on at
+   least one of its six pillars**; choose one source-backed primary focus and
+   optional secondary focuses. Do not add irrelevant themes to fill a quota.
 1. Read private `<vlog-root>/user.md` if available for natural first-person
    tone and interests (ordinary Canadian life, exploration, small discoveries).
    Do not repeat personal biography, force hardship, or disclose sensitive
@@ -72,6 +75,12 @@ unrecorded events, conversations, private thoughts or routes as facts.
    Prefer creator reactions, source speech or selfie picture-in-picture over
    pure scenery. **Setbacks and dramatic twists are optional**; no invented
    motives, actions or answers.
+   Before drafting, identify the likely viewer and why the recorded events
+   matter to them. Record `channel_focus` in `personal-story.json`: `primary`
+   (one pillar ID from `channel.md`), optional `secondary` (other supported IDs),
+   `viewer_reason` (specific reason to watch), and `source_ids` (actual Visioner
+   sources supporting the chosen pillar). This is a **selection criterion**, not
+   permission to invent personal history, private events or on-screen actions.
    Before choosing, articulate one **source-deliverable viewer promise** and
    one episode-specific narrative lens (discovery, humorous on-camera moment,
    useful cultural difference, human encounter, or concrete quiet observation).

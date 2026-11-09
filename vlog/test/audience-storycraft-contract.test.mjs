@@ -30,3 +30,14 @@ test('creative guidance protects real footage, personal voice and non-forced end
   assert.match(guide, /not\*\* an automated publish gate/);
   assert.match(guide, /Direct XHS post inspection may be blocked/);
 });
+
+
+test('six channel directions are reachable in the prompts and backed by a stage gate', () => {
+  const channel = read('channel.md');
+  for (const id of ['ai', 'it_work', 'work_permit_pr', 'family_education', 'travel_explore', 'midlife']) {
+    assert.ok(channel.includes('`' + id + '`'));
+  }
+  assert.match(read('agents/vlog-director.agent.md'), /\]\(\.\.\/channel\.md\)/);
+  assert.match(read('agents/vlog-editor.agent.md'), /\]\(\.\.\/channel\.md\)/);
+  assert.match(read('scripts/validate-stage.mjs'), /DIRECTOR_CHANNEL_FOCUS/);
+});

@@ -6,6 +6,10 @@ with optional explicitly authorized publication. Use [graph.mmd](graph.mmd),
 [publication contract](docs/vlog-publication.md). Relay manages Jobs,
 Tasks and dependencies, not this project.
 
+The shared public content positioning and six episode directions live in
+[channel.md](channel.md). From 2026-11-09 onward, every new Director story
+selects at least one source-backed direction. Historical Runs remain unchanged.
+
 ## Local service lifecycle
 
 `neo-project` owns the iCloud Inbox watcher lifecycle using PM2 against

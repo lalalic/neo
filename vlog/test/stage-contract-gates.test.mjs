@@ -44,6 +44,33 @@ function personalStoryFixture(f){
  return story;
 }
 
+test('new Vlogs require a real-source-backed primary channel pillar, old Runs remain compatible',()=>{
+ const f=fixture('2026-11-09-channel-pillar');
+ try{
+  const tool=join(f.vlog,'scripts/validate-stage.mjs'),env={AGENTS_RELAY_CLI:f.cli};
+  write(f.run,'vision-evidence.json',{stage:'visioner',sources:[{source_id:'a'}],summary:[{source_id:'a'}]});
+  const story=personalStoryFixture(f);
+  const errors=()=>JSON.parse(call(tool,['director',f.run],env).stdout).errors.map(x=>x.code);
+  assert.ok(errors().includes('DIRECTOR_CHANNEL_FOCUS'));
+  story.channel_focus={primary:'all_six',viewer_reason:'中国观众想知道加拿大的生活是什么样子',source_ids:['a']};
+  write(f.run,'personal-story.json',story);
+  assert.ok(errors().includes('DIRECTOR_CHANNEL_FOCUS'));
+  story.channel_focus.primary='travel_explore';story.channel_focus.source_ids=['invented'];
+  write(f.run,'personal-story.json',story);
+  assert.ok(errors().includes('DIRECTOR_CHANNEL_FOCUS'));
+  story.channel_focus.source_ids=['a'];
+  write(f.run,'personal-story.json',story);
+  assert.ok(!errors().includes('DIRECTOR_CHANNEL_FOCUS'));
+  const legacy=fixture('2026-11-08-channel-pillar');
+  try{
+   write(legacy.run,'vision-evidence.json',{stage:'visioner',sources:[{source_id:'a'}],summary:[{source_id:'a'}]});
+   personalStoryFixture(legacy);
+   const out=JSON.parse(call(join(legacy.vlog,'scripts/validate-stage.mjs'),['director',legacy.run],{AGENTS_RELAY_CLI:legacy.cli}).stdout);
+   assert.ok(!out.errors.some(x=>x.code==='DIRECTOR_CHANNEL_FOCUS'));
+  }finally{legacy.clean();}
+ }finally{f.clean();}
+});
+
 test('Editor validates sourceDuration versus story-paced timelineDuration instead of equating them',()=>{
  const f=fixture();try{
   const tool=join(f.vlog,'scripts/validate-stage.mjs');const env={AGENTS_RELAY_CLI:f.cli,MARKCUT_CLI:f.cli};
