@@ -1,5 +1,5 @@
-name: Build Neo GPU Service
-run-name: Neo GPU image ${{ inputs.build_id }}
+name: Build Neo Compute Service
+run-name: Neo Compute image ${{ inputs.build_id }}
 on:
   workflow_dispatch:
     inputs:
@@ -32,7 +32,7 @@ on:
         required: true
         type: string
       runtime_hash:
-        description: SHA256 of Neo GPU runtime source for reproducibility
+        description: SHA256 of Neo Compute runtime source for reproducibility
         required: true
         type: string
       build_id:
@@ -71,7 +71,7 @@ jobs:
           [[ "$MODE" == batch || "$MODE" == web ]]
           [[ "$SERVICE_NAME" =~ ^[a-z][a-z0-9-]{0,63}$ ]]
           [[ "$APP_PORT" =~ ^[0-9]{1,5}$ && "$APP_PORT" -ge 1 && "$APP_PORT" -le 65535 && "$APP_PORT" -ne 8000 ]]
-      - name: Checkout Neo GPU runtime
+      - name: Checkout Neo Compute runtime
         uses: actions/checkout@v4
         with:
           persist-credentials: false
@@ -83,7 +83,7 @@ jobs:
           const {createHash}=require('crypto'),fs=require('fs');
           const hash=createHash('sha256');
           for(const file of ['service.mjs','web.mjs','launcher.mjs','Dockerfile.wrap'])hash.update(fs.readFileSync('gpu/runtime/'+file));
-          if(hash.digest('hex')!==process.env.EXPECTED_HASH)throw Error('Neo GPU runtime differs from invoking CLI; update Neo CLI and retry');
+          if(hash.digest('hex')!==process.env.EXPECTED_HASH)throw Error('Neo Compute runtime differs from invoking CLI; update Neo CLI and retry');
           NODE
       - name: Checkout public project source
         uses: actions/checkout@v4
@@ -116,7 +116,7 @@ jobs:
           if(!command.length)throw Error('A GPU project Dockerfile needs CMD or ENTRYPOINT');
           fs.appendFileSync(process.env.GITHUB_OUTPUT,'cmd='+JSON.stringify(command)+'\n');
           NODE
-      - name: Add generic Neo GPU HTTP service and publish image
+      - name: Add generic Neo Compute HTTP service and publish image
         env:
           IMAGE: ${{ inputs.image }}
           COMMAND_JSON: ${{ steps.command.outputs.cmd }}

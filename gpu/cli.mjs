@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Built-in Neo GPU CLI. Provider adapters contain rental logic only; image
+// Built-in Neo Compute CLI (legacy internal gpu/ paths). Provider adapters contain rental logic only; image
 // construction and the container's HTTP execution contract are shared.
 import {existsSync} from 'node:fs';
 import {resolve} from 'node:path';
@@ -10,22 +10,22 @@ import {hfRun,cancelHf} from './providers/hf.mjs';
 import {vastRun,cleanupVast} from './providers/vast.mjs';
 import {webMain} from './web/manager.mjs';
 
-export const usage = `Neo GPU — built into Neo (Node.js)
-  neo gpu build [--project ROOT] [--dockerfile Dockerfile] [--name SERVICE]
+export const usage = `Neo Compute — built into Neo (Node.js)
+  neo compute build [--project ROOT] [--dockerfile Dockerfile] [--name SERVICE]
                 [--builder github|local] [--image ghcr.io/OWNER/NAME:TAG]
                 [--push] [--dry-run]
-  neo gpu run SERVICE [--provider hf|vast] --input NAME=PATH ...
+  neo compute run SERVICE [--provider hf|vast] --input NAME=PATH ...
                 --output NAME=PATH ... --allow-spend --allow-upload
                 [--budget USD] [--max-seconds 1200] [--dry-run]
-  neo gpu run --image ghcr.io/OWNER/NAME:TAG [options]
-  neo gpu services
-  neo gpu web add SERVICE | remove SERVICE | token SERVICE | rotate SERVICE | status [SERVICE]
-  neo gpu web start SERVICE --allow-spend | stop SERVICE | serve [--port 8798]
-  neo gpu doctor
-  neo gpu cleanup --lease PATH
+  neo compute run --image ghcr.io/OWNER/NAME:TAG [options]
+  neo compute services
+  neo compute web add SERVICE | remove SERVICE | token SERVICE | rotate SERVICE | status [SERVICE]
+  neo compute web start SERVICE --allow-spend | stop SERVICE | serve [--port 8798]
+  neo compute doctor
+  neo compute cleanup --lease PATH
 
 Container contract: image CMD/ENTRYPOINT reads /neo/input and writes /neo/output.
-No project-specific HTTP server or separate neo-gpu installation is required.
+The Job/Web wrapper is built in; no separate Neo Compute installation is required.
 `;
 export function planRun(args){
   const opts=parse(args,{values:['--image','--provider','--flavor','--budget','--max-seconds','--gpu',
@@ -34,7 +34,7 @@ export function planRun(args){
   if(opts._.length>1)throw new GpuError('Provide at most one service name');
   const service=opts._[0];
   const saved=service?findService(service):null;
-  if(service&&!saved)throw new GpuError(`Unknown GPU service ${service}; run neo gpu build first`);
+  if(service&&!saved)throw new GpuError(`Unknown GPU service ${service}; run neo compute build first`);
   const image=opts.image||saved?.image;
   if(!image || !/^ghcr\.io\/[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+:[a-zA-Z0-9_.-]+$/.test(image))throw new GpuError('A versioned GHCR image is required');
   const provider=opts.provider||'hf';
@@ -68,7 +68,7 @@ export function doctor(){
 }
 export async function cleanup(args){
   const opts=parse(args,{values:['--lease']});
-  if(!opts.lease||opts._.length)throw new GpuError('usage: neo gpu cleanup --lease ABSOLUTE_PATH');
+  if(!opts.lease||opts._.length)throw new GpuError('usage: neo compute cleanup --lease ABSOLUTE_PATH');
   const file=ensureLeasePath(opts.lease);
   const lease=readJson(file);
   if(!lease)throw new GpuError('GPU lease does not exist');
@@ -87,14 +87,14 @@ export async function main(args=process.argv.slice(2)){
       case 'build':await build(rest);break;
       case 'web':await webMain(rest);break;
       case 'run':await run(rest);break;
-      case 'services':if(rest.length)throw new GpuError('usage: neo gpu services');
+      case 'services':if(rest.length)throw new GpuError('usage: neo compute services');
         console.log(JSON.stringify(serviceRegistry(),null,2));break;
-      case 'doctor':if(rest.length)throw new GpuError('usage: neo gpu doctor');doctor();break;
+      case 'doctor':if(rest.length)throw new GpuError('usage: neo compute doctor');doctor();break;
       case 'cleanup':await cleanup(rest);break;
-      default:throw new GpuError(`Unknown neo gpu command: ${cmd}`);
+      default:throw new GpuError(`Unknown neo compute command: ${cmd}`);
     }
     return 0;
-  }catch(error){console.error('GPU ERROR:',error instanceof Error?error.message:String(error));return 2;}
+  }catch(error){console.error('COMPUTE ERROR:',error instanceof Error?error.message:String(error));return 2;}
 }
 if(process.argv[1]&&resolve(process.argv[1])===resolve(new URL(import.meta.url).pathname)){
   process.exitCode=await main();

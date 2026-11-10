@@ -1,9 +1,14 @@
-# Neo GPU — built-in Node.js module
+# Neo Compute — built-in Node.js module
+
+`neo compute` is the primary public command. The old `neo gpu` command and
+existing private `gpu/` runtime/state paths are preserved for compatibility.
+The new public gateway is `https://compute.qili2.com` and the previous
+`https://gpu.qili2.com` hostname is retained as an alias.
 
 A **project-owned Dockerfile** is all that is needed to define the application
 runtime. Neo adds its shared Node.js service entrypoint and dispatches the
 resulting image to GPU providers. The project does **not** implement HTTP,
-a provider adapter, or a separate `neo-gpu` package.
+a provider adapter, or a separate GPU-specific package.
 
 ## Project contract (v1)
 
@@ -30,9 +35,9 @@ No project-specific service process or Python CLI is installed on Neo Master.
 ```sh
 cd ~/Workspace/my-video-project
 # Dockerfile is committed and pushed to GitHub.
-neo gpu build                     # hosted GitHub Actions, publish versioned GHCR image
-neo gpu services                  # show built service IDs/images
-neo gpu run my-video-project \
+neo compute build                     # hosted GitHub Actions, publish versioned GHCR image
+neo compute services                  # show built service IDs/images
+neo compute run my-video-project \
   --input image.png=portrait.png \
   --input audio.wav=voice.wav \
   --output result.mp4=output.mp4 \
@@ -44,14 +49,14 @@ The default hosted builder uses the **Neo repository's GitHub Actions**, so the
 project needs a GitHub remote with a *public* pushed commit and matching owner.
 It is not possible for Neo's public Actions token to clone a different private
 repo. For private or local-only projects, configure a Docker/Buildx builder and
-use `neo gpu build --builder local` instead. The image is pushed to GHCR by
+use `neo compute build --builder local` instead. The image is pushed to GHCR by
 default; `--no-push` is for local-only smoke tests.
 
 A build tag is derived from the source Git SHA, Dockerfile contents, and exact
 Neo runtime hash. Both the source commit and runtime hash are checked on the
-hosted runner. A later `neo gpu run` reuses that image without rebuilding it.
+hosted runner. A later `neo compute run` reuses that image without rebuilding it.
 
-`neo gpu build --dry-run` and `neo gpu run ... --dry-run` do not spend or upload.
+`neo compute build --dry-run` and `neo compute run ... --dry-run` do not spend or upload.
 Real GPU usage requires `--allow-spend`; uploading local inputs additionally
 requires `--allow-upload`. The `--budget` check is advisory and **not** a
 provider-enforced hard billing cap. HF Jobs has a server-side `--timeout`;
@@ -69,8 +74,8 @@ Vast.ai has a separate Neo watchdog that destroys the rental at its deadline.
 - `transport.mjs`: input/output validation, transfer, and result checks.
 - `watchdog.mjs`: independent Vast.ai cleanup if the invoking CLI exits.
 
-Provider CLIs are external service utilities, **not** a separate Neo GPU package.
-The Neo GPU orchestration and container service are authored in Node.js.
+Provider CLIs are external service utilities, **not** a separate Neo Compute package.
+The Neo Compute orchestration and container service are authored in Node.js.
 
 ## Testing
 
@@ -112,22 +117,22 @@ For example:
 
 ```sh
 cd ~/Workspace/my-video-app
-neo gpu build --mode web --port 7860 --name my-video-app
-neo gpu web add my-video-app --provider hf --budget 2
+neo compute build --mode web --port 7860 --name my-video-app
+neo compute web add my-video-app --provider hf --budget 2
 # Prints the stable URL and a 256-bit random token ONCE.
-neo gpu web serve --port 8798
-# https://gpu.qili2.com/my-video-app/
+neo compute web serve --port 8798
+# https://compute.qili2.com/my-video-app/
 ```
 
 The gateway is always on (no GPU billed when idle). A visitor authenticates
 using the random per-service token before accessing any app traffic. It sets
 an HttpOnly SameSite cookie and removes the credential from subsequent URLs.
 **The token permits starting a paid GPU**, so keep it private. Rotate with
-`neo gpu web rotate SERVICE`. The browser must explicitly click **Start GPU**;
+`neo compute web rotate SERVICE`. The browser must explicitly click **Start GPU**;
 opening the link alone never rents one. The configured budget is an estimate,
 not a hard billing limit.
 
-**Automatic shutdown:** `neo gpu web add` defaults to a **3600-second hard
+**Automatic shutdown:** `neo compute web add` defaults to a **3600-second hard
 session cap** measured from startup, regardless of user activity. A session
 may configure a shorter cap (`--max-seconds`, 300–3600); longer sessions are
 not allowed in web mode. HF Jobs gets an independent server-side `--timeout`;
@@ -135,7 +140,7 @@ Vast.ai has a detached watchdog that calls destroy while Neo Master is awake.
 If Neo Master sleeps or loses connectivity, Vast deletion can be delayed until
 it wakes; for provider-enforced maximum duration prefer HF Jobs. Sessions do
 not auto-renew.
-The gateway's Stop button and `neo gpu web stop SERVICE` can end sessions early.
+The gateway's Stop button and `neo compute web stop SERVICE` can end sessions early.
 
 The app must support a base path (e.g. Gradio `root_path="/my-video-app"`) or
 use relative asset URLs. Apps that hard-code root-absolute `/assets/...` paths
@@ -148,8 +153,8 @@ gate cookie and provider credentials from traffic to the application, retaining
 app-specific cookies for normal UI logins. HTTP and WebSocket upgrades are
 supported. Token verification applies to both.
 
-Inspect: `neo gpu web status`; credential: `neo gpu web token SERVICE` (local
-machine only); rotate: `neo gpu web rotate SERVICE`. Browser controls use POST
+Inspect: `neo compute web status`; credential: `neo compute web token SERVICE` (local
+machine only); rotate: `neo compute web rotate SERVICE`. Browser controls use POST
 and verify Origin for CSRF protection. No app starts and no GPU is billed until
 an authenticated user explicitly starts a session.
 
@@ -162,11 +167,11 @@ fails even when an interactive shell can run `vastai`. Never store provider
 credentials in a public plist.
 
 The persistent gateway is a user LaunchAgent named `com.neo.gpu-web-gateway`
-that runs `neo gpu web serve --port 8798 --origin https://gpu.qili2.com` on
+that runs `neo compute web serve --port 8798 --origin https://compute.qili2.com` on
 **loopback only**. A separate `com.neo.gpu-web-cloudflared` LaunchAgent uses a
 named Cloudflare Tunnel `neo-gpu-web`, avoiding modifications to NeoY's
 app-generated tunnel ingress configuration. The public hostname is
-`https://gpu.qili2.com`; no GPU is rented simply because the gateway is up.
+`https://compute.qili2.com`; no GPU is rented simply because the gateway is up.
 
 Operator-only state stays outside Git:
 
@@ -177,8 +182,8 @@ Operator-only state stays outside Git:
 - `~/Library/LaunchAgents/com.neo.gpu-web-{gateway,cloudflared}.plist` — keepalive.
 
 Verification: `launchctl print gui/$(id -u)/com.neo.gpu-web-gateway`,
-`neo gpu web status`, `curl -i https://gpu.qili2.com/health`, and a browser
-request to `/SERVICE/` without a token (must be rejected). `neo gpu web token
+`neo compute web status`, `curl -i https://compute.qili2.com/health`, and a browser
+request to `/SERVICE/` without a token (must be rejected). `neo compute web token
 SERVICE` retrieves the secret locally; do not put it in a URL or Git.
 
 Vast.ai's cleanup watchdog cannot guarantee shutdown while Neo Master itself
@@ -212,5 +217,5 @@ separately tested. No credentials are stored in the repository or the E2E
 receipt. See [E2E fixture details](e2e/README.md).
 
 CI additionally runs the single-Dockerfile container smoke suite via
-[Neo GPU tiny Dockerfile E2E](../.github/workflows/neo-gpu-e2e.yml) on GPU-related
+[Neo Compute tiny Dockerfile E2E](../.github/workflows/neo-gpu-e2e.yml) on GPU-related
 commits, covering both `batch` and `web` without provider credentials or cost.

@@ -66,6 +66,7 @@ test('stable gateway is token gated, no billing on GET; start/stop require same-
     assert.match(await r.text(),/60 minutes/);assert.equal(starts,0);
     r=await fetch(`${url}/demo/_start`,{method:'GET',headers});assert.equal(r.status,405);
     r=await fetch(`${url}/demo/_start`,{method:'POST',headers,redirect:'manual'});assert.equal(r.status,403);
+    r=await fetch(`${url}/demo/_start`,{method:'POST',headers:{...headers,origin:'https://untrusted.example'},redirect:'manual'});assert.equal(r.status,403);
     r=await fetch(`${url}/demo/_start`,{method:'POST',headers:{...headers,origin},redirect:'manual'});
     assert.equal(r.status,303);assert.equal(starts,1);
     saveSession('demo',{phase:'running',provider:'vast',instanceId:123,deadline:Date.now()+3600*1000});
@@ -177,4 +178,27 @@ test('HF web Job uses exact one-hour provider-side timeout, exposed private port
   assert.equal(args[args.indexOf('--timeout')+1],'3600s');
   assert.equal(args[args.indexOf('--expose')+1],'8000');
   assert.equal(args[args.indexOf('--attempts')+1],'1');
+});
+
+test('compute canonical gateway accepts only its exact origin and the old gpu.qili2.com alias',async()=>{
+  const dir=fixture(),secret=register('alias-test',controlConfig());
+  let starts=0;
+  const gateway=createGateway({origin:'https://compute.qili2.com',start:()=>starts++});
+  const port=await listen(gateway),url=`http://127.0.0.1:${port}`;
+  try{
+    const login=await fetch(url+'/alias-test/_login',{method:'POST',
+      body:new URLSearchParams({token:secret}),redirect:'manual'});
+    const cookie=login.headers.get('set-cookie').split(';')[0];
+    for(const origin of ['https://compute.qili2.com','https://gpu.qili2.com']){
+      const reply=await fetch(url+'/alias-test/_start',{method:'POST',
+        headers:{Cookie:cookie,Origin:origin},redirect:'manual'});
+      assert.equal(reply.status,303);
+    }
+    assert.equal(starts,2);
+    for(const origin of ['https://other.example','https://gpu.qili2.com.evil.com','http://gpu.qili2.com']){
+      const reply=await fetch(url+'/alias-test/_start',{method:'POST',
+        headers:{Cookie:cookie,Origin:origin},redirect:'manual'});
+      assert.equal(reply.status,403);
+    }
+  }finally{await close(gateway);rmSync(dir,{recursive:true,force:true});}
 });

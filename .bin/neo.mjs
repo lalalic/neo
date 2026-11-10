@@ -16,7 +16,7 @@ import { runEscalationSelfTest } from './neo-escalation-self-test.mjs';
 import {withGlobalEscalationLock, escalationLockConfig} from './neo-escalation-lock.mjs';
 import { runComputerUseCli, runLocalMcpCli } from './neo-mcp-local.mjs';
 import { loadWorkspaceConfig } from './workspace-config.mjs';
-import { main as runGpuCli } from '../gpu/cli.mjs';
+import { main as runComputeCli } from '../gpu/cli.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '..');
@@ -41,7 +41,8 @@ function usage() {
   neo agent list [--project PATH] [--source project|shared|global|agency]\n  neo agent search QUERY [--project PATH] [--source ...] [--limit N]\n  neo project list|resolve NAME|setup-agent NAME
   neo project run (--url HTTPS_URL | --path ABSOLUTE_RUN_DIR) --project NAME [--dry-run] [--no-review]
   neo project review checkpoint --project NAME --path ABSOLUTE_RUN_DIR --stage producer\n  neo project tts (--text TEXT | --text-file PATH) --output ABSOLUTE.m4a [--voice Tingting] [--rate 200] [--node local]
-  neo gpu build|run|services|doctor|cleanup [options]  Build and run GPU services
+  neo compute build|run|web|services|doctor|cleanup [options]  On-demand Docker compute
+  neo gpu ...                                 Legacy alias for neo compute
   neo workspace show
   neo skill list [--project PATH]|package SKILL_DIR OUTPUT.zip
   neo bootstrap [--json] [--project PATH]
@@ -161,7 +162,7 @@ async function main(argv) {
     process.stdout.write('access_token' in outcome ? outcome.access_token + '\n' : JSON.stringify(outcome, null, 2) + '\n');
     return 0;
   }
-  if (command === 'gpu') return await runGpuCli(args);
+  if (command === 'compute' || command === 'gpu') return await runComputeCli(args);
   if (command === 'computer-use') {
     const result = await runComputerUseCli(args);
     process.stdout.write(JSON.stringify(result, null, 2) + '\n');

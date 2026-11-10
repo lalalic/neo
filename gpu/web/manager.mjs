@@ -5,14 +5,14 @@ import {service,services,session,saveSession,sessionFile,configFile,register,tok
 import {reserveBudget,createProviderSession,destroyProviderSession,spawnWatchdog} from './providers.mjs';
 import {createGateway} from './gateway.mjs';
 
-const publicBase=()=>process.env.NEO_GPU_WEB_ORIGIN||'https://gpu.qili2.com';
+const publicBase=()=>process.env.NEO_COMPUTE_WEB_ORIGIN||process.env.NEO_GPU_WEB_ORIGIN||'https://compute.qili2.com';
 function existing(name){const config=service(name);if(!config)throw new GpuError('Unknown GPU web service: '+name);return config;}
 export function webAdd(args){
   const opts=parse(args,{values:['--provider','--budget','--max-seconds','--flavor','--gpu','--disk','--max-hourly','--countries']});
-  if(opts._.length!==1)throw new GpuError('usage: neo gpu web add SERVICE [--provider hf|vast]');
+  if(opts._.length!==1)throw new GpuError('usage: neo compute web add SERVICE [--provider hf|vast]');
   const name=validateService(opts._[0]);
   const built=findService(name);
-  if(!built || built.mode!=='web' || !built.published)throw new GpuError('Build and publish this service with neo gpu build --mode web first');
+  if(!built || built.mode!=='web' || !built.published)throw new GpuError('Build and publish this service with neo compute build --mode web first');
   const provider=opts.provider||'hf';
   if(!['hf','vast'].includes(provider))throw new GpuError('Unknown GPU web provider');
   const seconds=integer(opts.max_seconds||'3600','--max-seconds',{min:300,max:3600});
@@ -27,12 +27,12 @@ export function webAdd(args){
     note:'Save token securely. Possession permits browser Start GPU actions up to configured budget.'},null,2));
 }
 export function webToken(args){
-  if(args.length!==1)throw new GpuError('usage: neo gpu web token SERVICE');
+  if(args.length!==1)throw new GpuError('usage: neo compute web token SERVICE');
   const name=validateService(args[0]);existing(name);
   console.log(JSON.stringify({service:name,token:token(name),url:`${publicBase()}/${name}/`}));
 }
 export function webRotate(args){
-  if(args.length!==1)throw new GpuError('usage: neo gpu web rotate SERVICE');
+  if(args.length!==1)throw new GpuError('usage: neo compute web rotate SERVICE');
   const name=validateService(args[0]);existing(name);
   const next=randomBytes(32).toString('base64url');
   const file=tokenFile(name),tmp=file+'.rotation-'+randomBytes(8).toString('hex');
@@ -89,7 +89,7 @@ export async function stopSession(name){
   });
 }
 export async function webRemove(args){
-  if(args.length!==1)throw new GpuError('usage: neo gpu web remove SERVICE');
+  if(args.length!==1)throw new GpuError('usage: neo compute web remove SERVICE');
   const name=validateService(args[0]);existing(name);
   return exclusive(name,async()=>{
     const current=session(name);
@@ -101,7 +101,7 @@ export async function webRemove(args){
   });
 }
 export function webStatus(args){
-  if(args.length>1)throw new GpuError('usage: neo gpu web status [SERVICE]');
+  if(args.length>1)throw new GpuError('usage: neo compute web status [SERVICE]');
   if(args.length){const name=validateService(args[0]);console.log(JSON.stringify({service:name,config:existing(name),session:session(name),url:`${publicBase()}/${name}/`},null,2));return;}
   const out={};for(const [name,config] of Object.entries(services().services))out[name]={provider:config.provider,session:session(name).phase,url:`${publicBase()}/${name}/`};
   console.log(JSON.stringify(out,null,2));
@@ -116,20 +116,20 @@ export async function webMain(args){
     case 'status':webStatus(rest);return;
     case 'start':{
       const parsed=parse(rest,{switches:['--allow-spend']});
-      if(parsed._.length!==1)throw new GpuError('usage: neo gpu web start SERVICE --allow-spend');
+      if(parsed._.length!==1)throw new GpuError('usage: neo compute web start SERVICE --allow-spend');
       console.log(JSON.stringify(await startSession(parsed._[0],{approved:!!parsed.allow_spend})));return;
     }
-    case 'stop':if(rest.length!==1)throw new GpuError('usage: neo gpu web stop SERVICE');
+    case 'stop':if(rest.length!==1)throw new GpuError('usage: neo compute web stop SERVICE');
       console.log(JSON.stringify(await stopSession(rest[0])));return;
     case 'serve':{
       const parsed=parse(rest,{values:['--port','--origin']});
-      if(parsed._.length)throw new GpuError('usage: neo gpu web serve [--port 8798]');
+      if(parsed._.length)throw new GpuError('usage: neo compute web serve [--port 8798]');
       const port=integer(parsed.port||'8798','--port',{min:1024,max:65535});
       const server=createGateway({port,origin:parsed.origin||publicBase()});
       await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(port,'127.0.0.1',resolve);});
       console.log(JSON.stringify({event:'neo_gpu_web_gateway_ready',port,origin:parsed.origin||publicBase()}));return;
     }
-    default:console.log(`neo gpu web add SERVICE | remove SERVICE | token SERVICE | rotate SERVICE | status [SERVICE] |
+    default:console.log(`neo compute web add SERVICE | remove SERVICE | token SERVICE | rotate SERVICE | status [SERVICE] |
   start SERVICE --allow-spend | stop SERVICE | serve [--port 8798]`);
   }
 }

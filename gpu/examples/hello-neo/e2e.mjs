@@ -19,7 +19,7 @@ const allowed=new Set(['--live','--allow-spend','--build','--batch-only','--web-
 const provider=args.has('--vast')?'vast':'hf';
 const names={batch:'hello-neo-job',web:provider==='vast'?'hello-neo-vast-web':'hello-neo-web'};
 const gpu=provider==='hf'?['--flavor','t4-small']:['--gpu','RTX 4090'];
-const origin=process.env.NEO_GPU_WEB_ORIGIN||'https://gpu.qili2.com';
+const origin=process.env.NEO_COMPUTE_WEB_ORIGIN||process.env.NEO_GPU_WEB_ORIGIN||'https://compute.qili2.com';
 const print=(event,fields={})=>console.log(JSON.stringify({event,...fields}));
 if([...args].some(x=>!allowed.has(x))){console.error('Unknown Hello Neo option');process.exit(2);}
 if(args.has('--help')){console.log('node gpu/examples/hello-neo/e2e.mjs [--live --allow-spend --build] [--vast] [--batch-only|--web-only]');process.exit(0);}
@@ -29,7 +29,7 @@ if(args.has('--live')!==args.has('--allow-spend')||(args.has('--build')&&!live)|
 const modes=args.has('--batch-only')?['batch']:args.has('--web-only')?['web']:['batch','web'];
 const wait=ms=>new Promise(done=>setTimeout(done,ms));
 async function command(parts,{quiet=false,timeoutMs=570000}={}){
-  const child=spawn(process.execPath,[cli,'gpu',...parts],{cwd:root,stdio:['ignore','pipe','pipe']});
+  const child=spawn(process.execPath,[cli,'compute',...parts],{cwd:root,stdio:['ignore','pipe','pipe']});
   let out='',err='';
   child.stdout.on('data',x=>{out=(out+x).slice(-50000);if(!quiet)process.stdout.write(x);});
   child.stderr.on('data',x=>{err=(err+x).slice(-4000);if(!quiet)process.stderr.write(x);});

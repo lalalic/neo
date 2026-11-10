@@ -102,7 +102,7 @@ async function buildGithub(plan){
 }
 export async function build(args){
   const opts=parse(args,{values:['--project','--dockerfile','--name','--image','--builder','--mode','--port'],switches:['--push','--no-push','--dry-run']});
-  if(opts._.length)throw new GpuError('usage: neo gpu build [--project ROOT] [--dockerfile PATH] [--push]');
+  if(opts._.length)throw new GpuError('usage: neo compute build [--project ROOT] [--dockerfile PATH] [--push]');
   const plan=imagePlan(opts);
   if(opts.dry_run){console.log(JSON.stringify({mode:'dry_run',...plan},null,2));return;}
   if(plan.builder==='github')await buildGithub(plan);

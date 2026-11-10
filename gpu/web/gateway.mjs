@@ -11,7 +11,7 @@ import {sessionRoot,service,session,token,safeMatch,sessionCookie,cookieValid,co
 const htmlSafe=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const tunnels=new Map();
 const pendingTunnels=new Map();
-function page(title,body){return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>${htmlSafe(title)} – Neo GPU</title><style>body{font:16px system-ui,sans-serif;max-width:560px;margin:8vh auto;padding:0 20px;color:#20232b}main{border:1px solid #ddd;border-radius:14px;padding:24px}button,input{font:inherit;padding:12px;border-radius:8px}input{box-sizing:border-box;width:100%;border:1px solid #aaa}button{background:#252e42;color:white;border:0;cursor:pointer;margin-top:12px}a{color:#2358a1}.muted{color:#60646c}form{margin:14px 0}</style></head><body><main><h2>${htmlSafe(title)}</h2>${body}</main></body></html>`;}
+function page(title,body){return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>${htmlSafe(title)} – Neo Compute</title><style>body{font:16px system-ui,sans-serif;max-width:560px;margin:8vh auto;padding:0 20px;color:#20232b}main{border:1px solid #ddd;border-radius:14px;padding:24px}button,input{font:inherit;padding:12px;border-radius:8px}input{box-sizing:border-box;width:100%;border:1px solid #aaa}button{background:#252e42;color:white;border:0;cursor:pointer;margin-top:12px}a{color:#2358a1}.muted{color:#60646c}form{margin:14px 0}</style></head><body><main><h2>${htmlSafe(title)}</h2>${body}</main></body></html>`;}
 function text(res,status,body,headers={}){
   res.writeHead(status,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store',
     'Content-Security-Policy':"default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
@@ -117,9 +117,12 @@ function proxyWebsocket(req,socket,head,name,state,backend,origin){
   request.on('response',()=>denySocket(socket,502));
   request.on('error',()=>denySocket(socket,502));request.end();
 }
-export function createGateway({origin='https://gpu.qili2.com',start=startAction,stop=startAction,
+export function createGateway({origin='https://compute.qili2.com',start=startAction,stop=startAction,
   resolveBackend=backendFor,hfCredentialReady=()=>{try{return Boolean(hubToken());}catch{return false;}}}={}){
   const base=new URL(origin).origin;
+  // Preserve browser Start/Stop for the old public URL during domain migration.
+  // Do not trust arbitrary request Origin headers or hostnames.
+  const allowedPostOrigins=new Set([base,...(base==='https://compute.qili2.com'?['https://gpu.qili2.com']:[])]);
   const server=createServer(async(req,res)=>{
     try{
       const parsed=new URL(req.url,'http://localhost');
@@ -139,7 +142,7 @@ export function createGateway({origin='https://gpu.qili2.com',start=startAction,
       const state=session(name);
       if(['_start','_stop'].includes(parts[2])){
         if(req.method!=='POST')return text(res,405,page('Method not allowed','POST required'));
-        if(req.headers.origin!==base)return text(res,403,page('Forbidden','Origin mismatch'));
+        if(!allowedPostOrigins.has(req.headers.origin))return text(res,403,page('Forbidden','Origin mismatch'));
         if(parts[2]==='_start'&&!['stopped','failed'].includes(state.phase))return redirect(res,`/${name}/_control`);
         if(parts[2]==='_stop'&&!['running','cleanup_failed'].includes(state.phase))return redirect(res,`/${name}/_control`);
         if(parts[2]==='_start'&&config.provider==='hf'&&!hfCredentialReady())

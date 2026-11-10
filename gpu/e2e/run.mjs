@@ -15,7 +15,7 @@ const project=resolve(fileURLToPath(new URL('../..',import.meta.url)));
 const neo=join(project,'.bin','neo.mjs');
 const dockerfile='gpu/e2e/Dockerfile';
 const names={batch:'neo-gpu-e2e-job',web:'neo-gpu-e2e-web'};
-const origin=process.env.NEO_GPU_WEB_ORIGIN||'https://gpu.qili2.com';
+const origin=process.env.NEO_COMPUTE_WEB_ORIGIN||process.env.NEO_GPU_WEB_ORIGIN||'https://compute.qili2.com';
 const sleep=ms=>new Promise(ok=>setTimeout(ok,ms));
 const print=(event,data={})=>console.log(JSON.stringify({event,...data}));
 const timeout=(ms)=>AbortSignal.timeout(ms);
@@ -30,7 +30,7 @@ if((flags.has('--live')!==flags.has('--allow-spend'))||(flags.has('--build')&&!l
 }
 
 async function cmd(args,{privateOutput=false,limitMs=3600000}={}) {
-  const child=spawn(process.execPath,[neo,'gpu',...args],{cwd:project,stdio:['ignore','pipe','pipe']});
+  const child=spawn(process.execPath,[neo,'compute',...args],{cwd:project,stdio:['ignore','pipe','pipe']});
   let out='',err='';
   const cap=32*1024;
   child.stdout.on('data',x=>{out=(out+x).slice(-cap);if(!privateOutput)process.stdout.write(x);});

@@ -2,7 +2,7 @@
 
 A single **tiny** Dockerfile, no model weights, PyTorch or CUDA Toolkit. A
 throw-away Debian compiler stage builds a small C binary and discards the
-compiler. The final Node.js slim image is compatible with Neo GPU's standard
+compiler. The final Node.js slim image is compatible with Neo Compute's standard
 wrapper and works in **both batch and web mode**.
 
 `cuda-probe.c` dynamically loads **libcuda.so.1** from the provider's GPU driver,
@@ -29,10 +29,10 @@ node gpu/examples/hello-neo/e2e.mjs --live --allow-spend --vast
 ```
 
 The smoke image registers as `hello-neo-job` (batch) and `hello-neo-web` (HF Web),
-with the second URL at `https://gpu.qili2.com/hello-neo-web/`. Vast Web reuses
+with the second URL at `https://compute.qili2.com/hello-neo-web/`. Vast Web reuses
 the **same exact Web image** under `hello-neo-vast-web`
-(`https://gpu.qili2.com/hello-neo-vast-web/`), without republishing it. Web
-services remain **token gated and stopped** after each test; use `neo gpu web
+(`https://compute.qili2.com/hello-neo-vast-web/`), without republishing it. Web
+services remain **token gated and stopped** after each test; use `neo compute web
 token SERVICE` locally to access either optional demonstration. Opening the URL
 never rents a GPU. The web test uses a 300-second hard limit; the batch test
 uses 420 seconds. Provider cost estimates are advisory, not hard billing caps.
