@@ -27,8 +27,12 @@ jobs:
       - name: Build canonical Agents Relay PromptBuilder for eval integration tests
         working-directory: vendor/agents-relay
         run: npm ci && npm run build
-      - name: Portable source tests
-        run: node --test --test-skip-pattern='live non-mutating CLI project route' test/*.test.mjs
+      - name: Portable CLI and independent-project contract tests
+        # Linux runs the contract tests which build isolated Git fixture projects.
+        # macOS audio/TTS, optional Hermes model runtimes and project-owned Vlog
+        # contracts are verified by their respective host/project suites, not
+        # by the standalone Neo CLI npm publication job.
+        run: node --test test/neo-project-run.test.mjs test/neo-independent-project.test.mjs
       - name: Stage CLI distribution
         run: node scripts/stage-neo-cli.mjs "$RUNNER_TEMP/neo-cli-dist"
       - name: Verify release identity

@@ -254,13 +254,18 @@ test('rejects bad argument combinations, URL forms, unconfigured project, missin
 });
 
 test('CLI help and independent-only project resolution remain available', async () => {
-  const help = execFileSync(process.execPath, [join(root, '.bin/neo.mjs'), 'project', 'run', '--help'], { encoding: 'utf8' });
-  assert.match(help, /--dry-run/);
-  const resolved = JSON.parse(execFileSync(process.execPath, [join(root, '.bin/neo.mjs'), 'project', 'resolve', 'vlog'], { encoding: 'utf8' }));
-  assert.equal(resolved.name, 'vlog');
-  assert.equal(resolved.neo_project, true);
-  const legacy = spawnSync(process.execPath, [join(root, '.bin/neo.mjs'), 'project', 'resolve', 'neo/vlog'], { encoding: 'utf8' });
-  assert.notEqual(legacy.status, 0);
+  const f = fixture();
+  try {
+    const env = { ...process.env, NEO_ROOT: f.workspace.neoRoot };
+    const help = execFileSync(process.execPath, [join(root, '.bin/neo.mjs'), 'project', 'run', '--help'], { env, encoding: 'utf8' });
+    assert.match(help, /--dry-run/);
+    assert.match(help, /--title/);
+    const resolved = JSON.parse(execFileSync(process.execPath, [join(root, '.bin/neo.mjs'), 'project', 'resolve', 'vlog'], { env, encoding: 'utf8' }));
+    assert.equal(resolved.name, 'vlog');
+    assert.equal(resolved.neo_project, true);
+    const legacy = spawnSync(process.execPath, [join(root, '.bin/neo.mjs'), 'project', 'resolve', 'neo/vlog'], { env, encoding: 'utf8' });
+    assert.notEqual(legacy.status, 0);
+  } finally { rmSync(f.base,{recursive:true,force:true}); }
 });
 
 test('installed CLI resolves configured Neo root independently of cwd and rejects invalid workspace config', async () => {
