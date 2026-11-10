@@ -1,0 +1,124 @@
+name: Build Neo GPU Service
+run-name: Neo GPU image ${{ inputs.build_id }}
+on:
+  workflow_dispatch:
+    inputs:
+      repository:
+        description: Public GitHub repository (OWNER/REPO)
+        required: true
+        type: string
+      commit:
+        description: Exact source Git commit
+        required: true
+        type: string
+      dockerfile:
+        description: Dockerfile relative to source root
+        required: true
+        type: string
+      image:
+        description: GHCR image and tag to publish
+        required: true
+        type: string
+      runtime_hash:
+        description: SHA256 of Neo GPU runtime source for reproducibility
+        required: true
+        type: string
+      build_id:
+        description: Build correlation identifier
+        required: true
+        type: string
+permissions:
+  contents: read
+  packages: write
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: Validate inputs before using registry permissions
+        env:
+          REPO: ${{ inputs.repository }}
+          COMMIT: ${{ inputs.commit }}
+          DOCKERFILE: ${{ inputs.dockerfile }}
+          IMAGE: ${{ inputs.image }}
+          BUILD_ID: ${{ inputs.build_id }}
+          RUNTIME_HASH: ${{ inputs.runtime_hash }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+          [[ "$REPO" =~ ^[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+$ ]]
+          [[ "${REPO%%/*}" == "$OWNER" ]]
+          [[ "$COMMIT" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$DOCKERFILE" =~ ^[a-zA-Z0-9_./-]+$ && "$DOCKERFILE" != /* && "$DOCKERFILE" != *..* ]]
+          [[ "$IMAGE" =~ ^ghcr.io/${OWNER,,}/[a-zA-Z0-9_.-]+:sha-[a-f0-9]{12}$ ]]
+          [[ "$BUILD_ID" =~ ^ngpu-[a-zA-Z0-9-]+$ ]]
+          [[ "$RUNTIME_HASH" =~ ^[a-f0-9]{64}$ ]]
+      - name: Checkout Neo GPU runtime
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Confirm identical Neo runtime version
+        env:
+          EXPECTED_HASH: ${{ inputs.runtime_hash }}
+        run: |
+          node - <<'NODE'
+          const {createHash}=require('crypto'),fs=require('fs');
+          const hash=createHash('sha256');
+          hash.update(fs.readFileSync('gpu/runtime/service.mjs'));
+          hash.update(fs.readFileSync('gpu/runtime/Dockerfile.wrap'));
+          if(hash.digest('hex')!==process.env.EXPECTED_HASH)throw Error('Neo GPU runtime differs from invoking CLI; update Neo CLI and retry');
+          NODE
+      - name: Checkout public project source
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.repository }}
+          ref: ${{ inputs.commit }}
+          path: gpu-project-source
+          persist-credentials: false
+      - name: Free unused runner SDK storage
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc
+          sudo apt-get clean
+      - name: Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Build application's original Dockerfile
+        env:
+          DOCKERFILE: ${{ inputs.dockerfile }}
+        run: |
+          set -euo pipefail
+          docker buildx build --load --pull --file "gpu-project-source/$DOCKERFILE" \
+            --tag neo-gpu-base:build gpu-project-source
+          docker image inspect neo-gpu-base:build >/dev/null
+      - name: Discover the original command
+        id: command
+        run: |
+          node - <<'NODE'
+          const fs=require('fs'),{execFileSync}=require('child_process');
+          const inspect=JSON.parse(execFileSync('docker',['image','inspect','neo-gpu-base:build'],{encoding:'utf8'}))[0];
+          const command=[...(inspect.Config.Entrypoint||[]),...(inspect.Config.Cmd||[])];
+          if(!command.length)throw Error('A GPU project Dockerfile needs CMD or ENTRYPOINT');
+          fs.appendFileSync(process.env.GITHUB_OUTPUT,'cmd='+JSON.stringify(command)+'\n');
+          NODE
+      - name: Add generic Neo GPU HTTP service and publish image
+        env:
+          IMAGE: ${{ inputs.image }}
+          COMMAND_JSON: ${{ steps.command.outputs.cmd }}
+        run: |
+          set -euo pipefail
+          docker buildx build --load --file gpu/runtime/Dockerfile.wrap \
+            --build-context neo-runtime=./gpu/runtime \
+            --build-arg NEO_BASE_IMAGE=neo-gpu-base:build \
+            --build-arg "NEO_GPU_CMD_JSON=$COMMAND_JSON" \
+            --tag "$IMAGE" .
+      - name: Login GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish image
+        env:
+          IMAGE: ${{ inputs.image }}
+        run: |
+          docker push "$IMAGE"
+          docker image inspect "$IMAGE" --format '{{.Id}}'

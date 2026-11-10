@@ -29,7 +29,7 @@ for(const file of allow) {
 // Ship shared Agents (including inherited Visioner bases and Shortcuts) and
 // Skills from the tracked public source tree. Untracked files, private Runs,
 // symlinks, developer state and credentials are never packaged.
-for (const namespace of ['agents', 'skills']) {
+for (const namespace of ['agents', 'skills', 'gpu']) {
   const manifest = spawnSync('git',['-C',root,'ls-files','-s','-z','--',namespace],{encoding:'buffer'});
   if (manifest.status !== 0) throw Error(`Unable to resolve committed ${namespace} manifest`);
   for (const entry of manifest.stdout.toString('utf8').split('\0').filter(Boolean)) {
@@ -49,7 +49,7 @@ for (const namespace of ['agents', 'skills']) {
   }
 }
 writeFileSync(join(out,'package.json'),JSON.stringify({
-  name:'@lalalic/neo', version:'1.0.3', type:'module',
+  name:'@lalalic/neo', version:'1.0.4', type:'module',
   description:'Neo CLI and deterministic service management commands',
   engines:{node:'>=22'},bin:{neo:'.bin/neo.mjs',serviceman:'skills/daemon-service-manage/bin/serviceman.mjs'},
   repository:{type:'git',url:'git+https://github.com/lalalic/neo.git'}, publishConfig:{access:'public'}, scripts:{},
