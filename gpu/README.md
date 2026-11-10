@@ -158,3 +158,28 @@ SERVICE` retrieves the secret locally; do not put it in a URL or Git.
 Vast.ai's cleanup watchdog cannot guarantee shutdown while Neo Master itself
 is asleep or disconnected. HF Jobs is recommended for a strict one-hour
 provider-enforced session expiration. No automated idle-time extension exists.
+
+## Automated tiny Dockerfile E2E (batch + web)
+
+One `gpu/e2e/Dockerfile` builds two service modes from the same dependency-free
+Node.js fixture. Run the local, non-billing unit and dry-run verification first:
+
+```sh
+node --test test/neo-gpu-e2e.test.mjs
+node gpu/e2e/run.mjs
+```
+
+For a **real** HF Jobs provider E2E, including image publication, input/output,
+HTTPS browser token guard, web proxy, and verified cleanup:
+
+```sh
+node gpu/e2e/run.mjs --live --allow-spend --build
+```
+
+Later reruns may omit `--build` when the immutable image matches the current
+source commit. `--batch-only` and `--web-only` limit the live scope. The E2E
+fixture uses HF `cpu-basic` (a real provider Job, *not* a GPU inference test),
+short server-side deadlines, and a US$1 budget check per session. The web
+fixture uses a 300-second test limit; the normal default 3600-second limit is
+separately tested. No credentials are stored in the repository or the E2E
+receipt. See [E2E fixture details](e2e/README.md).

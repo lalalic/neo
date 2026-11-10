@@ -1,7 +1,7 @@
-import {openSync,closeSync,unlinkSync,existsSync,readFileSync,writeFileSync,renameSync,mkdirSync} from 'node:fs';
+import {openSync,closeSync,unlinkSync,existsSync,readFileSync,writeFileSync,renameSync,mkdirSync,rmSync} from 'node:fs';
 import {randomBytes} from 'node:crypto';
-import {GpuError,parse,integer,money,findService} from '../common.mjs';
-import {service,services,session,saveSession,sessionFile,register,token,tokenFile,validateService} from './store.mjs';
+import {GpuError,parse,integer,money,findService,atomicJson} from '../common.mjs';
+import {service,services,session,saveSession,sessionFile,configFile,register,token,tokenFile,validateService} from './store.mjs';
 import {reserveBudget,createProviderSession,destroyProviderSession,spawnWatchdog} from './providers.mjs';
 import {createGateway} from './gateway.mjs';
 
@@ -88,6 +88,18 @@ export async function stopSession(name){
     }catch(err){saveSession(name,{...state,phase:'cleanup_failed'});spawnWatchdog(name);throw err;}
   });
 }
+export async function webRemove(args){
+  if(args.length!==1)throw new GpuError('usage: neo gpu web remove SERVICE');
+  const name=validateService(args[0]);existing(name);
+  return exclusive(name,async()=>{
+    const current=session(name);
+    if(!['stopped','failed'].includes(current.phase))
+      throw new GpuError('Stop and verify the GPU provider before removing service '+name);
+    const all=services();delete all.services[name];atomicJson(configFile(),all);
+    rmSync(tokenFile(name),{force:true});rmSync(sessionFile(name),{force:true});
+    console.log(JSON.stringify({service:name,phase:'removed'}));
+  });
+}
 export function webStatus(args){
   if(args.length>1)throw new GpuError('usage: neo gpu web status [SERVICE]');
   if(args.length){const name=validateService(args[0]);console.log(JSON.stringify({service:name,config:existing(name),session:session(name),url:`${publicBase()}/${name}/`},null,2));return;}
@@ -99,6 +111,7 @@ export async function webMain(args){
   switch(cmd){
     case 'add':webAdd(rest);return;
     case 'token':webToken(rest);return;
+    case 'remove':await webRemove(rest);return;
     case 'rotate':webRotate(rest);return;
     case 'status':webStatus(rest);return;
     case 'start':{
@@ -116,7 +129,7 @@ export async function webMain(args){
       await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(port,'127.0.0.1',resolve);});
       console.log(JSON.stringify({event:'neo_gpu_web_gateway_ready',port,origin:parsed.origin||publicBase()}));return;
     }
-    default:console.log(`neo gpu web add SERVICE | token SERVICE | rotate SERVICE | status [SERVICE] |
+    default:console.log(`neo gpu web add SERVICE | remove SERVICE | token SERVICE | rotate SERVICE | status [SERVICE] |
   start SERVICE --allow-spend | stop SERVICE | serve [--port 8798]`);
   }
 }

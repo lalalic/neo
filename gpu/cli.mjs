@@ -19,7 +19,7 @@ export const usage = `Neo GPU — built into Neo (Node.js)
                 [--budget USD] [--max-seconds 1200] [--dry-run]
   neo gpu run --image ghcr.io/OWNER/NAME:TAG [options]
   neo gpu services
-  neo gpu web add SERVICE | token SERVICE | rotate SERVICE | status [SERVICE]
+  neo gpu web add SERVICE | remove SERVICE | token SERVICE | rotate SERVICE | status [SERVICE]
   neo gpu web start SERVICE --allow-spend | stop SERVICE | serve [--port 8798]
   neo gpu doctor
   neo gpu cleanup --lease PATH
