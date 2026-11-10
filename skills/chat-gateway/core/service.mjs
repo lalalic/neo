@@ -15,6 +15,8 @@ import { createAttachmentStore } from './attachments.mjs';
 import { createChatGPTSubmitter } from './chatgpt-client.mjs';
 import { createOrchestratorBootstrap } from './orchestrator.mjs';
 import { createEnvStore } from './env.mjs';
+import { createRelayEventHistoryClient } from './relay-jobs.mjs';
+import { validateJobIdentity } from '../mcp/tools.mjs';
 import { createMcpHttpServer } from '../mcp/server.mjs';
 import { TOOL_DEFS } from '../mcp/tools.mjs';
 
@@ -24,6 +26,8 @@ const defaultLog = (name, fields = {}) => console.log(JSON.stringify({ name, ...
 export async function createGateway({
   config = resolveConfig(), dryRun = false, log = defaultLog,
   dashboard = createDashboardClient({ baseUrl: config.dashboardUrl }),
+  eventHistory = createRelayEventHistoryClient({ apiUrl: config.eventsApiUrl }),
+  delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
   notifier = dryRun ? createDryRunNotifier({ log }) : createNeoNotifier({ endpoint: config.neoMcpEndpoint }),
   makeSubscriber = createSubscriber, now = () => Date.now(), chatSubmit,
   autoPrepareOrchestrator = !dryRun && config.port !== 0, createProject,
@@ -45,6 +49,7 @@ export async function createGateway({
     tracker: { observeJobs: (jobs) => exclusive(() => tracker.observeJobs(jobs)) },
     now, log,
   });
+  const inFlightCancellations = new Map();
   const subscriber = makeSubscriber({
     natsUrl: config.natsUrl, subject: config.subject,
     onEvent: (event) => exclusive(() => tracker.observeEvent(event)),
@@ -91,6 +96,63 @@ export async function createGateway({
         jobs.sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? '') ||
           a.id.localeCompare(b.id));
         return { jobs: jobs.slice(0, limit), total: jobs.length };
+      }
+      if (name === 'chat_job_activity') {
+        const identity = validateJobIdentity(args, 'chat_job_activity');
+        const job = await dashboard.fetchJob(identity.jobId, identity.repository);
+        let activity;
+        try {
+          activity = await eventHistory.fetchEvents(identity.jobId);
+        } catch {
+          throw new Error('Relay activity source is unavailable');
+        }
+        return {
+          jobId: job.id,
+          repository: job.repository,
+          source: 'events-bus-history',
+          events: activity.events,
+          truncated: activity.truncated,
+        };
+      }
+      if (name === 'chat_job_cancel') {
+        const identity = validateJobIdentity(args, 'chat_job_cancel');
+        const key = `${identity.repository}:${identity.jobId}`;
+        if (inFlightCancellations.has(key)) throw new Error('Cancellation is already in progress');
+        inFlightCancellations.set(key, Promise.resolve());
+        let cancellation;
+        try {
+          const current = await dashboard.fetchJob(identity.jobId, identity.repository);
+          if (current.jobState === 'CANCELLED') {
+            const { status, jobState, ...job } = current;
+            return { status: 'cancelled', ...job };
+          }
+          if (current.jobState === 'COMPLETED') {
+            const { status, jobState, ...job } = current;
+            return { status: 'not_cancellable', reason: 'completed', ...job };
+          }
+          if (current.jobState !== 'DRAFT' && current.jobState !== 'ACTIVE') {
+            throw new Error('Job is not cancellable in its current lifecycle');
+          }
+          cancellation = (async () => {
+            await dashboard.requestCancellation(identity.jobId, identity.repository);
+            const deadline = now() + 10_000;
+            for (;;) {
+              const readback = await dashboard.fetchJob(identity.jobId, identity.repository);
+              if (readback.jobState === 'CANCELLED') {
+                const { status, jobState, ...job } = readback;
+                return { status: 'cancelled', ...job };
+              }
+              if (readback.jobState === 'COMPLETED') throw new Error('Job completed before cancellation readback');
+              if (now() >= deadline) break;
+              await delay(250);
+            }
+            throw new Error('Cancellation readback timed out');
+          })();
+          inFlightCancellations.set(key, cancellation);
+          return await cancellation;
+        } finally {
+          inFlightCancellations.delete(key);
+        }
       }
       if (name === 'chat_upload') return attachmentStore.upload(args);
       if (name === 'chat_feed') return feed.list(args);
