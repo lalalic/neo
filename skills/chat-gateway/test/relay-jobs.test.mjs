@@ -47,6 +47,15 @@ test('dashboard job readback requires exact repository identity and stays saniti
   });
 });
 
+test('job.blocked activity preserves the terminal lifecycle without source text', () => {
+  const payload = { job_id: '31', order: 'asc', next_cursor: 1, events: [
+    { cursor: 1, event: { job_id: '31', type: 'job.blocked', timestamp: '2026-11-10T13:00:00Z', data: { reason: '/private/secret' } } },
+  ] };
+  const result = normalizeRelayEvents(payload, { jobId: '31' });
+  assertStrict.deepEqual(result.rows, [{ type: 'job.blocked', status: 'BLOCKED', label: 'Job blocked', timestamp: '2026-11-10T13:00:00Z' }]);
+  assertStrict.ok(!JSON.stringify(result).includes('/private/secret'));
+});
+
 test('event history pages oldest-first, skips unknown data, and marks a hard cap', async () => {
   const urls = [];
   const firstEvents = [

@@ -87,6 +87,7 @@ function eventLabel(type, status) {
   if (type === 'task.completed' || type === 'task.succeeded' || type === 'job.completed') return 'Completed';
   if (type === 'task.failed') return 'Task failed';
   if (type === 'job.failed') return 'Job failed';
+  if (type === 'job.blocked') return 'Job blocked';
   if (type === 'task.cancelled' || type === 'job.cancelled') return 'Cancelled';
   return 'Lifecycle update';
 }
@@ -115,6 +116,7 @@ const EVENT_STATUS = Object.freeze({
   'task.cancelled': 'CANCELLED',
   'job.completed': 'COMPLETED',
   'job.failed': 'FAILED',
+  'job.blocked': 'BLOCKED',
   'job.cancelled': 'CANCELLED',
 });
 
