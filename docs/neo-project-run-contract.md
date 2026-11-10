@@ -1,12 +1,14 @@
 # Neo Project Run Contract
 
-`neo project run` is the explicit foreground CLI entry point for creating or resuming one content-only Agents Relay Job and one Task for a project, then executing it until a verified terminal result. Project declarations in `project.run.json` define the accepted input type and restrictions. A project without a valid declaration is not enabled. The declaration is input validation metadata; the project's `graph.mmd` remains the sole authority for workflow ordering.
+`neo project run` is the explicit foreground CLI entry point for creating or resuming one content-only Agents Relay Job and one Task for a project, then executing it until a verified terminal result. The optional `--title` (or `--title=TEXT`) sets the readable Relay Job title at **creation time**, independently of the numeric Job ID. If omitted, Neo formats the project and canonical Run folder into a default title, such as `Vlog · 2026 11 08 new unused iPhone media run3`. This never exposes a private source URL or URL token. Resuming an existing bound Run keeps its original Job title and does not create or rename a Job. Titles must be 1–120 printable characters.
+
+Project declarations in `project.run.json` define the accepted input type and restrictions. A project without a valid declaration is not enabled. The declaration is input validation metadata; the project's `graph.mmd` remains the sole authority for workflow ordering.
 
 ## Invocation
 
 ```sh
 neo project run --url="$PRIVATE_SOURCE_URL" --project=content-distribution
-neo project run --path=/absolute/neo/vlog/runs/2026-11-03-episode --project=vlog
+neo project run --path=/absolute/neo/vlog/runs/2026-11-03-episode --project=vlog --title="加拿大周末随拍"
 ```
 
 Set `PRIVATE_SOURCE_URL` in a private shell to the actual HTTPS reference; do not commit URLs or credentials to this public repo.

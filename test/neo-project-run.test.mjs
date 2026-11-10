@@ -81,7 +81,8 @@ test('URL input supports both flag forms, keeps token private, and delegates exa
     assert.equal(result.runPath.includes('rsroot.com'), false);
     assert.deepEqual(relay.calls.map(x => x.slice(0, 2)), [['job', 'create'], ['task', 'create'], ['job', 'run'], ['job', 'show'], ['task', 'list']]);
     const job = relay.calls[0], task = relay.calls[1];
-    assert.deepEqual(job.slice(2), ['--repo', 'local/content-distribution', '--project-path', '.', '--objective-file', join(result.runPath, 'neo-project-run.objective.md'), '--shortcut-execution', '--no-github']);
+    assert.deepEqual(job.slice(2), ['--repo', 'local/content-distribution', '--project-path', '.', '--title', `Content Distribution · ${result.runPath.split('/').at(-1).replace(/[-_]+/g, ' ')}`, '--objective-file', join(result.runPath, 'neo-project-run.objective.md'), '--shortcut-execution', '--no-github']);
+    assert.equal(job[job.indexOf('--title') + 1].includes('rsroot.com'), false);
     assert.equal(task[task.indexOf('--agent-graph-file') + 1], realpathSync(join(f.content, 'graph.mmd')));
     assert.equal(task[task.indexOf('--output-path') + 1], join(result.runPath, 'neo-project-run.result.json'));
     assert.equal(relay.calls.flat().some(value => value.includes('secret-token') || value.includes('rsroot.com')), false);
@@ -110,6 +111,29 @@ test('opted-in URL project processes a prepared canonical private Run without in
     assert.equal(input.sourceUrl,undefined);
     assert.equal(relay.calls.filter(x=>x[0]==='job'&&x[1]==='create').length,1);
   } finally { rmSync(f.base,{recursive:true,force:true}); }
+});
+
+test('human Job title defaults to project and Run name, supports override and preserves resume title', async () => {
+  const f = fixture(), relay = relayStub();
+  try {
+    const first = JSON.parse(await run(['--project','vlog','--path',f.runDir,'--title=加拿大周末随拍'],f,relay));
+    const create = relay.calls.find(argv => argv[0] === 'job' && argv[1] === 'create');
+    assert.equal(create[create.indexOf('--title')+1], '加拿大周末随拍');
+    assert.equal(first.jobId,'job-1');
+    await run(['--project','vlog','--path',f.runDir],f,relay);
+    assert.equal(relay.calls.filter(argv => argv[0] === 'job' && argv[1] === 'create').length,1);
+  } finally { rmSync(f.base,{recursive:true,force:true}); }
+});
+
+test('Job title rejects invalid input before any Run or Job is created', async () => {
+  const f=fixture(),relay=relayStub();
+  try {
+    for (const value of [' ', 'A'.repeat(121), 'newline\nsecret']) {
+      await assert.rejects(() => run(['--project','vlog','--path',f.runDir,'--title',value],f,relay), /--title requires/);
+    }
+    assert.equal(relay.calls.length,0);
+    assert.equal(existsSync(join(f.runDir,'.neo-project-run.json')),false);
+  } finally {rmSync(f.base,{recursive:true,force:true});}
 });
 
 test('path input creates one run binding and a repeated invocation verifies instead of duplicating', async () => {

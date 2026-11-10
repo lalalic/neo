@@ -20,7 +20,7 @@ function parseOptions(args) {
     if (raw === '--help' || raw === '-h') { result.help = true; continue; }
     if (raw === '--dry-run') { if (result.dryRun) fail('--dry-run may be specified only once'); result.dryRun = true; continue; }
     if (raw === '--no-review') { if (result.noReview) fail('--no-review may be specified only once'); result.noReview = true; continue; }
-    const match = /^(--(?:url|path|project))(?:=(.*))?$/.exec(raw);
+    const match = /^(--(?:url|path|project|title))(?:=(.*))?$/.exec(raw);
     if (!match) fail(`unknown project run option: ${raw}`);
     const key = match[1].slice(2);
     const value = match[2] ?? args[++i];
@@ -32,6 +32,8 @@ function parseOptions(args) {
   if (!result.project) fail('project run requires --project NAME');
   if ((result.url === undefined) === (result.path === undefined)) fail('project run requires exactly one of --url URL or --path PATH');
   if (result.noReview && (result.project !== 'vlog' || result.path === undefined)) fail('--no-review is only supported for a private canonical Vlog run');
+  if (result.title !== undefined && (!result.title.trim() || result.title.trim().length > 120 || /[\x00-\x1f\x7f]/.test(result.title))) fail('--title requires 1–120 printable characters');
+  if (result.title !== undefined) result.title = result.title.trim();
   return result;
 }
 
@@ -53,6 +55,14 @@ export function safeProject(neoRoot, name) {
   const graph = realpathSync(join(project, 'graph.mmd'));
   if (!isWithin(project, graph)) fail('project graph resolves outside the project');
   return { root, project, graph, declaration };
+}
+
+/** A readable, non-sensitive title. In URL mode use only the generated Run
+ * folder name, never the original URL (which may contain private tokens). */
+export function projectRunTitle(projectName, runDir) {
+  const readableProject = projectName.split(/[-_]+/).map(word => word === 'vlog' ? 'Vlog' : word[0].toUpperCase() + word.slice(1)).join(' ');
+  const readableRun = basename(runDir).replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').trim();
+  return `${readableProject} · ${readableRun}`.slice(0, 120);
 }
 
 function validateUrl(input, declaration) {
@@ -381,7 +391,8 @@ export function runProject(args, options = {}) {
       return runBound(jobId, existing.state === 'SUCCEEDED' && job.state === 'COMPLETED');
     }
   } else {
-    const created = invoke(['job', 'create', '--repo', repo, '--project-path', projectPath, '--objective-file', files.objective, '--shortcut-execution']);
+    const title = parsed.title ?? projectRunTitle(parsed.project, runDir);
+    const created = invoke(['job', 'create', '--repo', repo, '--project-path', projectPath, '--title', title, '--objective-file', files.objective, '--shortcut-execution']);
     jobId = responseId(created, 'Job create');
     const binding = { schemaVersion: 1, project: parsed.project, runPath: runDir, jobId, taskId: TASK_ID, repository: repo, evidence: files.evidence, objective: files.objective, taskInput: files.taskInput, output: files.output };
     writePrivate(files.binding, `${JSON.stringify(binding, null, 2)}\n`);
@@ -393,5 +404,5 @@ export function runProject(args, options = {}) {
   return runBound(jobId);
 }
 
-export const projectRunHelp = `Usage: neo project run (--url HTTPS_URL | --path ABSOLUTE_RUN_DIR) --project NAME [--dry-run] [--no-review]\n\nOptions accept --name value or --name=value in any order.\n--url       HTTPS source reference for a project that declares URL input\n--path      Existing canonical dated Run (URL projects may resume a bound Run or opt in to verified preparedPath)\n--project   Independent project repository beneath NEO_ROOT\n--dry-run   Validate and preview without writing files or invoking Agents Relay
+export const projectRunHelp = `Usage: neo project run (--url HTTPS_URL | --path ABSOLUTE_RUN_DIR) --project NAME [--title TEXT] [--dry-run] [--no-review]\n\nOptions accept --name value or --name=value in any order.\n--url       HTTPS source reference for a project that declares URL input\n--path      Existing canonical dated Run (URL projects may resume a bound Run or opt in to verified preparedPath)\n--project   Independent project repository beneath NEO_ROOT\n--dry-run   Validate and preview without writing files or invoking Agents Relay
 --no-review Legacy explicit private-render test policy for Vlog; normal Vlog already skips interactive review by default. Does NOT authorize publication\n`;
