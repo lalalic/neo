@@ -10,6 +10,7 @@ Use `neo gpu` when a project needs rented GPU compute or a reusable GPU service 
 ## Choose the action
 
 - **Build or reuse an image:** `neo gpu build` produces a versioned GHCR image from the project Dockerfile; `neo gpu services` lists saved service names and images. Build once and reuse across runs and providers.
+- **Interactive web UI:** `neo gpu build --mode web --port 7860`, then `neo gpu web add SERVICE` provisions a token-gated stable URL. `neo gpu web serve` runs the persistent gateway; `neo gpu web status|token|rotate|start|stop` manages it. The 3600-second default is a **hard** session limit (not an idle timeout) and cannot be lengthened via web CLI. Opening the URL does not start a GPU; the authenticated Start button or explicit CLI `--allow-spend` does.
 - **Execute GPU work:** `neo gpu run SERVICE --provider hf|vast` uploads explicitly named inputs and fetches explicitly named outputs. Use `--image ghcr.io/OWNER/NAME:TAG` to run a known image directly.
 - **Diagnose or clean up:** `neo gpu doctor` checks required local tools. `neo gpu cleanup --lease PATH` removes a previously leased remote resource; use the actual lease path, not a guessed identifier.
 
@@ -17,11 +18,13 @@ For project-independent Docker construction and provider details, read [GPU serv
 
 ## Normal workflow
 
-1. Verify the project's Git root, Dockerfile and permissions. Its process must read `/neo/input/`, write `/neo/output/`, and exit 0 only when results are ready. The shared wrapper supplies the HTTP service; do not build a separate project HTTP API.
+1. Verify the project's Git root, Dockerfile and permissions. For **batch** mode its process must read `/neo/input/`, write `/neo/output/`, and exit 0 only when results are ready. For **web** mode its process must serve HTTP on the configured `--port`, with a base path such as `/SERVICE/`. The shared wrapper supplies the HTTP service; do not build a separate project HTTP API.
 2. Check `neo gpu doctor`. Review a build with `neo gpu build --dry-run --project PROJECT_ROOT`.
 3. Build with `neo gpu build --project PROJECT_ROOT` (hosted GitHub Actions, public pushed matching-owner source) or `--builder local` for private/local-only source with configured Docker/Buildx. Verify with `neo gpu services`.
 4. Plan a run with `neo gpu run SERVICE --provider hf --input image.png=LOCAL --output result.mp4=LOCAL --budget 2 --max-seconds 1200 --dry-run`. Choose `vast` only when its GPU, SSH, disk and rental requirements suit the job.
 5. **Only after authorization** to spend and upload, repeat without `--dry-run`, adding `--allow-spend` and `--allow-upload` as required. Verify the downloaded output and provider cleanup; an accepted rental/submission is not proof of success.
+
+For web mode, always keep the random 256-bit access token outside repositories/logs and use the HTTPS Cloudflare tunnel. Browser cookies are HttpOnly and Start/Stop is origin checked. Provider-side HF `--timeout` and the detached per-session watchdog enforce one-hour shutdown; Vast watchdog depends on a running Neo Master and may be delayed by host sleep/offline. Do not claim a video/UI is publicly live unless DNS, tunnel, gateway, and application are actually tested.
 
 `--budget` is an advisory check, **not** a hard billing cap; provider charges can differ. Provider deadlines and cleanup differ: HF Jobs has a server-side timeout and Vast uses a separate rental-destruction watchdog. Never commit model credentials, private media, output artifacts or lease details into the source Git repository. Do not silently fall back to another provider or rebuild on every invocation.
 

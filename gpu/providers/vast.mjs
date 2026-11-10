@@ -9,8 +9,8 @@ import {fileURLToPath} from 'node:url';
 
 const here=fileURLToPath(import.meta.url);
 function vast(...args){return exec('vastai',[...args,'--raw'],{timeout:45000});}
-function runningInstances(){const d=JSON.parse(vast('show','instances').stdout);return Array.isArray(d)?d:[];}
-function offerCandidates(options){
+export function runningInstances(){const d=JSON.parse(vast('show','instances').stdout);return Array.isArray(d)?d:[];}
+export function offerCandidates(options){
   const key=options.gpu.replaceAll(' ','_');
   const rows=JSON.parse(vast('search','offers',`gpu_name=${key} num_gpus=1 rentable=true`).stdout);
   if(!Array.isArray(rows))throw new GpuError('Invalid Vast.ai offers response');
@@ -36,7 +36,7 @@ export async function cleanupVast(lease){
 }
 function freePort(){return new Promise((resolve,reject)=>{const server=createServer();server.once('error',reject);
   server.listen(0,'127.0.0.1',()=>{const p=server.address().port;server.close(()=>resolve(p));});});}
-async function tunnelFor(id,deadline,keyFile){
+export async function tunnelFor(id,deadline,keyFile,service='neo-gpu-v1'){
   let endpoint=null;
   while(Date.now()<deadline){
     try{
@@ -61,7 +61,7 @@ async function tunnelFor(id,deadline,keyFile){
       await pause(2000);
       if(child.exitCode!==null)break;
       try{const data=await(await request('/health',{timeout:2000})).json();
-        if(data.ok===true&&data.service==='neo-gpu-v1')return {request,tunnel:child};}
+        if(data.ok===true&&data.service===service)return {request,tunnel:child,port};}
       catch{}
     }
     child.kill();
@@ -86,7 +86,7 @@ export async function vastRun(plan){
   try{
     // Vast's ssh mode launches sshd; onstart starts the generic Neo service.
     // The runtime command is already embedded in the image at build time.
-    const cmd='nohup /opt/neo-gpu/node /opt/neo-gpu/service.mjs > /tmp/neo-gpu-service.log 2>&1 < /dev/null &';
+    const cmd='nohup /opt/neo-gpu/node /opt/neo-gpu/launcher.mjs > /tmp/neo-gpu-service.log 2>&1 < /dev/null &';
     const p=vast('create','instance',String(best.id),'--image',image,'--disk',String(plan.disk),
       '--ssh','--direct','--onstart-cmd',cmd,'--cancel-unavail','--label',label);
     const created=JSON.parse(p.stdout);

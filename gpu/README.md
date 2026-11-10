@@ -81,3 +81,54 @@ node .bin/neo.mjs gpu build --dockerfile gpu/examples/hello/Dockerfile --dry-run
 
 Build execution on GitHub Actions and real HF/Vast GPU inference must be
 verified separately; tests of the local service do not prove CUDA inference.
+
+## Interactive web applications (`--mode web`)
+
+A project may expose Gradio, Streamlit, ComfyUI or its own web UI. The project
+Dockerfile's `CMD` must start a long-running HTTP server listening on the
+configured port (default **7860**). Neo adds an internal Node wrapper on port
+8000, handles the container lifecycle, and proxies HTTP and WebSocket traffic.
+For example:
+
+```sh
+cd ~/Workspace/my-video-app
+neo gpu build --mode web --port 7860 --name my-video-app
+neo gpu web add my-video-app --provider hf --budget 2
+# Prints the stable URL and a 256-bit random token ONCE.
+neo gpu web serve --port 8798
+# https://gpu.qili2.com/my-video-app/
+```
+
+The gateway is always on (no GPU billed when idle). A visitor authenticates
+using the random per-service token before accessing any app traffic. It sets
+an HttpOnly SameSite cookie and removes the credential from subsequent URLs.
+**The token permits starting a paid GPU**, so keep it private. Rotate with
+`neo gpu web rotate SERVICE`. The browser must explicitly click **Start GPU**;
+opening the link alone never rents one. The configured budget is an estimate,
+not a hard billing limit.
+
+**Automatic shutdown:** `neo gpu web add` defaults to a **3600-second hard
+session cap** measured from startup, regardless of user activity. A session
+may configure a shorter cap (`--max-seconds`, 300–3600); longer sessions are
+not allowed in web mode. HF Jobs gets an independent server-side `--timeout`;
+Vast.ai has a detached watchdog that calls destroy while Neo Master is awake.
+If Neo Master sleeps or loses connectivity, Vast deletion can be delayed until
+it wakes; for provider-enforced maximum duration prefer HF Jobs. Sessions do
+not auto-renew.
+The gateway's Stop button and `neo gpu web stop SERVICE` can end sessions early.
+
+The app must support a base path (e.g. Gradio `root_path="/my-video-app"`) or
+use relative asset URLs. Apps that hard-code root-absolute `/assets/...` paths
+may fail under `/SERVICE/`; configure the framework's base/root path.
+
+The gateway binds to `127.0.0.1:8798` and should be exposed only through a
+TLS-terminating authenticated Cloudflare tunnel. Never expose the container's
+port 8000 directly to the public internet. The gateway strips the user's Neo
+gate cookie and provider credentials from traffic to the application, retaining
+app-specific cookies for normal UI logins. HTTP and WebSocket upgrades are
+supported. Token verification applies to both.
+
+Inspect: `neo gpu web status`; credential: `neo gpu web token SERVICE` (local
+machine only); rotate: `neo gpu web rotate SERVICE`. Browser controls use POST
+and verify Origin for CSRF protection. No app starts and no GPU is billed until
+an authenticated user explicitly starts a session.

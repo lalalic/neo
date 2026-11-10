@@ -6,7 +6,7 @@ import {randomBytes} from 'node:crypto';
 
 export class GpuError extends Error {}
 export const stateDir = () => process.env.NEO_GPU_STATE_DIR || join(homedir(),'.local','state','neo','gpu');
-export const registryFile = () => join(homedir(),'.config','neo','gpu','services.json');
+export const registryFile = () => process.env.NEO_GPU_REGISTRY_FILE || join(homedir(),'.config','neo','gpu','services.json');
 export const uid = () => randomBytes(9).toString('hex');
 export const pause = ms => new Promise(r=>setTimeout(r,ms));
 export function exec(exe,args,options={}) {

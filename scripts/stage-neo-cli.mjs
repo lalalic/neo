@@ -49,7 +49,7 @@ for (const namespace of ['agents', 'skills', 'gpu']) {
   }
 }
 writeFileSync(join(out,'package.json'),JSON.stringify({
-  name:'@lalalic/neo', version:'1.0.4', type:'module',
+  name:'@lalalic/neo', version:'1.0.5', type:'module',
   description:'Neo CLI and deterministic service management commands',
   engines:{node:'>=22'},bin:{neo:'.bin/neo.mjs',serviceman:'skills/daemon-service-manage/bin/serviceman.mjs'},
   repository:{type:'git',url:'git+https://github.com/lalalic/neo.git'}, publishConfig:{access:'public'}, scripts:{},

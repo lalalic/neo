@@ -8,6 +8,7 @@ import {bindings} from './transport.mjs';
 import {build} from './image.mjs';
 import {hfRun,cancelHf} from './providers/hf.mjs';
 import {vastRun,cleanupVast} from './providers/vast.mjs';
+import {webMain} from './web/manager.mjs';
 
 export const usage = `Neo GPU — built into Neo (Node.js)
   neo gpu build [--project ROOT] [--dockerfile Dockerfile] [--name SERVICE]
@@ -18,6 +19,8 @@ export const usage = `Neo GPU — built into Neo (Node.js)
                 [--budget USD] [--max-seconds 1200] [--dry-run]
   neo gpu run --image ghcr.io/OWNER/NAME:TAG [options]
   neo gpu services
+  neo gpu web add SERVICE | token SERVICE | rotate SERVICE | status [SERVICE]
+  neo gpu web start SERVICE --allow-spend | stop SERVICE | serve [--port 8798]
   neo gpu doctor
   neo gpu cleanup --lease PATH
 
@@ -82,6 +85,7 @@ export async function main(args=process.argv.slice(2)){
     if(!cmd||['help','--help','-h'].includes(cmd)){console.log(usage);return 0;}
     switch(cmd){
       case 'build':await build(rest);break;
+      case 'web':await webMain(rest);break;
       case 'run':await run(rest);break;
       case 'services':if(rest.length)throw new GpuError('usage: neo gpu services');
         console.log(JSON.stringify(serviceRegistry(),null,2));break;

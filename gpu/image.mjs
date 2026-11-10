@@ -6,6 +6,7 @@ import {GpuError,exec,parse,pause,saveService} from './common.mjs';
 
 const here=resolve(fileURLToPath(import.meta.url),'..');
 const runtime=resolve(here,'runtime');
+const runtimeFiles=['service.mjs','web.mjs','launcher.mjs','Dockerfile.wrap'];
 const safeImage=/^ghcr\.io\/[a-zA-Z0-9][a-zA-Z0-9_.-]*\/[a-zA-Z0-9_.-]+:[a-zA-Z0-9_.-]{1,100}$/;
 function git(project,args){return exec('git',['-C',project,...args]).stdout.trim();}
 function slug(name){return name.toLowerCase().replace(/[^a-z0-9-]+/g,'-').replace(/^-|-$/g,'') || 'app';}
@@ -25,8 +26,12 @@ export function imagePlan(options={}) {
   const remote=githubRemote(git(project,['remote','get-url','origin']));
   const name=options.name||slug(remote.repo);
   if(!/^[a-z][a-z0-9-]{0,63}$/.test(name))throw new GpuError('Invalid service name');
-  const runtimeHash=createHash('sha256').update(readFileSync(join(runtime,'service.mjs'))).update(readFileSync(join(runtime,'Dockerfile.wrap'))).digest('hex');
-  const version=createHash('sha256').update(sha).update(readFileSync(dockerfile)).update(runtimeHash).digest('hex').slice(0,12);
+  const mode=options.mode||'batch';
+  if(!['batch','web'].includes(mode))throw new GpuError('GPU build mode must be batch or web');
+  const appPort=Number(options.port||7860);
+  if(!Number.isInteger(appPort)||appPort<1||appPort>65535||appPort===8000)throw new GpuError('Invalid web app port');
+  const runtimeHash=runtimeFiles.reduce((hash,file)=>hash.update(readFileSync(join(runtime,file))),createHash('sha256')).digest('hex');
+  const version=createHash('sha256').update(sha).update(readFileSync(dockerfile)).update(runtimeHash).update(mode).update(String(appPort)).update(name).digest('hex').slice(0,12);
   const image=options.image||`ghcr.io/${remote.owner.toLowerCase()}/${slug(remote.repo)}-gpu:sha-${version}`;
   if(!safeImage.test(image))throw new GpuError('Expected an explicit versioned ghcr.io image reference');
   const builder=options.builder||'github';
@@ -36,7 +41,7 @@ export function imagePlan(options={}) {
     if(!options.dry_run&&git(project,['status','--porcelain']).trim())throw new GpuError('Commit local project changes before hosted GitHub builds');
     if(!options.dry_run&&git(project,['rev-parse','@{u}'])!==sha) throw new GpuError('Push the source commit before hosted GitHub builds');
   }
-  return {name,image,project,repository:`${remote.owner}/${remote.repo}`,commit:sha,dockerfile:fileRel,builder,push:!options.no_push,runtimeHash,buildId:options.build_id||null};
+  return {name,image,project,repository:`${remote.owner}/${remote.repo}`,commit:sha,dockerfile:fileRel,builder,push:!options.no_push,mode,appPort,runtimeHash,buildId:options.build_id||null};
 }
 function inspectCommand(engine,base){
   const raw=JSON.parse(exec(engine,['image','inspect',base],{timeout:20000}).stdout);
@@ -54,6 +59,8 @@ function buildLocal(plan,engine){
   const cmd=inspectCommand(engine,base);
   exec(engine,['build','-f',join(runtime,'Dockerfile.wrap'),'--build-context',`neo-runtime=${runtime}`,
     '--build-arg',`NEO_BASE_IMAGE=${base}`,'--build-arg',`NEO_GPU_CMD_JSON=${cmd}`,
+    '--build-arg',`NEO_GPU_MODE=${plan.mode}`,'--build-arg',`NEO_GPU_APP_PORT=${plan.appPort}`,
+    '--build-arg',`NEO_GPU_SERVICE_NAME=${plan.name}`,
     '-t',plan.image,plan.project],{timeout:90*60*1000});
   if(plan.push)exec(engine,['push',plan.image],{timeout:25*60*1000});
 }
@@ -69,7 +76,7 @@ async function buildGithub(plan){
   exec('gh',['workflow','run','neo-gpu-image.yml','--repo',repo,'--ref','main',
     '-f',`repository=${plan.repository}`,'-f',`commit=${plan.commit}`,
     '-f',`dockerfile=${plan.dockerfile}`,'-f',`image=${plan.image}`,
-    '-f',`build_id=${buildId}`,'-f',`runtime_hash=${plan.runtimeHash}`],{timeout:30000});
+    '-f',`build_id=${buildId}`,'-f',`runtime_hash=${plan.runtimeHash}`,'-f',`mode=${plan.mode}`,'-f',`app_port=${plan.appPort}`,'-f',`service_name=${plan.name}`],{timeout:30000});
   console.log(JSON.stringify({event:'image_build_dispatched',buildId,image:plan.image,repository:repo}));
   const deadline=Date.now()+50*60*1000;
   let runId=null;
@@ -86,12 +93,12 @@ async function buildGithub(plan){
   throw new GpuError(`Build still running; check GitHub Actions using build ID ${buildId}`);
 }
 export async function build(args){
-  const opts=parse(args,{values:['--project','--dockerfile','--name','--image','--builder'],switches:['--push','--no-push','--dry-run']});
+  const opts=parse(args,{values:['--project','--dockerfile','--name','--image','--builder','--mode','--port'],switches:['--push','--no-push','--dry-run']});
   if(opts._.length)throw new GpuError('usage: neo gpu build [--project ROOT] [--dockerfile PATH] [--push]');
   const plan=imagePlan(opts);
   if(opts.dry_run){console.log(JSON.stringify({mode:'dry_run',...plan},null,2));return;}
   if(plan.builder==='github')await buildGithub(plan);
   else buildLocal(plan,process.env.NEO_GPU_CONTAINER_ENGINE||'docker');
-  saveService(plan.name,{image:plan.image,repository:plan.repository,project:plan.project,sourceCommit:plan.commit,createdAt:new Date().toISOString(),published:plan.push});
+  saveService(plan.name,{image:plan.image,repository:plan.repository,project:plan.project,sourceCommit:plan.commit,createdAt:new Date().toISOString(),published:plan.push,mode:plan.mode,appPort:plan.appPort});
   console.log(JSON.stringify({event:'neo_gpu_service_built',service:plan.name,image:plan.image,published:plan.push}));
 }
