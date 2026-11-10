@@ -6,6 +6,7 @@ export const DEFAULTS = Object.freeze({
   natsUrl: 'nats://127.0.0.1:4222',
   subjectPrefix: 'relay.events.job',
   dashboardUrl: 'http://127.0.0.1:8787',
+  eventsApiUrl: 'http://127.0.0.1:4223',
   port: 8791,
   reconcileIntervalMs: 5 * 60_000,
   deliveryTickMs: 1_000,
@@ -81,11 +82,14 @@ export function resolveConfig({ env = process.env, read = readFileSync, home = h
   if (!/^[A-Za-z0-9_.-]+$/.test(subjectPrefix)) throw new Error('Invalid events subject prefix');
   const dashboardUrl = requireLoopback(
     'Dashboard URL', env.CHAT_GATEWAY_DASHBOARD_URL || DEFAULTS.dashboardUrl, 'http:');
+  const eventsApiUrl = requireLoopback(
+    'Events history URL', env.EVENTS_BUS_API_URL || runtime.apiUrl || DEFAULTS.eventsApiUrl, 'http:');
   return {
     natsUrl,
     subjectPrefix,
     subject: `${subjectPrefix}.*.job.runtime_status.changed`,
     dashboardUrl,
+    eventsApiUrl,
     port: requirePort('CHAT_GATEWAY_PORT', env.CHAT_GATEWAY_PORT ?? DEFAULTS.port),
     stateDir: env.CHAT_GATEWAY_STATE_DIR || join(home, '.local/state/neo/chat-gateway'),
     neoMcpEndpoint: resolveNeoMcpEndpoint({ env, read, home }),

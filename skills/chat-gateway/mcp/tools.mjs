@@ -67,11 +67,35 @@ export const TOOL_DEFS = Object.freeze([
   },
   {
     name: 'chat_jobs',
-    description: 'List recent and active Relay jobs from the Neo Master dashboard. Returns only job ID, title, repository, status, and last update; no objectives or job prompts.',
+    description: 'List recent and active Relay jobs from the Neo Master dashboard. Returns only job ID, title, repository, status, creation time, and last update; no objectives or job prompts.',
     inputSchema: {
       type: 'object',
       properties: { limit: { type: 'integer', minimum: 1, maximum: 100, default: 100 } },
       additionalProperties: false,
+    },
+  },
+  {
+    name: 'chat_job_activity',
+    description: 'Return sanitized, durable lifecycle activity for one Relay job. Requires the exact repository and jobId; contains only stable event types, owner-safe labels/status, timestamps, and optional task identity.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        repository: { type: 'string', pattern: '^[A-Za-z0-9](?:[A-Za-z0-9-]{0,36}[A-Za-z0-9])?/[A-Za-z0-9._-]{1,100}$' },
+        jobId: { type: 'string', pattern: '^[A-Za-z0-9_.-]{1,64}$' },
+      },
+      required: ['repository', 'jobId'], additionalProperties: false,
+    },
+  },
+  {
+    name: 'chat_job_cancel',
+    description: 'Authoritatively cancel one nonterminal Relay job after validating its repository and jobId. Returns a truthful state readback; it does not conflate the request with completion.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        repository: { type: 'string', pattern: '^[A-Za-z0-9](?:[A-Za-z0-9-]{0,36}[A-Za-z0-9])?/[A-Za-z0-9._-]{1,100}$' },
+        jobId: { type: 'string', pattern: '^[A-Za-z0-9_.-]{1,64}$' },
+      },
+      required: ['repository', 'jobId'], additionalProperties: false,
     },
   },
   {
@@ -125,4 +149,19 @@ export function validateFeed(args = {}) {
     throw new Error('limit must be an integer from 1 to 100');
   }
   return args.limit ?? 50;
+}
+
+export function validateJobIdentity(args, toolName) {
+  if (!args || typeof args !== 'object' || Array.isArray(args) ||
+      Object.keys(args).some((key) => key !== 'repository' && key !== 'jobId')) {
+    throw new Error(`${toolName} requires only repository and jobId`);
+  }
+  if (typeof args.repository !== 'string' ||
+      !/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,36}[A-Za-z0-9])?\/[A-Za-z0-9._-]{1,100}$/.test(args.repository)) {
+    throw new Error('repository is invalid');
+  }
+  if (typeof args.jobId !== 'string' || !/^[A-Za-z0-9_.-]{1,64}$/.test(args.jobId)) {
+    throw new Error('jobId is invalid');
+  }
+  return { repository: args.repository, jobId: args.jobId };
 }

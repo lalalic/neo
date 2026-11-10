@@ -41,7 +41,7 @@ test('in-process E2E: startup baseline, event, reconnection, dedupe, reports and
   const initialized = await rpc(port, 'initialize', { protocolVersion: '2025-03-26', capabilities: {}, clientInfo: { name: 'test', version: '1.0' } });
   assert.equal(initialized.result.serverInfo.name, 'chat-gateway');
   const list = await rpc(port, 'tools/list');
-  assert.deepEqual(list.result.tools.map((tool) => tool.name), ['chat_report', 'chat_bind', 'chat_head', 'chat_send', 'chat_upload', 'chat_jobs', 'chat_feed', 'chat_env']);
+  assert.deepEqual(list.result.tools.map((tool) => tool.name), ['chat_report', 'chat_bind', 'chat_head', 'chat_send', 'chat_upload', 'chat_jobs', 'chat_job_activity', 'chat_job_cancel', 'chat_feed', 'chat_env']);
   const env = await rpc(port, 'tools/call', { name: 'chat_env', arguments: {} });
   assert.equal(env.result.structuredContent.mode, 'home');
   assert.equal(env.result.structuredContent.phone.channel, 'unknown');
@@ -72,7 +72,7 @@ test('in-process E2E: startup baseline, event, reconnection, dedupe, reports and
   assert.equal(jobsResponse.result.structuredContent.jobs.length, 2);
   assert.equal(jobsResponse.result.structuredContent.total, 10);
   assert.deepEqual(Object.keys(jobsResponse.result.structuredContent.jobs[0]).sort(),
-    ['id', 'repository', 'status', 'title', 'updatedAt']);
+    ['createdAt', 'id', 'repository', 'status', 'title', 'updatedAt']);
   const invalidJobs = await rpc(port, 'tools/call', {
     name: 'chat_jobs', arguments: { limit: 999 },
   });
