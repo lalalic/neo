@@ -19,6 +19,7 @@ are deployment and distribution targets, not source of truth.
 - events-bus — correlated lifecycle/progress protocol and orchestrator display
   contract for long-running Neo jobs, including its internal event-bus transport.
 - skill-builder — capability-first creation, review, and evaluation of agent skills.
+- neo-gpu — reuse project Dockerfile images for authorized HF Jobs/Vast.ai runs, with dry-run, spend/upload gates and cleanup.
 
 Changes are made here first, tested locally, and then published/synchronized
 to deployment targets by an explicit release operation.
