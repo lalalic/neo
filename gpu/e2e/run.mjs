@@ -10,6 +10,7 @@ import {fileURLToPath} from 'node:url';
 import {imagePlan} from '../image.mjs';
 import {findService,atomicJson} from '../common.mjs';
 import {reusableFixtureImage} from './reuse.mjs';
+import {gatewayCredentialReady} from './gateway-prereq.mjs';
 const project=resolve(fileURLToPath(new URL('../..',import.meta.url)));
 const neo=join(project,'.bin','neo.mjs');
 const dockerfile='gpu/e2e/Dockerfile';
@@ -139,7 +140,7 @@ async function web(){
           if(value.signature==='neo-gpu-e2e-v1'&&value.mode==='web'&&value.query===nonce&&
              value.hasProviderToken===false&&value.hasNeoCookie===false){ready=value;break;}
           lastError='Web returned unexpected data';
-        }else lastError=`HTTP ${response.status}`;
+        }else lastError=response.ok ? 'gateway returned control page, not the app JSON (check private provider authentication)' : `HTTP ${response.status}`;
       }catch(e){lastError=String(e.message||e);}
       await sleep(5000);
     }
@@ -167,6 +168,8 @@ async function main(){
   // HF CPU tests exercise actual provider orchestration at negligible cost.
   // The hosted build is non-GPU and never downloads model weights.
   const modes=flags.has('--batch-only')?['batch']:flags.has('--web-only')?['web']:['batch','web'];
+  if(modes.includes('web')&&!gatewayCredentialReady())
+    throw Error('Persistent HF gateway lacks a private ~/.cache/huggingface/token file (mode 0600). Configure its credentials before renting a web Job.');
   for(const mode of modes)await requireImage(mode,plans[mode]);
   const receipt={version:1,fixture:'gpu/e2e/Dockerfile',provider:'hf',at:new Date().toISOString(),tests:{}};
   try {

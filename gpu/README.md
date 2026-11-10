@@ -167,6 +167,7 @@ Node.js fixture. Run the local, non-billing unit and dry-run verification first:
 ```sh
 node --test test/neo-gpu-e2e.test.mjs
 node gpu/e2e/run.mjs
+node gpu/e2e/container-smoke.mjs   # local Docker Buildx; no HF/Vast rental
 ```
 
 For a **real** HF Jobs provider E2E, including image publication, input/output,
@@ -183,3 +184,7 @@ short server-side deadlines, and a US$1 budget check per session. The web
 fixture uses a 300-second test limit; the normal default 3600-second limit is
 separately tested. No credentials are stored in the repository or the E2E
 receipt. See [E2E fixture details](e2e/README.md).
+
+CI additionally runs the single-Dockerfile container smoke suite via
+[Neo GPU tiny Dockerfile E2E](../.github/workflows/neo-gpu-e2e.yml) on GPU-related
+commits, covering both `batch` and `web` without provider credentials or cost.

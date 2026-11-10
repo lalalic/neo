@@ -117,7 +117,8 @@ function proxyWebsocket(req,socket,head,name,state,backend,origin){
   request.on('response',()=>denySocket(socket,502));
   request.on('error',()=>denySocket(socket,502));request.end();
 }
-export function createGateway({origin='https://gpu.qili2.com',start=startAction,stop=startAction,resolveBackend=backendFor}={}){
+export function createGateway({origin='https://gpu.qili2.com',start=startAction,stop=startAction,
+  resolveBackend=backendFor,hfCredentialReady=()=>{try{return Boolean(hubToken());}catch{return false;}}}={}){
   const base=new URL(origin).origin;
   const server=createServer(async(req,res)=>{
     try{
@@ -141,6 +142,10 @@ export function createGateway({origin='https://gpu.qili2.com',start=startAction,
         if(req.headers.origin!==base)return text(res,403,page('Forbidden','Origin mismatch'));
         if(parts[2]==='_start'&&!['stopped','failed'].includes(state.phase))return redirect(res,`/${name}/_control`);
         if(parts[2]==='_stop'&&!['running','cleanup_failed'].includes(state.phase))return redirect(res,`/${name}/_control`);
+        if(parts[2]==='_start'&&config.provider==='hf'&&!hfCredentialReady())
+          return text(res,503,page('Gateway credential unavailable',
+            'HF private proxy authentication is not configured for this gateway. No paid session was started.'));
+
         (parts[2]==='_start'?start:stop)(name,parts[2].slice(1));
         return redirect(res,`/${name}/_control`);
       }

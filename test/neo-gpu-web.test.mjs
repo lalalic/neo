@@ -83,6 +83,26 @@ test('stable gateway is token gated, no billing on GET; start/stop require same-
   }finally{await close(gw);await close(fake);rmSync(dir,{recursive:true,force:true});}
 });
 
+test('browser Start never rents HF when gateway credential is missing',async()=>{
+  const dir=fixture(),secret=register('hf-guard',{...controlConfig(),provider:'hf'});
+  let starts=0;
+  const origin='http://127.0.0.1:54322';
+  const gateway=createGateway({origin,start:()=>starts++,hfCredentialReady:()=>false});
+  const port=await listen(gateway),root=`http://127.0.0.1:${port}`;
+  try{
+    const login=await fetch(root+'/hf-guard/_login',{method:'POST',
+      body:new URLSearchParams({token:secret}),redirect:'manual'});
+    assert.equal(login.status,303);
+    const cookie=login.headers.get('set-cookie').split(';')[0];
+    const reply=await fetch(root+'/hf-guard/_start',{method:'POST',
+      headers:{Cookie:cookie,Origin:origin},redirect:'manual'});
+    assert.equal(reply.status,503);
+    assert.match(await reply.text(),/No paid session was started/);
+    assert.equal(starts,0);
+    assert.equal(session('hf-guard').phase,'stopped');
+  }finally{await close(gateway);rmSync(dir,{recursive:true,force:true});}
+});
+
 test('WebSocket upgrades require a valid per-service cookie',async()=>{
   const dir=fixture(),secret=register('stream',controlConfig());
   const upstream=httpServer();

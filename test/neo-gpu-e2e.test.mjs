@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtempSync,mkdirSync,writeFileSync,readFileSync,statSync,existsSync,rmSync} from 'node:fs';
+import {mkdtempSync,mkdirSync,writeFileSync,readFileSync,statSync,existsSync,rmSync,chmodSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join,resolve} from 'node:path';
 import {spawn,spawnSync} from 'node:child_process';
@@ -13,6 +13,7 @@ import {webRemove} from '../gpu/web/manager.mjs';
 import {hfRunArgs} from '../gpu/providers/hf.mjs';
 import {hfWebArgs} from '../gpu/web/providers.mjs';
 import {reusableFixtureImage} from '../gpu/e2e/reuse.mjs';
+import {gatewayCredentialReady} from '../gpu/e2e/gateway-prereq.mjs';
 const root=resolve(fileURLToPath(new URL('..',import.meta.url)));
 const fixture=join(root,'gpu/e2e/fixture.mjs');
 const runner=join(root,'gpu/e2e/run.mjs');
@@ -77,6 +78,19 @@ test('local web fixture serves authenticated-proxy proof endpoint without GPU',a
     const html=await(await fetch(`http://127.0.0.1:${port}/`)).text();
     assert.match(html,/Neo GPU E2E WEB PASS/);
   }finally{app.kill('SIGTERM');await delay(80);}
+});
+
+test('live web E2E refuses an absent or world-readable gateway credential file',()=>{
+  const home=temp(),cache=join(home,'.cache','huggingface');
+  try{
+    assert.equal(gatewayCredentialReady(home),false);
+    mkdirSync(cache,{recursive:true,mode:0o700});
+    const file=join(cache,'token');
+    writeFileSync(file,'hf_fake_fixture_012345678901234567890123456789',{mode:0o600});
+    assert.equal(gatewayCredentialReady(home),true);
+    chmodSync(file,0o644);
+    assert.equal(gatewayCredentialReady(home),false);
+  }finally{rmSync(home,{recursive:true,force:true});}
 });
 
 test('reusable runner defaults to no-spend and requires both explicit live approvals',()=>{
