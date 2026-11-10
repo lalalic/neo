@@ -36,6 +36,13 @@ test('Dockerfile from any GitHub project becomes a versioned Neo GPU image plan'
     const result=cli(['build','--project',project,'--dry-run']);
     assert.equal(result.status,0,result.stderr);
     assert.equal(JSON.parse(result.stdout).image,plan.image);
+    // A separate, untracked directory is not part of the pushed Docker build.
+    writeFileSync(join(project,'untracked-note.txt'),'temporary worktree file');
+    const branch=spawnSync('git',['-C',project,'branch','--show-current'],{encoding:'utf8'}).stdout.trim();
+    git('update-ref','refs/remotes/origin/main',plan.commit);
+    git('config',`branch.${branch}.remote`,'origin');
+    git('config',`branch.${branch}.merge`,'refs/heads/main');
+    assert.equal(imagePlan({project}).image,plan.image);
   }finally{rmSync(project,{recursive:true,force:true});}
 });
 

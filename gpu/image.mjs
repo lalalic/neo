@@ -38,8 +38,16 @@ export function imagePlan(options={}) {
   if(options.push && options.no_push)throw new GpuError('--push and --no-push conflict');
   if(!['github','local'].includes(builder))throw new GpuError('--builder must be github or local');
   if(builder==='github') {
-    if(!options.dry_run&&git(project,['status','--porcelain']).trim())throw new GpuError('Commit local project changes before hosted GitHub builds');
-    if(!options.dry_run&&git(project,['rev-parse','@{u}'])!==sha) throw new GpuError('Push the source commit before hosted GitHub builds');
+    if(!options.dry_run){
+      // Hosted builds read the exact pushed commit, not untracked local files.
+      // Other independent worktrees under the repo must not block GPU builds.
+      if(git(project,['status','--porcelain','--untracked-files=no']).trim())
+        throw new GpuError('Commit tracked source changes before hosted GitHub builds');
+      if(!git(project,['ls-tree','HEAD','--',fileRel]).trim())
+        throw new GpuError('Dockerfile must be tracked in the pushed Git commit');
+      if(git(project,['rev-parse','@{u}'])!==sha)
+        throw new GpuError('Push the source commit before hosted GitHub builds');
+    }
   }
   return {name,image,project,repository:`${remote.owner}/${remote.repo}`,commit:sha,dockerfile:fileRel,builder,push:!options.no_push,mode,appPort,runtimeHash,buildId:options.build_id||null};
 }
