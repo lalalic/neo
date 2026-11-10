@@ -27,7 +27,7 @@ test('in-process E2E: startup baseline, event, reconnection, dedupe, reports and
     receiveEvent = onEvent;
     return { start() {}, async stop() {}, status: () => ({ connected: true, lastError: null }) };
   };
-  const config = { ...resolveConfig(), stateDir: dir, port: 0, settleMs: 0,
+  const config = { ...resolveConfig({ env: { EVENTS_BUS_CONFIG: `${dir}/test-events-not-configured.json` } }), stateDir: dir, port: 0, settleMs: 0,
     deliveryTickMs: 300_000, reconcileIntervalMs: 300_000 };
   const gateway = await createGateway({ config, notifier, dashboard, now: clock.now,
     makeSubscriber, chatSubmit: async (request) => { chatSubmissions.push(request); return { status: 'submitted' }; }, log: () => {} });

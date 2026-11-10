@@ -1,6 +1,6 @@
-# Neo workspace rules
+# Neo Harness source rules
 
-Neo is a public monorepo with independently executable projects, shared agents and Skills. Read [MISSION.md](MISSION.md) for identity and mission context; the mission is not authorization to spend, publish, merge or make commitments. Follow the global execution harness and discover installed Skills contextually, rather than hard-coding their paths.
+Neo is the installable agent Harness and CLI source, with reusable Agents and Skills. Ordinary Neo.app users do not clone this repository; Neo.app manages an independently versioned `@lalalic/neo` distribution. Vlog and Content Distribution are independently Git-rooted Neo Projects on Neo Master; their source is excluded from the Harness Git index. The CLI discovers only direct independent Git repositories beneath `NEO_ROOT` (default `~/Workspace`, with an explicit Neo Master configuration of `~/Workspace/neo`). Historical source-only project directories are not discoverable Neo Projects. Read [MISSION.md](MISSION.md) for identity and mission context; the mission is not authorization to spend, publish, merge or make commitments. Follow the global execution harness and discover installed Skills contextually, rather than hard-coding their paths.
 
 ## Project resolution
 
@@ -18,7 +18,7 @@ Content-producing Projects that opt into `neo project run` must follow the canon
 
 Reusable, sanitized public series definitions may be committed under `templates/`. Never commit private media or generated run contents, and do not create tracked `episodes/`, `generated/`, `output/` or instance-specific `data/`. Projects must not depend on other projects' `runs/` directories.
 
-For Projects with opted-in local Git versioning, `run-template/.gitignore` is copied to the persistent Run and only explicitly allowlisted textual artifacts are committed in that nested local-only repository; root Neo Git still ignores all `runs/`. Do not add a Run remote or publish private Git objects. Review tags map to exact Stage Commits but are not human approval.
+For Projects using local Run Git versioning, `run-template/.gitignore` is copied to the persistent Run and only explicitly allowlisted textual artifacts are committed in that nested local-only repository; the owning Project Git (or legacy Neo Git until migration) still ignores all `runs/`. Do not add a Run remote or publish private Git objects. Review tags map to exact Stage Commits but are not human approval.
 
 **Execute production against the canonical project run tree**, never from an isolated Git worktree. Use isolated worktrees for source changes and tests, but final media production, continuation, QA, approvals and archive must all use the same persistent `runs/` evidence. Do not transfer ignored run artifacts between worktrees or claim a new checkout contains historical run state.
 

@@ -14,36 +14,55 @@ test('service read-only list strips environment and sorts',()=>{const c=captured
 test('service status checks exact existing name',()=>{const c=captured();executeControl(['service','status','alpha'],c.opts);assert.equal(JSON.parse(c.out.join('')).pid,12);assert.throws(()=>executeControl(['service','status','unknown'],c.opts),/unknown managed service/);});
 test('restart requires explicit apply, exact existing name, no shell',()=>{const c=captured();assert.throws(()=>executeControl(['service','restart','alpha'],c.opts),/usage/);assert.throws(()=>executeControl(['service','restart','not-in-inventory','--apply'],c.opts),/unknown managed/);executeControl(['service','restart','alpha','--apply'],c.opts);assert.deepEqual(c.calls.at(-1),['pm2',['restart','alpha']]);});
 test('project, skill routes preserve resolver flags',()=>{const c=captured();executeControl(['project','resolve','neox'],c.opts);assert.deepEqual(c.calls.at(-1)[1],['--resolve','neox']);executeControl(['skill','list','--project','/tmp/project'],c.opts);assert.deepEqual(c.calls.at(-1)[1],['--project','/tmp/project']);});
-test('workspace show returns the configured root and derived Neo root',()=>{
+test('workspace show separates the projects root from the harness installation',()=>{
   const c=captured();
-  executeControl(['workspace','show'],{...c.opts,workspace:{workspaceRoot:'/tmp/workspace',neoRoot:'/tmp/workspace/neo'}});
-  assert.deepEqual(JSON.parse(c.out.join('')),{workspaceRoot:'/tmp/workspace',neoRoot:'/tmp/workspace/neo'});
+  executeControl(['workspace','show'],{...c.opts,workspace:{neoRoot:'/tmp/workspace',harnessRoot:'/tmp/harness'}});
+  assert.deepEqual(JSON.parse(c.out.join('')),{neoRoot:'/tmp/workspace',harnessRoot:'/tmp/harness'});
   assert.throws(()=>executeControl(['workspace','set','/tmp'],c.opts),/usage/);
 });
-test('workspace config validates schema and falls back only when absent',()=>{
+test('single Neo root validates schema and defaults to user Workspace only when absent',()=>{
   const base=mkdtempSync(join(tmpdir(),'neo-workspace-'));
   try {
     const root=join(base,'chosen');mkdirSync(root);
     const file=join(base,'workspace.json');
-    assert.deepEqual(loadWorkspaceConfig({configPath:join(base,'absent.json')}).workspaceRoot,resolve(process.env.HOME,'Workspace'));
-    writeFileSync(file,JSON.stringify({schemaVersion:1,workspaceRoot:root}));
-    assert.deepEqual(loadWorkspaceConfig({configPath:file}),{schemaVersion:1,workspaceRoot:root,neoRoot:join(root,'neo')});
-    writeFileSync(file,JSON.stringify({schemaVersion:2,workspaceRoot:root}));
-    assert.throws(()=>loadWorkspaceConfig({configPath:file}),/Invalid workspace configuration/);
+    assert.deepEqual(loadWorkspaceConfig({configPath:join(base,'absent.json')}).neoRoot,realpathSync(resolve(process.env.HOME,'Workspace')));
+    writeFileSync(file,JSON.stringify({schemaVersion:1,neoRoot:root}));
+    assert.deepEqual(loadWorkspaceConfig({configPath:file}),{schemaVersion:1,neoRoot:realpathSync(process.env.NEO_ROOT ?? root),harnessRoot:resolve(import.meta.dirname,'..')});
+    writeFileSync(file,JSON.stringify({schemaVersion:1}));
+    assert.throws(()=>loadWorkspaceConfig({configPath:file}),/Invalid Neo configuration/);
+    writeFileSync(file,JSON.stringify({schemaVersion:1,workspaceRoot:root,projectsRoot:root}));
+    assert.throws(()=>loadWorkspaceConfig({configPath:file}),/Invalid Neo configuration/);
+    writeFileSync(file,JSON.stringify({schemaVersion:1,neoRoot:root,projectsRoot:root}));
+    assert.throws(()=>loadWorkspaceConfig({configPath:file}),/Invalid Neo configuration/);
+    writeFileSync(file,JSON.stringify({schemaVersion:2,neoRoot:root}));
+    assert.throws(()=>loadWorkspaceConfig({configPath:file}),/Invalid Neo configuration/);
+    const priorOverride = process.env.NEO_ROOT;
+    try {
+      writeFileSync(file,JSON.stringify({schemaVersion:1,neoRoot:root}));
+      const overridden = join(base, 'overridden');mkdirSync(overridden);
+      process.env.NEO_ROOT = overridden;
+      assert.equal(loadWorkspaceConfig({configPath:file}).neoRoot, realpathSync(overridden));
+      process.env.NEO_ROOT = '';
+      assert.throws(()=>loadWorkspaceConfig({configPath:file}),/NEO_ROOT must be an absolute path/);
+    } finally {
+      if (priorOverride === undefined) delete process.env.NEO_ROOT;
+      else process.env.NEO_ROOT = priorOverride;
+    }
   } finally { rmSync(base,{recursive:true,force:true}); }
 });
-test('skill discovery reads shared skills from the configured workspace Neo root',()=>{
+test('skill discovery uses installed shared assets, not workspace source files',()=>{
   const base=mkdtempSync(join(tmpdir(),'neo-skill-root-'));
   try {
     const root=join(base,'workspace');mkdirSync(join(root,'neo','skills','selected-skill'),{recursive:true});
     writeFileSync(join(root,'neo','skills','selected-skill','SKILL.md'),'---\nname: selected-skill\ndescription: configured root test\n---\n');
-    const config=join(base,'workspace.json');writeFileSync(config,JSON.stringify({schemaVersion:1,workspaceRoot:root}));
+    const config=join(base,'workspace.json');writeFileSync(config,JSON.stringify({schemaVersion:1,neoRoot:root}));
     const output=execFileSync(process.execPath,[cli,'skill','list'],{encoding:'utf8',timeout:15000,env:{...process.env,NEO_WORKSPACE_CONFIG:config}});
     const skills=JSON.parse(output);
-    assert.ok(skills.some(skill=>skill.name==='selected-skill'&&skill.path===realpathSync(join(root,'neo','skills','selected-skill','SKILL.md'))),output);
+    assert.equal(skills.some(skill=>skill.name==='selected-skill'),false);
+    assert.ok(skills.some(skill=>skill.name==='xchat-orchestrator'), 'Installed Harness Skills remain available');
   } finally { rmSync(base,{recursive:true,force:true}); }
 });
-test('live non-mutating CLI project route',()=>{const data=JSON.parse(execFileSync(process.execPath,[cli,'project','resolve','neo'],{encoding:'utf8',timeout:15000}));assert.equal(data.name,'neo');});
+test('live CLI project route resolves only independent NEO_ROOT projects',()=>{const data=JSON.parse(execFileSync(process.execPath,[cli,'project','resolve','vlog'],{encoding:'utf8',timeout:15000}));assert.equal(data.name,'vlog');assert.equal(data.neo_project,true);assert.equal(data.repo,'local/vlog');});
 
 test('launchd NeoY is an explicitly managed service, not an arbitrary process',()=>{
 const c=captured();const original=c.opts.run;c.opts.run=(cmd,args)=>{if(cmd==='launchctl'){c.calls.push([cmd,args]);return {code:0,stdout:'state = running\n pid = 42\n'};}return original(cmd,args);};
@@ -87,7 +106,7 @@ test('project setup-agent delegates discovery and opens an encoded prompt in Chr
   const run=(bin,args)=>{
     calls.push([bin,args]);
     if(bin.endsWith('list-xchat-projects')) return {code:0,stdout:JSON.stringify({
-      xchat_project:'neo/family-tutor',setup:{bootstrap:'/tmp/family tutor/setup/bootstrap.md'}
+      xchat_project:'family-tutor',neo_project:true,setup:{bootstrap:'/tmp/family tutor/setup/bootstrap.md'}
     }),stderr:''};
     if(bin==='/usr/bin/open') return {code:0,stdout:'',stderr:''};
     throw Error('unexpected executable');
@@ -99,6 +118,6 @@ test('project setup-agent delegates discovery and opens an encoded prompt in Chr
   assert.match(url.searchParams.get('prompt'),/\/tmp\/family tutor\/setup\/bootstrap.md/);
   assert.equal(JSON.parse(output.join('')).promptSubmitted,false);
   assert.throws(()=>executeControl(['project','setup-agent','not-configured'],{
-    run:(bin,args)=>({code:0,stdout:JSON.stringify({xchat_project:'neo/not-configured'}),stderr:''}),
+    run:(bin,args)=>({code:0,stdout:JSON.stringify({xchat_project:'not-configured',neo_project:true}),stderr:''}),
   }),/no setup/);
 });

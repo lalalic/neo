@@ -93,7 +93,7 @@ class ListXchatSkillsTests(unittest.TestCase):
             root = Path(tmp) / "chosen"
             root.mkdir()
             config = Path(tmp) / "workspace.json"
-            config.write_text(json.dumps({"schemaVersion": 1, "workspaceRoot": str(root)}), encoding="utf-8")
+            config.write_text(json.dumps({"schemaVersion": 1, "neoRoot": str(root)}), encoding="utf-8")
             old = os.environ.get("NEO_WORKSPACE_CONFIG")
             os.environ["NEO_WORKSPACE_CONFIG"] = str(config)
             try:
@@ -103,20 +103,41 @@ class ListXchatSkillsTests(unittest.TestCase):
                     os.environ.pop("NEO_WORKSPACE_CONFIG", None)
                 else:
                     os.environ["NEO_WORKSPACE_CONFIG"] = old
-            self.assertEqual(result["workspaceRoot"], root.resolve())
-            self.assertEqual(result["neoRoot"], root.resolve() / "neo")
+            self.assertEqual(result["neoRoot"], root.resolve())
+            self.assertEqual(result["harnessRoot"], Path(__file__).resolve().parents[3])
+            self.assertNotEqual(result["neoRoot"], result["harnessRoot"])
 
     def test_bad_workspace_configuration_fails_closed(self) -> None:
         from workspace_config import load_workspace_config
 
         with tempfile.TemporaryDirectory() as tmp:
             config = Path(tmp) / "workspace.json"
-            config.write_text('{"schemaVersion":1,"workspaceRoot":"relative"}', encoding="utf-8")
+            config.write_text('{"schemaVersion":1}', encoding="utf-8")
             old = os.environ.get("NEO_WORKSPACE_CONFIG")
             os.environ["NEO_WORKSPACE_CONFIG"] = str(config)
             try:
                 with self.assertRaises(ValueError):
                     load_workspace_config()
+                config.write_text('{"schemaVersion":1,"neoRoot":"relative"}', encoding="utf-8")
+                with self.assertRaises(ValueError):
+                    load_workspace_config()
+                config.write_text('{"schemaVersion":true,"neoRoot":"/tmp"}', encoding="utf-8")
+                with self.assertRaises(ValueError):
+                    load_workspace_config()
+                config.write_text('{"schemaVersion":1,"neoRoot":"/tmp","projectsRoot":"/tmp"}', encoding="utf-8")
+                with self.assertRaises(ValueError):
+                    load_workspace_config()
+                config.write_text('{"schemaVersion":1,"neoRoot":"/tmp"}', encoding="utf-8")
+                old_override = os.environ.get("NEO_ROOT")
+                try:
+                    os.environ["NEO_ROOT"] = ""
+                    with self.assertRaises(ValueError):
+                        load_workspace_config()
+                finally:
+                    if old_override is None:
+                        os.environ.pop("NEO_ROOT", None)
+                    else:
+                        os.environ["NEO_ROOT"] = old_override
             finally:
                 if old is None:
                     os.environ.pop("NEO_WORKSPACE_CONFIG", None)

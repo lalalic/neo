@@ -1,19 +1,20 @@
 #!/usr/bin/env node
 import { connect } from "@nats-io/transport-node";
+import { resolveRuntimeConfig } from '../core/config.mjs';
 
 const [, , command, subject, payload] = process.argv;
-const servers = process.env.NEO_NATS_URL || "nats://127.0.0.1:4222";
+const servers = resolveRuntimeConfig().natsUrl;
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
 function usage() {
-  console.error("usage: neo-nats.mjs ping | pub <subject> <payload> | sub <subject>");
+  console.error("usage: nats.mjs ping | pub <subject> <payload> | sub <subject>");
   process.exit(2);
 }
 
 if (!command) usage();
 
-const nc = await connect({ servers, name: `neo-nats-${command}` });
+const nc = await connect({ servers, name: `events-bus-nats-${command}` });
 
 try {
   if (command === "ping") {

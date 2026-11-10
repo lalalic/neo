@@ -5,13 +5,14 @@ import { mkdtemp, readdir, rm } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { spawn, spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
+import { resolveRuntimeConfig } from '../skills/events-bus/core/config.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const neoRoot = resolve(here, '..');
 const natsTransport = resolve(neoRoot, 'skills/events-bus/transport/nats.mjs');
 const SERVICE_NAME = 'neo/package-service-updater';
 const LEGACY_SERVICE_NAME = 'neo-package-service-updater';
-const NATS_URL = process.env.NEO_NATS_URL || 'nats://127.0.0.1:4222';
+const { natsUrl: NATS_URL, subjectPrefix: SUBJECT_PREFIX } = resolveRuntimeConfig();
 const POLL_INTERVAL_MS = 2000;
 const PULLABLE_TIMEOUT_MS = 5 * 60 * 1000;
 const ONLINE_TIMEOUT_MS = 60 * 1000;
@@ -192,7 +193,7 @@ async function emit(input, type, status, message, data) {
     message,
     data,
   };
-  const result = run(process.execPath, [natsTransport, 'pub', `neo.events.job.${input.jobId}.${type}`, JSON.stringify(event)], 30000);
+  const result = run(process.execPath, [natsTransport, 'pub', `${SUBJECT_PREFIX}.${input.jobId}.${type}`, JSON.stringify(event)], 30000);
   if (result.code !== 0) throw new Error('event publish failed: ' + result.stderr.trim());
 }
 
@@ -243,9 +244,9 @@ export async function handlePublicationEvent(event, dependencies = {}) {
 }
 
 async function daemon() {
-  const child = spawn(process.execPath, [natsTransport, 'sub', 'neo.events.job.*.package.published'], {
+  const child = spawn(process.execPath, [natsTransport, 'sub', `${SUBJECT_PREFIX}.*.package.published`], {
     stdio: ['ignore', 'pipe', 'inherit'],
-    env: { ...process.env, NEO_NATS_URL: NATS_URL },
+    env: { ...process.env, EVENTS_BUS_NATS_URL: NATS_URL },
   });
   child.stdout.setEncoding('utf8');
   let buffer = '';

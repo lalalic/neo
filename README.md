@@ -2,7 +2,7 @@
 
 Neo is an AI character with a mission to make $1,000,000 in one year. The mission is a goal, not a claim of earned revenue; milestones, costs, and outcomes should be backed by evidence.
 
-This repository is the public Neo monorepo: root orchestration rules, reusable agent skills, bootstrap/discovery tooling, and Neo-owned projects.
+This repository is the public **Neo Harness source**: CLI, bootstrap/discovery tooling, shared agent definitions, and reusable Skills. Installing Neo.app prepares the Harness without requiring a source checkout. Each runnable Neo Project is an independent Git repository directly beneath the configurable `NEO_ROOT` directory.
 
 ## Repository
 
@@ -22,12 +22,19 @@ This repository is the public Neo monorepo: root orchestration rules, reusable a
 - `neo-highlights/` — selective event-to-video project; each highlight execution lives under ignored `runs/`.
 - `drama/` — reusable AI drama production engine; series/episode/media executions live under ignored `runs/`.
 - `family-tutor/` — public tutoring project surface; real family instances and learner data live under ignored `runs/`.
-- `vlog/` — Neo vlog production workflow; real episode/media executions live under ignored `runs/`.
+- `vlog/` and `content-distribution/` — independent local Git repositories on Neo Master (not owned or published by Neo Harness Git). Their media, Run histories, and local state remain under project-owned ignored `runs/`.
 - `package.json` — legacy workspace metadata retained during repository-history consolidation.
 
 Nested repositories such as `markcut/`, `neox/`, `wechat-bro/`, and `mac-developer-bridge/` are managed independently and are not committed through this repository.
 For Projects enabled for `neo project run`, each project owns a `run-template/.gitignore` and explicit text-artifact allowlist. Run Git is local, nested inside ignored `runs/`, and never pushed. Git safety hooks are checked into `.githooks/`; enable them in the canonical Neo checkout with `git config core.hooksPath .githooks` (or use `npm run push`, which independently checks outgoing Run paths). See [Run Contract](docs/neo-project-run-contract.md#local-run-git-versioning).
 
+The [Neo Harness and independent Projects design](docs/neo-harness-project-layout.md)
+defines the one-root configuration, Agent/Skill/Shortcut lookup, repository
+ownership and the boundary with Agents Relay. It also identifies uncompleted
+release gates and historical Job migration work.
+
 ## Repository model
 
-Neo is a public **monorepo**. Each Neo-owned top-level project has its own `README.md` and `AGENTS.md`; shared reusable capabilities live under `skills/`. Project executions are private/local by default and use either `<project>/runs/<YYYY-MM-DD[-slug]>/` for standalone work or `<project>/runs/<series-name>/<YYYY-MM-DD[-slug]>/` for series work. `runs/` is ignored globally. See root `AGENTS.md` for the canonical project contract.
+Neo Harness owns shared tooling. `neo project list|resolve|run` recognizes only direct children of `NEO_ROOT` whose Git root is **that project**. Legacy source-folders tracked by the Harness Git repository are not runnable Neo Projects. The default `NEO_ROOT` is `~/Workspace`; on Neo Master, `~/.config/neo/workspace.json` explicitly selects `~/Workspace/neo`, allowing `vlog/` and `content-distribution/` to keep their existing canonical Run paths. The `NEO_ROOT` environment variable overrides the saved `neoRoot` setting.
+
+Every runnable project owns its own `.git`, `AGENTS.md`, `README.md`, `graph.mmd` DAG, and private `runs/`. Each project excludes `runs/` from source Git, while nested Run Git histories remain local and private. No GitHub remote is required. Unmigrated historic project directories may still be present in this source checkout but are not discovered by `neo project`. See [Neo Project Run Contract](docs/neo-project-run-contract.md) for execution details.

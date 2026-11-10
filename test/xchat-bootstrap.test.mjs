@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { buildXChatBootstrap, renderXChatBootstrap } from '../.bin/xchat-bootstrap.mjs';
 import { readFileSync } from 'node:fs';
 
-const workspace = { workspaceRoot: '/workspace', neoRoot: '/workspace/neo' };
+const workspace = { neoRoot: '/workspace', harnessRoot: '/workspace/neo' };
 const files = new Map([
   ['/home/.agents/AGENTS.md', 'Agent rules for local workers'],
   ['/workspace/neo/skills/xchat-orchestrator/xchat-bootstrap.md', 'XChat harness rules'],

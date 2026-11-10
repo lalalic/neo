@@ -4,12 +4,12 @@ Findings were read from the installed `agents-relay`, the Events Bus Skill, the 
 
 ## Verified findings
 
-- **Event transport.** Relay publishes to NATS at `127.0.0.1:4222` on `neo.events.job.<jobId>.<type>`. The envelope has `version`, `event_id`, `job_id`, `task_id`, `parent_task_id`, `type`, `status`, `timestamp`, `visibility`, `level`, `message`, `data`, `source`. NATS runs as the PM2 service `events-bus/nats`.
+- **Event transport.** Relay publishes to NATS at `127.0.0.1:4222` on `relay.events.job.<jobId>.<type>`. The envelope has `version`, `event_id`, `job_id`, `task_id`, `parent_task_id`, `type`, `status`, `timestamp`, `visibility`, `level`, `message`, `data`, `source`. NATS runs as the PM2 service `events-bus/nats`.
 - **Job-level status event.** `job.runtime_status.changed` carries `data: { from, to, repository, jobState, updatedAt }`. `to` comes from `deriveJobRuntimeStatus`, which returns `CANCELLED` or `COMPLETED` directly from job state. Job states are `DRAFT`, `ACTIVE`, `COMPLETED`, `CANCELLED`.
 - **Event gaps.** The change detector is process-local; a job's first observation after daemon start is a silent baseline. Core NATS has no replay, so a restart can hide a transition.
 - **History API.** Events Bus serves `http://127.0.0.1:4223/events?job=<id>&order=asc&after=<cursor>`; it needs a job id, so it is not a global catch-up source.
 - **Dashboard API.** `http://127.0.0.1:8787/api/jobs` returns the full job list (about 1 MB). Other routes include `/api/status`, `/api/runtime-summary`, `/api/events`.
-- **Runtime config.** NATS URL and prefix resolve from `NEO_NATS_URL`, `NEO_EVENTS_SUBJECT_PREFIX`, `~/Library/Application Support/EventsBus/runtime.json`, then defaults.
+- **Runtime config.** NATS URL and prefix resolve from `EVENTS_BUS_NATS_URL`, `EVENTS_BUS_SUBJECT_PREFIX`, `~/Library/Application Support/EventsBus/runtime.json`, then defaults.
 - **Long-lived jobs.** Several jobs are autonomous and ACTIVE indefinitely; they will simply never produce a completion.
 - **Service Skill contract.** Skills owning persistent PM2 services declare `requires.skills: [daemon-service-manage]`, name services `<skill>/<service>`, and define them with `serviceman define ... --apply`. Neo.app discovers declaring Skills. `neo service list` shows PM2-managed services.
 - **MCP federation.** `mcp add <name> <http(s)-url | stdio:///absolute/executable?arg=...>`; enabled tools appear as `mcp.<server>.<tool>`; stdio MCPs are supervised by federation.

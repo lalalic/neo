@@ -23,7 +23,7 @@
 **Independent Test**: Stub adapters; publish synthetic events; replay; restart.
 
 - [x] T007 [US1] Test event filtering (terminal versus non-terminal, malformed, unknown fields) in `test/subscriber.test.mjs`.
-- [x] T008 [US1] Implement `core/subscriber.mjs`: subscribe to `neo.events.job.*.job.runtime_status.changed`, filter `data.to`, write pending ledger entries, reconnect with backoff.
+- [x] T008 [US1] Implement `core/subscriber.mjs`: subscribe to `relay.events.job.*.job.runtime_status.changed`, filter `data.to`, write pending ledger entries, reconnect with backoff.
 - [x] T009 [US1] Test baseline-on-first-start (nine historical COMPLETED jobs, zero notifications) and missed-event reconciliation in `test/reconcile.test.mjs`.
 - [x] T010 [US1] Implement `core/reconcile.mjs`: dashboard `/api/jobs` diff against the snapshot; run at start, reconnect and every 5 minutes; keep only id, title, state, repository, updatedAt.
 - [x] T011 [US1] Test retry/backoff, pending-until-acknowledged, burst coalescing (more than 5 in 30 seconds) in `test/notify.test.mjs`.

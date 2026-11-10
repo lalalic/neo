@@ -8,7 +8,7 @@ import { resolveRuntimeConfig, writeRuntimeConfig, publishSubjectFor } from './c
 
 test('runtime config is one discovery source for NATS and API', () => {
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'events-bus-config-'));
-  const env={EVENTS_BUS_DATA_DIR:dir,NEO_NATS_URL:'nats://127.0.0.1:5222',NEO_EVENTS_API_URL:'http://127.0.0.1:5223',NEO_EVENTS_SUBJECT_PREFIX:'test.events'};
+  const env={EVENTS_BUS_DATA_DIR:dir,EVENTS_BUS_NATS_URL:'nats://127.0.0.1:5222',EVENTS_BUS_API_URL:'http://127.0.0.1:5223',EVENTS_BUS_SUBJECT_PREFIX:'test.events'};
   const config=resolveRuntimeConfig(env); writeRuntimeConfig(config,env);
   const discovered=resolveRuntimeConfig({EVENTS_BUS_DATA_DIR:dir});
   assert.equal(discovered.natsUrl,'nats://127.0.0.1:5222');
@@ -63,7 +63,34 @@ test('events bus overrides producer timestamps at publish and persists recorder 
 
 test('emit publishes to configured prefix without default leakage',()=>{
   const event={job_id:'iso-553',type:'task.started'};
-  assert.equal(publishSubjectFor(event,{NEO_EVENTS_SUBJECT_PREFIX:'neo.events.private-run'}),'neo.events.private-run.iso-553.task.started');
-  assert.equal(publishSubjectFor(event,{EVENTS_BUS_DATA_DIR:fs.mkdtempSync(path.join(os.tmpdir(),'events-default-'))}),'neo.events.job.iso-553.task.started');
+  assert.equal(publishSubjectFor(event,{EVENTS_BUS_SUBJECT_PREFIX:'neo.events.private-run'}),'neo.events.private-run.iso-553.task.started');
+  assert.equal(publishSubjectFor(event,{EVENTS_BUS_DATA_DIR:fs.mkdtempSync(path.join(os.tmpdir(),'events-default-'))}),'relay.events.job.iso-553.task.started');
   assert.throws(()=>publishSubjectFor({job_id:'iso-553'},{}),/Job ID and event type/);
+});
+
+
+test('Events Bus rejects unmigrated saved namespace and ignores retired event env names',()=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'events-bus-migrate-'));
+  try {
+    fs.writeFileSync(path.join(dir,'runtime.json'),JSON.stringify({subjectPrefix:'neo.events.job'}));
+    assert.throws(()=>resolveRuntimeConfig({EVENTS_BUS_DATA_DIR:dir}),/coordinate migration/);
+    const runtime=resolveRuntimeConfig({EVENTS_BUS_DATA_DIR:dir,EVENTS_BUS_SUBJECT_PREFIX:'relay.events.job'});
+    assert.equal(runtime.subjectPrefix,'relay.events.job');
+    const fresh=resolveRuntimeConfig({EVENTS_BUS_DATA_DIR:fs.mkdtempSync(path.join(os.tmpdir(),'events-bus-new-')),
+      NEO_NATS_URL:'nats://legacy:4545',AGENTS_RELAY_EVENTS_SUBJECT_PREFIX:'wrong.old'});
+    assert.equal(fresh.subjectPrefix,'relay.events.job');
+    assert.equal(fresh.natsUrl,'nats://127.0.0.1:4222');
+  } finally { fs.rmSync(dir,{recursive:true,force:true}); }
+});
+
+
+test('Events Bus rejects invalid saved runtime JSON rather than silently switching subject',()=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'events-corrupt-runtime-'));
+  try {
+    const file=path.join(dir,'runtime.json');
+    for (const payload of ['{corrupt','[]','null']) {
+      fs.writeFileSync(file,payload);
+      assert.throws(()=>resolveRuntimeConfig({EVENTS_BUS_CONFIG:file}),/Invalid Events Bus runtime config/);
+    }
+  } finally {fs.rmSync(dir,{recursive:true,force:true});}
 });

@@ -12,6 +12,7 @@ if (out === root || root.startsWith(out + '/') || out.startsWith(root + '/')) th
 const allow = [
   '.bin/neo.mjs', '.bin/neo-agent-catalog.mjs', '.bin/neo-control.mjs', '.bin/neo-project-run.mjs', '.bin/neo-run-git.mjs', '.bin/neo-project-tts.mjs', '.bin/workspace-config.mjs',
   '.bin/xchat-bootstrap.mjs', '.bin/neo-mcp-token.mjs', '.bin/neo-mcp-local.mjs', '.bin/neo-local-escalation.mjs', '.bin/neo-escalation-learn.mjs', '.bin/neo-stateless-agent.mjs', '.bin/neo-escalation-lock.mjs', '.bin/neo-escalation-self-test.mjs', '.bin/neo-escalation-experience.mjs', '.bin/neo-escalation-challenges.mjs', 'skills/daemon-service-manage/bin/serviceman.mjs',
+  'scripts/eval-project-worker-prompts.mjs', 'scripts/audit-project-worker-evals.mjs', 'scripts/resolve-relay-cli.mjs',
   '.bin/package-web-chatgpt-skill',
   'agents/escalation.agent.md', 'agents/escalation-needs-user.md', 'agents/neo-escalation-playbook.md', 'agents/escalation-experience.md', 'agents/escalation-result.schema.json',
   'docs/local-escalation.md', 'docs/escalation-experience.md',
@@ -25,23 +26,27 @@ for(const file of allow) {
   mkdirSync(dirname(dest),{recursive:true});
   cpSync(source,dest,{dereference:true});
 }
-// Preserve the complete tracked skill source contract, not just SKILL.md.
-// Use committed Git blobs: never bundle unrelated dirty worktrees, untracked
-// credentials, personal media or developer-generated runtime files.
-const manifest = spawnSync('git',['-C',root,'ls-files','-s','-z','--','skills'],{encoding:'buffer'});
-if (manifest.status !== 0) throw Error('Unable to resolve committed skill manifest');
-for (const entry of manifest.stdout.toString('utf8').split('\0').filter(Boolean)) {
-  const tab=entry.indexOf('\t');
-  if (tab < 0) throw Error('Invalid tracked Git entry');
-  const mode=entry.slice(0,tab).split(' ')[0], rel=entry.slice(tab+1);
-  if (!['100644','100755'].includes(mode)) throw Error(`Non-file skill entry: ${rel}`);
-  if (!/^skills\/[a-zA-Z0-9._/-]+$/.test(rel) || rel.includes('..')) throw Error(`Unsafe tracked skill path: ${rel}`);
-  const dst=join(out,rel);
-  if (existsSync(dst)) continue; // Explicit installed compatibility entrypoints win.
-  const blob=spawnSync('git',['-C',root,'show',`HEAD:${rel}`],{encoding:'buffer',maxBuffer:10*1024*1024});
-  if (blob.status !== 0) throw Error(`Unable to load committed skill asset: ${rel}`);
-  mkdirSync(dirname(dst),{recursive:true});writeFileSync(dst,blob.stdout);
-  chmodSync(dst,mode==='100755'?0o755:0o644);
+// Ship shared Agents (including inherited Visioner bases and Shortcuts) and
+// Skills from the tracked public source tree. Untracked files, private Runs,
+// symlinks, developer state and credentials are never packaged.
+for (const namespace of ['agents', 'skills']) {
+  const manifest = spawnSync('git',['-C',root,'ls-files','-s','-z','--',namespace],{encoding:'buffer'});
+  if (manifest.status !== 0) throw Error(`Unable to resolve committed ${namespace} manifest`);
+  for (const entry of manifest.stdout.toString('utf8').split('\0').filter(Boolean)) {
+    const tab=entry.indexOf('\t');
+    if (tab < 0) throw Error(`Invalid tracked ${namespace} entry`);
+    const mode=entry.slice(0,tab).split(' ')[0], rel=entry.slice(tab+1);
+    if (!['100644','100755'].includes(mode)) throw Error(`Non-file ${namespace} entry: ${rel}`);
+    if (!new RegExp(`^${namespace}/[a-zA-Z0-9._/-]+$`).test(rel) || rel.includes('..') ||
+        rel.split('/').some(part => part.startsWith('.') && part !== '.shortcut'))
+      throw Error(`Unsafe tracked ${namespace} path: ${rel}`);
+    const dst=join(out,rel);
+    if (existsSync(dst)) continue; // Explicit installed compatibility entrypoints win.
+    const blob=spawnSync('git',['-C',root,'show',`HEAD:${rel}`],{encoding:'buffer',maxBuffer:10*1024*1024});
+    if (blob.status !== 0) throw Error(`Unable to load committed ${namespace} asset: ${rel}`);
+    mkdirSync(dirname(dst),{recursive:true});writeFileSync(dst,blob.stdout);
+    chmodSync(dst,mode==='100755'?0o755:0o644);
+  }
 }
 writeFileSync(join(out,'package.json'),JSON.stringify({
   name:'@lalalic/neo', version:'1.0.3', type:'module',

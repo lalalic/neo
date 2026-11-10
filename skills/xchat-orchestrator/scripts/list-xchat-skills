@@ -14,7 +14,7 @@ from workspace_config import load_workspace_config
 
 HOME = Path.home()
 GLOBAL_SKILLS = HOME / ".agents" / "skills"
-NEO_SKILLS = Path(load_workspace_config()["neoRoot"]) / "skills"
+NEO_SKILLS = Path(load_workspace_config()["harnessRoot"]) / "skills"
 ROOTS = [GLOBAL_SKILLS, NEO_SKILLS]
 
 def candidate_files(project_root: Path | None = None) -> list[Path]:

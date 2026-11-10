@@ -239,7 +239,7 @@ export async function executeBoundRun(options, files, args) {
 function relayInvocation(options, args) {
   if (options.runRelay) return options.runRelay(args);
   const { executable, prefix } = relayCommand(options);
-  const result = (options.spawnSyncImpl ?? spawnSync)(executable, [...prefix, ...args], { encoding: 'utf8', timeout: 120000, maxBuffer: 4 *  1024 * 1024 });
+  const result = (options.spawnSyncImpl ?? spawnSync)(executable, [...prefix, ...args], { encoding: 'utf8', timeout: 120000, maxBuffer: 4 *  1024 * 1024, env: { ...process.env, ...(options.sharedRoot ? { AGENTS_RELAY_SHARED_ROOT: options.sharedRoot } : {}) } });
   if (result.error || result.status !== 0) fail(`Agents Relay command failed (${result.status ?? 'spawn error'}); run artifacts and recovery binding are preserved`);
   try { return JSON.parse(result.stdout); } catch { fail('Agents Relay returned invalid JSON; run artifacts and recovery binding are preserved'); }
 }
@@ -263,7 +263,23 @@ export function runProject(args, options = {}) {
   const parsed = parseOptions(args);
   if (parsed.help) { (options.emit ?? (text => process.stdout.write(text)))(projectRunHelp); return 0; }
   const workspace = options.workspace ?? loadWorkspaceConfig();
-  const selected = safeProject(workspace.neoRoot, parsed.project);
+  const projectRoot = workspace.neoRoot;
+  const selected = safeProject(projectRoot, parsed.project);
+  const git = (...args) => {
+    const result = spawnSync('git', ['-C', selected.project, ...args], { encoding: 'utf8', timeout: 10000 });
+    return result.status === 0 ? result.stdout.trim() : null;
+  };
+  const gitRoot = git('rev-parse', '--show-toplevel');
+  const independent = gitRoot === selected.project;
+  if (!independent) fail('NEO_ROOT projects must be independent Git repositories');
+  const remote = independent ? git('remote', 'get-url', 'origin') : null;
+  const github = remote?.replace(/\.git$/, '').match(/github\.com[/:]([^/]+\/[^/]+)$/i)?.[1] ?? null;
+  const repoId = options.repository ?? process.env.NEO_RELAY_REPOSITORY ?? github ?? `local/${parsed.project}`;
+  const noGitHub = !github && !options.repository && !process.env.NEO_RELAY_REPOSITORY;
+  const relayFlags = noGitHub ? ['--no-github'] : [];
+  const repoProjectPath = '.';
+  const repoCheckout = selected.project;
+  const relayOptions = { ...options, sharedRoot: workspace.harnessRoot };
   const runGit = loadRunGitConfig(selected.project, selected.declaration);
   const isUrl = parsed.url !== undefined;
   let url, runDir;
@@ -309,9 +325,9 @@ export function runProject(args, options = {}) {
   }
   const files = initializeRun(runDir, parsed.project, isUrl ? undefined : runDir, isUrl ? parsed.url : undefined, selected.declaration.publicationReview, parsed.noReview === true);
   ensureRunGit(runDir, runGit);
-  const repo = options.repository ?? process.env.NEO_RELAY_REPOSITORY ?? 'lalalic/neo';
-  const projectPath = relative(selected.root, selected.project).split(sep).join('/');
-  const invoke = args => relayInvocation(options, (options.localShortcut ?? Boolean(options.relayCli ?? process.env.NEO_RELAY_CLI)) ? [...args, '--shortcut-local'] : args);
+  const repo = repoId;
+  const projectPath = repoProjectPath;
+  const invoke = args => relayInvocation(relayOptions, [...((options.localShortcut ?? Boolean(options.relayCli ?? process.env.NEO_RELAY_CLI)) ? [...args, '--shortcut-local'] : args), ...relayFlags]);
   let stageCheckpoints = 0;
   const onNodeEvent = event => {
     if (!runGit || event?.type !== 'completed') return;
@@ -330,11 +346,11 @@ export function runProject(args, options = {}) {
       (options.emit ?? (value => process.stdout.write(value)))(`${JSON.stringify({ project: parsed.project, runPath: runDir, jobId, taskId: TASK_ID, status: 'COMPLETED', reused: true })}\n`);
       return 0;
     }
-    const exitCode = await executeBoundRun({ ...options, onNodeEvent }, files, [
+    const exitCode = await executeBoundRun({ ...relayOptions, onNodeEvent }, files, [
       'job', 'run', '--mode', 'shortcut', '--repo', repo,
       '--id', jobId, '--task-id', TASK_ID,
-      '--project-path', selected.root, '--neo-root', selected.root,
-      '--workspace-root', workspace.workspaceRoot,
+      '--project-path', repoCheckout, '--shared-root', workspace.harnessRoot,
+      '--workspace-root', workspace.neoRoot, ...relayFlags,
     ]);
     if (exitCode !== 0) return exitCode;
     // Process exit alone does not establish success. Recheck SQLite-backed
@@ -377,5 +393,5 @@ export function runProject(args, options = {}) {
   return runBound(jobId);
 }
 
-export const projectRunHelp = `Usage: neo project run (--url HTTPS_URL | --path ABSOLUTE_RUN_DIR) --project NAME [--dry-run] [--no-review]\n\nOptions accept --name value or --name=value in any order.\n--url       HTTPS source reference for a project that declares URL input\n--path      Existing canonical dated Run (URL projects may resume a bound Run or opt in to verified preparedPath)\n--project   Project directory beneath the configured Neo workspace\n--dry-run   Validate and preview without writing files or invoking Agents Relay
+export const projectRunHelp = `Usage: neo project run (--url HTTPS_URL | --path ABSOLUTE_RUN_DIR) --project NAME [--dry-run] [--no-review]\n\nOptions accept --name value or --name=value in any order.\n--url       HTTPS source reference for a project that declares URL input\n--path      Existing canonical dated Run (URL projects may resume a bound Run or opt in to verified preparedPath)\n--project   Independent project repository beneath NEO_ROOT\n--dry-run   Validate and preview without writing files or invoking Agents Relay
 --no-review Legacy explicit private-render test policy for Vlog; normal Vlog already skips interactive review by default. Does NOT authorize publication\n`;

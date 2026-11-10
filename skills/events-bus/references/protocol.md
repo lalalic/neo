@@ -33,7 +33,7 @@ When the Neo MCP gateway exposes the command facade `events`, invoke its `publis
 
 The public `source` is always a **string**, not `{ "id": "..." }`. Do not omit `args` or place the event fields beside `command`. The object-shaped `source.id` exists only in the internal transport envelope below.
 
-The CLI accepts `events-bus publish --file event.json` or `events-bus publish '<json>'`. Direct local workers can use `scripts/emit.mjs <type> [data-json]` with `NEO_EVENT_SOURCE` set. Sandboxed workers use MCP `publish`.
+The CLI accepts `events-bus publish --file event.json` or `events-bus publish '<json>'`. Direct local workers can use `scripts/emit.mjs <type> [data-json]` with `EVENTS_BUS_EVENT_SOURCE` set. Sandboxed workers use MCP `publish`.
 
 ## Internal transport compatibility
 
@@ -50,13 +50,21 @@ The caller does not supply `status`, `visibility`, `message`, `progress` or tran
 
 ## Transport, observation, history
 
-NATS subject: `neo.events.job.<job_id>.<type>`. Observe `neo.events.job.<job_id>.>`; the history service `api/server.mjs` continuously records events even if there is no MCP client.
+NATS subject: `relay.events.job.<job_id>.<type>`. Observe `relay.events.job.<job_id>.>`; the history service `api/server.mjs` continuously records events even if there is no MCP client.
 
 MCP has no observation tools. Authorized observers use native NATS or:
 - CLI: `events-bus watch|wait|history|status|health|config`;
 - HTTP: `GET /watch`, `/wait`, `/events`, `/status`, `/health`, `/config`.
 
 Establish observation before launching workers where continuous progress tracking matters. The owning orchestrator translates relevant events into user-facing progress. Ordinary worker completion and review approval are distinct from successful delivery of the event: the consumer must validate execution identity, current task generation and domain payload.
+
+The subject prefix defaults to `relay.events.job` and is read from
+`EVENTS_BUS_SUBJECT_PREFIX` or the saved Events Bus runtime configuration.
+The publish envelope and historic event payload IDs are **unchanged**.
+If the saved runtime configuration still selects the retired prefix, new
+code fails closed rather than silently splitting the event stream.
+Coordinate all publishers, subscribers, and history recorder using
+[the namespace cutover procedure](relay-namespace-cutover.md).
 
 ## Lifecycle semantics
 

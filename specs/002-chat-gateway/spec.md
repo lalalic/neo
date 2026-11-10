@@ -76,7 +76,7 @@ As the owner, I want the orchestrator to know whether I am in the office or at h
 
 ### Functional Requirements
 
-- **FR-001**: The service MUST subscribe over NATS to `neo.events.job.*.job.runtime_status.changed`, resolving the NATS URL and subject prefix the same way as Agents Relay (`NEO_NATS_URL`, the Events Bus `runtime.json`, then `nats://127.0.0.1:4222` / `neo.events.job`), and act only on events whose `data.to` is `COMPLETED` or `CANCELLED`.
+- **FR-001**: The service MUST subscribe over NATS to `relay.events.job.*.job.runtime_status.changed`, resolving the NATS URL and subject prefix the same way as Agents Relay (`EVENTS_BUS_NATS_URL`, the Events Bus `runtime.json`, then `nats://127.0.0.1:4222` / `relay.events.job`), and act only on events whose `data.to` is `COMPLETED` or `CANCELLED`.
 - **FR-002**: Every terminal state MUST be keyed by `job:<jobId>:<to>:<updatedAt>` and recorded in a durable ledger before delivery; a key MUST be delivered at most once successfully.
 - **FR-003**: On first start with an empty ledger, the service MUST read the current jobs from the dashboard API, record existing terminal jobs as baseline, and deliver no notifications for them.
 - **FR-004**: The service MUST reconcile against the dashboard job list at start, after NATS reconnect, and periodically (default every 5 minutes), and deliver newly observed terminal states that were not delivered through events.

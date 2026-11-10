@@ -28,6 +28,17 @@ This is a tracked-source service. The canonical repository's skills/chat-gateway
 
 During HOTFIX use CLI setup without --apply (read-only) and serve --dry-run for isolated tests. After Neox simulator and REAL iPhone send/receive E2E are complete, merge the hotfix worktrees and run setup --apply from the canonical main checkout. This migrates the old packaged PM2 process, verifies health and registers the MCP. Never point production PM2 at a disposable worktree, never deploy early, and never use Relay Jobs to run the gateway.
 
+## Events Bus configuration and cutover
+
+The gateway subscribes to the configured `relay.events.job` namespace via
+`EVENTS_BUS_CONFIG`, `EVENTS_BUS_DATA_DIR`, `EVENTS_BUS_NATS_URL`, and
+`EVENTS_BUS_SUBJECT_PREFIX`. The previous `NEO_*` event environment aliases
+are unsupported. A saved legacy prefix fails closed. This subscriber **must**
+be included in the coordinated [Events Bus namespace cutover](../events-bus/references/relay-namespace-cutover.md),
+otherwise Neo Mobile Job completion notifications can stop arriving. Do not
+restart the live gateway in isolation while Relay and the Events Bus recorder
+use a different subject.
+
 ## Privacy and diagnostics
 
 Private state is under ~/.local/state/neo/chat-gateway. History only exposes explicit reports, owner messages, and terminal job metadata; no jobs objectives, credentials or file paths. Service binds to loopback, so Neo.app remains the only externally authenticated boundary. All persistent records are private permissions. CLI health reports NATS, dashboard, notification forwarding, reconciliation and pending delivery states. Forwarding acknowledgement is NOT proof an iPhone displayed the push.

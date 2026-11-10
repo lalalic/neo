@@ -15,7 +15,7 @@ export function buildXChatBootstrap(options = {}) {
   const read = options.readFile ?? fs.readFileSync;
   const home = options.home ?? os.homedir();
   const agentsPath = path.join(home, '.agents', 'AGENTS.md');
-  const bootstrapPath = path.join(workspace.neoRoot, 'skills/xchat-orchestrator/xchat-bootstrap.md');
+  const bootstrapPath = path.join(workspace.harnessRoot, 'skills/xchat-orchestrator/xchat-bootstrap.md');
   const agentRules = requiredFile(agentsPath, 'Agent rules', read);
   const bootstrap = requiredFile(bootstrapPath, 'XChat bootstrap', read);
 

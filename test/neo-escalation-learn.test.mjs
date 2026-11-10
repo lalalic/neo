@@ -87,7 +87,7 @@ test('sensitive teaching content is redacted before durable storage',()=>{
 test('multi-turn teaching stays in memory; model draft is structured',async()=>{
   const conv=createLearningConversation({askModel:model,callTool:()=>{throw Error('should not execute tools')}});
   const baseUrl='http://127.0.0.1:9999/v1';
-  assert.equal(conv.toolsEnabled,false);
+  assert.equal(conv.toolsEnabled,true,'interactive teaching starts with local tools enabled');
   assert.match(await conv.say(baseUrl,'A login needs help'),/Explain your symptoms/);
   assert.match(await conv.say(baseUrl,'Keep an existing login session open'),/exact solution/);
   assert.equal(conv.messages.length,5);

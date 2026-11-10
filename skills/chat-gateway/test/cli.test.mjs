@@ -32,7 +32,7 @@ test('direct-source lifecycle refuses live start from a disposable worktree', ()
 test('setup and env set have no disk writes unless --apply is provided', async (t) => {
   const { dir } = await fixture(t);
   const stateDir = `${dir}/no-write`;
-  const env = { ...process.env, CHAT_GATEWAY_STATE_DIR: stateDir };
+  const env = { ...process.env, CHAT_GATEWAY_STATE_DIR: stateDir, EVENTS_BUS_CONFIG: `${dir}/test-events-not-configured.json` };
   const path = new URL('../cli/chat-gateway.mjs', import.meta.url).pathname;
   const setup = JSON.parse(execFileSync(process.execPath, [path, 'setup'], { env, encoding: 'utf8' }));
   const override = JSON.parse(execFileSync(process.execPath, [path, 'env', 'set', 'home'], { env, encoding: 'utf8' }));
@@ -47,6 +47,6 @@ test('npm-style symlink launcher executes rather than silently exits', async (t)
   const target = new URL('../cli/chat-gateway.mjs', import.meta.url).pathname;
   const link = `${dir}/chat-gateway`;
   await symlink(target, link);
-  const output = execFileSync(link, ['setup'], { encoding: 'utf8' });
+  const output = execFileSync(link, ['setup'], { encoding: 'utf8', env: { ...process.env, EVENTS_BUS_CONFIG: `${dir}/test-events-not-configured.json` } });
   assert.equal(JSON.parse(output).dryRun, true);
 });

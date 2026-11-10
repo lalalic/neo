@@ -22,6 +22,7 @@ function fixture() {
     versioning:{mode:'local-git',template:'run-template',trackedArtifacts:['story.md','video.md','production-receipt.json']}};
   for(const [file,text] of [['AGENTS.md','project policy'],['README.md','project readme'],['graph.mmd','flowchart TD\n  a[agent:a] --> b[agent:b]\n'],['project.run.json',JSON.stringify(declaration)]])
     writeFileSync(join(project,file),text);
+  git(project,'init','-q');
   return {base,workspaceRoot,neoRoot,project,run,declaration,config:loadRunGitConfig(project,declaration)};
 }
 
@@ -158,7 +159,7 @@ test('Project Runner automatically checkpoints verified stage callbacks and revi
       calls.push(args);
       const type=args.slice(0,2).join(':');
       if(type==='job:create'){
-        jobs.set('job-1',{id:'job-1',repository:'lalalic/neo',projectPath:'vlog',executionMode:'shortcut',contentOnly:true,state:'DRAFT'});
+        jobs.set('job-1',{id:'job-1',repository:'local/vlog',projectPath:'.',executionMode:'shortcut',contentOnly:true,state:'DRAFT'});
         return {job:'job-1'};
       }
       if(type==='task:create'){
@@ -185,7 +186,7 @@ test('Project Runner automatically checkpoints verified stage callbacks and revi
     };
     const lines=[];
     const result=await runProject(['--path',f.run,'--project','vlog'],{
-      workspace:{workspaceRoot:f.workspaceRoot,neoRoot:f.neoRoot},runRelay,runRelayJob,emit:line=>lines.push(line)
+      workspace:{neoRoot:f.neoRoot,harnessRoot:sourceRoot},runRelay,runRelayJob,emit:line=>lines.push(line)
     });
     assert.equal(result,0);
     assert.match(git(f.run,'log','--pretty=%s'),/run: producer verified/);

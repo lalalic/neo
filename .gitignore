@@ -43,3 +43,7 @@ web-chatgpt/
 
 # Project-owned eval reports are local evidence; case definitions are tracked.
 **/.evals/reports/
+
+# Neo Projects: independent Git roots; do not track inside the Harness source.
+/vlog/
+/content-distribution/

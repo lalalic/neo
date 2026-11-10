@@ -1,13 +1,22 @@
 #!/usr/bin/env node
 /** Detect omitted project-local worker roles. Missing cases never count as PASS. */
 import {readdirSync,readFileSync,existsSync} from 'node:fs';
+import {spawnSync} from 'node:child_process';
+import {loadWorkspaceConfig} from '../.bin/workspace-config.mjs';
+import {resolveRelayGraphParser} from './resolve-relay-cli.mjs';
 import {join,resolve} from 'node:path';
 import {pathToFileURL} from 'node:url';
-const root=resolve(import.meta.dirname,'..');
-const projects=readdirSync(root,{withFileTypes:true}).filter(x=>x.isDirectory()&&existsSync(join(root,x.name,'AGENTS.md'))).map(x=>x.name).sort();
+const workspace=loadWorkspaceConfig();
+const root=workspace.neoRoot;
+const projects=readdirSync(root,{withFileTypes:true})
+  .filter(x=>x.isDirectory()&&existsSync(join(root,x.name,'.git'))&&
+    existsSync(join(root,x.name,'AGENTS.md'))&&existsSync(join(root,x.name,'README.md'))&&
+    existsSync(join(root,x.name,'graph.mmd'))&&
+    spawnSync('git',['-C',join(root,x.name),'rev-parse','--show-toplevel'],{encoding:'utf8'}).stdout?.trim()===resolve(root,x.name))
+  .map(x=>x.name).sort();
 let required=0,covered=0,missing=[],missingManifests=[];
 const dagCoverage={};
-const parserPath=resolve(root,'../agents-relay/dist/agent-graph.js');
+const parserPath=resolveRelayGraphParser(workspace.harnessRoot);
 // Neo audits cases and role coverage; Relay remains the owner of graph syntax.
 let parseAgentGraph=null;
 if(existsSync(parserPath))({parseAgentGraph}=await import(pathToFileURL(parserPath).href));

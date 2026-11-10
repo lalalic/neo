@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+"""Discover independently versioned Neo Projects directly under NEO_ROOT.
+
+A project belongs to its own .git, not a nested folder tracked by the Harness
+source repository. No legacy monorepo or Workspace-relative fallback exists.
+"""
 from __future__ import annotations
 
 import argparse
@@ -9,106 +14,70 @@ import subprocess
 from pathlib import Path
 from workspace_config import load_workspace_config
 
-WORKSPACE = Path(load_workspace_config()["workspaceRoot"])
-CONTEXT_FILES = ("AGENTS.md", "README.md")
-SKIP_DIRS = {
-    ".git", ".backup", ".venv", "venv", "node_modules", "dist", "build",
-    ".next", "target", "vendor", ".cache", ".state", "coverage",
-}
-MAX_DEPTH = 8
+SETTINGS = load_workspace_config()
+PROJECTS_ROOT = Path(SETTINGS["neoRoot"])
+NAME_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 
 
 def git_root(path: Path) -> Path | None:
-    cur = path.resolve()
-    while cur != cur.parent and cur.is_relative_to(WORKSPACE):
-        if (cur / ".git").exists():
-            return cur
-        cur = cur.parent
-    return None
+    try:
+        value = subprocess.check_output(
+            ["git", "-C", str(path), "rev-parse", "--show-toplevel"],
+            text=True, stderr=subprocess.DEVNULL,
+        ).strip()
+        return Path(value).resolve()
+    except (subprocess.CalledProcessError, OSError):
+        return None
 
 
-def origin_repo(root: Path) -> tuple[str | None, str | None]:
+def origin_repo(path: Path) -> tuple[str, str | None]:
     try:
         origin = subprocess.check_output(
-            ["git", "-C", str(root), "remote", "get-url", "origin"],
-            text=True,
-            stderr=subprocess.DEVNULL,
+            ["git", "-C", str(path), "remote", "get-url", "origin"],
+            text=True, stderr=subprocess.DEVNULL,
         ).strip()
     except (subprocess.CalledProcessError, OSError):
-        return None, None
-
-    patterns = (
-        r"^git@github\.com:(?P<repo>[^/]+/[^/]+?)(?:\.git)?$",
-        r"^ssh://git@github\.com/(?P<repo>[^/]+/[^/]+?)(?:\.git)?$",
-        r"^https?://github\.com/(?P<repo>[^/]+/[^/]+?)(?:\.git)?/?$",
+        return f"local/{path.name}", None
+    github = re.fullmatch(
+        r"(?:git@github\.com:|ssh://git@github\.com/|https?://github\.com/)"
+        r"([^/]+/[^/]+?)(?:\.git)?/?", origin,
     )
-    for pattern in patterns:
-        m = re.match(pattern, origin)
-        if m:
-            return m.group("repo"), origin
-    return origin, origin
-
-
-def candidate_dirs() -> list[Path]:
-    found: set[Path] = set()
-    base_depth = len(WORKSPACE.parts)
-    for dirpath, dirnames, filenames in os.walk(WORKSPACE):
-        current = Path(dirpath)
-        depth = len(current.parts) - base_depth
-        dirnames[:] = [
-            d for d in dirnames
-            if d not in SKIP_DIRS and not d.startswith(".") and depth < MAX_DEPTH
-        ]
-        if any(name in filenames for name in CONTEXT_FILES):
-            found.add(current.resolve())
-    return sorted(found, key=lambda p: str(p).casefold())
+    return (github.group(1) if github else f"local/{path.name}"), origin
 
 
 def projects() -> list[dict[str, object]]:
-    rows: list[dict[str, object]] = []
-    for path in candidate_dirs():
-        root = git_root(path)
-        if root is None:
+    root = PROJECTS_ROOT.resolve()
+    if not root.is_dir():
+        return []
+    rows = []
+    for path in sorted(root.iterdir(), key=lambda item: item.name.casefold()):
+        if (not NAME_PATTERN.fullmatch(path.name) or path.is_symlink() or
+            not path.is_dir() or not (path / ".git").exists() or
+            git_root(path) != path.resolve()):
             continue
-        repo, origin = origin_repo(root)
-        if not repo:
+        if (not (path / "AGENTS.md").is_file() or
+            not (path / "README.md").is_file() or
+            not (path / "graph.mmd").is_file()):
             continue
-        rel = path.relative_to(WORKSPACE).as_posix()
-
-        # Match local agent instruction inheritance. Global instructions come
-        # first, followed by every existing AGENTS.md from ~/Workspace down to
-        # the bound project. Missing levels are simply skipped.
-        context_paths: list[str] = []
-        global_agents = Path.home() / ".agents" / "AGENTS.md"
-        if global_agents.is_file():
-            context_paths.append(str(global_agents))
-
-        chain: list[Path] = []
-        cur = path
-        while cur.is_relative_to(WORKSPACE):
-            chain.append(cur)
-            if cur == WORKSPACE:
-                break
-            cur = cur.parent
-        for folder in reversed(chain):
-            agents = folder / "AGENTS.md"
-            if agents.is_file():
-                context_paths.append(str(agents))
-        readme = path / "README.md"
-        if readme.is_file():
-            context_paths.append(str(readme))
-
+        repository, origin = origin_repo(path)
+        # Directory instruction inheritance is bounded at the selected root.
+        # In particular, never use an unrelated Workspace or source checkout as
+        # an implicit project repository or project definition.
+        contexts = []
+        global_rules = Path.home() / ".agents" / "AGENTS.md"
+        if global_rules.is_file():
+            contexts.append(str(global_rules))
+        shared_rules = root / "AGENTS.md"
+        if shared_rules.is_file():
+            contexts.append(str(shared_rules))
+        contexts.extend([str(path / "AGENTS.md"), str(path / "README.md")])
         rows.append({
-            "xchat_project": rel,
-            "name": path.name,
-            "local_path": str(path),
-            "git_root": str(root),
-            "repo": repo,
-            "origin": origin,
-            "context_files": context_paths,
+            "xchat_project": path.name, "name": path.name,
+            "local_path": str(path.resolve()), "git_root": str(path.resolve()),
+            "repo": repository, "origin": origin, "neo_project": True,
+            "context_files": contexts,
         })
     return rows
-
 
 
 def with_project_capabilities(row: dict[str, object]) -> dict[str, object]:
@@ -124,71 +93,25 @@ def with_project_capabilities(row: dict[str, object]) -> dict[str, object]:
 
 
 def resolve(rows: list[dict[str, object]], query: str) -> dict[str, object]:
-    q = query.strip().strip("/").casefold()
-    exact = [r for r in rows if str(r["xchat_project"]).casefold() == q]
-    if len(exact) == 1:
-        return with_project_capabilities(exact[0])
-    basename = [r for r in rows if str(r["name"]).casefold() == q]
-    if len(basename) == 1:
-        return with_project_capabilities(basename[0])
-    if len(basename) > 1:
-        keys = ", ".join(str(r["xchat_project"]) for r in basename)
-        raise SystemExit(f"ambiguous xchat project '{query}'; use workspace-relative path: {keys}")
-
-    # An explicitly selected Workspace folder may lack its own AGENTS.md or
-    # README.md. Resolve the requested relative folder
-    # directly; inherited context still comes from existing parent files.
-    candidate = (WORKSPACE / query.strip().strip("/")).resolve()
-    if candidate.is_dir() and candidate.is_relative_to(WORKSPACE):
-        root = git_root(candidate)
-        if root is not None:
-            repo, origin = origin_repo(root)
-            if repo:
-                context_paths: list[str] = []
-                global_agents = Path.home() / ".agents" / "AGENTS.md"
-                if global_agents.is_file():
-                    context_paths.append(str(global_agents))
-                chain: list[Path] = []
-                cur = candidate
-                while cur.is_relative_to(WORKSPACE):
-                    chain.append(cur)
-                    if cur == WORKSPACE:
-                        break
-                    cur = cur.parent
-                for folder in reversed(chain):
-                    agents = folder / "AGENTS.md"
-                    if agents.is_file():
-                        context_paths.append(str(agents))
-                readme = candidate / "README.md"
-                if readme.is_file():
-                    context_paths.append(str(readme))
-                return with_project_capabilities({
-                    "xchat_project": candidate.relative_to(WORKSPACE).as_posix(),
-                    "name": candidate.name,
-                    "local_path": str(candidate),
-                    "git_root": str(root),
-                    "repo": repo,
-                    "origin": origin,
-                    "context_files": context_paths,
-                })
-    raise SystemExit(f"xchat project not found: {query}")
+    name = query.strip()
+    if not NAME_PATTERN.fullmatch(name):
+        raise SystemExit(f"invalid Neo Project name: {query!r}; use a direct NEO_ROOT child name")
+    matches = [row for row in rows if str(row["name"]).casefold() == name.casefold()]
+    if len(matches) != 1:
+        raise SystemExit(f"Neo Project not found in NEO_ROOT: {query}")
+    return with_project_capabilities(matches[0])
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(
-        description="Dynamically discover XChat projects from ~/Workspace using existing AGENTS.md/README.md context files."
-    )
-    ap.add_argument("--resolve", metavar="PROJECT", help="resolve one project by workspace-relative path or unique folder name")
-    ap.add_argument("--markdown", action="store_true", help="print a compact Markdown table")
+    ap = argparse.ArgumentParser(description="Discover independent Git Neo Projects directly under NEO_ROOT")
+    ap.add_argument("--resolve", metavar="PROJECT", help="resolve one direct child project by name")
+    ap.add_argument("--markdown", action="store_true", help="print a project inventory table")
     args = ap.parse_args()
-
     rows = projects()
     if args.resolve:
         print(json.dumps(resolve(rows, args.resolve), ensure_ascii=False, indent=2))
-        return 0
-
-    if args.markdown:
-        print("| XChat project | Local path | Repository | Context |")
+    elif args.markdown:
+        print("| Neo Project | Local path | Repository | Context |")
         print("|---|---|---|---|")
         for row in rows:
             context = ", ".join(Path(x).name for x in row["context_files"])

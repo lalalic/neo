@@ -35,13 +35,25 @@ Persistent services owned by this Skill require the global `daemon-service-manag
 No caller-facing `status`, `visibility`, `message`, or `progress`. The shared `core/publish-envelope.mjs` adapter derives legacy internal NATS/Relay metadata. Never put a Reviewer verdict into `progress`.
 
 Publish from CLI: `events-bus publish --file event.json` (or one quoted JSON argument).
-Local worker helper: `node scripts/emit.mjs task.completed '{"verdict":"approved","head_sha":"abc"}'` with `NEO_EVENT_SOURCE` exported.
+Local worker helper: `node scripts/emit.mjs task.completed '{"verdict":"approved","head_sha":"abc"}'` with `EVENTS_BUS_EVENT_SOURCE` exported.
 
 ## Transport and consumers
 
 The MCP tool is **publish-only**. Observation is independent: native NATS subscriptions, CLI `watch`/`wait`/`history`/`status`, and HTTP endpoints remain available to authorized consumers; `health`, `config`, and `setup` are CLI operations. Do not call MCP `watch`, `wait`, `history`, `status`, or `health`: they do not exist.
 
 The events-bus core handles NATS transport and historical persistence. The continuous history service `api/server.mjs` records events; Agents Relay consumes NATS events and HTTP history. A launcher must arrange observation before dispatching workers when continuous observation is required.
+
+## Transport configuration
+
+All publishers, subscribers and recorders use `EVENTS_BUS_CONFIG`,
+`EVENTS_BUS_DATA_DIR`, `EVENTS_BUS_NATS_URL`, `EVENTS_BUS_API_URL`,
+`EVENTS_BUS_API_HOST`, `EVENTS_BUS_API_PORT`, and
+`EVENTS_BUS_SUBJECT_PREFIX` (default `relay.events.job`).
+`EVENTS_BUS_EVENT_SOURCE` is the CLI helper's execution-identity variable.
+The retired Neo/Relay-prefixed event environment keys are unsupported.
+For existing services, follow the coordinated
+[namespace cutover procedure](references/relay-namespace-cutover.md) before
+restarting or updating a live service.
 
 ## Internal compatibility
 

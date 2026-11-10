@@ -6,10 +6,10 @@ export const DEFAULT_DATA_DIR = path.join(os.homedir(), 'Library', 'Application 
 export const DEFAULT_NATS_URL = 'nats://127.0.0.1:4222';
 export const DEFAULT_API_HOST = '127.0.0.1';
 export const DEFAULT_API_PORT = 4223;
-export const DEFAULT_SUBJECT_PREFIX = 'neo.events.job';
+export const DEFAULT_SUBJECT_PREFIX = 'relay.events.job';
 
 export function runtimeConfigPath(env = process.env) {
-  if (env.NEO_EVENTS_BUS_CONFIG) return env.NEO_EVENTS_BUS_CONFIG;
+  if (env.EVENTS_BUS_CONFIG) return env.EVENTS_BUS_CONFIG;
   const dataDir = env.EVENTS_BUS_DATA_DIR || DEFAULT_DATA_DIR;
   return path.join(dataDir, 'runtime.json');
 }
@@ -17,27 +17,34 @@ export function runtimeConfigPath(env = process.env) {
 function readRuntimeFile(file) {
   try {
     const value = JSON.parse(fs.readFileSync(file, 'utf8'));
-    return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
-  } catch { return {}; }
+    if (!value || typeof value !== 'object' || Array.isArray(value))
+      throw new Error('Events Bus runtime configuration must be an object');
+    return value;
+  } catch (error) {
+    if (error.code === 'ENOENT') return {};
+    throw new Error(`Invalid Events Bus runtime config at ${file}: ${error.message}`);
+  }
 }
 
 export function resolveRuntimeConfig(env = process.env) {
   const file = runtimeConfigPath(env);
   const saved = readRuntimeFile(file);
+  if (saved.subjectPrefix === 'neo.events.job' && !env.EVENTS_BUS_SUBJECT_PREFIX)
+    throw Error('Legacy Events Bus subject in saved runtime config; coordinate migration to relay.events.job');
   const dataDir = env.EVENTS_BUS_DATA_DIR || saved.dataDir || path.dirname(file) || DEFAULT_DATA_DIR;
-  const apiHost = env.NEO_EVENTS_API_HOST || saved.apiHost || DEFAULT_API_HOST;
-  const apiPort = Number(env.NEO_EVENTS_API_PORT || saved.apiPort || DEFAULT_API_PORT);
-  const apiUrl = env.NEO_EVENTS_API_URL || saved.apiUrl || `http://${apiHost}:${apiPort}`;
+  const apiHost = env.EVENTS_BUS_API_HOST || saved.apiHost || DEFAULT_API_HOST;
+  const apiPort = Number(env.EVENTS_BUS_API_PORT || saved.apiPort || DEFAULT_API_PORT);
+  const apiUrl = env.EVENTS_BUS_API_URL || saved.apiUrl || `http://${apiHost}:${apiPort}`;
   return {
     version: 1,
     configPath: file,
     dataDir,
     historyFile: path.join(dataDir, 'events.jsonl'),
-    natsUrl: env.NEO_NATS_URL || saved.natsUrl || DEFAULT_NATS_URL,
+    natsUrl: env.EVENTS_BUS_NATS_URL || saved.natsUrl || DEFAULT_NATS_URL,
     apiHost,
     apiPort,
     apiUrl,
-    subjectPrefix: env.NEO_EVENTS_SUBJECT_PREFIX || saved.subjectPrefix || DEFAULT_SUBJECT_PREFIX,
+    subjectPrefix: env.EVENTS_BUS_SUBJECT_PREFIX || saved.subjectPrefix || DEFAULT_SUBJECT_PREFIX,
   };
 }
 

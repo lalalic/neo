@@ -8,8 +8,8 @@ import { publishSubjectFor } from '../core/config.mjs';
 
 const [,,type,dataJson='{}']=process.argv;
 if (!type) { console.error('usage: emit.mjs <type> [data-json]'); process.exit(2); }
-const source=process.env.NEO_EVENT_SOURCE;
-if (!source) { console.error('NEO_EVENT_SOURCE is required'); process.exit(2); }
+const source=process.env.EVENTS_BUS_EVENT_SOURCE;
+if (!source) { console.error('EVENTS_BUS_EVENT_SOURCE is required'); process.exit(2); }
 let event;
 try {
   event=normalizePublishEvent(expandPublishEvent({type,source,data:JSON.parse(dataJson)})).event;

@@ -61,7 +61,8 @@ export function executeControl(argv, options = {}) {
            Object.hasOwn(flags,name))fail('invalid/duplicate review checkpoint option');
         flags[name]=value;
       }
-      const selected = safeProject((options.workspace ?? loadWorkspaceConfig()).neoRoot,flags['--project']);
+      const workspace = options.workspace ?? loadWorkspaceConfig();
+      const selected = safeProject(workspace.neoRoot, flags['--project']);
       const run = validateRunPath(flags['--path'],selected);
       const config = loadRunGitConfig(selected.project,selected.declaration);
       const stage=flags['--stage'];
@@ -109,7 +110,7 @@ export function executeControl(argv, options = {}) {
   if (category === 'workspace') {
     if (command !== 'show' || args.length) return fail('usage: neo workspace show');
     const workspace = options.workspace ?? loadWorkspaceConfig();
-    emit(JSON.stringify({ workspaceRoot: workspace.workspaceRoot, neoRoot: workspace.neoRoot }, null, 2) + '\n');
+    emit(JSON.stringify({ neoRoot: workspace.neoRoot, harnessRoot: workspace.harnessRoot }, null, 2) + '\n');
     return 0;
   }
   if (category !== 'service') return fail('unsupported control command');

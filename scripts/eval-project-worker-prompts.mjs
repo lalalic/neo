@@ -5,8 +5,11 @@ import {resolve,join,relative,basename,dirname} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {spawnSync} from 'node:child_process';
 import {randomUUID} from 'node:crypto';
+import {loadWorkspaceConfig} from '../.bin/workspace-config.mjs';
+import {resolveRelayCli,resolveRelayGraphParser} from './resolve-relay-cli.mjs';
 
 const root=resolve(import.meta.dirname,'..');
+const workspace=loadWorkspaceConfig();
 const flags=process.argv.slice(2);
 const usage=`Usage: neo eval run --project NAME [--case ID | --dag [--smoke]] [--model MODEL] [--profile CODEX_PROFILE] [--reasoning high] [--dry-run]\n       neo eval list --project NAME [--dag]\n       neo eval audit\n\nCases live at <project>/.evals/cases.json; each run saves evidence under <project>/.evals/reports/.\n`;
 function options(argv){
@@ -27,11 +30,15 @@ if(opts.reasoning&&!['low','medium','high','xhigh'].includes(opts.reasoning))thr
 if(opts.profile&&!/^[a-zA-Z0-9_-]+$/.test(opts.profile))throw Error('Invalid Codex profile');
 if(opts.profile&&!opts.model)throw Error('Explicit Codex profile requires --model');
 if(opts.help){console.log(usage);process.exit(0);}
-const project=opts.project||(resolve(process.cwd())!==root?basename(process.cwd()):null);
-if(!project||!/^[a-z0-9-]+$/.test(project))throw Error('Specify --project NAME (or run inside a Neo Project)');
+const cwd=resolve(process.cwd());
+const project=opts.project||(dirname(cwd)===workspace.neoRoot?basename(cwd):null);
+if(!project||!/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(project))throw Error('Specify --project NAME (or run inside an independent NEO_ROOT Project)');
 const adapter=opts.adapter||'codex';
 if(adapter!=='codex')throw Error('Only the locally authenticated Codex adapter is supported');
-const projectRoot=resolve(root,project);
+const projectRoot=resolve(workspace.neoRoot,project);
+if(dirname(projectRoot)!==workspace.neoRoot || !existsSync(join(projectRoot,'.git')) ||
+   spawnSync('git',['-C',projectRoot,'rev-parse','--show-toplevel'],{encoding:'utf8'}).stdout?.trim()!==projectRoot)
+  throw Error('Neo Eval requires an independent project Git repository directly under NEO_ROOT: '+project);
 if(!existsSync(join(projectRoot,'AGENTS.md')))throw Error('Unknown Neo Project: '+project);
 const casePath=join(projectRoot,'.evals','cases.json');
 if(!existsSync(casePath))throw Error('NOT_EVALUATED: '+project+' has no .evals/cases.json');
@@ -46,9 +53,7 @@ if(opts.dag){
  if(!existsSync(graphPath))throw Error('Project DAG eval requires graph.mmd: '+project);
  // Use Relay's authoritative DAG parser. Neo Eval selects roles but does not
  // duplicate graph syntax, dependency logic, or Shortcut Runner implementation.
- const relayCliPath=process.env.AGENTS_RELAY_DIST_CLI || resolve(root,'../agents-relay/dist/cli.js');
- const parserPath=join(dirname(relayCliPath),'agent-graph.js');
- if(!existsSync(parserPath))throw Error('Relay Agent Graph parser unavailable: '+parserPath);
+ const parserPath=resolveRelayGraphParser(root);
  const {parseAgentGraph}=await import(pathToFileURL(parserPath).href);
  const graph=parseAgentGraph(readFileSync(graphPath,'utf8'));
  dagRoles=[...new Set(graph.nodes.map(node=>node.agent))];
@@ -96,11 +101,13 @@ mkdirSync(reportDir,{recursive:true});
 // The real Agents Relay managedWorkerInput Builder is the only author of role prompts.
 // Prefer the canonical sibling checkout on Neo Master; deployments can override
 // it with the absolute CLI entrypoint of their installed Agents Relay package.
-const relayCli=process.env.AGENTS_RELAY_DIST_CLI || resolve(root,'../agents-relay/dist/cli.js');
-if(!existsSync(relayCli))throw Error('Relay PromptBuilder CLI unavailable: '+relayCli+'; set AGENTS_RELAY_DIST_CLI');
+const relayCli=resolveRelayCli(root);
 function builderPrompt(c,scenarioFile,builderOutput){
  const args=[relayCli,'prompt','--eval-file',scenarioFile,'--adapter',adapter,'--output',builderOutput];
- const run=spawnSync(process.execPath,args,{cwd:projectRoot,encoding:'utf8',timeout:30000,maxBuffer:4*1024*1024,env:{...process.env,AGENTS_RELAY_PROMPT_REFERENCE_DIR:join(reportDir,'snapshots')}});
+ const run=spawnSync(process.execPath,args,{cwd:projectRoot,encoding:'utf8',timeout:30000,maxBuffer:4*1024*1024,env:{...process.env,
+     AGENTS_RELAY_SHARED_ROOT:process.env.AGENTS_RELAY_SHARED_ROOT ?? workspace.harnessRoot,
+     AGENTS_RELAY_WORKSPACE_ROOT:process.env.AGENTS_RELAY_WORKSPACE_ROOT ?? workspace.neoRoot,
+     AGENTS_RELAY_PROMPT_REFERENCE_DIR:join(reportDir,'snapshots')}});
  if(run.status!==0||run.error)throw Error('Relay PromptBuilder failed for '+c.id+': '+(run.error?.message||run.stderr||run.stdout));
  const payload=JSON.parse(readFileSync(builderOutput,'utf8'));
  if(payload.builder!=='managedWorkerInput'||payload.mode!=='isolated-evaluation'||payload.agentName!==c.role||payload.adapter!==adapter||

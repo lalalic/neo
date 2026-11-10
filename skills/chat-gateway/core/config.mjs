@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 export const DEFAULTS = Object.freeze({
   natsUrl: 'nats://127.0.0.1:4222',
-  subjectPrefix: 'neo.events.job',
+  subjectPrefix: 'relay.events.job',
   dashboardUrl: 'http://127.0.0.1:8787',
   port: 8791,
   reconcileIntervalMs: 5 * 60_000,
@@ -21,7 +21,7 @@ function readJson(read, path) {
   try {
     return JSON.parse(read(path, 'utf8'));
   } catch (error) {
-    if (error.code === 'ENOENT') return null;
+    if (error.code === 'ENOENT') return undefined;
     throw new Error(`Cannot load ${path}: ${error.message}`);
   }
 }
@@ -66,11 +66,18 @@ export function resolveNeoMcpEndpoint({ env = process.env, read = readFileSync, 
 
 /** Same NATS resolution order as Agents Relay and Events Bus. */
 export function resolveConfig({ env = process.env, read = readFileSync, home = homedir() } = {}) {
-  const runtime = readJson(read, join(home, 'Library/Application Support/EventsBus/runtime.json')) ?? {};
-  const natsUrl = env.NEO_NATS_URL || runtime.natsUrl || DEFAULTS.natsUrl;
-  if (!/^nats:\/\//.test(natsUrl)) throw new Error('NEO_NATS_URL must start with nats://');
+  const eventsDataDir = env.EVENTS_BUS_DATA_DIR || join(home, 'Library/Application Support/EventsBus');
+  const eventsConfig = env.EVENTS_BUS_CONFIG || join(eventsDataDir, 'runtime.json');
+  const savedRuntime = readJson(read, eventsConfig);
+  const runtime = savedRuntime === undefined ? {} : savedRuntime;
+  if (!runtime || typeof runtime !== 'object' || Array.isArray(runtime))
+    throw new Error('Events Bus runtime configuration must be an object');
+  if (runtime.subjectPrefix === 'neo.events.job' && !env.EVENTS_BUS_SUBJECT_PREFIX)
+    throw new Error('Legacy Events Bus subject in saved runtime config; coordinate migration to relay.events.job');
+  const natsUrl = env.EVENTS_BUS_NATS_URL || runtime.natsUrl || DEFAULTS.natsUrl;
+  if (!/^nats:\/\//.test(natsUrl)) throw new Error('EVENTS_BUS_NATS_URL must start with nats://');
   requireLoopback('NATS URL', natsUrl.replace(/^nats:/, 'http:'), 'http:');
-  const subjectPrefix = env.NEO_EVENTS_SUBJECT_PREFIX || runtime.subjectPrefix || DEFAULTS.subjectPrefix;
+  const subjectPrefix = env.EVENTS_BUS_SUBJECT_PREFIX || runtime.subjectPrefix || DEFAULTS.subjectPrefix;
   if (!/^[A-Za-z0-9_.-]+$/.test(subjectPrefix)) throw new Error('Invalid events subject prefix');
   const dashboardUrl = requireLoopback(
     'Dashboard URL', env.CHAT_GATEWAY_DASHBOARD_URL || DEFAULTS.dashboardUrl, 'http:');

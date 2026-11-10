@@ -29,8 +29,9 @@ console.log(JSON.stringify({status:passed?'PASS':'FAIL'}));process.exit(passed?0
  writeFileSync(join(run,'video.md'),'verified synthetic video metadata');
  writeFileSync(join(run,'source-reference.json'),'PRIVATE TOKEN MUST NOT ENTER GIT');
  mkdirSync(join(run,'output'));writeFileSync(join(run,'output','video.mp4'),'synthetic only');
+ execFileSync('git',['init','-q',project]);
  const cfg=join(home,'workspace.json');
- writeFileSync(cfg,JSON.stringify({schemaVersion:1,workspaceRoot:home}));
+ writeFileSync(cfg,JSON.stringify({schemaVersion:1,neoRoot:neo}));
  return {home,project,run,cfg};
 }
 const args=f=>['project','review','checkpoint','--project','vlog','--path',f.run,'--stage','producer'];

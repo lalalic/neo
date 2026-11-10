@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { runProject } from '../.bin/neo-project-run.mjs';
@@ -19,9 +19,10 @@ function fixture() {
     writeFileSync(join(dir, 'README.md'), 'project readme');
     writeFileSync(join(dir, 'graph.mmd'), 'flowchart TD\n  a --> b\n');
     writeFileSync(join(dir, 'project.run.json'), JSON.stringify(declaration));
+    execFileSync('git', ['init', '-q', dir]);
   }
   mkdirSync(join(vlog, 'runs', '2026-11-03-episode'), { recursive: true });
-  return { base, workspace: { workspaceRoot, neoRoot }, content, vlog, runDir: join(vlog, 'runs', '2026-11-03-episode') };
+  return { base, workspace: { neoRoot, harnessRoot: root }, content, vlog, runDir: join(vlog, 'runs', '2026-11-03-episode') };
 }
 function relayStub() {
   const calls = [], jobs = new Map(), tasks = new Map(); let next = 0; const failures = new Set();
@@ -80,8 +81,8 @@ test('URL input supports both flag forms, keeps token private, and delegates exa
     assert.equal(result.runPath.includes('rsroot.com'), false);
     assert.deepEqual(relay.calls.map(x => x.slice(0, 2)), [['job', 'create'], ['task', 'create'], ['job', 'run'], ['job', 'show'], ['task', 'list']]);
     const job = relay.calls[0], task = relay.calls[1];
-    assert.deepEqual(job.slice(2), ['--repo', 'lalalic/neo', '--project-path', 'content-distribution', '--objective-file', join(result.runPath, 'neo-project-run.objective.md'), '--shortcut-execution']);
-    assert.deepEqual(task.slice(-2), ['--agent-graph-file', realpathSync(join(f.content, 'graph.mmd'))]);
+    assert.deepEqual(job.slice(2), ['--repo', 'local/content-distribution', '--project-path', '.', '--objective-file', join(result.runPath, 'neo-project-run.objective.md'), '--shortcut-execution', '--no-github']);
+    assert.equal(task[task.indexOf('--agent-graph-file') + 1], realpathSync(join(f.content, 'graph.mmd')));
     assert.equal(task[task.indexOf('--output-path') + 1], join(result.runPath, 'neo-project-run.result.json'));
     assert.equal(relay.calls.flat().some(value => value.includes('secret-token') || value.includes('rsroot.com')), false);
     assert.equal(readFileSync(join(result.runPath, 'source-reference.json'), 'utf8').includes('secret-token'), true);
@@ -177,7 +178,7 @@ test('existing Relay Job and Task must match Run binding before reuse', async ()
     const job = relay.jobs.get('job-1');
     job.projectPath = 'another-project';
     await assert.rejects(() => run(args, f, relay), /does not match this content-only project/);
-    job.projectPath = 'vlog';
+    job.projectPath = '.';
     const task = relay.tasks.get('job-1')[0];
     for (const [property, value] of [['input', 'unrelated input'], ['agentGraph', 'flowchart TD\nC[agent:wrong]'], ['output', {kind:'file', path:'/tmp/unrelated'}]]) {
       const original = task[property]; task[property] = value;
@@ -228,18 +229,21 @@ test('rejects bad argument combinations, URL forms, unconfigured project, missin
   } finally { rmSync(f.base, { recursive: true, force: true }); }
 });
 
-test('CLI help and legacy project resolution remain available', async () => {
+test('CLI help and independent-only project resolution remain available', async () => {
   const help = execFileSync(process.execPath, [join(root, '.bin/neo.mjs'), 'project', 'run', '--help'], { encoding: 'utf8' });
   assert.match(help, /--dry-run/);
-  const resolved = JSON.parse(execFileSync(process.execPath, [join(root, '.bin/neo.mjs'), 'project', 'resolve', 'neo'], { encoding: 'utf8' }));
-  assert.equal(resolved.name, 'neo');
+  const resolved = JSON.parse(execFileSync(process.execPath, [join(root, '.bin/neo.mjs'), 'project', 'resolve', 'vlog'], { encoding: 'utf8' }));
+  assert.equal(resolved.name, 'vlog');
+  assert.equal(resolved.neo_project, true);
+  const legacy = spawnSync(process.execPath, [join(root, '.bin/neo.mjs'), 'project', 'resolve', 'neo/vlog'], { encoding: 'utf8' });
+  assert.notEqual(legacy.status, 0);
 });
 
 test('installed CLI resolves configured Neo root independently of cwd and rejects invalid workspace config', async () => {
   const f = fixture(), relay = relayStub();
   try {
     const config = join(f.base, 'workspace.json');
-    writeFileSync(config, JSON.stringify({ schemaVersion: 1, workspaceRoot: f.workspace.workspaceRoot }));
+    writeFileSync(config, JSON.stringify({ schemaVersion: 1, neoRoot: f.workspace.neoRoot }));
     const cli = join(root, '.bin/neo.mjs');
     const result = spawnSync(process.execPath, [cli, 'project', 'run', '--dry-run', '--url', 'https://source.example/item', '--project=content-distribution'], {
       cwd: f.base, encoding: 'utf8', env: { ...process.env, NEO_WORKSPACE_CONFIG: config }
@@ -247,11 +251,11 @@ test('installed CLI resolves configured Neo root independently of cwd and reject
     assert.equal(result.status, 0, result.stderr);
     assert.equal(JSON.parse(result.stdout).project, 'content-distribution');
     assert.equal(result.stdout.includes(f.base), true);
-    writeFileSync(config, JSON.stringify({ schemaVersion: 2, workspaceRoot: f.workspace.workspaceRoot }));
+    writeFileSync(config, JSON.stringify({ schemaVersion: 2, neoRoot: f.workspace.neoRoot }));
     const invalid = spawnSync(process.execPath, [cli, 'project', 'run', '--dry-run', '--url', 'https://source.example/item', '--project=content-distribution'], {
       cwd: f.base, encoding: 'utf8', env: { ...process.env, NEO_WORKSPACE_CONFIG: config }
     });
-    assert.notEqual(invalid.status, 0); assert.match(invalid.stderr, /Invalid workspace configuration/);
+    assert.notEqual(invalid.status, 0); assert.match(invalid.stderr, /Invalid Neo configuration/);
     assert.equal(relay.calls.length, 0);
   } finally { rmSync(f.base, { recursive: true, force: true }); }
 });
@@ -261,6 +265,12 @@ test('package staging includes the project run entrypoint', async () => {
   try {
     const destination = join(base, 'dist');
     execFileSync(process.execPath, [join(root, 'scripts/stage-neo-cli.mjs'), destination], { encoding: 'utf8' });
+    assert.ok(existsSync(join(destination, 'agents', 'visioner.agent.md')),
+      'A standalone Neo CLI must include the reusable Visioner base Agent');
+    assert.ok(existsSync(join(destination, 'scripts', 'eval-project-worker-prompts.mjs')),
+      'Installed Neo Eval entry point must be present');
+    assert.ok(existsSync(join(destination, 'scripts', 'audit-project-worker-evals.mjs')),
+      'Installed Neo Eval Audit must be present');
     assert.equal(readFileSync(join(destination, '.bin/neo-project-run.mjs'), 'utf8').includes('runProject'), true);
     assert.equal(readFileSync(join(destination, '.bin/neo-run-git.mjs'), 'utf8').includes('commitRunStage'), true);
   } finally { rmSync(base, { recursive: true, force: true }); }
@@ -378,4 +388,23 @@ test('default Vlog run skips interactive review, routes conditional Publisher, n
   assert.match(task,/Publisher itself has no review/);
   assert.equal(readdirSync(f.runDir).includes('review-mode.json'),false,'normal no-review must not be private-test policy');
  }finally{rmSync(f.base,{recursive:true,force:true});}
+});
+
+test('independent local-only project binds Relay to its own Git root without GitHub', async () => {
+  const f = fixture(), relay = relayStub();
+  try {
+    execFileSync('git', ['init', '-q', f.content]);
+    assert.equal(realpathSync(f.workspace.neoRoot), realpathSync(join(f.workspace.neoRoot)));
+    const result = JSON.parse(await run(['--url', 'https://example.test/independent', '--project', 'content-distribution'], f, relay));
+    assert.equal(result.project, 'content-distribution');
+    const create = relay.calls.find(argv => argv[0] === 'job' && argv[1] === 'create');
+    assert.deepEqual(create.slice(2, 6), ['--repo', 'local/content-distribution', '--project-path', '.']);
+    assert.ok(create.includes('--no-github'));
+    const runCall = relay.calls.find(argv => argv[0] === 'job' && argv[1] === 'run');
+    assert.equal(runCall[runCall.indexOf('--project-path') + 1], realpathSync(f.content));
+    assert.ok(runCall.includes('--no-github'));
+    assert.equal(runCall[runCall.indexOf('--shared-root') + 1], f.workspace.harnessRoot);
+    assert.equal(runCall[runCall.indexOf('--workspace-root') + 1], f.workspace.neoRoot);
+    assert.equal(relay.jobs.get('job-1').state, 'COMPLETED');
+  } finally { rmSync(f.base, { recursive: true, force: true }); }
 });

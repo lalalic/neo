@@ -140,7 +140,7 @@ async function main(argv) {
     return 0;
   }
   if (command === 'agent') {
-    process.stdout.write(JSON.stringify(runAgentDiscovery(args, { neoRoot: loadWorkspaceConfig().neoRoot }), null, 2) + '\n');
+    process.stdout.write(JSON.stringify(runAgentDiscovery(args, { neoRoot: loadWorkspaceConfig().harnessRoot }), null, 2) + '\n');
     return 0;
   }
   if (command === 'mcp') {
@@ -168,7 +168,7 @@ async function main(argv) {
     const [subcommand = 'run', ...options] = args;
     if (['--help', '-h'].includes(subcommand)) { process.stdout.write(usage()); return 0; }
     const neoSourceRoot = existsSync(resolve(ROOT, 'scripts/eval-project-worker-prompts.mjs'))
-      ? ROOT : loadWorkspaceConfig().neoRoot;
+      ? ROOT : loadWorkspaceConfig().harnessRoot;
     const script = subcommand === 'audit'
       ? resolve(neoSourceRoot, 'scripts/audit-project-worker-evals.mjs')
       : resolve(neoSourceRoot, 'scripts/eval-project-worker-prompts.mjs');

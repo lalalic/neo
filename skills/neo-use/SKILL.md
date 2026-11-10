@@ -45,6 +45,53 @@ Tool names must match `^[a-zA-Z][a-zA-Z0-9_.-]{0,127}$` and be unique within the
 
 **Call:** `POST /neouse/qa/v1/call` with `{"id":"UUID","name":"qa.model.inspect","arguments":{}}`. Success HTTP 200: `{"id":"UUID","ok":true,"result":<JSON value>}`. Failure HTTP 4xx/5xx: `{"id":"UUID","ok":false,"error":{"code":"unauthorized|not_ready|unknown_tool|bad_arguments|forbidden|timeout|internal","message":"..."}}`. Same-session repeated call IDs cannot re-execute side effects; cache or reject duplicates. Write effects are not authorization to send messages, pay, delete or publish. An authenticated `POST /neouse/qa/v1/close` returns HTTP 200 with `{"ok":true,"session_id":"UUID"}` and then closes the App's QA listener. The Runner MUST call it on Session.close or expiration before forgetting the temporary token. A repeated close is safe and never revives an old Session.
 
+## Universal NeoUse Virtual Demo Overlay (normative)
+
+`agent.demo` is implemented by the **NeoUse XCTest Runner**, not by an App
+QA Bridge. No App package, UI overlay, App Group, or developer-defined
+`qa.demo` is required, including for third-party Apps.
+
+- Commands: `step(title)`, `spotlight(ref|label,text?)`, `annotate(ref|label,text)`,
+  `caption(text)`, `say(text)`, `cursor(ref|label)`, `highlight(ref|label)`,
+  `clear`, `pause`, `resume`, `wait(ms)`, `status`, `start_recording`,
+  `stop_recording`. For target commands, the Runner maps a *fresh* XCTest
+  element ref/label to screen-point `frame:{x,y,width,height}` in the current
+  Session. Reject stale refs, target-App mismatches and invalid coordinates.
+- Rendering: a virtual overlay is drawn on **NeoUse-produced screenshots
+  and MJPEG frames only**. It must not alter the other App's real UI or
+  intercept touch input. The next MJPEG frame after a Demo call displays
+  its caption/spotlight/step/cursor/highlight. `clear`, Session.close and
+  expiry remove all overlay state.
+- Transport: WDA MJPEG port 9100 emits the annotated live frames. Mac preview
+  and FFmpeg recording subscribe to the same stream; do not implement a
+  second App-local or Mac-only UI rendering engine. WDA's standard raw
+  screenshot route remains available for debugging.
+- Timing: native `start_recording`/`stop_recording` record timestamped events
+  and return `video_recorded:false` because the XCTest process does not itself
+  write Mac files. To deliver a video, start the task-owned Mac capture
+  companion *before* the native recording, or use its managed capture mode.
+  It consumes annotated MJPEG and generates Markcut `video.md`; `say` events
+  become timed speech audio tracks in the Markcut export, not on live MJPEG.
+- Security: upstream WDA MJPEG is unauthenticated; expose it only over a
+  trusted local connection or authenticated tunnel. Secure the native MCP
+  control route with its separate bearer token and Session lease.
+- QA Federation is separate: `neouse.qa.list/call` still use the public
+  opt-in App QA Bridge for internal debugging. Apps that do not implement
+  QA Bridge retain the full universal `agent.demo` capability.
+
+See [conformance cases](references/conformance.md). Simulator tests establish
+protocol compatibility; require physical iPhone E2E for real-device PASS.
+
+## Deliver a recorded Demo as Markcut video
+
+A user's request for a finished Demo means **real video + timeline + Markcut
+`video.md`**, not merely successful `agent.demo` tool receipts. Choose a
+complete automatic capture or a watcher for user-controlled MCP start/stop,
+verify the recorded MP4 with ffprobe, and validate/render through Markcut.
+See [Demo → Markcut workflow](references/demo-markcut.md) for tested commands,
+required companion process, timestamps, voice generation and output files.
+The target App needs no Demo UI or shared package.
+
 ## Operating the Runner
 
 1. Read [operations](references/operations.md), check actual Xcode, paired device, signing and NeoUse/WDA readiness. The first install must brand and re-sign the generated XCTest host App. An installed Runner is not necessarily running.

@@ -1,26 +1,28 @@
-import { readFileSync, statSync } from 'node:fs';
+import { readFileSync, realpathSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { isAbsolute, join, resolve } from 'node:path';
+import { dirname, isAbsolute, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
+// The Harness installation is independent of the user-selected Neo Projects root.
+const harnessRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 export function loadWorkspaceConfig({ configPath = process.env.NEO_WORKSPACE_CONFIG ?? join(homedir(), '.config/neo/workspace.json') } = {}) {
   let config;
+  try { config = JSON.parse(readFileSync(configPath, 'utf8')); }
+  catch (error) {
+    if (error.code !== 'ENOENT') throw new Error(`Cannot read Neo configuration: ${error.message}`);
+    config = { schemaVersion: 1, neoRoot: join(homedir(), 'Workspace') };
+  }
+  if (!config || config.schemaVersion !== 1 ||
+      Object.keys(config).length !== 2 ||
+      Object.keys(config).some(key => !['schemaVersion', 'neoRoot'].includes(key)))
+    throw new Error(`Invalid Neo configuration at ${configPath}`);
+  const chosen = process.env.NEO_ROOT ?? config.neoRoot ?? join(homedir(), 'Workspace');
+  if (typeof chosen !== 'string' || !isAbsolute(chosen)) throw new Error('NEO_ROOT must be an absolute path');
+  const path = resolve(chosen);
+  let neoRoot;
   try {
-    config = JSON.parse(readFileSync(configPath, 'utf8'));
-  } catch (error) {
-    if (error.code === 'ENOENT') {
-      const workspaceRoot = resolve(homedir(), 'Workspace');
-      return { schemaVersion: 1, workspaceRoot, neoRoot: join(workspaceRoot, 'neo') };
-    }
-    throw new Error(`Cannot read workspace configuration: ${error.message}`);
-  }
-  if (config?.schemaVersion !== 1 || typeof config.workspaceRoot !== 'string' || !isAbsolute(config.workspaceRoot)) {
-    throw new Error(`Invalid workspace configuration at ${configPath}`);
-  }
-  const workspaceRoot = resolve(config.workspaceRoot);
-  try {
-    if (!statSync(workspaceRoot).isDirectory()) throw new Error('not a directory');
-  } catch {
-    throw new Error(`Configured Workspace Root is not an accessible directory: ${workspaceRoot}`);
-  }
-  return { schemaVersion: 1, workspaceRoot, neoRoot: join(workspaceRoot, 'neo') };
+    if (!statSync(path).isDirectory()) throw new Error('not a directory');
+    neoRoot = realpathSync(path);
+  } catch { throw new Error(`NEO_ROOT is not an accessible directory: ${path}`); }
+  return { schemaVersion: 1, neoRoot, harnessRoot };
 }
