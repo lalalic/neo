@@ -86,7 +86,7 @@ jobs:
           DOCKERFILE: ${{ inputs.dockerfile }}
         run: |
           set -euo pipefail
-          docker buildx build --load --pull --file "gpu-project-source/$DOCKERFILE" \
+          docker buildx build --builder default --load --pull --file "gpu-project-source/$DOCKERFILE" \
             --tag neo-gpu-base:build gpu-project-source
           docker image inspect neo-gpu-base:build >/dev/null
       - name: Discover the original command
@@ -105,7 +105,7 @@ jobs:
           COMMAND_JSON: ${{ steps.command.outputs.cmd }}
         run: |
           set -euo pipefail
-          docker buildx build --load --file gpu/runtime/Dockerfile.wrap \
+          docker buildx build --builder default --load --file gpu/runtime/Dockerfile.wrap \
             --build-context neo-runtime=./gpu/runtime \
             --build-arg NEO_BASE_IMAGE=neo-gpu-base:build \
             --build-arg "NEO_GPU_CMD_JSON=$COMMAND_JSON" \
