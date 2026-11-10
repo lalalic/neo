@@ -155,6 +155,12 @@ an authenticated user explicitly starts a session.
 
 ### Neo Master deployment (2026-11-10)
 
+The GPU gateway LaunchAgent's `PATH` must include `~/.local/bin` (for the
+Vast.ai CLI) and `/opt/homebrew/bin` as appropriate; macOS LaunchAgents default
+to `/usr/bin:/bin:/usr/sbin:/sbin`. Without this, Vast Web SSH tunnel setup
+fails even when an interactive shell can run `vastai`. Never store provider
+credentials in a public plist.
+
 The persistent gateway is a user LaunchAgent named `com.neo.gpu-web-gateway`
 that runs `neo gpu web serve --port 8798 --origin https://gpu.qili2.com` on
 **loopback only**. A separate `com.neo.gpu-web-cloudflared` LaunchAgent uses a
