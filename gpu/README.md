@@ -132,3 +132,29 @@ Inspect: `neo gpu web status`; credential: `neo gpu web token SERVICE` (local
 machine only); rotate: `neo gpu web rotate SERVICE`. Browser controls use POST
 and verify Origin for CSRF protection. No app starts and no GPU is billed until
 an authenticated user explicitly starts a session.
+
+### Neo Master deployment (2026-11-10)
+
+The persistent gateway is a user LaunchAgent named `com.neo.gpu-web-gateway`
+that runs `neo gpu web serve --port 8798 --origin https://gpu.qili2.com` on
+**loopback only**. A separate `com.neo.gpu-web-cloudflared` LaunchAgent uses a
+named Cloudflare Tunnel `neo-gpu-web`, avoiding modifications to NeoY's
+app-generated tunnel ingress configuration. The public hostname is
+`https://gpu.qili2.com`; no GPU is rented simply because the gateway is up.
+
+Operator-only state stays outside Git:
+
+- `~/.config/neo/gpu/web/services.json` — per-service provider, budget and cap;
+- `~/.config/neo/gpu/web/tokens/SERVICE.token` — 256-bit token (mode 0600);
+- `~/.config/neo/gpu/web/cloudflared.yml` — tunnel ID and credentials-file path;
+- `~/.local/state/neo/gpu/web/SERVICE.json` — current rental/deadline;
+- `~/Library/LaunchAgents/com.neo.gpu-web-{gateway,cloudflared}.plist` — keepalive.
+
+Verification: `launchctl print gui/$(id -u)/com.neo.gpu-web-gateway`,
+`neo gpu web status`, `curl -i https://gpu.qili2.com/health`, and a browser
+request to `/SERVICE/` without a token (must be rejected). `neo gpu web token
+SERVICE` retrieves the secret locally; do not put it in a URL or Git.
+
+Vast.ai's cleanup watchdog cannot guarantee shutdown while Neo Master itself
+is asleep or disconnected. HF Jobs is recommended for a strict one-hour
+provider-enforced session expiration. No automated idle-time extension exists.
