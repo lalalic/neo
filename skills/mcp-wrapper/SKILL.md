@@ -20,7 +20,16 @@ original Markcut Server. For managed Relay Tasks it calls
 `agents-relay review interactive ...` through **CLI**, not direct HTTP, to bind
 an Invocation, put the Task in `AWAITING_DECISION`, bind immutable revision,
 and recover from a failed render or notification. For standalone preview,
-Relay is not called. It invokes Neo.app Core's loopback-only REST endpoint
+Relay is not called. In Relay-managed mode the authoritative waiting event is
+**provider-neutral** (`task.interactive_waiting` with
+`source.component: interactive-review`), not `neo-preview` or `markcut`.
+The wrapper must reuse the exact returned Invocation/Execution binding and
+Relay's canonical `task.interactive_decision` event template, including
+immutable Git revision/Commit SHA and idempotency. A `review_requested`
+receipt is not user approval or Task completion. Markcut owns preview media,
+Core owns notification/InBox delivery, and Relay alone owns durable Review
+state. Do not add a second Preview Provider or change the transport/event
+schema just to rename the component. It invokes Neo.app Core's loopback-only REST endpoint
 `POST /mobile/review/notify` and persists the intent until Core confirms
 Inbox storage. There is **no public notification-sending MCP Tool**.
 

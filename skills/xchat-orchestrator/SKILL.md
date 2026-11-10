@@ -212,6 +212,7 @@ Use the public registry/package metadata for verification rather than trusting a
 
 ## Recovery and stopping rules
 
+- The direct Neo Shell escalation gate below is **not** Relay's executor selection: when Neo is called by Agents Relay, the deployment supplies `AGENTS_RELAY_ESCALATION_COMMAND='["/opt/homebrew/bin/neo","escalation"]'` (absolute executable/argv) and Relay passes the private handoff and cwd. A generic Relay installation must work without Neo, and an absent executor fails technically rather than immediately requesting the user.
 - Before stopping for a permission/authentication boundary or asking the human to perform an action, call Neo's `neo escalation` CLI with the blocked intent/context. The escalation agent uses elevated local Codex execution to try and verify the action first. If the caller has a preferred user-notification path, pass it as `--on-needs-user` (or file form). If no override is supplied, Neo uses its default `on_needs_user` instruction: prefer WeChat-bro to File Helper, then fall back to iMessage to the user themself. This default only controls notification after `needs_user`; it does not make escalation more eager to involve the user. Only a structured `needs_user` result means the remaining action is genuinely human-only.
 - Retry transport failures without counting them as implementation iterations.
 - Count failed implementation/review cycles. After three unsuccessful iterations using one approach, change approach or ask the user.

@@ -100,6 +100,28 @@ same-named shared Shortcut. `extends: shared/visioner` may intentionally
 inherit a differently named installed shared base Agent. Shared Agents and
 Skills ship with the managed Harness package, not via a sibling Git checkout.
 
+## Escalation and optional Review integration
+
+The Neo deployment may configure Relay's **single** external Escalation
+executor environment variable:
+
+```bash
+AGENTS_RELAY_ESCALATION_COMMAND='["/opt/homebrew/bin/neo","escalation"]'
+```
+
+Relay appends its private handoff, optional user-action policy and cwd flags.
+It does not require Neo to be present on other hosts. Neo's Escalation Agent
+retains its own recovery and notification policy. An unset/invalid command is
+a technical failure, not implicit approval or a human-only decision.
+
+Optional video/Markcut Preview is also **project/provider-owned**. Relay
+provides the existing generic `review.interactive.begin/wait/ready/fail/abort`
+operations, current execution/revision binding and accepted decision state.
+The emitted wait event uses `source.component: interactive-review`; Neo's
+Markcut wrapper and native Review Inbox own rendering, notification and human
+feedback. The original event template and immutable Commit SHA remain
+mandatory; a notification or compile receipt alone is never approval.
+
 ## Execution and migration safety
 
 The Neo CLI validates Project and Run contracts, then invokes the generic

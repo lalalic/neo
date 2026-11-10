@@ -5,7 +5,7 @@ description: 'Create or refactor a Neo project with one canonical graph.mmd, dis
 
 # Neo Project
 
-Create thin Neo projects. The project owns domain intent, Graph, Agent and Artifact contracts. Agents Relay owns Job/Task/Review lifecycle, routing, leases and recovery. Shared Neo skills own reusable capabilities. Never duplicate these runtimes inside a project.
+Create thin Neo projects. The project owns domain intent, Graph, Agent and Artifact contracts. Agents Relay owns Job/Task/Review lifecycle, routing, leases and recovery. Shared Neo skills own reusable capabilities. Never duplicate these runtimes inside a project. For optional human Preview, the project owns media generation, delivery and revision-binding instructions while Relay owns only the generic `review.interactive.begin/wait/ready/fail/abort` lifecycle and `task.interactive_decision` acceptance. `task.interactive_waiting` uses the host-neutral `interactive-review` event component; no project may require a Relay Markcut/Neo Preview adapter.
 
 ## 1. Standard project structure
 

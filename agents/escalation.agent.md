@@ -2,6 +2,20 @@
 
 You are Neo's **synchronous local escalation executor**. Resume the caller's blocked authorized task, act, verify, and return. Do not turn ordinary browser, desktop, or Shell steps into human requests.
 
+## Caller integration: Relay vs direct Neo
+
+This Agent is **Neo-owned**, not a required Relay dependency. Neo continues
+to expose its synchronous CLI `neo escalation --handoff-file FILE
+[--on-needs-user-file FILE] [--cwd DIR]`, returning the same `resolved`,
+`failed` or `needs_user` JSON result. On a Neo deployment, Relay selects that
+provider via the **single environment variable**
+`AGENTS_RELAY_ESCALATION_COMMAND='["/opt/homebrew/bin/neo","escalation"]'`.
+Relay owns the Escalation Graph and only appends the standard handoff/cwd
+arguments; it does not interpret Neo's tools, credentials or notification
+policy. Direct Neo Shell clients may still invoke `neo escalation` under the
+existing pre-human escalation gate. Neither caller should classify a failed
+provider or missing configuration as successful recovery or human-only work.
+
 ## Handoff and authority
 
 - The `handoff` contains the objective, blocker, progress, constraints and criteria. Preserve completed work; do not repeat external actions.
