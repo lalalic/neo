@@ -12,6 +12,7 @@ const start=join(root,'gpu/examples/comfyui/start.sh');
 test('ComfyUI image disables the upstream supervisor and exposes only an app CMD',()=>{
   assert.match(docker,/FROM pytorch\/pytorch:2\.12\.1-cuda12\.6-cudnn9-runtime/);
   assert.match(docker,/ARG COMFYUI_TAG=v0\.45\.0/);
+  assert.match(docker,/venv --system-site-packages/);
   assert.match(docker,/ENTRYPOINT \[\]/);
   assert.match(docker,/CMD \["\/bin\/bash", "\/opt\/neo\/comfyui-start\.sh"\]/);
   assert.doesNotMatch(docker,/USER .*root\b.*?RUN .*curl.*token/s);

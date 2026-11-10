@@ -4,7 +4,7 @@ set -euo pipefail
 # Session-local data. Download outputs before the provider's hard stop.
 DATA_DIR="${COMFY_DATA_DIR:-/neo/comfyui}"
 mkdir -p "$DATA_DIR"/{models,input,output,temp,user}
-PYTHON="${COMFYUI_PYTHON:-python}"
+PYTHON="${COMFYUI_PYTHON:-/opt/neo-comfy-venv/bin/python}"
 if ! command -v "$PYTHON" >/dev/null 2>&1; then
   echo "ComfyUI Python environment missing: $PYTHON" >&2
   exit 1
