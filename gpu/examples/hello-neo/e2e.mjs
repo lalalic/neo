@@ -8,16 +8,16 @@ import {join,resolve} from 'node:path';
 import {randomUUID} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
 import {imagePlan} from '../../image.mjs';
-import {findService,atomicJson} from '../../common.mjs';
+import {findService,saveService,atomicJson} from '../../common.mjs';
 import {gatewayCredentialReady} from '../../e2e/gateway-prereq.mjs';
 import {reusableFixtureImage} from '../../e2e/reuse.mjs';
 const root=resolve(fileURLToPath(new URL('../../../',import.meta.url)));
 const cli=join(root,'.bin/neo.mjs');
 const dockerfile='gpu/examples/hello-neo/Dockerfile';
-const names={batch:'hello-neo-job',web:'hello-neo-web'};
 const args=new Set(process.argv.slice(2));
 const allowed=new Set(['--live','--allow-spend','--build','--batch-only','--web-only','--help','--vast']);
 const provider=args.has('--vast')?'vast':'hf';
+const names={batch:'hello-neo-job',web:provider==='vast'?'hello-neo-vast-web':'hello-neo-web'};
 const gpu=provider==='hf'?['--flavor','t4-small']:['--gpu','RTX 4090'];
 const origin=process.env.NEO_GPU_WEB_ORIGIN||'https://gpu.qili2.com';
 const print=(event,fields={})=>console.log(JSON.stringify({event,...fields}));
@@ -57,11 +57,25 @@ function assertGpu(result,mode,requestId){
 async function images(){
   for(const mode of modes){
     const name=names[mode];
-    const plan=imagePlan({project:root,dockerfile,name,mode,dry_run:true});
+    // Reuse one Web image with distinct provider registrations.
+    const buildName=mode==='web'?'hello-neo-web':name;
+    const plan=imagePlan({project:root,dockerfile,name:buildName,mode,dry_run:true});
     print('hello_neo_image',{mode,image:plan.image});
     if(!live)continue;
-    if(args.has('--build')){
-      await command(['build','--mode',mode,'--name',name,'--dockerfile',dockerfile]);
+    if(args.has('--build')&&name===buildName){
+      await command(['build','--mode',mode,'--name',buildName,'--dockerfile',dockerfile]);
+    }
+    if(name!==buildName){
+      const canonical=findService(buildName);
+      if(!canonical?.published||canonical.mode!=='web'||!(canonical.image===plan.image||
+        reusableFixtureImage(canonical,plan,root,[
+          'gpu/examples/hello-neo/Dockerfile','gpu/examples/hello-neo/cuda-probe.c',
+          'gpu/examples/hello-neo/app.mjs','gpu/runtime/'])))
+        throw Error('Publish a verified Hello Neo Web image before testing Vast Web');
+      const previous=findService(name);
+      if(previous&&previous.image!==canonical.image)throw Error('Existing Vast Web image differs; refusing overwrite');
+      if(!previous)saveService(name,{...canonical});
+      print('hello_neo_image_aliased',{service:name,image:canonical.image});
     }
     const saved=findService(name);
     const unchanged=reusableFixtureImage(saved,plan,root,[

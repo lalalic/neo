@@ -28,10 +28,12 @@ node gpu/examples/hello-neo/e2e.mjs --live --allow-spend
 node gpu/examples/hello-neo/e2e.mjs --live --allow-spend --vast
 ```
 
-The smoke image registers as `hello-neo-job` (batch) and `hello-neo-web` (Web),
-with the second URL at `https://gpu.qili2.com/hello-neo-web/`. The web URL
-remains **token gated and stopped** after each test; use `neo gpu web token
-hello-neo-web` locally to access the optional demonstration. Opening the URL
+The smoke image registers as `hello-neo-job` (batch) and `hello-neo-web` (HF Web),
+with the second URL at `https://gpu.qili2.com/hello-neo-web/`. Vast Web reuses
+the **same exact Web image** under `hello-neo-vast-web`
+(`https://gpu.qili2.com/hello-neo-vast-web/`), without republishing it. Web
+services remain **token gated and stopped** after each test; use `neo gpu web
+token SERVICE` locally to access either optional demonstration. Opening the URL
 never rents a GPU. The web test uses a 300-second hard limit; the batch test
 uses 420 seconds. Provider cost estimates are advisory, not hard billing caps.
 

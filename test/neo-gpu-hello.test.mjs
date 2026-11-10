@@ -63,6 +63,9 @@ test('default Hello Neo script is zero-spend unless both live flags are present'
   assert.equal(dry.status,0,dry.stderr);
   assert.match(dry.stdout,/hello_neo_dry_run_pass/);
   assert.match(dry.stdout,/"providerJobsCreated":0/);
+  const vast=spawnSync(process.execPath,[script,'--vast'],{encoding:'utf8',timeout:12000});
+  assert.equal(vast.status,0,vast.stderr);
+  assert.match(vast.stdout,/"provider":"vast"/);
   const unsafe=spawnSync(process.execPath,[script,'--live'],{encoding:'utf8',timeout:12000});
   assert.equal(unsafe.status,2);
 });
