@@ -3,7 +3,7 @@ import {join} from 'node:path';
 import {homedir} from 'node:os';
 import {existsSync} from 'node:fs';
 import {GpuError,exec,uid} from '../common.mjs';
-import {hfRate,cancelHf} from '../providers/hf.mjs';
+import {hfRate,cancelHf,hfRunArgs} from '../providers/hf.mjs';
 import {runningInstances,offerCandidates,cleanupVast} from '../providers/vast.mjs';
 import {saveSession} from './store.mjs';
 
@@ -23,10 +23,8 @@ export function reserveBudget(config){
   return {rate:offer.dph_total,offerId:offer.id};
 }
 export function hfWebArgs(config,label){
-  return ['jobs','run','--flavor',config.flavor||'l4x1',
-    '--timeout',`${config.seconds}s`,'--attempts','1','--expose','8000',
-    '--detach','--format','quiet','--name',label,config.image,
-    '/opt/neo-gpu/node','/opt/neo-gpu/launcher.mjs'];
+  return hfRunArgs({image:config.image,flavor:config.flavor||'l4x1',
+    maxSeconds:config.seconds,name:label});
 }
 export async function createProviderSession(name,config,reserved,record){
   const label='neo-gpu-web-'+uid();

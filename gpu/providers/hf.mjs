@@ -23,6 +23,13 @@ export async function cancelHf(jobId){
   }
   throw new GpuError(`HF Job cancellation not verified: ${jobId}`);
 }
+export function hfRunArgs({image,flavor='l4x1',maxSeconds,name}){
+  if(!/^ghcr\.io\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+:[A-Za-z0-9_.-]+$/.test(image))
+    throw new GpuError('HF Jobs image must be a versioned GHCR reference');
+  return ['jobs','run','--flavor',flavor,'--timeout',`${maxSeconds}s`,
+    '--attempts','1','--expose','8000','--detach','--format','quiet',
+    '--name',name,image,'/opt/neo-gpu/node','/opt/neo-gpu/launcher.mjs'];
+}
 export async function hfRun(plan){
   const {image,flavor,maxSeconds,budget,inputs,outputs}=plan;
   const rate=hfRate(flavor);
@@ -33,11 +40,10 @@ export async function hfRun(plan){
   let jobId=null,confirmedRejected=false;
   try{
     const label='neo-gpu-'+uid();
-    const call=exec('hf',['jobs','run','--flavor',flavor,'--timeout',`${maxSeconds}s`,
-      '--attempts','1','--expose','8000','--detach','--format','quiet','--name',label,image],
+    const call=exec('hf',hfRunArgs({image,flavor,maxSeconds,name:label}),
       {timeout:50000,allowFailure:true});
     if(call.status!==0){
-      if(/402 Payment Required|Pre-paid credit balance is insufficient|403 Forbidden|401 Unauthorized/.test(call.stderr||''))confirmedRejected=true;
+      if(/402 Payment Required|Pre-paid credit balance is insufficient|403 Forbidden|401 Unauthorized|Usage: hf jobs run|Error: Missing argument|No such option/.test(call.stderr||''))confirmedRejected=true;
       throw new GpuError('HF Job creation rejected (check billing, image accessibility, and job.write permission)');
     }
     jobId=call.stdout.trim();

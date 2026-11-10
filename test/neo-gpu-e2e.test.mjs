@@ -10,6 +10,8 @@ import {createHash} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
 import {register,service,saveSession,tokenFile,sessionFile} from '../gpu/web/store.mjs';
 import {webRemove} from '../gpu/web/manager.mjs';
+import {hfRunArgs} from '../gpu/providers/hf.mjs';
+import {hfWebArgs} from '../gpu/web/providers.mjs';
 const root=resolve(fileURLToPath(new URL('..',import.meta.url)));
 const fixture=join(root,'gpu/e2e/fixture.mjs');
 const runner=join(root,'gpu/e2e/run.mjs');
@@ -22,6 +24,15 @@ test('one tiny Dockerfile declares the same Node fixture for batch and web',()=>
   assert.match(file,/FROM node:22-bookworm-slim/);
   assert.match(file,/CMD \["node", "\/app\/fixture.mjs"\]/);
   assert.doesNotMatch(file.split('\n').filter(line=>!line.trim().startsWith('#')).join('\n'),/cuda|pytorch|pip install/i);
+});
+
+test('both HF provider modes pass the required explicit image command',()=>{
+  const image='ghcr.io/lalalic/neo-gpu:sha-abcdefabcdef';
+  const batch=hfRunArgs({image,flavor:'cpu-basic',maxSeconds:420,name:'e2e-batch'});
+  assert.deepEqual(batch.slice(-3),[image,'/opt/neo-gpu/node','/opt/neo-gpu/launcher.mjs']);
+  assert.equal(batch[batch.indexOf('--timeout')+1],'420s');
+  assert.deepEqual(hfWebArgs({image,flavor:'cpu-basic',seconds:300},'e2e-web').slice(-3),
+    [image,'/opt/neo-gpu/node','/opt/neo-gpu/launcher.mjs']);
 });
 
 test('local batch fixture writes a verifiable result without renting GPU',()=>{
