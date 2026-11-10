@@ -95,7 +95,7 @@ export async function createGateway({
         const jobs = await dashboard.fetchJobs();
         jobs.sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? '') ||
           a.id.localeCompare(b.id));
-        return { jobs: jobs.slice(0, limit), total: jobs.length };
+        return { jobs: jobs.slice(0, limit).map(job => ({ ...job, cancellable: job.cancellable === true })), total: jobs.length };
       }
       if (name === 'chat_job_activity') {
         const identity = validateJobIdentity(args, 'chat_job_activity');

@@ -12,14 +12,14 @@ Cancellation uses Relay's supported repository-scoped `POST /api/job-state?id=JO
 
 ## MCP commands
 
-`chat_jobs` remains compatible and adds a validated ISO 8601 `createdAt` string:
+`chat_jobs` remains compatible and adds validated ISO 8601 `createdAt` and a gateway-authoritative `cancellable` boolean (true only for DRAFT/ACTIVE durable Jobs). Actual cancellation always rechecks state:
 
 ```json
 chat_jobs({"limit": 20})
 {
   "jobs": [{
     "id": "123", "title": "Feature work", "repository": "owner/repo",
-    "status": "RUNNING", "createdAt": "2026-11-10T13:42:00.461Z",
+    "status": "RUNNING", "cancellable": true, "createdAt": "2026-11-10T13:42:00.461Z",
     "updatedAt": "2026-11-10T13:52:00.000Z"
   }],
   "total": 1

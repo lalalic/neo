@@ -44,6 +44,9 @@ export function normalizeJob(row, { jobId, repository, includeState = false } = 
     status,
     createdAt,
     updatedAt: normalizeIsoDateTime(row.updatedAt) ?? '',
+    // The authenticated gateway alone advertises this operation; the actual
+    // cancellation endpoint checks the authoritative durable state again.
+    cancellable: jobState === 'DRAFT' || jobState === 'ACTIVE',
     ...(includeState ? { jobState } : {}),
   };
   const title = clip(row.title, 120);

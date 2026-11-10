@@ -19,9 +19,11 @@ test('Jobs feed contains running and finished jobs but strips confidential dashb
   assert.equal(jobs.length, 2);
   assert.equal(jobs[0].status, 'RUNNING');
   assert.equal(jobs[1].status, 'COMPLETED');
+  assert.equal(jobs[0].cancellable, true);
+  assert.equal(jobs[1].cancellable, false);
   for (const job of jobs) assert.deepEqual(
     Object.keys(job).sort(),
-    ['createdAt', 'id', 'repository', 'status', 'title', 'updatedAt'],
+    ['cancellable', 'createdAt', 'id', 'repository', 'status', 'title', 'updatedAt'],
   );
   assert.ok(!JSON.stringify(jobs).includes('secret'));
   assert.ok(!JSON.stringify(jobs).includes('private owner'));
@@ -34,5 +36,5 @@ test('Job normalization rejects malformed entries', () => {
     { id: 14, state: 'ACTIVE', runtimeStatus: 'WAITING', title: 'Valid', repository: 'example/neo',
       createdAt: '2026-11-08T21:02:00Z', updatedAt: '2026-11-08T21:02:00Z' }] });
   assert.deepEqual(jobs, [{ id: '14', title: 'Valid', repository: 'example/neo',
-    status: 'WAITING', createdAt: '2026-11-08T21:02:00Z', updatedAt: '2026-11-08T21:02:00Z' }]);
+    status: 'WAITING', cancellable: true, createdAt: '2026-11-08T21:02:00Z', updatedAt: '2026-11-08T21:02:00Z' }]);
 });

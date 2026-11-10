@@ -72,7 +72,7 @@ test('in-process E2E: startup baseline, event, reconnection, dedupe, reports and
   assert.equal(jobsResponse.result.structuredContent.jobs.length, 2);
   assert.equal(jobsResponse.result.structuredContent.total, 10);
   assert.deepEqual(Object.keys(jobsResponse.result.structuredContent.jobs[0]).sort(),
-    ['createdAt', 'id', 'repository', 'status', 'title', 'updatedAt']);
+    ['cancellable', 'createdAt', 'id', 'repository', 'status', 'title', 'updatedAt']);
   const invalidJobs = await rpc(port, 'tools/call', {
     name: 'chat_jobs', arguments: { limit: 999 },
   });

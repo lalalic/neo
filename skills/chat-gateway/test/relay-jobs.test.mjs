@@ -17,6 +17,7 @@ test('job normalization is typed, repository scoped, and drops synthesized times
   assertStrict.deepEqual(job, {
     id: '21', title: 'Private title', repository: 'example/neo', status: 'RUNNING',
     createdAt: '2026-11-10T13:42:00.461Z', updatedAt: '2026-11-10T13:45:00Z',
+    cancellable: true,
   });
   assertStrict.equal(normalizeJob(raw, { jobId: '22', repository: 'example/neo' }), null);
   assertStrict.equal(normalizeJob({ ...raw, createdAt: '2026/11/10' }), null);
@@ -38,7 +39,7 @@ test('dashboard job readback requires exact repository identity and stays saniti
   const job = await dashboard.fetchJob('31', 'example/neo');
   assertStrict.deepEqual(job, { id: '31', title: 'Isolated job', repository: 'example/neo',
     status: 'RUNNING', createdAt: '2026-11-10T13:00:00Z', updatedAt: '2026-11-10T13:01:00Z',
-    jobState: 'ACTIVE' });
+    jobState: 'ACTIVE', cancellable: true });
   assertStrict.deepEqual(requests, [{ url: 'http://127.0.0.1:8787/api/job?id=31&repo=example%2Fneo', method: 'GET' }]);
   await dashboard.requestCancellation('31', 'example/neo');
   assertStrict.deepEqual(requests[1], {
