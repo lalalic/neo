@@ -40,6 +40,7 @@ function usage() {
   neo agent list [--project PATH] [--source project|shared|global|agency]\n  neo agent search QUERY [--project PATH] [--source ...] [--limit N]\n  neo project list|resolve NAME|setup-agent NAME
   neo project run (--url HTTPS_URL | --path ABSOLUTE_RUN_DIR) --project NAME [--dry-run] [--no-review]
   neo project review checkpoint --project NAME --path ABSOLUTE_RUN_DIR --stage producer\n  neo project tts (--text TEXT | --text-file PATH) --output ABSOLUTE.m4a [--voice Tingting] [--rate 200] [--node local]
+  neo gpu doctor|quote|smoke|lip-sync|cleanup [options]   On-demand GPU inference
   neo workspace show
   neo skill list [--project PATH]|package SKILL_DIR OUTPUT.zip
   neo bootstrap [--json] [--project PATH]
@@ -158,6 +159,20 @@ async function main(argv) {
     // Only the explicit --stdout mode prints the temporary credential.
     process.stdout.write('access_token' in outcome ? outcome.access_token + '\n' : JSON.stringify(outcome, null, 2) + '\n');
     return 0;
+  }
+  if (command === 'gpu') {
+    // GPU implementations are independently installed providers. Keep the Neo
+    // Harness source independent of marketplace SDKs and model weights.
+    const provider = process.env.NEO_GPU_CLI || 'neo-gpu';
+    if (provider.includes('/') || provider.includes('\\\\')) {
+      throw new Error('NEO_GPU_CLI must be an executable name on PATH');
+    }
+    const result = spawnSync(provider, args, {cwd:process.cwd(), stdio:'inherit', env:process.env});
+    if (result.error?.code === 'ENOENT') {
+      throw new Error('GPU provider not installed: install the neo-gpu CLI before running neo gpu');
+    }
+    if (result.error) throw result.error;
+    return result.status ?? 1;
   }
   if (command === 'computer-use') {
     const result = await runComputerUseCli(args);
