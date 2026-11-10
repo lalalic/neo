@@ -9,6 +9,7 @@ import {randomUUID,createHash} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
 import {imagePlan} from '../image.mjs';
 import {findService,atomicJson} from '../common.mjs';
+import {reusableFixtureImage} from './reuse.mjs';
 const project=resolve(fileURLToPath(new URL('../..',import.meta.url)));
 const neo=join(project,'.bin','neo.mjs');
 const dockerfile='gpu/e2e/Dockerfile';
@@ -70,6 +71,10 @@ async function requireImage(mode,plan){
   const saved=findService(names[mode]);
   if(saved?.image===plan.image&&saved.published&&saved.mode===mode){
     print('image_reused',{mode,image:saved.image});return;
+  }
+  if(!flags.has('--build')&&reusableFixtureImage(saved,plan,project)){
+    print('image_reused_verified',{mode,image:saved.image,sourceCommit:saved.sourceCommit.slice(0,8)});
+    return;
   }
   if(!flags.has('--build'))throw Error(`Image not built: run with --live --allow-spend --build for ${mode}`);
   print('image_build_start',{mode});

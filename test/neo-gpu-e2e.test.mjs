@@ -12,6 +12,7 @@ import {register,service,saveSession,tokenFile,sessionFile} from '../gpu/web/sto
 import {webRemove} from '../gpu/web/manager.mjs';
 import {hfRunArgs} from '../gpu/providers/hf.mjs';
 import {hfWebArgs} from '../gpu/web/providers.mjs';
+import {reusableFixtureImage} from '../gpu/e2e/reuse.mjs';
 const root=resolve(fileURLToPath(new URL('..',import.meta.url)));
 const fixture=join(root,'gpu/e2e/fixture.mjs');
 const runner=join(root,'gpu/e2e/run.mjs');
@@ -33,6 +34,18 @@ test('both HF provider modes pass the required explicit image command',()=>{
   assert.equal(batch[batch.indexOf('--timeout')+1],'420s');
   assert.deepEqual(hfWebArgs({image,flavor:'cpu-basic',seconds:300},'e2e-web').slice(-3),
     [image,'/opt/neo-gpu/node','/opt/neo-gpu/launcher.mjs']);
+});
+
+test('immutable E2E images can be reused after unrelated provider changes',()=>{
+  const git=(...args)=>spawnSync('git',['-C',root,...args],{encoding:'utf8'}).stdout.trim();
+  const head=git('rev-parse','HEAD');
+  const plan={mode:'batch',appPort:7860,commit:head};
+  const saved={published:true,mode:'batch',appPort:7860,
+    image:'ghcr.io/lalalic/neo-gpu:sha-abcdef123456',sourceCommit:head};
+  assert.equal(reusableFixtureImage(saved,plan,root),true);
+  assert.equal(reusableFixtureImage({...saved,published:false},plan,root),false);
+  assert.equal(reusableFixtureImage({...saved,sourceCommit:'z'.repeat(40)},plan,root),false);
+  assert.equal(reusableFixtureImage({...saved,mode:'web'},plan,root),false);
 });
 
 test('local batch fixture writes a verifiable result without renting GPU',()=>{
