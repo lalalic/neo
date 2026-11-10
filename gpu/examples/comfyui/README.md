@@ -1,9 +1,9 @@
 # ComfyUI — Neo Compute interactive GPU Web app
 
-This **Web-only** service reuses the existing ComfyUI CUDA image without
-reinstalling PyTorch at every launch. Neo wraps it with the shared Node.js
+This **Web-only** service builds a pinned ComfyUI release on the official PyTorch CUDA base.
+Dependencies are installed during image build, never on each paid GPU startup. Neo wraps it with the shared Node.js
 HTTP/WebSocket proxy and keeps access and lifecycle control at its gateway.
-The AI-Dock supervisor/Jupyter/SSH services are intentionally disabled; Neo
+No SSH, Jupyter, or additional app-facing service is launched; Neo
 supplies the only public authentication gate.
 
 ## Build (once) on Neo Master
@@ -26,8 +26,8 @@ URL alone is free, and a started session has a **hard one-hour limit**.
 
 ### Models and generated files
 
-Base image contains ComfyUI plus Python/CUDA, **not** AI model weights, sample
-workflows, or checkpoint bundles. Install or download model weights during the
+Built image contains ComfyUI v0.45.0 plus Python/CUDA, **not** AI model weights
+or checkpoint bundles. Workflow templates may be provided by upstream ComfyUI. Install or download model weights during the
 session or publish a separately tagged image with vetted preloaded models.
 Never bake private HF tokens or images into a public image. The scratch directory
 `/neo/comfyui` (models/input/output/user) is ephemeral on HF/Vast leases; outputs

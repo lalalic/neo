@@ -10,7 +10,8 @@ const docker=readFileSync(join(root,'gpu/examples/comfyui/Dockerfile'),'utf8');
 const start=join(root,'gpu/examples/comfyui/start.sh');
 
 test('ComfyUI image disables the upstream supervisor and exposes only an app CMD',()=>{
-  assert.match(docker,/FROM ghcr\.io\/ai-dock\/comfyui:latest-cuda/);
+  assert.match(docker,/FROM pytorch\/pytorch:2\.12\.1-cuda12\.6-cudnn9-runtime/);
+  assert.match(docker,/ARG COMFYUI_TAG=v0\.45\.0/);
   assert.match(docker,/ENTRYPOINT \[\]/);
   assert.match(docker,/CMD \["\/bin\/bash", "\/opt\/neo\/comfyui-start\.sh"\]/);
   assert.doesNotMatch(docker,/USER .*root\b.*?RUN .*curl.*token/s);
@@ -22,7 +23,7 @@ test('ComfyUI starts on the assigned Neo port with session-local directories',()
     const fake=join(tmp,'python');
     writeFileSync(fake,`#!/usr/bin/env bash\nprintf '%s\\n' "$@" > "${tmp}/args"\n`);
     chmodSync(fake,0o755);
-    const out=spawnSync('bash',[start],{env:{...process.env,COMFYUI_VENV_PYTHON:fake,COMFY_DATA_DIR:join(tmp,'data'),NEO_GPU_APP_PORT:'8188'},encoding:'utf8'});
+    const out=spawnSync('bash',[start],{env:{...process.env,COMFYUI_PYTHON:fake,COMFY_DATA_DIR:join(tmp,'data'),NEO_GPU_APP_PORT:'8188'},encoding:'utf8'});
     assert.equal(out.status,0,out.stderr);
     const args=readFileSync(join(tmp,'args'),'utf8');
     assert.match(args,/--listen\n0\.0\.0\.0\n--port\n8188/);
