@@ -4,10 +4,12 @@ import { join } from 'node:path';
 import { openLedger } from '../core/ledger.mjs';
 import { files } from '../core/files.mjs';
 import { createTracker } from '../core/tracker.mjs';
+import { resolveConfig } from '../core/config.mjs';
 
 export const timestamp = (minute = 0) => new Date(Date.UTC(2026, 10, 8, 19, minute)).toISOString();
 export const job = (id, status = 'ACTIVE', updatedAt = timestamp()) => ({
-  id: String(id), status, title: `Job ${id}`, repository: 'example/neo', updatedAt,
+  id: String(id), status, title: `Job ${id}`, repository: 'example/neo',
+  createdAt: timestamp(-10), updatedAt,
 });
 
 export function clock(start = Date.parse(timestamp())) {
@@ -38,4 +40,10 @@ export function fakeNotifier() {
     },
     async probe() { return { reachable: true, policy: { completed: true } }; },
   };
+}
+
+export function resolveTestConfig(dir) {
+  return { ...resolveConfig({ env: { EVENTS_BUS_CONFIG: `${dir}/test-events-not-configured.json` } }),
+    stateDir: dir, port: 0, settleMs: 0, deliveryTickMs: 300_000,
+    reconcileIntervalMs: 300_000 };
 }
