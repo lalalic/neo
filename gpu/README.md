@@ -82,6 +82,26 @@ node .bin/neo.mjs gpu build --dockerfile gpu/examples/hello/Dockerfile --dry-run
 Build execution on GitHub Actions and real HF/Vast GPU inference must be
 verified separately; tests of the local service do not prove CUDA inference.
 
+## Default Hello Neo real-GPU smoke test
+
+Use [Hello Neo](examples/hello-neo/README.md) to validate **actual CUDA execution**
+without any ML model or CUDA Toolkit downloads. Its one small Dockerfile builds
+batch and web versions that run a native PTX kernel (`40 + 2 = 42`) via the
+provider's `libcuda.so.1`, then verify the result. On Neo Master:
+
+```sh
+node gpu/examples/hello-neo/e2e.mjs                          # no rental
+node gpu/examples/hello-neo/e2e.mjs --live --allow-spend --build  # HF T4; publish once
+node gpu/examples/hello-neo/e2e.mjs --live --allow-spend      # HF, reuse images
+node gpu/examples/hello-neo/e2e.mjs --live --allow-spend --vast # Vast.ai, same images
+```
+
+The test registers `hello-neo-job` and `hello-neo-web`, verifies real GPU
+computation in batch and the token-guarded public Web URL, then stops paid
+resources. `hello-neo-web` remains registered but stopped for later use.
+This differs from the CPU-only tiny E2E in `gpu/e2e/`, which validates
+orchestration and transport without a CUDA device.
+
 ## Interactive web applications (`--mode web`)
 
 A project may expose Gradio, Streamlit, ComfyUI or its own web UI. The project
