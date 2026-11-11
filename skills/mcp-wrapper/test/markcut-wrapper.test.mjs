@@ -2,18 +2,18 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {createServer} from 'node:http';
-import {mkdtempSync,writeFileSync,rmSync,appendFileSync} from 'node:fs';
+import {mkdtempSync,writeFileSync,rmSync,appendFileSync,readFileSync,realpathSync} from 'node:fs';
 import {spawn,execFileSync} from 'node:child_process';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {fileURLToPath} from 'node:url';
-import {federationConfiguration,operationIdFromResult,previewCall,relayControl,relayInteractiveArgs,notifyReview,reviewNotifyURL,commitShaForPreview} from '../markcut.mjs';
+import {federationConfiguration,operationIdFromResult,previewCall,relayControl,relayInteractiveArgs,notifyReview,reviewNotifyURL,commitShaForPreview,singleMediaPreviewPath} from '../markcut.mjs';
 const id=randomUUID();
 const relay={jobId:'j1',taskId:'producer',executionId:'exec-1'};
 const eventTemplate={type:'task.interactive_decision',source:'job/j1/task/producer/execution/exec-1',
  data:{interactive:{...relay,invocationId:id}}};
 const receipt={...relay,invocationId:id,eventTemplate};
-const message={jsonrpc:'2.0',id:44,method:'tools/call',params:{name:'markcut.preview',arguments:{path:'/tmp/video.md',relay,review:{commitSha:'a'.repeat(40)}}}};
+const message={jsonrpc:'2.0',id:44,method:'tools/call',params:{name:'markcut.preview',arguments:{path:'/tmp/video.md',review:{relay,commitSha:'a'.repeat(40)}}}};
 test('stdio federation config points to wrapper, not original provider',()=>{
  const config=federationConfiguration({node:'/opt/homebrew/bin/node',wrapper:'/tmp/neox/wrapper.mjs',upstream:'/tmp/markcut/launch.sh'});
  assert.equal(config.name,'markcut');const url=new URL(config.url);
@@ -31,6 +31,7 @@ test('Preview wrapper requests Relay Invocation, preserves MCP UI output, then w
  assert.equal(got,output);
  assert.deepEqual(calls,['review.interactive.begin','persist','watch','review.interactive.wait']);
  assert.equal(passed[0].params.arguments.review.eventTemplate.data.interactive.invocationId,id);
+ assert.deepEqual(passed[0].params.arguments.review.relay,relay);
  assert.equal(passed[0].params.arguments.path,'/tmp/video.md');
 });
 test('Managed Preview derives immutable 40-character Run Git SHA for the limited Neo tool schema',async()=>{
@@ -43,7 +44,7 @@ test('Managed Preview derives immutable 40-character Run Git SHA for the limited
    const sha=git('rev-parse','HEAD');assert.match(sha,/^[a-f0-9]{40}$/);
    assert.equal(commitShaForPreview(file),sha);
    let controls=[];
-   const request={...message,params:{...message.params,arguments:{path:file,relay}}};
+   const request={...message,params:{...message.params,arguments:{path:file,review:{relay}}}};
    const got=await previewCall(request,async forwarded=>{
      assert.equal(forwarded.params.arguments.review.commitSha,sha);
      assert.deepEqual(forwarded.params.arguments.review.eventTemplate,eventTemplate);
@@ -71,7 +72,7 @@ test('one managed Preview auto-commits all nonignored Run files without review o
   git('init','-q');git('add','--','.gitignore');
   git('-c','user.name=Test','-c','user.email=t@x','commit','-qm','initialize');
   let committedSha;
-  const req={...message,params:{...message.params,arguments:{path:preview,relay}}};
+  const req={...message,params:{...message.params,arguments:{path:preview,review:{relay}}}};
   await previewCall(req,async forwarded=>{
    committedSha=git('rev-parse','HEAD');
    assert.equal(forwarded.params.arguments.review.commitSha,committedSha);
@@ -82,6 +83,66 @@ test('one managed Preview auto-commits all nonignored Run files without review o
   assert.equal(git('status','--porcelain'),'');
   assert.equal(git('rev-parse','HEAD'),committedSha);
  }finally{rmSync(dir,{recursive:true,force:true});}
+});
+
+test('single image, video and audio use one stable ghost Markdown filename with exact source and duration',()=>{
+ const directory=mkdtempSync(join(tmpdir(),'neo-ghost-preview-'));
+ try{
+  for(const [name,kind,duration,width,height] of [
+   ['image with space.png','image',5,320,240],
+   ['final output.mp4','video',2.321,1920,1080],
+   ['narration.mp3','audio',3.125,1280,720],
+  ]){
+   const source=join(directory,name);writeFileSync(source,'fixture');
+   let probes=0;
+   const ghost=singleMediaPreviewPath(source,{probe:(_binary,args)=>{probes++;assert.equal(args.at(-1),realpathSync(source));return JSON.stringify({streams:kind==='audio'?[]:[{width,height}],format:{duration}})}});
+   assert.equal(ghost,join(realpathSync(directory),'.ghost.markcut.md'));
+   const body=readFileSync(ghost,'utf8');
+   assert.match(body,new RegExp('^- '+kind+' src:', 'm'));
+   assert.ok(body.includes('src:'+JSON.stringify(realpathSync(source))));
+   assert.ok(body.includes('duration:'+duration.toFixed(3)));
+   assert.ok(body.includes(kind==='video'?'width:1280 height:720':('width:'+width+' height:'+height)));
+   assert.equal(probes,1);
+   assert.equal(singleMediaPreviewPath('/some/video.md'),'/some/video.md');
+  }
+ }finally{rmSync(directory,{recursive:true,force:true});}
+});
+test('single media readonly forwards ghost Markdown without Relay, watcher or phone notification',async()=>{
+ const directory=mkdtempSync(join(tmpdir(),'neo-ghost-readonly-'));
+ try{
+  const source=join(directory,'my image.jpg');writeFileSync(source,'fixture');
+  const request={...message,params:{...message.params,arguments:{path:source,readonly:true}}};
+  const result={structuredContent:{operationId:randomUUID()}};
+  const got=await previewCall(request,async forwarded=>{
+   assert.equal(forwarded.params.arguments.path,join(realpathSync(directory),'.ghost.markcut.md'));
+   assert.equal(forwarded.params.arguments.readonly,true);
+   assert.equal(request.params.arguments.path,source);
+   return result;
+  },{control:()=>{throw Error('No Relay')},
+    record:()=>{throw Error('No delivery intent')},
+    notifyWatcher:()=>{throw Error('No notification')},
+   resolveMedia:path=>singleMediaPreviewPath(path,{probe:()=>JSON.stringify({streams:[{width:320,height:240}],format:{duration:1}})})});
+  assert.equal(got,result);
+ }finally{rmSync(directory,{recursive:true,force:true});}
+});
+test('single-media interactive preview uses existing standalone delivery, while managed media requires authored Markdown',async()=>{
+ const directory=mkdtempSync(join(tmpdir(),'neo-ghost-interactive-'));
+ try{
+  const source=join(directory,'shot.png');writeFileSync(source,'fixture');
+  const calls=[];
+  const request={...message,params:{...message.params,arguments:{path:source}}};
+  await previewCall(request,async forwarded=>{
+   assert.equal(forwarded.params.arguments.path,join(realpathSync(directory),'.ghost.markcut.md'));
+   assert.equal(forwarded.params.arguments.review,undefined);
+   return {structuredContent:{operationId:randomUUID()}};
+  },{control:()=>{throw Error('No Relay')},
+    record:()=>{calls.push('record')},notifyWatcher:()=>{calls.push('notify')},
+    resolveMedia:path=>singleMediaPreviewPath(path,{probe:()=>JSON.stringify({streams:[{width:320,height:240}],format:{duration:1}})})});
+  assert.deepEqual(calls,['record','notify']);
+  await assert.rejects(previewCall({...request,params:{...request.params,
+   arguments:{...request.params.arguments,review:{relay}}}},async()=>{throw Error('Must not call provider')}),
+   /requires an authored Markdown/);
+ }finally{rmSync(directory,{recursive:true,force:true});}
 });
 
 test('readonly preview bypasses Git, Relay, watcher and Inbox side effects',async()=>{
@@ -95,11 +156,15 @@ test('readonly preview bypasses Git, Relay, watcher and Inbox side effects',asyn
    notifyWatcher:()=>{throw Error('Readonly must not start notification watcher');}});
  assert.deepEqual(got,expected);
  for(const invalid of [
-  {...source,params:{...source.params,arguments:{...source.params.arguments,relay}}},
+  {...source,params:{...source.params,arguments:{...source.params.arguments,review:{relay}}}},
   {...source,params:{...source.params,arguments:{...source.params.arguments,review:{delivery:'text'}}}}
  ]){
   await assert.rejects(previewCall(invalid,async()=>{throw Error('Must not compile');}),/cannot request Relay or review delivery/);
  }
+});
+test('legacy top-level relay is rejected rather than silently ignored',async()=>{
+ const invalid={...message,params:{...message.params,arguments:{path:'/tmp/video.md',relay}}};
+ await assert.rejects(previewCall(invalid,async()=>{throw Error('must not call');}),/review.relay/);
 });
 test('Preview wrapper keeps standalone Markcut independent of Relay',async()=>{
  const got=await previewCall({...message,params:{...message.params,arguments:{path:'/tmp/video.md'}}},

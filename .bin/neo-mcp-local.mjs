@@ -111,12 +111,15 @@ export async function callLocalMcpTool(name,args={},options={}){
  if(!CLI_MCP_TOOLS.has(name))throw Error(`Neo MCP CLI tool is not exposed: ${String(name)}`);
  if(!args || typeof args!=='object' || Array.isArray(args))throw Error('Neo MCP arguments must be a JSON object');
  if(name==='markcut.preview'){
-  if(typeof args.path!=='string'||!args.path.startsWith('/')||!args.path.endsWith('.md'))
-   throw Error('markcut.preview requires an absolute .md path');
-  if(args.relay!==undefined && (!args.relay||typeof args.relay!=='object'||
-    !String(args.relay.jobId||'')||!String(args.relay.taskId||'')||
-    typeof args.relay.executionId!=='string'||!args.relay.executionId))
-   throw Error('Managed markcut.preview requires relay.jobId, relay.taskId, and relay.executionId');
+  if(typeof args.path!=='string'||!args.path.startsWith('/')||
+    !/\.(?:md|mp4|mov|m4v|webm|png|jpg|jpeg|webp|gif|mp3|wav|m4a|aac|flac|ogg)$/i.test(args.path))
+   throw Error('markcut.preview requires an absolute Markdown or supported media path');
+  if(args.relay!==undefined)throw Error('Use review.relay instead of top-level relay');
+  const relay=args.review?.relay;
+  if(relay!==undefined && (!relay||typeof relay!=='object'||
+    !String(relay.jobId||'')||!String(relay.taskId||'')||
+    typeof relay.executionId!=='string'||!relay.executionId))
+   throw Error('Managed markcut.preview requires review.relay.jobId, taskId, and executionId');
  }
  const inventory=await listLocalMcpTools(options);
  if(!inventory.tools.some(t=>t.name===name))throw Error(`Neo.app MCP tool not currently registered: ${name}`);

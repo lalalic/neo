@@ -55,6 +55,23 @@ test('Run repo commits all nonignored files and never media or private inputs', 
   } finally {rmSync(f.base,{recursive:true,force:true});}
 });
 
+test('global Neo Run Git excludes ignore ghost files without project template changes',()=>{
+ const f=fixture();
+ try{
+  assert.equal(f.config.rules.includes('.ghost.'),false);
+  ensureRunGit(f.run,f.config);
+  const ghost=join(f.run,'.ghost.markcut.md');
+  writeFileSync(ghost,'transient adapter');
+  assert.equal(git(f.run,'check-ignore','-v','.ghost.markcut.md').includes('info/exclude'),true);
+  const commit=commitRunStage(f.run,f.config,'editor');
+  assert.equal(commit.files.includes('.ghost.markcut.md'),false);
+  assert.equal(git(f.run,'ls-files').includes('.ghost.markcut.md'),false);
+  const original=readFileSync(join(f.run,'.gitignore'),'utf8');
+  ensureRunGit(f.run,f.config);
+  assert.equal(readFileSync(join(f.run,'.gitignore'),'utf8'),original);
+ }finally{rmSync(f.base,{recursive:true,force:true});}
+});
+
 test('Run Git uses .gitignore for creative subfolders; no Stage artifact selection',()=>{
   const f=fixture();
   try {

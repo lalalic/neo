@@ -1,5 +1,5 @@
 import { execFileSync, spawnSync } from 'node:child_process';
-import { chmodSync, existsSync, lstatSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, lstatSync, readFileSync, realpathSync, writeFileSync, mkdirSync, appendFileSync } from 'node:fs';
 import { dirname, isAbsolute, join, relative, sep } from 'node:path';
 
 const fail = message => { throw new Error(`Run Git: ${message}`); };
@@ -8,6 +8,17 @@ const inside = (root, path) => {
   return rel === '' || (rel !== '..' && !rel.startsWith(`..${sep}`) && !isAbsolute(rel));
 };
 const revisionTag = /^review\/r([1-9][0-9]*)$/;
+
+/** Neo's global policy for every private Run Git, independent of project
+ * run-template/.gitignore. Git's info/exclude is local and never committed.
+ */
+export function ensureRunGlobalExcludes(run) {
+  const path=join(run,'.git','info','exclude');
+  mkdirSync(dirname(path),{recursive:true});
+  const current=existsSync(path)?readFileSync(path,'utf8'):'';
+  if(!current.split(/\r?\n/).includes('.ghost.*'))
+    appendFileSync(path,(current && !current.endsWith('\n')?'\n':'')+'.ghost.*\n');
+}
 
 function git(run, ...args) {
   try {
@@ -42,6 +53,7 @@ export function ensureRunGit(run, config) {
         realpathSync(git(run, 'rev-parse', '--show-toplevel')) !== realpathSync(run))
       fail('existing Run Git must be an independent local repository');
     if (git(run, 'remote').trim()) fail('Run Git must have no remotes');
+    ensureRunGlobalExcludes(run);
     const existingIgnore = join(run, '.gitignore');
     if (!existsSync(existingIgnore) || lstatSync(existingIgnore).isSymbolicLink() ||
         !lstatSync(existingIgnore).isFile()) fail('Run .gitignore is missing or unsafe');
@@ -64,6 +76,7 @@ export function ensureRunGit(run, config) {
     writeFileSync(ignore, config.rules, { mode: 0o600, flag: 'wx' });
   }
   git(run, 'init', '-q', '-b', 'run');
+  ensureRunGlobalExcludes(run);
   chmodSync(marker, 0o700);
   git(run, 'add', '--', '.gitignore');
   git(run, 'commit', '-q', '-m', 'run: initialize local version history');
@@ -74,6 +87,7 @@ export function ensureRunGit(run, config) {
  * Refuse symlinks and gitlinks rather than silently snapshotting external paths.
  */
 function stageRunChanges(run) {
+  ensureRunGlobalExcludes(run);
   const stagedBefore = git(run, 'diff', '--cached', '--name-only');
   if (stagedBefore) fail('unexpected staged files in Run Git; refusing to include concurrent changes');
   const candidates = execFileSync('git', ['-C', run, 'ls-files', '-z', '--cached', '--others', '--exclude-standard'],

@@ -13,6 +13,16 @@ preserving the original provider's Tool schema, UI metadata and Resources.
 The Agent invokes the Tool **once**. For a managed Neo Project Run Review, the Wrapper automatically commits all non-ignored changes in the private Run Git (no Stage Validation and no separate checkpoint CLI). A view-only Preview (`markcut.preview({path,readonly:true})`) never commits, reserves a Relay invocation, or triggers a phone review notification. Do not combine readonly with relay or review parameters. Do not create a middleware framework or
 put integration-specific orchestration inside Markcut, Swift, or Neo Mobile.
 
+For local single-file previews, the Neo Wrapper accepts supported image
+(.png, .jpg, .jpeg, .webp, .gif), audio (.mp3, .wav, .m4a,
+.aac, .flac, .ogg) and video (.mp4, .mov, .m4v, .webm) paths.
+It writes one .ghost.markcut.md next to the media, then calls the
+unchanged Markcut Tool. Images display for 5 seconds; audio/video durations and visual aspect ratios
+come from ffprobe (visual dimensions capped at 1280px). Do not pass review.relay for a single-media ghost preview:
+managed event review still requires an authored tracked Markdown document.
+readonly:true suppresses review UI and all notifications. New Run Git
+repositories ignore .ghost.* globally via Neo Run Git info/exclude; never commit ghost media adapters.
+
 ## Markcut example
 
 The single `markcut.mjs` wrapper sends one `markcut.preview` invocation to the

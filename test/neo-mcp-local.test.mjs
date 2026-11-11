@@ -127,7 +127,7 @@ test('Neo CLI exposes only registered preview tool and does not unlock privilege
  const inventory=await listLocalMcpTools(options);
  assert.deepEqual(inventory.tools.map(x=>x.name),['markcut.preview']);
  assert.deepEqual((await runLocalMcpCli(['tools'],options)).tools.map(x=>x.name),['markcut.preview']);
- const params={path:'/private/runs/2026-11-09/visioner-review.md',relay:{jobId:'583',taskId:'content-run',executionId:'run-execution-id'}};
+ const params={path:'/private/runs/2026-11-09/visioner-review.md',review:{relay:{jobId:'583',taskId:'content-run',executionId:'run-execution-id'}}};
  const result=await runLocalMcpCli(['call','markcut.preview','--args-file',file('preview.json',JSON.stringify(params))],options);
  assert.equal(result.isError,false);
  assert.equal(calls.at(-1).body.method,'tools/call');
@@ -142,7 +142,8 @@ test('Neo CLI exposes only registered preview tool and does not unlock privilege
 test('Neo preview refuses invalid arguments and unregistered providers',async()=>{
  const options={endpoint,fetcher:async()=>Response.json({jsonrpc:'2.0',id:1,result:{tools:[]}})};
  await assert.rejects(callLocalMcpTool('markcut.preview',{path:'relative.md'},options),/absolute/);
- await assert.rejects(callLocalMcpTool('markcut.preview',{path:'/private/video.md',relay:{jobId:'583',taskId:'content-run'}},options),/executionId/);
+ await assert.rejects(callLocalMcpTool('markcut.preview',{path:'/private/video.md',relay:{jobId:'583',taskId:'content-run',executionId:'id'}},options),/review.relay/);
+ await assert.rejects(callLocalMcpTool('markcut.preview',{path:'/private/video.md',review:{relay:{jobId:'583',taskId:'content-run'}}},options),/executionId/);
  await assert.rejects(callLocalMcpTool('markcut.preview',{path:'/private/video.md'},options),/not currently registered/);
  await assert.rejects(runLocalMcpCli(['call','markcut.preview'],options),/args-file/);
  await assert.rejects(runLocalMcpCli(['call','setup','--args-file',file('setup.json','{}')],options),/not exposed/);

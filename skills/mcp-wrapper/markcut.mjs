@@ -3,9 +3,10 @@
  * review handoff/notification; no Swift changes or middleware registry.
  */
 import {spawn,execFile,execFileSync} from 'node:child_process';
+import {randomUUID} from 'node:crypto';
 import {promisify} from 'node:util';
 import {existsSync,readFileSync,writeFileSync,renameSync,statSync,unlinkSync,mkdirSync,readdirSync,realpathSync} from 'node:fs';
-import {join,basename,resolve,dirname,relative,isAbsolute,sep} from 'node:path';
+import {join,basename,resolve,dirname,relative,isAbsolute,sep,extname} from 'node:path';
 import {homedir} from 'node:os';
 import {fileURLToPath} from 'node:url';
 import {startStdioProxy} from './stdio-proxy.mjs';
@@ -95,20 +96,65 @@ export function commitShaForPreview(previewPath,{git=execFileSync}={}){
   return sha;
 }
 
+/** Adapt a single local media file to the native Markdown-only Preview Tool.
+ * The ghost file is deliberately stable per media directory and is ignored by
+ * Run Git. The original Markdown preview and review protocol are untouched.
+ */
+const MEDIA_TYPES=new Map([
+  ...['.mp4','.mov','.m4v','.webm'].map(ext=>[ext,'video']),
+  ...['.png','.jpg','.jpeg','.webp','.gif'].map(ext=>[ext,'image']),
+  ...['.mp3','.wav','.m4a','.aac','.flac','.ogg'].map(ext=>[ext,'audio']),
+]);
+export function singleMediaPreviewPath(path,{probe=execFileSync}={}){
+  if(typeof path!=='string'||!isAbsolute(path))return path;
+  const type=MEDIA_TYPES.get(extname(path).toLowerCase());
+  if(!type)return path;
+  const file=realpathSync(path);
+  if(!statSync(file).isFile())throw Error('Preview media source must be a regular file');
+  const metadata=JSON.parse(String(probe('ffprobe',['-v','error','-select_streams','v:0',
+    '-show_entries','stream=width,height:format=duration','-of','json',file],
+    {encoding:'utf8',timeout:15000,maxBuffer:16384})));
+  const duration=type==='image'?5:Number(metadata.format?.duration);
+  if(!Number.isFinite(duration)||duration<=0)throw Error('Unable to read preview media duration: '+file);
+  const visual=metadata.streams?.[0];
+  if(type!=='audio' && (!Number.isInteger(visual?.width)||!Number.isInteger(visual?.height)||
+    visual.width<=0||visual.height<=0))throw Error('Unable to read preview media dimensions: '+file);
+  const scale=type==='audio'?1:Math.min(1,1280/Math.max(visual.width,visual.height));
+  const width=type==='audio'?1280:Math.max(2,Math.round(visual.width*scale/2)*2);
+  const height=type==='audio'?720:Math.max(2,Math.round(visual.height*scale/2)*2);
+  const output=join(dirname(file),'.ghost.markcut.md');
+  const body='# video\nwidth:'+width+' height:'+height+' fps:30 layout:series\n## Media\nlayout:parallel\n- '+type+
+    ' src:'+JSON.stringify(file)+' duration:'+duration.toFixed(3)+'\n';
+  if(!existsSync(output)||readFileSync(output,'utf8')!==body){
+    const temp=join(dirname(file),'.ghost.markcut.'+randomUUID()+'.tmp');
+    try{writeFileSync(temp,body,{flag:'wx',mode:0o600});renameSync(temp,output);}
+    finally{if(existsSync(temp))unlinkSync(temp);}
+  }
+  return output;
+}
+
 /** Called only for markcut.preview. All other MCP methods are transparent. */
-export async function previewCall(message,forward,{control=relayControl,notifyWatcher=watcher,record=recordDeliveryIntent}={}){
+export async function previewCall(message,forward,{control=relayControl,notifyWatcher=watcher,record=recordDeliveryIntent,resolveMedia=singleMediaPreviewPath}={}){
   const params=message.params||{};
   const input=params.arguments||{};
-  const relay=input.relay;
+  if(input.relay!==undefined)throw Error('Use review.relay instead of top-level relay');
+  const relay=input.review?.relay;
+  // Single-media previews share the existing standalone review path. Managed
+  // reviews still require a tracked authored Markdown for the Git SHA binding.
+  if(relay!==undefined && typeof input.path==='string' && MEDIA_TYPES.has(extname(input.path).toLowerCase()))
+    throw Error('Managed Preview requires an authored Markdown file; single-media ghost previews are standalone');
+  const markdownPath=resolveMedia(input.path);
+  const prepared=markdownPath===input.path ? message :
+    {...message,params:{...params,arguments:{...input,path:markdownPath}}};
   if(input.readonly===true){
     // Read-only playback cannot create a checkpoint, Relay invocation, Inbox
     // item, or watcher. The provider owns compilation and the view-only UI.
-    if(relay!==undefined||input.review!==undefined)
+    if(input.review!==undefined)
       throw Error('Read-only preview cannot request Relay or review delivery');
-    return forward(message);
+    return forward(prepared);
   }
   let binding=null;
-  let forwarded=message;
+  let forwarded=prepared;
   if(relay!==undefined&&relay!==null){
     if(!relay||typeof relay!=='object'||typeof relay.jobId!=='string'||!relay.jobId||
       !(typeof relay.taskId==='string'&&relay.taskId.length||Number.isSafeInteger(relay.taskId))||
@@ -130,8 +176,8 @@ export async function previewCall(message,forward,{control=relayControl,notifyWa
     binding=assertBoundReceipt(receipt,{...relay,taskId:String(relay.taskId)});
     if(receipt.reused===true)
       throw Error('Preview already requested for this execution; do not start another compile');
-    forwarded={...message,params:{...params,arguments:{...input,
-      review:{delivery:'event',commitSha,eventTemplate:receipt.eventTemplate}}}};
+    forwarded={...prepared,params:{...params,arguments:{...prepared.params.arguments,
+      review:{delivery:'event',commitSha,eventTemplate:receipt.eventTemplate,relay}}}};
   }
   let result;
   try{result=await forward(forwarded);}
@@ -174,7 +220,7 @@ export function startMarkcutWrapper(upstream,options={}){
     child.unref();
   }
   return startStdioProxy({command:upstream,args:options.args||[],toolName:'markcut.preview',
-    description:'Neo-hosted Markcut video preview. Set readonly:true for view-only playback without review, Git checkpoint, Relay interaction, or iPhone notification. Omit readonly for interactive review.',
+    description:'Neo-hosted Markcut preview of Markdown or one image/audio/video file. Set readonly:true for view-only playback without review, Git checkpoint, Relay interaction, or iPhone notification. For managed review, use review.relay; standalone review omits it.',
     wrapCall:(message,forward)=>previewCall(message,forward)});
 }
 
