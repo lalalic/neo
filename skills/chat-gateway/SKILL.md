@@ -1,6 +1,6 @@
 ---
 name: chat-gateway
-description: Relay terminal-state notifications and an authenticated Neo Mobile Chat feed with orchestrator messaging.
+description: Route Relay terminal events to the Orchestrator for verified mobile reports and provide an authenticated Neo Mobile Chat feed.
 requires:
   skills:
     - daemon-service-manage
@@ -10,13 +10,13 @@ requires:
 
 ## Service owner and behavior
 
-One service, chat-gateway/server, monitors Relay terminal events and reconciles with the dashboard. It pushes completion events through the existing Neo.app notification system, and silently baselines pre-existing jobs. It also persists optional orchestrator reports and owner submissions in a private append-only ledger. It never reads raw ChatGPT streams or job prompts. No Relay, Events Bus, dashboard, or Neo.app internals are modified.
+One service, chat-gateway/server, monitors Relay terminal events and reconciles with the dashboard. It silently baselines pre-existing jobs, then submits deduplicated, durable new-turn requests to the bound Orchestrator thread for every new terminal transition. The Orchestrator checks Relay Job/JEL evidence and sends an owner-facing chat_report; only its attention reports produce phone pushes. The Chat tab contains reports and owner submissions, never raw Job events; Jobs tab retains lifecycle history. Failed turn submissions retry with a stable idempotency key. The gateway never reads raw ChatGPT streams or job prompts. No Relay, Events Bus, dashboard, or Neo.app internals are modified.
 
 The loopback MCP service at http://127.0.0.1:8791/mcp is federated into authenticated Neo.app as tool mcp.chat-gateway, accepting these command subcommands:
 
 - chat_report: text (1..2000 characters), optional level info/attention, jobId and needs. Info persists silently; attention may push. Do not require per-turn reports.
 - chat_env: office/home mode and source, plus phone connection observation if available.
-- chat_feed: optional limit 1..100, default 50. Returns owner-safe job completion/report/owner history with no raw prompt or path.
+- chat_feed: optional limit 1..100, default 50. Returns owner-safe report/owner history with no raw Job events, prompts or paths.
 - chat_jobs: optional limit 1..100, default 100. Returns active and recent Relay jobs from the dashboard, containing only ID, title, status, repository, creation and update timestamp; supplies the separate Neo Mobile Jobs tab.
 - chat_job_activity: exact repository and jobId. Returns repository-scoped, owner-safe, ordered durable lifecycle events from the public Events Bus history; no raw payloads or private metadata.
 - chat_job_cancel: exact repository and jobId. Cancels an eligible Relay Job through Relay's real cancellation Graph and returns only after an authoritative CANCELLED readback. No PR number is required.

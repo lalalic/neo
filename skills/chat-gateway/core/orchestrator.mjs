@@ -79,7 +79,7 @@ export async function createProjectWithWebHelm({
   }
 }
 
-/** Initialize once. A failed WebHelm action does not block job notifications.
+/** Initialize once. A failed WebHelm action does not block the gateway; terminal turns await a bound head.
  * No new Project/thread is created after a verified binding is persisted.
  */
 export function createOrchestratorBootstrap({

@@ -48,24 +48,24 @@ test('in-process E2E: startup baseline, event, reconnection, dedupe, reports and
 
   await receiveEvent({ jobId: '10', to: 'COMPLETED', updatedAt: timestamp(1), repository: 'example/neo' });
   await gateway.delivery.tick();
-  assert.equal(notifier.sends.length, 1);
-  assert.match(notifier.sends[0].title, /completed/);
+  assert.equal(notifier.sends.length, 0, 'raw terminal events must never push');
+  assert.equal(gateway.terminalDispatch.status().pending, 1);
   await receiveEvent({ jobId: '10', to: 'COMPLETED', updatedAt: timestamp(1), repository: 'example/neo' });
   jobs = jobs.map((j) => j.id === '10' ? job(10, 'COMPLETED', timestamp(1)) : j);
   await gateway.reconciler.run();
   await gateway.delivery.tick();
-  assert.equal(notifier.sends.length, 1);
+  assert.equal(notifier.sends.length, 0);
 
   const info = await rpc(port, 'tools/call', { name: 'chat_report', arguments: { text: 'Internal milestone' } });
   assert.equal(info.result.structuredContent.notificationQueued, false);
   await gateway.delivery.tick();
-  assert.equal(notifier.sends.length, 1);
+  assert.equal(notifier.sends.length, 0);
   const attention = await rpc(port, 'tools/call', {
     name: 'chat_report', arguments: { text: 'Owner action required', level: 'attention', needs: 'phone' },
   });
   assert.equal(attention.result.structuredContent.notificationQueued, true);
   await gateway.delivery.tick();
-  assert.equal(notifier.sends.length, 2);
+  assert.equal(notifier.sends.length, 1);
   const jobsResponse = await rpc(port, 'tools/call', {
     name: 'chat_jobs', arguments: { limit: 2 },
   });
@@ -79,8 +79,7 @@ test('in-process E2E: startup baseline, event, reconnection, dedupe, reports and
   assert.equal(invalidJobs.result.isError, true);
   const feed = await rpc(port, 'tools/call', { name: 'chat_feed', arguments: { limit: 50 } });
   assert.ok(feed.result.structuredContent.items.some((item) => item.kind === 'report' && item.text === 'Internal milestone'));
-  assert.ok(feed.result.structuredContent.items.some((item) => item.kind === 'job' && item.status === 'COMPLETED'));
-  assert.ok(!feed.result.structuredContent.items.some((item) => item.kind === 'job' && item.text.includes('historical')));
+  assert.ok(!feed.result.structuredContent.items.some((item) => item.kind === 'job'), 'Chat feed excludes every raw Job');
   const invalidFeed = await rpc(port, 'tools/call', { name: 'chat_feed', arguments: { limit: 1001 } });
   assert.equal(invalidFeed.result.isError, true);
   const headBefore = await rpc(port, 'tools/call', { name: 'chat_head', arguments: {} });
@@ -96,10 +95,17 @@ test('in-process E2E: startup baseline, event, reconnection, dedupe, reports and
   assert.equal(send.result.structuredContent.status, 'submitted');
   assert.equal(chatSubmissions.length, 1);
   assert.equal(chatSubmissions[0].threadId, 'orchestrator-thread-12345678');
+  await gateway.terminalDispatch.tick();
+  assert.equal(chatSubmissions.length, 2, 'terminal event queues a separate Orchestrator turn');
+  assert.match(chatSubmissions[1].text, /Check the authoritative Relay Job/);
+  assert.equal(chatSubmissions[1].threadId, 'orchestrator-thread-12345678');
+  assert.equal(gateway.terminalDispatch.status().pending, 0);
+  await gateway.terminalDispatch.tick();
+  assert.equal(chatSubmissions.length, 2, 'deduplicated terminal transition');
   const duplicate = await rpc(port, 'tools/call', { name: 'chat_send',
     arguments: { text: 'Hello from iPhone', requestId: 'request-12345678' } });
   assert.equal(duplicate.result.structuredContent.status, 'submitted');
-  assert.equal(chatSubmissions.length, 1);
+  assert.equal(chatSubmissions.length, 2);
   const ownerFeed = await rpc(port, 'tools/call', { name: 'chat_feed', arguments: {} });
   assert.ok(ownerFeed.result.structuredContent.items.some((item) =>
     item.kind === 'owner' && item.status === 'submitted' && item.text === 'Hello from iPhone'));
@@ -118,9 +124,9 @@ test('in-process E2E: startup baseline, event, reconnection, dedupe, reports and
     attachments:[{id:'asset-binary-12345678',name:'capture.png'}],
   }});
   assert.equal(uploadedSend.result.structuredContent.status,'submitted');
-  assert.equal(chatSubmissions.length,2);
-  assert.equal(chatSubmissions[1].requestId,'phone-binary-12345678');
-  assert.deepEqual(await readFile(chatSubmissions[1].file[0]),original);
+  assert.equal(chatSubmissions.length,3);
+  assert.equal(chatSubmissions[2].requestId,'phone-binary-12345678');
+  assert.deepEqual(await readFile(chatSubmissions[2].file[0]),original);
   const afterUploadFeed = await rpc(port,'tools/call',{name:'chat_feed',arguments:{}});
   assert.ok(afterUploadFeed.result.structuredContent.items.some(item =>
     item.kind === 'owner' && item.text.includes('capture.png')));
@@ -132,8 +138,8 @@ test('in-process E2E: startup baseline, event, reconnection, dedupe, reports and
     makeSubscriber, log: () => {} });
   await restarted.start();
   await restarted.delivery.tick();
-  assert.equal(notifier.sends.length, 2);
-  assert.equal(restarted.ledger.counts().delivered, 2);
+  assert.equal(notifier.sends.length, 1);
+  assert.equal(restarted.ledger.counts().delivered, 1);
   const persistedHead = await restarted.chat.head();
   assert.equal(persistedHead.threadId, 'orchestrator-thread-12345678');
   await restarted.stop();

@@ -14,6 +14,7 @@ import { createChat } from './chat.mjs';
 import { createAttachmentStore } from './attachments.mjs';
 import { createChatGPTSubmitter } from './chatgpt-client.mjs';
 import { createOrchestratorBootstrap } from './orchestrator.mjs';
+import { createTerminalDispatcher } from './terminal-dispatch.mjs';
 import { createEnvStore } from './env.mjs';
 import { createRelayEventHistoryClient } from './relay-jobs.mjs';
 import { validateJobIdentity } from '../mcp/tools.mjs';
@@ -59,10 +60,12 @@ export async function createGateway({
   const reporter = createReporter({ ledger, now });
   const feed = createFeed({ ledger });
   const attachmentStore = createAttachmentStore({ root: config.stateDir });
+  const submit = chatSubmit ?? createChatGPTSubmitter();
   const chat = createChat({
     ledger, files, dir: config.stateDir, now, attachmentStore,
-    submit: chatSubmit ?? createChatGPTSubmitter(),
+    submit,
   });
+  const terminalDispatch = createTerminalDispatcher({ ledger, chat, submit, now, log });
   const orchestrator = createOrchestratorBootstrap({
     chat, log, now, ...(createProject ? { createProject } : {}),
   });
@@ -79,6 +82,7 @@ export async function createGateway({
     status: !subscriber.status().connected || !reconciler.status().reachable || !notifyPath.reachable ? 'degraded' : 'ok',
     nats: subscriber.status(), dashboard: reconciler.status(), notify: notifyPath,
     ledger: ledger.counts(), baselined: tracker.isBaselined(),
+    terminalDispatch: terminalDispatch.status(),
     orchestrator: autoPrepareOrchestrator ? orchestrator.status() : { state: 'disabled' },
   });
   const server = createMcpHttpServer({
@@ -177,7 +181,7 @@ export async function createGateway({
   const timers = [];
   let started = false;
   return {
-    ledger, tracker, reporter, feed, chat, orchestrator, delivery, reconciler, subscriber, server, health,
+    ledger, tracker, reporter, feed, chat, orchestrator, terminalDispatch, delivery, reconciler, subscriber, server, health,
     async start() {
       if (started) return;
       // Baseline before subscribing: historical completed jobs must not send pushes.
@@ -195,6 +199,7 @@ export async function createGateway({
         timers.push(timer);
       };
       periodic(() => reconciler.run(), config.reconcileIntervalMs);
+      periodic(() => terminalDispatch.tick(), 5_000);
       periodic(() => delivery.tick(), config.deliveryTickMs);
       periodic(probe, 60_000);
       if (autoPrepareOrchestrator) periodic(() => orchestrator.ensure(), 5 * 60_000);

@@ -27,23 +27,6 @@ export function buildNotifyCommand({ kind, title, body }) {
   return command;
 }
 
-/** Notification for one terminal job: job title, state, id and repository only. */
-export function jobNotification(record) {
-  const label = record.to === 'CANCELLED' ? 'cancelled' : 'completed';
-  const name = record.title ? `: ${record.title}` : '';
-  return {
-    kind: 'completed',
-    title: `Job ${record.jobId} ${label}${name}`,
-    body: [`job ${record.jobId}`, record.repository].filter(Boolean).join(' | '),
-  };
-}
-
-export function jobSummaryNotification(records) {
-  const ids = records.slice(0, 10).map((r) => `#${r.jobId}`).join(' ');
-  const more = records.length > 10 ? ` +${records.length - 10} more` : '';
-  return { kind: 'completed', title: `${records.length} jobs finished`, body: `jobs ${ids}${more}` };
-}
-
 /** Notification for orchestrator reports; `needs` marks that the owner has to act. */
 export function reportNotification(reports) {
   const first = reports[0];

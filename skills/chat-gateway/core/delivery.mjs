@@ -1,14 +1,11 @@
-import {
-  jobNotification, jobSummaryNotification, reportNotification,
-} from './notify.mjs';
+import { reportNotification } from './notify.mjs';
 
 const iso = (ms) => new Date(ms).toISOString();
 
 /**
- * Delivers pending ledger records to the phone.
+ * Delivers Orchestrator attention reports to the phone, not raw Job events.
  * - A record becomes `delivered` only after the notifier acknowledges it.
  * - Failures back off exponentially (capped) and the record stays pending.
- * - More than `burst.max` due jobs collapse into one summary notification.
  * - Attention reports are leading-edge throttled: first notification wins; later
  *   reports in that 60-second window are persisted as coalesced (not re-pushed).
  */
@@ -18,7 +15,6 @@ export function createDelivery({
   now = () => Date.now(),
   log = () => {},
   settleMs = 1_500,
-  burst = { max: 5 },
   attentionWindowMs = 60_000,
   backoff = { baseMs: 5_000, capMs: 3_600_000 },
 }) {
@@ -68,12 +64,6 @@ export function createDelivery({
     if (running) return;
     running = true;
     try {
-      const jobs = ledger.pending('job').filter(due);
-      if (jobs.length > burst.max) {
-        await deliver(jobs, jobSummaryNotification(jobs));
-      } else {
-        for (const record of jobs) await deliver([record], jobNotification(record));
-      }
       const reports = ledger.pending('report').filter(due);
       if (reports.length) {
         const latest = ledger.all().filter((r) => r.kind === 'report' && r.status === 'delivered')

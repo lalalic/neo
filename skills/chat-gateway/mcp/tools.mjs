@@ -100,7 +100,7 @@ export const TOOL_DEFS = Object.freeze([
   },
   {
     name: 'chat_feed',
-    description: 'Recent job completions, orchestrator reports and owner submissions for the authenticated Neo Mobile Chat tab.',
+    description: 'Orchestrator reports and owner submissions for the authenticated Neo Mobile Chat tab. Job states remain in the Jobs tab.',
     inputSchema: {
       type: 'object',
       properties: { limit: { type: 'integer', minimum: 1, maximum: 100, default: 50 } },
