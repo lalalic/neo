@@ -10,16 +10,15 @@ description: Integrate independent MCP providers into Neo with a one-file Node.j
 Expose any independent MCP provider to Agents through Neo.app's unchanged
 Federation boundary. A wrapped tool can perform Neo-owned orchestration while
 preserving the original provider's Tool schema, UI metadata and Resources.
-The Agent invokes the tool **once**. Prefer `review.preview`: with `{path}`,
+Agent Workers invoke **one Relay CLI command**: `agents-relay review interactive --path PATH --id JOB --task-id TASK --execution-id EXEC`. The CLI calls Neo `review.preview`; Agents do not call the lower-level tool directly. With `{path}`,
 standalone requests are **view-only** (no controls, notification, Relay state,
-or Git action). For a current Relay Task execution, supply
-`{path,relay:{jobId,taskId,executionId}}` using the exact Task execution
+or Git action). For a current Relay Task execution, the CLI supplies
+`{path,relay:{jobId,taskId,executionId}}` using the authenticated Task execution
 identity in Relay's context. The wrapper validates it with the existing
 `review.interactive.begin` and waits for an actual decision. The tool call
 returns a compile receipt; Relay's Task suspension and eventual resume are
 asynchronous. Never infer approval from the receipt. No preview call creates
-a Git commit. Keep existing `markcut.preview` available for standalone
-interactive reviews and legacy `review.relay` callers.
+a Git commit. Markcut remains the media renderer; its original preview is independent of Relay.
 
 For local single-file previews, the Neo Wrapper accepts supported image
 (.png, .jpg, .jpeg, .webp, .gif), audio (.mp3, .wav, .m4a,
@@ -34,20 +33,18 @@ info/exclude; never commit ghost media adapters.
 
 The single `markcut.mjs` wrapper routes `review.preview` through one `markcut.preview` invocation to the
 original Markcut Server. For managed Relay Tasks it calls
-`agents-relay review interactive ...` through **CLI**, not direct HTTP, to bind
-an Invocation, put the Task in `AWAITING_DECISION`, bind immutable revision,
+`agents-relay review interactive ...` through **CLI**, not direct HTTP, to bind the running execution, put the Task in `AWAITING_DECISION`,
 and recover from a failed render or notification. For standalone preview,
 Relay is not called. In Relay-managed mode the authoritative waiting event is
 **provider-neutral** (`task.interactive_waiting` with
 `source.component: interactive-review`), not `neo-preview` or `markcut`.
-The wrapper must reuse the exact returned Invocation/Execution binding and
-Relay's canonical `task.interactive_decision` event template, including
-an invocation-specific opaque revision and idempotency. A `review_requested`
+The wrapper must reuse the exact execution binding and
+Relay's canonical `task.interactive_decision` event template, with no separate invocation ID,
+Git commit, revision, or snapshot. Decisions are deduplicated by the existing Task execution. A `review_requested`
 receipt is not user approval or Task completion. Markcut owns preview media,
 Core owns notification/InBox delivery, and Relay alone owns durable Review
-state. The existing 40-hex `commitSha` event field is a legacy transport slot
-used as an opaque per-invocation token, not a Git commit. Do not add a
-second Preview Provider or alter Markcut/Neo Mobile for the alias. It invokes Neo.app Core's loopback-only REST endpoint
+state. Do not add a second Preview Provider; update Markcut and Neo Mobile event validation
+only for the single execution-bound Review protocol. It invokes Neo.app Core's loopback-only REST endpoint
 `POST /mobile/review/notify` and persists the intent until Core confirms
 Inbox storage. There is **no public notification-sending MCP Tool**.
 

@@ -7,13 +7,13 @@ import {spawn,execFileSync} from 'node:child_process';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {fileURLToPath} from 'node:url';
-import {federationConfiguration,operationIdFromResult,previewCall,relayControl,relayInteractiveArgs,notifyReview,reviewNotifyURL,newPreviewRevision,singleMediaPreviewPath} from '../markcut.mjs';
+import {federationConfiguration,operationIdFromResult,previewCall,relayControl,relayInteractiveArgs,notifyReview,reviewNotifyURL,singleMediaPreviewPath} from '../markcut.mjs';
 const id=randomUUID();
 const relay={jobId:'j1',taskId:'producer',executionId:'exec-1'};
 const eventTemplate={type:'task.interactive_decision',source:'job/j1/task/producer/execution/exec-1',
- data:{interactive:{...relay,invocationId:id}}};
-const receipt={...relay,invocationId:id,eventTemplate};
-const message={jsonrpc:'2.0',id:44,method:'tools/call',params:{name:'markcut.preview',arguments:{path:'/tmp/video.md',review:{relay,commitSha:'a'.repeat(40)}}}};
+ data:{interactive:{...relay}}};
+const receipt={...relay,eventTemplate};
+const message={jsonrpc:'2.0',id:44,method:'tools/call',params:{name:'markcut.preview',arguments:{path:'/tmp/video.md',review:{relay}}}};
 test('stdio federation config points to wrapper, not original provider',()=>{
  const config=federationConfiguration({node:'/opt/homebrew/bin/node',wrapper:'/tmp/neox/wrapper.mjs',upstream:'/tmp/markcut/launch.sh'});
  assert.equal(config.name,'markcut');const url=new URL(config.url);
@@ -26,46 +26,28 @@ test('Preview wrapper requests Relay Invocation, preserves MCP UI output, then w
   _meta:{ui:{resourceUri:'ui://markcut/preview.html'}}};
  const control=async(command,args)=>{calls.push(command);assert.equal(args.jobId,'j1');return command==='review.interactive.begin'?receipt:{waiting:true}};
  const got=await previewCall(message,async req=>{passed.push(req);return output;},
-  {control,record:(operation,bind)=>{assert.equal(operation,output.structuredContent.operationId);assert.equal(bind.invocationId,id);calls.push('persist');},
+  {control,record:(operation,bind)=>{assert.equal(operation,output.structuredContent.operationId);assert.deepEqual(bind,relay);calls.push('persist');},
    notifyWatcher:operation=>{assert.equal(operation,output.structuredContent.operationId);calls.push('watch');}});
  assert.equal(got,output);
- assert.deepEqual(calls,['review.interactive.begin','persist','watch','review.interactive.wait']);
- assert.equal(passed[0].params.arguments.review.eventTemplate.data.interactive.invocationId,id);
+ assert.deepEqual(calls,['review.interactive.begin','persist','review.interactive.wait','watch']);
+ assert.deepEqual(passed[0].params.arguments.review.eventTemplate.data.interactive,relay);
  assert.deepEqual(passed[0].params.arguments.review.relay,relay);
  assert.equal(passed[0].params.arguments.path,'/tmp/video.md');
 });
-test('Managed review binds an opaque revision without changing Run Git or requiring committed Markdown',async()=>{
+test('Managed review binds the execution without Git or extra invocation identity',async()=>{
  const dir=mkdtempSync(join(tmpdir(),'neo-preview-no-git-'));
  try{
-  const path=join(dir,'in-progress.md');
-  writeFileSync(path,'# Source still being edited');
-  writeFileSync(join(dir,'other-evidence.json'),'uncommitted evidence');
-  const git=(...args)=>execFileSync('git',args,{cwd:dir,encoding:'utf8',timeout:8000}).trim();
-  git('init','-q');git('add','--',path);
-  git('-c','user.name=Test','-c','user.email=t@x','commit','-qm','initial');
-  const before=git('rev-parse','HEAD');
-  appendFileSync(path,'\nnew content');
-  const status=git('status','--porcelain');
-  const controls=[],tokens=[];
-  const request={...message,params:{...message.params,arguments:{path,review:{relay}}}};
-  for(let i=0;i<2;i++){
-    const result=await previewCall(request,async forwarded=>{
-      const token=forwarded.params.arguments.review.commitSha;
-      assert.match(token,/^[a-f0-9]{40}$/);
-      assert.notEqual(token,before);
-      assert.equal(forwarded.params.arguments.review.delivery,'event');
-      tokens.push(token);
-      return {structuredContent:{operationId:randomUUID()}};
-    },{control:async cmd=>{controls.push(cmd);return cmd==='review.interactive.begin'?receipt:{waiting:true};},
-      record:()=>{},notifyWatcher:()=>{}});
-    assert.ok(operationIdFromResult(result));
-  }
-  assert.notEqual(tokens[0],tokens[1]);
-  assert.deepEqual(controls,['review.interactive.begin','review.interactive.wait',
-    'review.interactive.begin','review.interactive.wait']);
-  assert.equal(git('rev-parse','HEAD'),before);
-  assert.equal(git('status','--porcelain'),status);
-  assert.match(newPreviewRevision(),/^[a-f0-9]{40}$/);
+  const path=join(dir,'in-progress.md');writeFileSync(path,'# Draft');
+  const git=(...args)=>execFileSync('git',args,{cwd:dir,encoding:'utf8'}).trim();
+  git('init','-q');git('add','--',path);git('-c','user.name=Test','-c','user.email=t@x','commit','-qm','initial');
+  const before=git('rev-parse','HEAD');appendFileSync(path,'\nmore content');const status=git('status','--porcelain');
+  const controls=[];
+  await previewCall({...message,params:{...message.params,arguments:{path,review:{relay}}}},
+   async forwarded=>{assert.deepEqual(forwarded.params.arguments.review.eventTemplate,eventTemplate);
+     assert.equal(forwarded.params.arguments.review.commitSha,undefined);return {structuredContent:{operationId:randomUUID()}};},
+   {control:async cmd=>{controls.push(cmd);return cmd==='review.interactive.begin'?receipt:{waiting:true}},record:()=>{},notifyWatcher:()=>{}});
+  assert.deepEqual(controls,['review.interactive.begin','review.interactive.wait']);
+  assert.equal(git('rev-parse','HEAD'),before);assert.equal(git('status','--porcelain'),status);
  }finally{rmSync(dir,{recursive:true,force:true})}
 });
 
@@ -77,7 +59,7 @@ test('managed review allows single-media ghost preview without a Git commit',asy
   const request={...message,params:{...message.params,arguments:{path,review:{relay}}}};
   await previewCall(request,async forwarded=>{
    assert.equal(forwarded.params.arguments.path,join(realpathSync(dir),'.ghost.markcut.md'));
-   assert.match(forwarded.params.arguments.review.commitSha,/^[a-f0-9]{40}$/);
+   assert.equal(forwarded.params.arguments.review.commitSha,undefined);
    return {structuredContent:{operationId:randomUUID()}};
   },{control:async cmd=>cmd==='review.interactive.begin'?receipt:{waiting:true},
      record:()=>{},notifyWatcher:()=>{},
@@ -142,7 +124,7 @@ test('single-media interactive preview keeps existing standalone delivery and ma
   const managed={...request,params:{...request.params,arguments:{...request.params.arguments,review:{relay}}}};
   await previewCall(managed,async forwarded=>{
    assert.equal(forwarded.params.arguments.path,join(realpathSync(directory),'.ghost.markcut.md'));
-   assert.match(forwarded.params.arguments.review.commitSha,/^[a-f0-9]{40}$/);
+   assert.equal(forwarded.params.arguments.review.commitSha,undefined);
    return {structuredContent:{operationId:randomUUID()}};
   },{control:async cmd=>cmd==='review.interactive.begin'?receipt:{waiting:true},
      record:()=>{},notifyWatcher:()=>{},
@@ -234,16 +216,16 @@ test('Neo wrapper invokes Relay CLI with exact interactive identities; no direct
    {jobId:'556',taskId:'producer',executionId:'exec-123'},
    {exec:async(binary,args,options)=>{
      observed.push({binary,args,options});
-     return {stdout:JSON.stringify({invocationId:id})};
+     return {stdout:JSON.stringify({executionId:'exec-123'})};
    }});
- assert.equal(result.invocationId,id);
+ assert.equal(result.executionId,'exec-123');
  assert.match(observed[0].binary,/agents-relay$/);
  assert.deepEqual(observed[0].args,['review','interactive','begin','--id','556',
   '--task-id','producer','--execution-id','exec-123']);
  assert.equal(observed[0].options.timeout,15000);
- assert.deepEqual(relayInteractiveArgs('review.interactive.ready',{
-  jobId:'556',taskId:'producer',executionId:'exec-123',invocationId:id,revision:'e'.repeat(64)}).slice(-4),
-  ['--invocation-id',id,'--revision','e'.repeat(64)]);
+ assert.deepEqual(relayInteractiveArgs('review.interactive.wait',{
+  jobId:'556',taskId:'producer',executionId:'exec-123'}).slice(-4),
+  ['--task-id','producer','--execution-id','exec-123']);
  assert.throws(()=>relayInteractiveArgs('job.delete',{jobId:'556'}),/Unsupported/);
 });
 

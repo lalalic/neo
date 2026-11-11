@@ -3,7 +3,7 @@
  * review handoff/notification; no Swift changes or middleware registry.
  */
 import {spawn,execFile,execFileSync} from 'node:child_process';
-import {randomUUID,randomBytes} from 'node:crypto';
+import {randomUUID} from 'node:crypto';
 import {promisify} from 'node:util';
 import {existsSync,readFileSync,writeFileSync,renameSync,statSync,unlinkSync,mkdirSync,readdirSync,realpathSync} from 'node:fs';
 import {join,basename,resolve,dirname,relative,isAbsolute,sep,extname} from 'node:path';
@@ -50,14 +50,13 @@ const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function assertBoundReceipt(receipt,relay){
   const fixed=receipt?.eventTemplate?.data?.interactive;
-  if(!UUID.test(receipt?.invocationId||'')||
-    receipt.jobId!==relay.jobId||String(receipt.taskId)!==String(relay.taskId)||
+  if(receipt.jobId!==relay.jobId||String(receipt.taskId)!==String(relay.taskId)||
     receipt.executionId!==relay.executionId||
     fixed?.jobId!==relay.jobId||String(fixed?.taskId)!==String(relay.taskId)||
-    fixed?.executionId!==relay.executionId||fixed?.invocationId!==receipt.invocationId)
+    fixed?.executionId!==relay.executionId)
     throw Error('Invalid Relay interactive begin receipt');
   return {jobId:receipt.jobId,taskId:String(receipt.taskId),
-    executionId:receipt.executionId,invocationId:receipt.invocationId};
+    executionId:receipt.executionId};
 }
 export function operationIdFromResult(result){
   if(result?.isError===true)return null;
@@ -70,12 +69,6 @@ function watcher(id){
   child.on('error',error=>{process.stderr.write('Neo Preview watcher: '+error.message+'\n');});
   child.unref();
 }
-/** Legacy Markcut/Neo Mobile event transport names its 40-hex review token
- * `commitSha`. It is an opaque per-invocation identity, NEVER a Git commit.
- * Relay binds this token together with invocationId and executionId; Markcut
- * independently binds the submitted action to the compiled contentHash.
- */
-export function newPreviewRevision(){return randomBytes(20).toString('hex');}
 
 /** Adapt a single local media file to the native Markdown-only Preview Tool.
  * The ghost file is deliberately stable per media directory and is ignored by
@@ -133,23 +126,19 @@ export async function previewCall(message,forward,{control=relayControl,notifyWa
   let binding=null;
   let forwarded=prepared;
   if(relay!==undefined&&relay!==null){
+    if(input.review?.commitSha!==undefined || input.review?.invocationId!==undefined)
+      throw Error('Managed review is execution-bound; Git SHA and invocation are not accepted');
     if(!relay||typeof relay!=='object'||typeof relay.jobId!=='string'||!relay.jobId||
       !(typeof relay.taskId==='string'&&relay.taskId.length||Number.isSafeInteger(relay.taskId))||
       typeof relay.executionId!=='string'||!relay.executionId)
       throw Error('Managed preview requires relay.jobId, taskId and executionId');
-    // Keep the old event transport field for Neo Mobile compatibility.
-    // An explicit legacy value is preserved; otherwise use an opaque token.
-    // Neither path runs Git commands or modifies Run files.
-    const commitSha=input.review?.commitSha??newPreviewRevision();
-    if(!/^[a-f0-9]{40}$/.test(commitSha))
-      throw Error('Managed Preview revision token must be 40 lowercase hex characters');
     const receipt=await control('review.interactive.begin',{
       jobId:relay.jobId,taskId:String(relay.taskId),executionId:relay.executionId});
     binding=assertBoundReceipt(receipt,{...relay,taskId:String(relay.taskId)});
     if(receipt.reused===true)
       throw Error('Preview already requested for this execution; do not start another compile');
     forwarded={...prepared,params:{...params,arguments:{...prepared.params.arguments,
-      review:{delivery:'event',commitSha,eventTemplate:receipt.eventTemplate,relay}}}};
+      review:{delivery:'event',eventTemplate:receipt.eventTemplate,relay}}}};
   }
   let result;
   try{result=await forward(forwarded);}
@@ -164,8 +153,9 @@ export async function previewCall(message,forward,{control=relayControl,notifyWa
   }
   try{
     record(operationId,binding);
-    notifyWatcher(operationId); // standalone also receives optional view-only iPhone preview
+    // Persist the wait before a notification can reach a fast human reviewer.
     if(binding)await control('review.interactive.wait',binding);
+    notifyWatcher(operationId); // standalone also receives optional view-only iPhone preview
   }catch(error){
     if(binding){
       try{await control('review.interactive.abort',binding);}catch{}
@@ -193,7 +183,7 @@ export function startMarkcutWrapper(upstream,options={}){
   }
   return startStdioProxy({command:upstream,args:options.args||[],toolName:'markcut.preview',
     description:'Neo-hosted Markcut preview; readonly:true disables review/phone notification; review.relay binds a managed Task. Existing markcut.preview behavior remains available.',
-    aliasName:'review.preview',aliasDescription:'Preview Markdown, image, audio or video. Supply path only for standalone view-only playback. For a managed Relay Task, include relay {jobId,taskId,executionId}; Neo waits for the decision and resumes the Task. Never commits Git.',
+    aliasName:'review.preview',aliasDescription:'Show a view-only media preview or request human review for the current Relay Task execution. Called by agents-relay review interactive CLI; never commits Git.',
     aliasInputSchema:{type:'object',additionalProperties:false,required:['path'],properties:{
       path:{type:'string',description:'Absolute Markdown or supported media path'},
       relay:{type:'object',additionalProperties:false,required:['jobId','taskId','executionId'],
@@ -214,12 +204,10 @@ const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const runFile=promisify(execFile);
 export function relayInteractiveArgs(command,fields){
   const action=command.replace(/^review\.interactive\./,'');
-  if(!['begin','wait','ready','fail','abort'].includes(action)||command!==`review.interactive.${action}`)
+  if(!['begin','wait','fail','abort'].includes(action)||command!==`review.interactive.${action}`)
     throw Error('Unsupported Relay review action');
   const args=['review','interactive',action,'--id',String(fields.jobId),
     '--task-id',String(fields.taskId),'--execution-id',String(fields.executionId)];
-  if(action!=='begin')args.push('--invocation-id',String(fields.invocationId));
-  if(action==='ready')args.push('--revision',String(fields.revision));
   if(action==='fail')args.push('--reason',String(fields.reason));
   return args;
 }
@@ -237,11 +225,10 @@ function relayIdentity(operation){
   const relay=operation?.result?.relay||operation?.relay;
   const fixed=(operation?.result?.review||operation?.review)?.eventTemplate?.data?.interactive;
   if(!relay)return null;
-  if(!fixed||!fixed.jobId||!fixed.taskId||!fixed.executionId||!fixed.invocationId||
+  if(!fixed||!fixed.jobId||!fixed.taskId||!fixed.executionId||
     relay.jobId!==fixed.jobId||String(relay.taskId)!==fixed.taskId||relay.executionId!==fixed.executionId)
     throw new Error('Relay preview identity differs from bound template');
-  return {jobId:fixed.jobId,taskId:fixed.taskId,executionId:fixed.executionId,
-    invocationId:fixed.invocationId};
+  return {jobId:fixed.jobId,taskId:fixed.taskId,executionId:fixed.executionId};
 }
 export const operationsDirectory=()=>process.env.NEOY_MARKCUT_OPERATIONS_DIR ||
   join(homedir(),'Library','Application Support','NeoY','exports','_neoy','markcut','operations');
@@ -302,13 +289,11 @@ export function buildNeoReviewRequest(operationId,operation){
   const request={id:operationId,previewId:result.id,title:basename(operation.requestedPath||result.requestedPath||'video.md','.md'),
     delivery:review.delivery||'text'};
   if(request.delivery==='event'){
-    if(!/^[a-f0-9]{40}$/.test(review.commitSha||''))throw new Error('Event review requires full Git Commit SHA');
-    request.commitSha=review.commitSha;
     request.mediaHash=result.contentHash;
     if(!review.eventTemplate)throw new Error('Event review requires caller-bound template');
     request.eventTemplate=review.eventTemplate;
     const fixed=review.eventTemplate?.data?.interactive;
-    if(!fixed?.jobId||!fixed.taskId||!fixed.executionId||!fixed.invocationId)
+    if(!fixed?.jobId||!fixed.taskId||!fixed.executionId)
       throw new Error('Invalid bound interactive review');
     request.jobId=fixed.jobId;
     request.groupId=`job/${fixed.jobId}/task/${fixed.taskId}`;
@@ -342,21 +327,6 @@ export async function watchAndNotify(operationId,{directory=operationsDirectory(
     if(operation?.state==='ready'){
       identity=relayIdentity(operation)||identity;
       const request=buildNeoReviewRequest(operationId,operation);
-      if(identity){
-        try{
-          const ready=onReady||((revision)=>relayControl('review.interactive.ready',{
-            ...identity,revision}));
-          // The Worker may still be returning from tools/call when compilation
-          // finishes. Wait for Relay waiting transition before binding hash.
-          for(let attempt=0;;attempt++){
-            try{await ready(request.commitSha);break;}
-            catch(error){if(attempt>=19)throw error;await delay(250);}
-          }
-        }catch(error){
-          await fail('Relay preview revision binding failed: '+String(error?.message||error));
-          throw error;
-        }
-      }
       try{
         const receipt=await notify(request);
         if(receipt?.stored!==true)throw new Error('Neo review inbox persistence was not acknowledged');

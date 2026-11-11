@@ -5,27 +5,27 @@ import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {randomUUID} from 'node:crypto';
 import {buildNeoReviewRequest,watchAndNotify} from '../markcut.mjs';
-const hash='f'.repeat(64),sha='d'.repeat(40);
+const hash='f'.repeat(64);
 const template={type:'task.interactive_decision',source:'job/j1/task/producer/execution/e1',
-  data:{interactive:{jobId:'j1',taskId:'producer',executionId:'e1',invocationId:'inv1'}}};
+  data:{interactive:{jobId:'j1',taskId:'producer',executionId:'e1'}}};
 const op={state:'ready',requestedPath:'/tmp/movie.md',result:{id:hash,revisionId:hash,contentHash:hash,
-  review:{delivery:'event',commitSha:sha,eventTemplate:template},relay:{jobId:'j1',taskId:'producer',executionId:'e1'}}};
+  review:{delivery:'event',eventTemplate:template},relay:{jobId:'j1',taskId:'producer',executionId:'e1'}}};
 function withOp(data){const dir=mkdtempSync(join(tmpdir(),'neo-preview-test-'));const id=randomUUID();
   writeFileSync(join(dir,id+'.json'),JSON.stringify(data));return {dir,id,clean:()=>rmSync(dir,{recursive:true,force:true})};}
 test('Neo builds immutable review request using provider output; Markcut does not notify',()=>{
   const id=randomUUID(),request=buildNeoReviewRequest(id,op);
-  assert.equal(request.id,id);assert.equal(request.mediaHash,hash);assert.equal(request.commitSha,sha);assert.equal(request.contentHash,undefined);
+  assert.equal(request.id,id);assert.equal(request.mediaHash,hash);assert.equal(request.commitSha,undefined);assert.equal(request.contentHash,undefined);
   assert.equal(request.title,'movie');assert.equal(request.delivery,'event');
   assert.equal(request.groupId,'job/j1/task/producer');
-  assert.equal(request.eventTemplate.data.interactive.invocationId,'inv1');
+  assert.equal(request.eventTemplate.data.interactive.executionId,'e1');
 });
-test('Neo binds Relay revision before publishing exactly one phone notification',async()=>{
+test('Neo sends execution-bound review without a revision command',async()=>{
   const f=withOp(op),steps=[];
   try{
-    const result=await watchAndNotify(f.id,{directory:f.dir,initialIdentity:{jobId:'j1',taskId:'producer',executionId:'e1',invocationId:'inv1'},
-      onReady:async revision=>{steps.push('ready');assert.equal(revision,sha);},
+    const result=await watchAndNotify(f.id,{directory:f.dir,initialIdentity:{jobId:'j1',taskId:'producer',executionId:'e1'},
+      onReady:async()=>{throw Error('No revision binding');},
       notify:async request=>{steps.push('notify');assert.equal(request.id,f.id);return {stored:true,accepted:false};}});
-    assert.deepEqual(steps,['ready','notify']);assert.equal(result.notified,true);
+    assert.deepEqual(steps,['notify']);assert.equal(result.notified,true);
   }finally{f.clean();}
 });
 test('Failed or invalid Preview is never sent to iPhone',async()=>{
@@ -64,7 +64,7 @@ test('Neo restart replay sends only Neo-owned pending preview, then marks delive
   assert.equal(repeated.skipped,true);assert.equal(notifications,1);
  }finally{rmSync(ops,{recursive:true,force:true});rmSync(intents,{recursive:true,force:true});}
 });
-test('Failed Relay binding keeps durable Neo intent pending for later recovery',async()=>{
+test('failed delivery recovery keeps durable intent pending when failure callback is unavailable',async()=>{
  const {runRecordedDelivery}=await import('../markcut.mjs');
  const ops=mkdtempSync(join(tmpdir(),'neo-operations-'));
  const intents=mkdtempSync(join(tmpdir(),'neo-delivery-intents-'));
@@ -72,7 +72,7 @@ test('Failed Relay binding keeps durable Neo intent pending for later recovery',
  try{
   writeFileSync(join(ops,id+'.json'),JSON.stringify(op));
   writeFileSync(join(intents,id+'.json'),JSON.stringify({operationId:id,status:'pending',
-    binding:{jobId:'j1',taskId:'producer',executionId:'e1',invocationId:'inv1'}}));
+    binding:{jobId:'j1',taskId:'producer',executionId:'e1'}}));
   await assert.rejects(runRecordedDelivery(id,{recordDir:intents,directory:ops,
     onReady:async()=>{throw Error('Relay down')},onFailed:async()=>{throw Error('Relay down')},
     notify:async()=>{throw Error('unexpected APNs')}}),/Relay down/);

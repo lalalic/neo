@@ -40,18 +40,16 @@ Enabled Neo Projects declare `versioning: { "mode": "local-git", "template": "ru
 
 The Runner stages **all non-ignored changes inside the private Run Git repository** using `git add -A`. The Run's `.gitignore` excludes original media, private inputs, rendered outputs and other sensitive data. Changes to any non-ignored source or generated file, regardless of the producing Agent, enter the same revision. The Runner rejects symlinks/submodules and unexpected pre-staged changes. A verified Relay Shortcut Stage completion creates a Git Commit (an empty Stage Commit is allowed); replay of the same Stage execution is idempotent.
 
-Managed Interactive Preview uses `review.preview({path,relay:{jobId,taskId,executionId}})`
-for the current Relay Task execution. The wrapper reuses Markcut compilation,
+Agent Workers request Interactive Review with `agents-relay review interactive --path PATH --id JOB --task-id TASK --execution-id EXEC` (which calls Neo `review.preview`).
+for the current Relay Task execution. The Neo wrapper reuses Markcut compilation,
 the Markcut UI, Neo Mobile inbox and Relay's existing
-`review.interactive.begin/wait/ready/fail/abort` CLI. It does **not** run
+internal `review.interactive.begin/wait/fail/abort` CLI. It does **not** run
 `git add`, `git commit`, `git tag`, or stage validation. Standalone
 `review.preview({path})` is view-only without a phone notification. Relay
 suspends the original Task in `AWAITING_DECISION` and resumes after an
 accepted current-invocation approval or changes request. A delivery receipt
-does not imply approval. The transport field historically called `commitSha`
-now holds a 40-character **opaque review token** (generated per invocation),
-not a Git SHA; Markcut separately checks the compiled content hash.
-Legacy `markcut.preview` remains callable with its existing syntax.
+does not imply approval. The Review event is bound only to `jobId`, `taskId` and `executionId`; no Git SHA, separate Invocation ID or review snapshot is required.
+Markcut remains the underlying media preview; Agents call Relay CLI to request managed Review.
 
 Neo Runner automatically maintains .ghost.* as a global rule in every private
 Run Git .git/info/exclude, independent of project templates; existing Run
