@@ -41,7 +41,7 @@ export function createTerminalDispatcher({
     running = true;
     try {
       const pending = ledger.pending('job')
-        .filter(record => (record.nextAttemptAt ?? 0) <= now())
+        .filter(record => !record.requestId || (record.nextAttemptAt ?? 0) <= now())
         .sort((a, b) => (a.createdAt ?? '').localeCompare(b.createdAt ?? ''))
         .slice(0, batchSize);
       if (!pending.length) return;
@@ -52,7 +52,8 @@ export function createTerminalDispatcher({
         if (record?.status !== 'pending') continue;
         const requestId = requestIdFor(record.key);
         const text = record.turnText ?? terminalTurn(record);
-        const attempts = (record.attempts ?? 0) + 1;
+        // Legacy pending Jobs may carry attempts/backoff from the retired direct-push path.
+        const attempts = record.requestId ? (record.attempts ?? 0) + 1 : 1;
         await ledger.put({ ...record, turnText: text, requestId, attempts });
         try {
           await submit({

@@ -83,3 +83,23 @@ test('dispatcher preserves bounded batches and backlog until further passes', as
   assert.equal(sent.length, 5);
   assert.equal(dispatch.status().pending, 0);
 });
+
+test('first dispatcher attempt ignores legacy push notification retry backoff', async (t) => {
+  const { dir, clock, ledger } = await fixture(t);
+  const chat = createChat({ files, dir, ledger, now: clock.now, submit: async () => {} });
+  await chat.bind({ threadId: 'thread-123456789' });
+  const key = await queueJob(ledger, clock, '915');
+  await ledger.put({
+    ...ledger.get(key), attempts: 26, nextAttemptAt: clock.now() + 3_600_000,
+    lastError: 'retired phone notification transport timeout',
+  });
+  const requests = [];
+  const dispatch = createTerminalDispatcher({
+    ledger, chat, now: clock.now,
+    submit: async req => { requests.push(req); throw Error('temporary WebHelm transport failure'); },
+  });
+  await dispatch.tick();
+  assert.equal(requests.length, 1, 'legacy push backoff must not delay the initial turn');
+  assert.equal(ledger.get(key).attempts, 1, 'turn retry counter starts independently');
+  assert.equal(ledger.get(key).nextAttemptAt, clock.now() + 5000);
+});
