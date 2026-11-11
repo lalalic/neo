@@ -26,6 +26,24 @@ export function webAdd(args){
     token:secret,provider,hardShutdownSeconds:seconds,
     note:'Save token securely. Possession permits browser Start GPU actions up to configured budget.'},null,2));
 }
+// Replace a stopped service's image without invalidating its access token,
+// budget, provider or existing URL. The same lock protects start/stop.
+export async function webUpdate(args){
+  if(args.length!==1)throw new GpuError('usage: neo compute web update SERVICE');
+  const name=validateService(args[0]);existing(name);
+  return exclusive(name,async()=>{
+    if(session(name).phase!=='stopped')throw new GpuError('Stop and verify the GPU session before updating '+name);
+    const built=findService(name);
+    if(!built||built.mode!=='web'||!built.published)
+      throw new GpuError('Build and publish the replacement Web image first');
+    const all=services(),prior=all.services[name];
+    if(!prior)throw new GpuError('Unknown GPU web service: '+name);
+    all.services[name]={...prior,image:built.image,appPort:built.appPort||prior.appPort};
+    atomicJson(configFile(),all);
+    console.log(JSON.stringify({service:name,previousImage:prior.image,image:built.image,
+      changed:prior.image!==built.image,url:`${publicBase()}/${name}/`,tokenPreserved:true}));
+  });
+}
 export function webToken(args){
   if(args.length!==1)throw new GpuError('usage: neo compute web token SERVICE');
   const name=validateService(args[0]);existing(name);
@@ -48,9 +66,10 @@ async function exclusive(name,fn){
   try{return await fn();}finally{closeSync(handle);unlinkSync(file);}
 }
 export async function startSession(name,{approved=false}={}){
-  const config=existing(name);
+  existing(name);
   if(!approved)throw new GpuError('GPU session requires explicit --allow-spend');
   return exclusive(name,async()=>{
+    const config=existing(name);
     const prior=session(name);
     if(!['stopped','failed'].includes(prior.phase))throw new GpuError('GPU web session already active or needs reconciliation: '+prior.phase);
     const reserve=reserveBudget(config);
@@ -111,6 +130,7 @@ export async function webMain(args){
   switch(cmd){
     case 'add':webAdd(rest);return;
     case 'token':webToken(rest);return;
+    case 'update':await webUpdate(rest);return;
     case 'remove':await webRemove(rest);return;
     case 'rotate':webRotate(rest);return;
     case 'status':webStatus(rest);return;
@@ -129,7 +149,7 @@ export async function webMain(args){
       await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(port,'127.0.0.1',resolve);});
       console.log(JSON.stringify({event:'neo_gpu_web_gateway_ready',port,origin:parsed.origin||publicBase()}));return;
     }
-    default:console.log(`neo compute web add SERVICE | remove SERVICE | token SERVICE | rotate SERVICE | status [SERVICE] |
+    default:console.log(`neo compute web add SERVICE | update SERVICE | remove SERVICE | token SERVICE | rotate SERVICE | status [SERVICE] |
   start SERVICE --allow-spend | stop SERVICE | serve [--port 8798]`);
   }
 }

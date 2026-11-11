@@ -11,7 +11,7 @@ import {setTimeout as delay} from 'node:timers/promises';
 import {fileURLToPath} from 'node:url';
 import {createGateway} from '../gpu/web/gateway.mjs';
 import {register,token,session,saveSession,tokenFile,services,service,sessionCookie,cookieValid,sessionFile} from '../gpu/web/store.mjs';
-import {webAdd,webRotate} from '../gpu/web/manager.mjs';
+import {webAdd,webRotate,webUpdate} from '../gpu/web/manager.mjs';
 import {GpuError,saveService} from '../gpu/common.mjs';
 import {imagePlan} from '../gpu/image.mjs';
 import {hfWebArgs} from '../gpu/web/providers.mjs';
@@ -38,6 +38,35 @@ test('32-byte random token, private file, signed cookies and rotation',()=>{
     try{console.log=x=>rotated=JSON.parse(x).token;webRotate(['sample']);}
     finally{console.log=previous;}
     assert.notEqual(rotated,t);assert.equal(cookieValid('sample',rotated,auth),false);
+  }finally{rmSync(dir,{recursive:true,force:true});}
+});
+
+test('update a stopped Web service from published registry without rotating token',async()=>{
+  const dir=fixture();
+  try{
+    const original=controlConfig(),secret=register('comfyui',original);
+    saveService('comfyui',{mode:'web',published:true,image:'ghcr.io/example/new:sha-aabbccddee00',appPort:8188});
+    const priorConfig=service('comfyui');
+    let output;
+    const oldLog=console.log;
+    try{console.log=x=>{output=JSON.parse(x);};await webUpdate(['comfyui']);}
+    finally{console.log=oldLog;}
+    assert.equal(output.changed,true);
+    assert.equal(output.tokenPreserved,true);
+    assert.equal(service('comfyui').image,'ghcr.io/example/new:sha-aabbccddee00');
+    assert.equal(service('comfyui').appPort,8188);
+    assert.equal(service('comfyui').budget,priorConfig.budget);
+    assert.equal(service('comfyui').provider,priorConfig.provider);
+    assert.equal(service('comfyui').seconds,priorConfig.seconds);
+    assert.equal(token('comfyui'),secret);
+    saveSession('comfyui',{phase:'running',provider:'vast',instanceId:42});
+    await assert.rejects(webUpdate(['comfyui']),/Stop and verify/);
+    assert.equal(token('comfyui'),secret);
+    assert.equal(service('comfyui').image,'ghcr.io/example/new:sha-aabbccddee00');
+    saveSession('comfyui',{phase:'stopped'});
+    saveService('comfyui',{mode:'batch',published:true,image:'ghcr.io/example/wrong:sha-aabbccddee11'});
+    await assert.rejects(webUpdate(['comfyui']),/Build and publish/);
+    assert.equal(service('comfyui').image,'ghcr.io/example/new:sha-aabbccddee00');
   }finally{rmSync(dir,{recursive:true,force:true});}
 });
 
@@ -130,9 +159,10 @@ test('runtime web mode launches Docker CMD and reverse-proxies local UI without 
   const dir=fixture();
   const app=join(dir,'app.mjs');writeFileSync(app,`import {createServer} from 'node:http';createServer((req,res)=>{res.writeHead(200,{'Content-Type':'text/plain'});res.end('app:'+req.url)}).listen(Number(process.env.NEO_GPU_APP_PORT),'127.0.0.1');`);
   const probe=httpServer();const port=await listen(probe);await close(probe);
-  // The ephemeral port reserved above is released before starting the wrapper.
+  const appProbe=httpServer();const appPort=await listen(appProbe);await close(appProbe);
+  // Both ephemeral ports are released before starting the wrapper.
   const child=spawn(process.execPath,[runtime],{env:{...process.env,NEO_GPU_PORT:String(port),
-    NEO_GPU_APP_PORT:'22891',NEO_GPU_BASE_PATH:'/demo/',NEO_GPU_CMD_JSON:JSON.stringify([process.execPath,app])},stdio:'ignore'});
+    NEO_GPU_APP_PORT:String(appPort),NEO_GPU_BASE_PATH:'/demo/',NEO_GPU_CMD_JSON:JSON.stringify([process.execPath,app])},stdio:'ignore'});
   try{
     let ready=false;
     for(let i=0;i<90;i++){
