@@ -40,7 +40,6 @@ function usage() {
   neo status|doctor
   neo agent list [--project PATH] [--source project|shared|global|agency]\n  neo agent search QUERY [--project PATH] [--source ...] [--limit N]\n  neo project list|resolve NAME|setup-agent NAME
   neo project run (--url HTTPS_URL | --path ABSOLUTE_RUN_DIR) --project NAME [--dry-run] [--no-review]
-  neo project review checkpoint --project NAME --path ABSOLUTE_RUN_DIR --stage producer\n  neo project tts (--text TEXT | --text-file PATH) --output ABSOLUTE.m4a [--voice Tingting] [--rate 200] [--node local]
   neo compute build|run|web|services|doctor|cleanup [options]  On-demand Docker compute
   neo gpu ...                                 Legacy alias for neo compute
   neo workspace show

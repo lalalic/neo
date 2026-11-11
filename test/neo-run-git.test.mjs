@@ -16,139 +16,83 @@ function fixture() {
   const project = join(neoRoot, 'vlog'), run = join(project, 'runs', '2026-11-07-walk');
   const template = join(project, 'run-template');
   mkdirSync(template, {recursive:true});mkdirSync(run, {recursive:true});
-  const rules = readFileSync(join(sourceRoot, 'vlog', 'run-template', '.gitignore'), 'utf8');
+  const rules = '# Unit Run ignore\n*.mp4\n*.mov\n*.key\noutput/\ninput/\nassets/\nsource-reference.json\nsource-manifest.json\n.neo-project-run.json\nneo-project-run.*\n';
   writeFileSync(join(template, '.gitignore'), rules);
   const declaration = {schemaVersion:1,input:{type:'path',path:{base:'runs',datedRunDirectory:true}},
-    versioning:{mode:'local-git',template:'run-template',trackedArtifacts:['story.md','video.md','production-receipt.json']}};
+    versioning:{mode:'local-git',template:'run-template'}};
   for(const [file,text] of [['AGENTS.md','project policy'],['README.md','project readme'],['graph.mmd','flowchart TD\n  a[agent:a] --> b[agent:b]\n'],['project.run.json',JSON.stringify(declaration)]])
     writeFileSync(join(project,file),text);
   git(project,'init','-q');
   return {base,workspaceRoot,neoRoot,project,run,declaration,config:loadRunGitConfig(project,declaration)};
 }
 
-test('Run repo preserves paths, ignores media/private inputs, commits only allowlisted text and tags immutable SHA', () => {
+test('Run repo commits all nonignored files and never media or private inputs', () => {
   const f=fixture();
   try {
-    writeFileSync(join(f.run,'source-reference.json'),JSON.stringify({sourceUrl:'https://example.test/?secret=yes'}));
+    writeFileSync(join(f.run,'source-reference.json'),'PRIVATE');
     writeFileSync(join(f.run,'story.md'),'r1');
     writeFileSync(join(f.run,'video.md'),'r1');
-    mkdirSync(join(f.run,'output')); writeFileSync(join(f.run,'output','video.mp4'),'original private video');
+    writeFileSync(join(f.run,'other-note.txt'),'included: all nonignored');
+    mkdirSync(join(f.run,'output')); writeFileSync(join(f.run,'output','video.mp4'),'private media');
     ensureRunGit(f.run,f.config);
     assert.equal(realpathSync(git(f.run,'rev-parse','--show-toplevel')),realpathSync(f.run));
     assert.equal(git(f.run,'remote'),'');
     assert.equal(statSync(join(f.run,'.git')).mode&0o777,0o700);
-    assert.deepEqual(git(f.run,'ls-files').split('\n'),['.gitignore']);
-    assert.equal(spawnSync('git',['-C',f.run,'check-ignore','-q','output/video.mp4']).status,0);
     const first=commitRunStage(f.run,f.config,'editor','exec-editor');
-    assert.equal(first.changed,true);
-    assert.deepEqual(git(f.run,'ls-files').split('\n'),['.gitignore','story.md','video.md']);
-    assert.equal(git(f.run,'cat-file','-p','HEAD').includes('secret=yes'),false);
-    const noChange=commitRunStage(f.run,f.config,'producer','exec-01');
-    assert.equal(noChange.changed,false);
-    assert.notEqual(noChange.commitSha,first.commitSha,'a successful no-file-change Stage still has its own Commit');
-    const replay=commitRunStage(f.run,f.config,'producer','exec-01');
-    assert.equal(replay.reused,true);
-    assert.equal(replay.commitSha,noChange.commitSha);
-    const preview={status:'review_requested',requestId:'req-r1',commitSha:noChange.commitSha};
-    assert.deepEqual(tagRunReview(f.run,f.config,preview),{tag:'review/r1',commitSha:noChange.commitSha,reused:false});
-    assert.equal(tagRunReview(f.run,f.config,preview).reused,true);
-    assert.equal(tagRunReview(f.run,f.config,{...preview,requestId:'retry-1'}).reused,true);
-    writeFileSync(join(f.run,'video.md'),'r2');
-    writeFileSync(join(f.run,'production-receipt.json'),JSON.stringify({videoSha256:hash('b')}));
-    writeFileSync(join(f.run,'output','video.mp4'),'second private video');
-    const second=commitRunStage(f.run,f.config,'producer');
-    assert.notEqual(second.commitSha,first.commitSha);
-    assert.equal(tagRunReview(f.run,f.config,{...preview,requestId:'req-r2',commitSha:second.commitSha}).tag,'review/r2');
-    assert.equal(git(f.run,'rev-list','-n','1','review/r1'),noChange.commitSha);
-    assert.equal(git(f.run,'rev-list','-n','1','review/r2'),second.commitSha);
-    assert.equal(git(f.run,'tag','--list','review/*').split('\n').length,2);
-    assert.equal(git(f.run,'ls-files').includes('.mp4'),false);
+    assert.deepEqual(first.files,['other-note.txt','story.md','video.md']);
     assert.equal(git(f.run,'ls-files').includes('source-reference.json'),false);
-    assert.equal(git(f.run,'status','--porcelain','--untracked-files=all').includes('output/video.mp4'),false);
-    // Updating the template later never overwrites an existing run's ignore rules.
-    writeFileSync(join(f.project,'run-template','.gitignore'), '# new project template\n');
+    assert.equal(git(f.run,'ls-files').includes('output/video.mp4'),false);
+    const second=commitRunStage(f.run,f.config,'producer','exec-01');
+    assert.notEqual(second.commitSha,first.commitSha);
+    assert.equal(commitRunStage(f.run,f.config,'producer','exec-01').commitSha,second.commitSha);
+    assert.equal(tagRunReview(f.run,f.config,{status:'review_requested',requestId:'r1',commitSha:second.commitSha}).tag,'review/r1');
+    writeFileSync(join(f.run,'other-note.txt'),'new version');
+    const third=commitRunStage(f.run,f.config,'editor');
+    assert.equal(git(f.run,'show',`${third.commitSha}:other-note.txt`),'new version');
+    assert.equal(git(f.run,'show',`${first.commitSha}:other-note.txt`),'included: all nonignored');
+    writeFileSync(join(f.project,'run-template','.gitignore'),'# do not replace old Run rules\n');
     ensureRunGit(f.run,loadRunGitConfig(f.project,f.declaration));
-    assert.match(readFileSync(join(f.run,'.gitignore'),'utf8'),/Originals/);
   } finally {rmSync(f.base,{recursive:true,force:true});}
 });
 
-test('creative-scoped Run Git tracks only versioned Markcut and QA, never media or secrets',()=>{
+test('Run Git uses .gitignore for creative subfolders; no Stage artifact selection',()=>{
   const f=fixture();
   try {
-    const rules=readFileSync(join(sourceRoot,'content-distribution','run-template','.gitignore'),'utf8');
-    writeFileSync(join(f.project,'run-template','.gitignore'),rules);
-    const declaration={...f.declaration,versioning:{...f.declaration.versioning,
-      trackedArtifacts:['story.md','creatives/*/video.md','creatives/*/qa.json']}};
-    const config=loadRunGitConfig(f.project,declaration);
-    const creative=join(f.run,'creatives','open-first');
-    mkdirSync(join(creative,'media'),{recursive:true});
-    mkdirSync(join(f.run,'analysis'),{recursive:true});
-    mkdirSync(join(f.run,'evidence'),{recursive:true});
-    writeFileSync(join(creative,'video.md'),'source-safe shot list v1');
-    writeFileSync(join(creative,'qa.json'),'\"verified\":true');
-    writeFileSync(join(creative,'media','episode.mp4'),'private full original');
-    writeFileSync(join(creative,'preview.mp4'),'private rendered video');
-    writeFileSync(join(f.run,'analysis','speech.json'),'private dialogue');
-    writeFileSync(join(f.run,'evidence','rights.md'),'private account rights');
-    writeFileSync(join(f.run,'fixture-policy.json'),'private test policy');
-    ensureRunGit(f.run,config);
-    const commit=commitRunStage(f.run,config,'edit','unique-exec');
-    assert.equal(commit.changed,true);
-    assert.deepEqual(commit.files,['creatives/open-first/qa.json','creatives/open-first/video.md']);
-    const tracked=git(f.run,'ls-files');
-    assert.match(tracked,/creatives\/open-first\/video\.md/);
-    assert.match(tracked,/creatives\/open-first\/qa\.json/);
-    assert.doesNotMatch(tracked,/preview\.mp4|episode\.mp4|analysis|evidence|fixture-policy/);
-    assert.equal(git(f.run,'status','--porcelain','--untracked-files=all'),'');
-    writeFileSync(join(creative,'video.md'),'source-safe shot list v2');
-    const next=commitRunStage(f.run,config,'edit','second-exec');
-    assert.notEqual(next.commitSha,commit.commitSha);
-    assert.equal(git(f.run,'show',`${commit.commitSha}:creatives/open-first/video.md`),'source-safe shot list v1');
-    // Reject creative path symlinks, even if the attacker hides the target in ignored media.
-    rmSync(join(creative,'video.md'));
-    symlinkSync(join(f.run,'evidence','rights.md'),join(creative,'video.md'));
-    assert.throws(()=>commitRunStage(f.run,config,'edit','third-exec'),/creative artifact not a regular file/);
+    mkdirSync(join(f.run,'creatives','c1','media'),{recursive:true});
+    writeFileSync(join(f.run,'creatives','c1','video.md'),'one');
+    writeFileSync(join(f.run,'creatives','c1','qa.json'),'{}');
+    writeFileSync(join(f.run,'creatives','c1','media','clip.mp4'),'private video');
+    writeFileSync(join(f.run,'analysis.json'),'not stage-specific');
+    const commit=commitRunStage(f.run,f.config,'edit');
+    assert.deepEqual(commit.files,['analysis.json','creatives/c1/qa.json','creatives/c1/video.md']);
+    assert.equal(git(f.run,'ls-files').includes('clip.mp4'),false);
   } finally {rmSync(f.base,{recursive:true,force:true});}
 });
 
-test('creative allowlist permits only exact one-level Markcut text and QA patterns',()=>{
-  const f=fixture();
-  try {
-    for(const pattern of ['creatives/**/video.md','creatives/*/episode.mp4','creatives/*/media/episode.mp4','creatives/*/.env']) {
-      assert.throws(()=>loadRunGitConfig(f.project,{...f.declaration,versioning:{...f.declaration.versioning,
-        trackedArtifacts:['story.md',pattern]}}),/invalid.*tracked artifact/);
-    }
-  }finally{rmSync(f.base,{recursive:true,force:true});}
-});
-
-test('Run Git rejects remote, unexpected staged files and symlinked artifact data', () => {
+test('Run Git rejects remote, unexpected pre-staging, and symlinks', () => {
   const f=fixture();
   try {
     ensureRunGit(f.run,f.config);
-    writeFileSync(join(f.run,'unrelated.txt'),'do not commit');
+    writeFileSync(join(f.run,'unrelated.txt'),'staged externally');
     git(f.run,'add','--','unrelated.txt');
-    assert.throws(()=>commitRunStage(f.run,f.config,'director'),/unexpected staged files/);
+    assert.throws(()=>commitRunStage(f.run,f.config,'director'),/unexpected staged/);
     git(f.run,'reset','-q');
     writeFileSync(join(f.base,'secret.txt'),'sensitive');
     symlinkSync(join(f.base,'secret.txt'),join(f.run,'story.md'));
-    assert.throws(()=>commitRunStage(f.run,f.config,'director'),/not a regular file/);
+    assert.throws(()=>commitRunStage(f.run,f.config,'director'),/unsafe Run artifact/);
     rmSync(join(f.run,'story.md'));
     git(f.run,'remote','add','origin','https://example.org/leak.git');
-    assert.throws(()=>ensureRunGit(f.run,f.config),/must have no remotes/);
+    assert.throws(()=>ensureRunGit(f.run,f.config),/no remotes/);
   } finally {rmSync(f.base,{recursive:true,force:true});}
 });
 
-test('Run config rejects missing template and invalid allowlist paths before writing Git', () => {
+test('Run config requires a safe ignore template but not a per-Agent trackedArtifacts list',()=>{
   const f=fixture();
   try {
-    for (const artifact of ['../outside','.git/config','output/../video.md','story.md']) {
-      const spec={...f.declaration,versioning:{...f.declaration.versioning,trackedArtifacts:['video.md',artifact]}};
-      if(artifact==='story.md')continue;
-      assert.throws(()=>loadRunGitConfig(f.project,spec),/invalid.*tracked artifact/);
-    }
+    const decl={...f.declaration,versioning:{mode:'local-git',template:'run-template'}};
+    assert.ok(loadRunGitConfig(f.project,decl));
     rmSync(join(f.project,'run-template','.gitignore'));
-    assert.throws(()=>loadRunGitConfig(f.project,f.declaration),/missing or unsafe/);
-    assert.equal(statSync(join(f.run,'.git'),{throwIfNoEntry:false}),undefined);
+    assert.throws(()=>loadRunGitConfig(f.project,decl),/missing or unsafe/);
   } finally {rmSync(f.base,{recursive:true,force:true});}
 });
 

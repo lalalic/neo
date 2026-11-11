@@ -18,7 +18,7 @@ Content-producing Projects that opt into `neo project run` must follow the canon
 
 Reusable, sanitized public series definitions may be committed under `templates/`. Never commit private media or generated run contents, and do not create tracked `episodes/`, `generated/`, `output/` or instance-specific `data/`. Projects must not depend on other projects' `runs/` directories.
 
-For Projects using local Run Git versioning, `run-template/.gitignore` is copied to the persistent Run and only explicitly allowlisted textual artifacts are committed in that nested local-only repository; the owning Project Git (or legacy Neo Git until migration) still ignores all `runs/`. Do not add a Run remote or publish private Git objects. Review tags map to exact Stage Commits but are not human approval.
+For Projects using local Run Git versioning, `run-template/.gitignore` is copied to the persistent Run and all non-ignored changes are committed in that nested local-only repository; the owning Project Git (or legacy Neo Git until migration) still ignores all `runs/`. Do not add a Run remote or publish private Git objects. Review tags map to exact Stage Commits but are not human approval.
 
 **Execute production against the canonical project run tree**, never from an isolated Git worktree. Use isolated worktrees for source changes and tests, but final media production, continuation, QA, approvals and archive must all use the same persistent `runs/` evidence. Do not transfer ignored run artifacts between worktrees or claim a new checkout contains historical run state.
 

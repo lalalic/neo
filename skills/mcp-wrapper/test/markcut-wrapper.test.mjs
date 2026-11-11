@@ -59,6 +59,31 @@ test('Managed Preview derives immutable 40-character Run Git SHA for the limited
    assert.deepEqual(controls,[]);
  } finally {rmSync(dir,{recursive:true,force:true});}
 });
+test('one managed Preview auto-commits all nonignored Run files without review options or Stage gate',async()=>{
+ const dir=mkdtempSync(join(tmpdir(),'neo-managed-auto-'));
+ try{
+  const preview=join(dir,'visioner-review.md');
+  writeFileSync(join(dir,'.gitignore'),'assets/\n*.mp4\n.neo-project-run.json\n');
+  writeFileSync(join(dir,'.neo-project-run.json'),JSON.stringify({runPath:dir,project:'vlog'}));
+  writeFileSync(preview,'# Review before Stage completed');
+  writeFileSync(join(dir,'other-evidence.json'),'relevant dependency');
+  const git=(...args)=>execFileSync('git',args,{cwd:dir,encoding:'utf8',timeout:8000}).trim();
+  git('init','-q');git('add','--','.gitignore');
+  git('-c','user.name=Test','-c','user.email=t@x','commit','-qm','initialize');
+  let committedSha;
+  const req={...message,params:{...message.params,arguments:{path:preview,relay}}};
+  await previewCall(req,async forwarded=>{
+   committedSha=git('rev-parse','HEAD');
+   assert.equal(forwarded.params.arguments.review.commitSha,committedSha);
+   assert.equal(git('show',`${committedSha}:other-evidence.json`),'relevant dependency');
+   assert.equal(git('show',`${committedSha}:visioner-review.md`),'# Review before Stage completed');
+   return {structuredContent:{operationId:randomUUID()}};
+  },{control:async command=>command==='review.interactive.begin'?receipt:{waiting:true},record:()=>{},notifyWatcher:()=>{}});
+  assert.equal(git('status','--porcelain'),'');
+  assert.equal(git('rev-parse','HEAD'),committedSha);
+ }finally{rmSync(dir,{recursive:true,force:true});}
+});
+
 test('Preview wrapper keeps standalone Markcut independent of Relay',async()=>{
  const got=await previewCall({...message,params:{...message.params,arguments:{path:'/tmp/video.md'}}},
    async forwarded=>{assert.equal(forwarded.params.arguments.review,undefined);return {structuredContent:{operationId:randomUUID()}};},

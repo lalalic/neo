@@ -9,6 +9,7 @@ import {join,basename,resolve,dirname,relative,isAbsolute,sep} from 'node:path';
 import {homedir} from 'node:os';
 import {fileURLToPath} from 'node:url';
 import {startStdioProxy} from './stdio-proxy.mjs';
+import {commitRunPreview} from '../../.bin/neo-run-git.mjs';
 // Neo owns orchestration; Neo.app owns the durable Review REST service.
 // All review operations use HTTP REST, never the Agent MCP Tool surface.
 export function reviewNotifyURL({portFile=join(homedir(),'Library','Application Support','NeoY','deployment.json'),
@@ -108,7 +109,14 @@ export async function previewCall(message,forward,{control=relayControl,notifyWa
       throw Error('Managed preview requires relay.jobId, taskId and executionId');
     // A missing commitSha is normal for the public Neo tool schema; do not
     // reserve a Relay invocation or submit an invalid Markcut request for it.
-    const commitSha=input.review?.commitSha??commitShaForPreview(input.path);
+    // Bound Project Runs checkpoint every nonignored change before reserving the review.
+    // For non-Run Git sources, keep the existing read-only committed-SHA path.
+    const runMarker = (() => {
+      try { const run=execFileSync('git',['-C',dirname(realpathSync(input.path)),'rev-parse','--show-toplevel'],{encoding:'utf8',timeout:8000}).trim();
+        return existsSync(join(run,'.neo-project-run.json')); } catch { return false; }
+    })();
+    const commitSha=runMarker ? commitRunPreview(input.path).commitSha : (input.review?.commitSha??commitShaForPreview(input.path));
+    if (runMarker && input.review?.commitSha && input.review.commitSha!==commitSha) throw Error('Explicit Preview revision does not match current committed Run');
     if(!/^[a-f0-9]{40}$/.test(commitSha))throw Error('Event Preview requires a full Git Commit SHA');
     const receipt=await control('review.interactive.begin',{
       jobId:relay.jobId,taskId:String(relay.taskId),executionId:relay.executionId});

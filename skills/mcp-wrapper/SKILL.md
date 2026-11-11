@@ -10,7 +10,7 @@ description: Integrate independent MCP providers into Neo with a one-file Node.j
 Expose any independent MCP provider to Agents through Neo.app's unchanged
 Federation boundary. A wrapped tool can perform Neo-owned orchestration while
 preserving the original provider's Tool schema, UI metadata and Resources.
-The Agent invokes the Tool **once**. Do not create a middleware framework or
+The Agent invokes the Tool **once**. For a managed Neo Project Run Review, the Wrapper automatically commits all non-ignored changes in the private Run Git (no Stage Validation and no separate checkpoint CLI). A view-only Preview never commits. Do not create a middleware framework or
 put integration-specific orchestration inside Markcut, Swift, or Neo Mobile.
 
 ## Markcut example

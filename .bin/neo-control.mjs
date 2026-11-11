@@ -3,7 +3,6 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadWorkspaceConfig } from './workspace-config.mjs';
 import { runProject, safeProject, validateRunPath } from './neo-project-run.mjs';
-import { loadRunGitConfig, commitRunStage } from './neo-run-git.mjs';
 import { runTts } from './neo-project-tts.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -51,36 +50,6 @@ export function executeControl(argv, options = {}) {
   if (category === 'project') {
     if (command === 'tts') { emit(JSON.stringify(runTts(args),null,2)+'\n'); return 0; }
     if (command === 'run') return runProject(args, { emit, ...(options.workspace ? { workspace: options.workspace } : {}), ...(options.runRelay ? { runRelay: options.runRelay } : {}) });
-    if (command === 'review' && args[0] === 'checkpoint') {
-      const values=args.slice(1);
-      if (values.length !== 6) fail('review checkpoint requires exactly --project NAME --path RUN --stage STAGE');
-      const flags={};
-      for (let i=0;i<values.length;i+=2) {
-        const name=values[i], value=values[i+1];
-        if(!['--project','--path','--stage'].includes(name) || !value || value.startsWith('--') ||
-           Object.hasOwn(flags,name))fail('invalid/duplicate review checkpoint option');
-        flags[name]=value;
-      }
-      const workspace = options.workspace ?? loadWorkspaceConfig();
-      const selected = safeProject(workspace.neoRoot, flags['--project']);
-      const run = validateRunPath(flags['--path'],selected);
-      const config = loadRunGitConfig(selected.project,selected.declaration);
-      const stage=flags['--stage'];
-      const validation=selected.declaration.stageValidation;
-      if(!config || !/^[a-z][a-z0-9-]*$/.test(stage||'') ||
-         typeof validation?.script !== 'string' || !Object.hasOwn(validation.agents??{},'vlog-'+stage))
-        fail('Git-backed Review checkpoint requires configured verified Project Stage');
-      const validationScript=resolve(selected.project,validation.script);
-      if(!validationScript.startsWith(selected.project+'/'))fail('Stage validator must be inside Project');
-      const result = spawnSync(process.execPath,[validationScript,validation.agents['vlog-'+stage],run],
-        {encoding:'utf8',timeout:180000,maxBuffer:4*1024*1024});
-      if(result.error || result.status!==0)fail('Stage validation failed before Review checkpoint: '+String(result.stderr||result.error||result.status));
-      const checked=JSON.parse(result.stdout);
-      if(checked.status!=='PASS')fail('Stage validator did not report PASS');
-      const checkpoint=commitRunStage(run,config,stage);
-      emit(JSON.stringify({status:'ready',stage,commitSha:checkpoint.commitSha})+'\n');
-      return 0;
-    }
     if (command === 'list' && args.length === 0) return execute(resolve(scripts, 'list-xchat-projects'), []);
     if (command === 'resolve' && args.length === 1 && !args[0].startsWith('-')) return execute(resolve(scripts, 'list-xchat-projects'), ['--resolve', args[0]]);
     if (command === 'setup-agent' && args.length === 1 && !args[0].startsWith('-')) {
@@ -98,7 +67,7 @@ export function executeControl(argv, options = {}) {
       emit(JSON.stringify({ project: project.xchat_project, bootstrap, opened: true, browser: 'Google Chrome', promptSubmitted: false }) + '\n');
       return 0;
     }
-    return fail('usage: neo project list | resolve NAME | setup-agent NAME | tts (--text TEXT | --text-file PATH) --output ABSOLUTE.m4a | run (--url URL | --path PATH) --project NAME [--dry-run] | review checkpoint --project NAME --path RUN --stage STAGE');
+    return fail('usage: neo project list | resolve NAME | setup-agent NAME | tts (--text TEXT | --text-file PATH) --output ABSOLUTE.m4a | run (--url URL | --path PATH) --project NAME [--dry-run]');
   }
   if (category === 'skill') {
     if (command === 'package' && args.length === 2 && args.every(value => value && !value.startsWith('-')))

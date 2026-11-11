@@ -1,6 +1,6 @@
 import { execFileSync, spawnSync } from 'node:child_process';
-import { chmodSync, existsSync, lstatSync, readdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
-import { isAbsolute, join, relative, sep } from 'node:path';
+import { chmodSync, existsSync, lstatSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import { dirname, isAbsolute, join, relative, sep } from 'node:path';
 
 const fail = message => { throw new Error(`Run Git: ${message}`); };
 const inside = (root, path) => {
@@ -22,33 +22,15 @@ function git(run, ...args) {
 export function loadRunGitConfig(project, declaration) {
   const spec = declaration.versioning;
   if (!spec) return null;
-  if (spec.mode !== 'local-git' || spec.template !== 'run-template' ||
-      !Array.isArray(spec.trackedArtifacts) || !spec.trackedArtifacts.length)
-    fail('versioning requires local-git, run-template and nonempty trackedArtifacts');
+  if (spec.mode !== 'local-git' || spec.template !== 'run-template')
+    fail('versioning requires local-git and run-template');
   const template = join(project, 'run-template', '.gitignore');
   if (!existsSync(template) || lstatSync(template).isSymbolicLink() ||
       !lstatSync(template).isFile() || !inside(realpathSync(project), realpathSync(template)))
     fail('project run-template/.gitignore is missing or unsafe');
   const rules = readFileSync(template, 'utf8');
   if (!rules.trim()) fail('empty run-template/.gitignore');
-  const paths = new Set(), creativePatterns = new Set();
-  for (const path of spec.trackedArtifacts) {
-    // Deliberately narrow, nonrecursive project allowlist pattern: one safe
-    // creative ID folder and one approved text/QA file, never arbitrary globs.
-    const creative = typeof path==='string' ? /^creatives\/\*\/(video\.md|qa\.json)$/.exec(path) : null;
-    if (creative) {
-      if (creativePatterns.has(creative[1])) fail(`invalid/duplicate tracked artifact: ${path}`);
-      creativePatterns.add(creative[1]);
-      continue;
-    }
-    if (typeof path !== 'string' || !/^[A-Za-z0-9_][A-Za-z0-9_.\/-]*$/.test(path) ||
-        path.split('/').some(part => !part || part === '.' || part === '..') ||
-        path.startsWith('.git') || path === '.gitignore' || paths.has(path) ||
-        /(^|\/)(source-reference\.json|source-manifest\.json|publisher-request\.json|\.env(?:\..+)?|user\.md|neo-project-run\..+|[^/]+\.(?:pem|key|p12))$/.test(path))
-      fail(`invalid/duplicate tracked artifact: ${path}`);
-    paths.add(path);
-  }
-  return { rules, paths, creativePatterns };
+  return { rules };
 }
 
 export function ensureRunGit(run, config) {
@@ -87,51 +69,30 @@ export function ensureRunGit(run, config) {
   git(run, 'commit', '-q', '-m', 'run: initialize local version history');
 }
 
-function approvedFiles(run, config) {
-  const chosen = new Set();
-  for (const file of config.paths) {
-    const full = join(run, file);
-    if (!inside(run, full)) fail(`artifact path escape: ${file}`);
+/** Stage and Preview commits share one boundary: the Run's own .gitignore.
+ * Never stage files in the Project checkout or a remote-enabled repository.
+ * Refuse symlinks and gitlinks rather than silently snapshotting external paths.
+ */
+function stageRunChanges(run) {
+  const stagedBefore = git(run, 'diff', '--cached', '--name-only');
+  if (stagedBefore) fail('unexpected staged files in Run Git; refusing to include concurrent changes');
+  const candidates = execFileSync('git', ['-C', run, 'ls-files', '-z', '--cached', '--others', '--exclude-standard'],
+    {encoding:'utf8',timeout:30000,maxBuffer:16*1024*1024}).split('\0').filter(Boolean);
+  for (const path of candidates) {
+    const full = join(run, path);
+    if (!inside(run, full)) fail('artifact escaped Run Git');
     const entry = lstatSync(full, {throwIfNoEntry:false});
-    if (!entry) {
-      if (git(run, 'ls-files', '--', file)) chosen.add(file);
-      continue;
-    }
-    if (entry.isSymbolicLink() || !entry.isFile() || !inside(realpathSync(run), realpathSync(full)))
-      fail(`artifact is not a regular file inside the Run: ${file}`);
-    chosen.add(file);
+    if (entry && (!entry.isFile() || entry.isSymbolicLink() || !inside(realpathSync(run), realpathSync(full))))
+      fail('unsafe Run artifact (symlink or non-file): ' + path);
   }
-  if(config.creativePatterns?.size) {
-    const base=join(run,'creatives');
-    const candidateIds=new Set();
-    if(existsSync(base)) {
-      if(lstatSync(base).isSymbolicLink() || !lstatSync(base).isDirectory() ||
-          !inside(realpathSync(run),realpathSync(base)))
-        fail('creative artifacts directory must be a private regular directory');
-      for(const entry of readdirSync(base,{withFileTypes:true})) {
-        if(!/^[a-z0-9][a-z0-9-]*$/.test(entry.name)) continue;
-        if(entry.isSymbolicLink()) fail('symlinked creative directory is not permitted');
-        if(entry.isDirectory()) candidateIds.add(entry.name);
-      }
-    }
-    // Track deleted and renamed allowlisted files too, rather than silently
-    // keeping old creative revisions in the next checkpoint.
-    for(const path of git(run,'ls-files','--','creatives').split('\n').filter(Boolean)) {
-      const parts=path.split('/');
-      if(parts.length===3 && /^[a-z0-9][a-z0-9-]*$/.test(parts[1]) &&
-          config.creativePatterns.has(parts[2])) candidateIds.add(parts[1]);
-    }
-    for(const id of candidateIds) for(const filename of config.creativePatterns) {
-      const rel=`creatives/${id}/${filename}`, full=join(run,rel);
-      if(!inside(run,full))fail('creative artifact path escaped run');
-      const entry=lstatSync(full,{throwIfNoEntry:false});
-      if(entry && (entry.isSymbolicLink() || !entry.isFile() ||
-          !inside(realpathSync(run),realpathSync(full))))
-        fail(`creative artifact not a regular file within Run: ${rel}`);
-      if(entry || git(run,'ls-files','--',rel))chosen.add(rel);
-    }
-  }
-  return [...chosen];
+  git(run, 'add', '-A');
+  const staged = git(run, 'diff', '--cached', '--name-only').split('\n').filter(Boolean);
+  // Guard against Git links in the index, including nested repositories.
+  const index = execFileSync('git', ['-C', run, 'ls-files', '--stage', '-z'],
+    {encoding:'utf8',timeout:30000,maxBuffer:16*1024*1024});
+  if (index.split('\0').some(row => row && /^(120000|160000) /.test(row)))
+    fail('Run Git must not track symlinks or submodules');
+  return staged;
 }
 
 export function commitRunStage(run, config, nodeId, executionId = null) {
@@ -140,23 +101,8 @@ export function commitRunStage(run, config, nodeId, executionId = null) {
   if (!/^[A-Za-z0-9][A-Za-z0-9_.-]*$/.test(nodeId)) fail('invalid Stage nodeId');
   if (executionId !== null && (typeof executionId !== 'string' || !/^[A-Za-z0-9_.:-]{1,128}$/.test(executionId)))
     fail('invalid Stage executionId');
-  const selected = approvedFiles(run, config);
-  const stagedBefore = git(run, 'diff', '--cached', '--name-only');
-  if (stagedBefore) fail('unexpected staged files in Run Git; refusing to include concurrent changes');
-  // Git only stages allowlisted paths, never "git add -A".
-  for (const path of selected) {
-    const check = spawnSync('git', ['-C', run, 'check-ignore', '-q', '--', path],
-      { stdio: 'ignore', timeout: 10000 });
-    if (check.error || ![0, 1].includes(check.status)) fail('cannot inspect Run Git ignore rules');
-    if (check.status === 0) fail(`allowlisted artifact is ignored by Run template: ${path}`);
-    git(run, 'add', '-A', '--', path);
-  }
-  const staged = git(run, 'diff', '--cached', '--name-only').split('\n').filter(Boolean);
-  const accepted=new Set(selected);
-  if (staged.some(file => !accepted.has(file)))
-    fail('staged path escaped project allowlist');
-  // The same Relay node event may be replayed after an interruption. Its
-  // execution ID is the durable idempotency fence, not the current HEAD.
+  const staged = stageRunChanges(run);
+  // Replayed stages keep their original SHA and must not consume newer edits.
   if (executionId) {
     const history = git(run, 'log', '--format=%H%x00%B%x00', '-n', '1000').split('\0');
     for (let index = 0; index + 1 < history.length; index += 2) {
@@ -167,8 +113,6 @@ export function commitRunStage(run, config, nodeId, executionId = null) {
       }
     }
   }
-  // An empty commit is still a meaningful verified Stage version. A recovery
-  // invocation without a Relay node event only commits real pending changes.
   if (staged.length || nodeId !== 'recovery') {
     git(run, 'commit', '-q', '--allow-empty', '-m', `run: ${nodeId} verified`, '-m',
       `Run-Stage: ${nodeId}\nRun-Execution: ${executionId ?? 'none'}`);
@@ -176,18 +120,50 @@ export function commitRunStage(run, config, nodeId, executionId = null) {
   return { commitSha: git(run, 'rev-parse', 'HEAD'), changed: staged.length > 0, reused: false, files: staged };
 }
 
+/** Preview owns this automatic checkpoint, not a particular Agent or Stage.
+ * The marker fences this operation to a local private Neo Run Git repo.
+ */
+export function commitRunPreview(previewPath) {
+  if (typeof previewPath !== 'string' || !isAbsolute(previewPath) || !previewPath.endsWith('.md'))
+    fail('Managed Preview requires an absolute Markdown path');
+  const file = realpathSync(previewPath);
+  if (!lstatSync(previewPath).isFile()) fail('Preview must be a regular file');
+  const run = realpathSync(git(dirname(file), 'rev-parse', '--show-toplevel'));
+  if (!inside(run, file) || run === file || !existsSync(join(run, '.git')) ||
+      !lstatSync(join(run, '.git')).isDirectory() || git(run,'remote'))
+    fail('Managed Preview requires a private standalone Run Git repository without remotes');
+  const markerFile = join(run,'.neo-project-run.json');
+  if (!existsSync(markerFile) || lstatSync(markerFile).isSymbolicLink() || !lstatSync(markerFile).isFile())
+    fail('Managed Preview requires a bound Neo Project Run');
+  const marker = JSON.parse(readFileSync(markerFile,'utf8'));
+  if (typeof marker.runPath !== 'string' || !existsSync(marker.runPath) || realpathSync(marker.runPath) !== run ||
+      typeof marker.project !== 'string' || !marker.project)
+    fail('Managed Preview Run identity mismatch');
+  const ignore = join(run,'.gitignore');
+  if (!existsSync(ignore) || !lstatSync(ignore).isFile() || lstatSync(ignore).isSymbolicLink())
+    fail('Managed Preview Run has no safe .gitignore');
+  const rel = relative(run,file);
+  if (!rel || isAbsolute(rel)) fail('Preview is outside the Run');
+  // Check reviewability before committing unrelated material: an ignored MD
+  // cannot be bound to an immutable SHA even if other files need staging.
+  const ignored=spawnSync('git',['-C',run,'check-ignore','-q','--',rel],{stdio:'ignore',timeout:10000});
+  if (ignored.error || ![0,1].includes(ignored.status) || ignored.status===0)
+    fail('Managed Preview Markdown is ignored or inaccessible');
+  const staged = stageRunChanges(run);
+  if (staged.length) git(run, 'commit','-q','-m','run: interactive preview checkpoint');
+  const sha = git(run, 'rev-parse', 'HEAD');
+  if (!/^[a-f0-9]{40}$/.test(sha)) fail('Invalid Preview revision');
+  git(run, 'cat-file', '-e', `HEAD:${rel}`);
+  return {commitSha:sha,changed:staged.length>0,files:staged,run};
+}
+
 export function assertReviewCheckpoint(run, config, commitSha) {
   if (!config) fail('project does not support Git SHA reviews');
   ensureRunGit(run, config);
   if (!/^[a-f0-9]{40}$/.test(commitSha) || git(run, 'rev-parse', 'HEAD') !== commitSha)
     fail('review must target current full Git Commit SHA');
-  const selected = approvedFiles(run, config);
-  for (const file of selected) {
-    const changed = spawnSync('git', ['-C', run, 'status', '--porcelain', '--untracked-files=all', '--', file],
-      { encoding: 'utf8', timeout: 10000 });
-    if (changed.error || changed.status !== 0 || changed.stdout.trim())
-      fail('review has uncommitted allowlisted changes: ' + file);
-  }
+  if (git(run,'status','--porcelain','--untracked-files=all'))
+    fail('review has uncommitted non-ignored Run changes');
   return commitSha;
 }
 
