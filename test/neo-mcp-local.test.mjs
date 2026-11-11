@@ -115,7 +115,7 @@ test('Neo CLI exposes only registered preview tool and does not unlock privilege
   const body=JSON.parse(init.body);calls.push({body,init});
   if(body.method==='tools/list')return Response.json({jsonrpc:'2.0',id:1,result:{tools:[
    {name:'markcut.preview',description:'Video preview',inputSchema:{type:'object'}},
-   {name:'review.preview',description:'Native review preview',inputSchema:{type:'object'}},
+   {name:'markcut.review.preview',description:'Native review preview',inputSchema:{type:'object'}},
    {name:'computer',description:'macOS actions'},
    {name:'shell',description:'system shell'},
    {name:'setup',description:'Neo admin'},
@@ -140,7 +140,7 @@ test('Neo CLI exposes only registered preview tool and does not unlock privilege
  const simple={path:'/tmp/finished.mp4'};
  const result2=await runLocalMcpCli(['call','review.preview','--args-file',file('simple.json',JSON.stringify(simple))],options);
  assert.equal(result2.isError,false);
- assert.deepEqual(calls.at(-1).body.params,{name:'review.preview',arguments:simple});
+ assert.deepEqual(calls.at(-1).body.params,{name:'markcut.review.preview',arguments:simple});
  assert.equal(calls.filter(x=>x.body.method==='tools/call').length,2);
 });
 
