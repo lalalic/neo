@@ -6,14 +6,14 @@ import {tmpdir} from 'node:os';
 import {randomUUID} from 'node:crypto';
 import {buildNeoReviewRequest,watchAndNotify} from '../markcut.mjs';
 const hash='f'.repeat(64);
-const template={type:'task.interactive_decision',source:'job/j1/task/producer/execution/e1',
+const template={type:'task.interactive_decision',source:'job/j1/task/producer/execution/e1',responseKey:'interactive',
   data:{interactive:{jobId:'j1',taskId:'producer',executionId:'e1'}}};
 const op={state:'ready',requestedPath:'/tmp/movie.md',result:{id:hash,revisionId:hash,contentHash:hash,
-  review:{delivery:'event',eventTemplate:template},relay:{jobId:'j1',taskId:'producer',executionId:'e1'}}};
+  review:{delivery:'event',eventTemplate:template}}};
 function withOp(data){const dir=mkdtempSync(join(tmpdir(),'neo-preview-test-'));const id=randomUUID();
   writeFileSync(join(dir,id+'.json'),JSON.stringify(data));return {dir,id,clean:()=>rmSync(dir,{recursive:true,force:true})};}
 test('Neo builds immutable review request using provider output; Markcut does not notify',()=>{
-  const id=randomUUID(),request=buildNeoReviewRequest(id,op);
+  const id=randomUUID(),request=buildNeoReviewRequest(id,op,{jobId:'j1',taskId:'producer',executionId:'e1'});
   assert.equal(request.id,id);assert.equal(request.mediaHash,hash);assert.equal(request.commitSha,undefined);assert.equal(request.contentHash,undefined);
   assert.equal(request.title,'movie');assert.equal(request.delivery,'event');
   assert.equal(request.groupId,'job/j1/task/producer');

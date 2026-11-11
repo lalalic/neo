@@ -43,8 +43,11 @@ Relay's canonical `task.interactive_decision` event template, with no separate i
 Git commit, revision, or snapshot. Decisions are deduplicated by the existing Task execution. A `review_requested`
 receipt is not user approval or Task completion. Markcut owns preview media,
 Core owns notification/InBox delivery, and Relay alone owns durable Review
-state. Do not add a second Preview Provider; update Markcut and Neo Mobile event validation
-only for the single execution-bound Review protocol. It invokes Neo.app Core's loopback-only REST endpoint
+state. Do not add a second Preview Provider. **Only Neo Wrapper validates Relay-specific
+identity and constructs the event template.** Markcut and Neo Mobile/Core receive
+a generic Events Bus envelope; they only validate transport safety, attach the
+human response in the caller-designated field, and publish without inspecting
+Task IDs or event types. It invokes Neo.app Core's loopback-only REST endpoint
 `POST /mobile/review/notify` and persists the intent until Core confirms
 Inbox storage. There is **no public notification-sending MCP Tool**.
 

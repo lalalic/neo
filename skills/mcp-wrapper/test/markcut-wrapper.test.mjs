@@ -31,9 +31,24 @@ test('Preview wrapper requests Relay Invocation, preserves MCP UI output, then w
  assert.equal(got,output);
  assert.deepEqual(calls,['review.interactive.begin','persist','review.interactive.wait','watch']);
  assert.deepEqual(passed[0].params.arguments.review.eventTemplate.data.interactive,relay);
- assert.deepEqual(passed[0].params.arguments.review.relay,relay);
+ assert.equal(passed[0].params.arguments.review.relay,undefined);
+ assert.equal(passed[0].params.arguments.review.eventTemplate.responseKey,'interactive');
  assert.equal(passed[0].params.arguments.path,'/tmp/video.md');
 });
+test('Neo Wrapper, not Markcut, rejects unauthorized Relay event type or identity',async()=>{
+ for(const bad of [
+  {...eventTemplate,type:'task.completed'},
+  {...eventTemplate,source:'job/j1/task/other/execution/exec-1'},
+  {...eventTemplate,data:{interactive:{...relay,decision:'approved'}}},
+ ]){
+  let forwarded=false;
+  await assert.rejects(previewCall(message,async()=>{forwarded=true;return {}},
+   {control:async command=>command==='review.interactive.begin'?{...receipt,eventTemplate:bad}:{waiting:true},
+    record:()=>{},notifyWatcher:()=>{}}),/Invalid Relay review event template/);
+  assert.equal(forwarded,false);
+ }
+});
+
 test('Managed review binds the execution without Git or extra invocation identity',async()=>{
  const dir=mkdtempSync(join(tmpdir(),'neo-preview-no-git-'));
  try{
@@ -43,7 +58,7 @@ test('Managed review binds the execution without Git or extra invocation identit
   const before=git('rev-parse','HEAD');appendFileSync(path,'\nmore content');const status=git('status','--porcelain');
   const controls=[];
   await previewCall({...message,params:{...message.params,arguments:{path,review:{relay}}}},
-   async forwarded=>{assert.deepEqual(forwarded.params.arguments.review.eventTemplate,eventTemplate);
+   async forwarded=>{assert.deepEqual(forwarded.params.arguments.review.eventTemplate,{...eventTemplate,responseKey:'interactive'});
      assert.equal(forwarded.params.arguments.review.commitSha,undefined);return {structuredContent:{operationId:randomUUID()}};},
    {control:async cmd=>{controls.push(cmd);return cmd==='review.interactive.begin'?receipt:{waiting:true}},record:()=>{},notifyWatcher:()=>{}});
   assert.deepEqual(controls,['review.interactive.begin','review.interactive.wait']);

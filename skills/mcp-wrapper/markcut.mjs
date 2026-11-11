@@ -48,15 +48,21 @@ export async function notifyReview(request,{fetchImpl=fetch,url=reviewNotifyURL(
 
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+function validateRelayReviewTemplate(template,relay){
+  const fixed=template?.data?.interactive;
+  const source=`job/${relay.jobId}/task/${relay.taskId}/execution/${relay.executionId}`;
+  if(template?.type!=='task.interactive_decision'||template.source!==source||
+    !fixed||fixed.jobId!==relay.jobId||String(fixed.taskId)!==String(relay.taskId)||
+    fixed.executionId!==relay.executionId||
+    ['decision','feedback','comments','revision','revisionId','contentHash','commitSha','invocationId','previewId','requestId','idempotencyKey']
+      .some(key=>Object.hasOwn(fixed,key)))throw Error('Invalid Relay review event template');
+  return {...template,responseKey:'interactive'};
+}
 function assertBoundReceipt(receipt,relay){
-  const fixed=receipt?.eventTemplate?.data?.interactive;
-  if(receipt.jobId!==relay.jobId||String(receipt.taskId)!==String(relay.taskId)||
-    receipt.executionId!==relay.executionId||
-    fixed?.jobId!==relay.jobId||String(fixed?.taskId)!==String(relay.taskId)||
-    fixed?.executionId!==relay.executionId)
-    throw Error('Invalid Relay interactive begin receipt');
-  return {jobId:receipt.jobId,taskId:String(receipt.taskId),
-    executionId:receipt.executionId};
+  if(receipt?.jobId!==relay.jobId||String(receipt?.taskId)!==String(relay.taskId)||
+    receipt?.executionId!==relay.executionId)throw Error('Invalid Relay interactive begin receipt');
+  validateRelayReviewTemplate(receipt.eventTemplate,relay);
+  return {jobId:receipt.jobId,taskId:String(receipt.taskId),executionId:receipt.executionId};
 }
 export function operationIdFromResult(result){
   if(result?.isError===true)return null;
@@ -138,7 +144,7 @@ export async function previewCall(message,forward,{control=relayControl,notifyWa
     if(receipt.reused===true)
       throw Error('Preview already requested for this execution; do not start another compile');
     forwarded={...prepared,params:{...params,arguments:{...prepared.params.arguments,
-      review:{delivery:'event',eventTemplate:receipt.eventTemplate,relay}}}};
+      review:{delivery:'event',eventTemplate:validateRelayReviewTemplate(receipt.eventTemplate,binding)}}}};
   }
   let result;
   try{result=await forward(forwarded);}
@@ -182,7 +188,7 @@ export function startMarkcutWrapper(upstream,options={}){
     child.unref();
   }
   return startStdioProxy({command:upstream,args:options.args||[],toolName:'markcut.preview',
-    description:'Neo-hosted Markcut preview; readonly:true disables review/phone notification; review.relay binds a managed Task. Existing markcut.preview behavior remains available.',
+    description:'Neo-hosted generic Markcut preview. Neo Wrapper handles Relay review binding; Markcut only compiles and delivers caller-supplied event templates.',
     aliasName:'review.preview',aliasDescription:'Show a view-only media preview or request human review for the current Relay Task execution. Called by agents-relay review interactive CLI; never commits Git.',
     aliasInputSchema:{type:'object',additionalProperties:false,required:['path'],properties:{
       path:{type:'string',description:'Absolute Markdown or supported media path'},
@@ -221,15 +227,7 @@ export async function relayControl(command,fields,{exec=runFile}={}){
     throw Error('Agents Relay CLI '+command+' failed: '+String(error?.stderr||error?.message||error).slice(0,350));
   }
 }
-function relayIdentity(operation){
-  const relay=operation?.result?.relay||operation?.relay;
-  const fixed=(operation?.result?.review||operation?.review)?.eventTemplate?.data?.interactive;
-  if(!relay)return null;
-  if(!fixed||!fixed.jobId||!fixed.taskId||!fixed.executionId||
-    relay.jobId!==fixed.jobId||String(relay.taskId)!==fixed.taskId||relay.executionId!==fixed.executionId)
-    throw new Error('Relay preview identity differs from bound template');
-  return {jobId:fixed.jobId,taskId:fixed.taskId,executionId:fixed.executionId};
-}
+
 export const operationsDirectory=()=>process.env.NEOY_MARKCUT_OPERATIONS_DIR ||
   join(homedir(),'Library','Application Support','NeoY','exports','_neoy','markcut','operations');
 export const deliveryDirectory=()=>process.env.NEOY_PREVIEW_DELIVERY_DIR ||
@@ -279,7 +277,7 @@ function acquireDeliveryLock(path){
   throw new Error('Cannot acquire delivery lock');
 }
 
-export function buildNeoReviewRequest(operationId,operation){
+export function buildNeoReviewRequest(operationId,operation,binding=null){
   if(!UUID.test(operationId)||operation?.state!=='ready'||!operation.result)
     throw new Error('Preview is not ready');
   const result=operation.result;
@@ -292,11 +290,13 @@ export function buildNeoReviewRequest(operationId,operation){
     request.mediaHash=result.contentHash;
     if(!review.eventTemplate)throw new Error('Event review requires caller-bound template');
     request.eventTemplate=review.eventTemplate;
-    const fixed=review.eventTemplate?.data?.interactive;
-    if(!fixed?.jobId||!fixed.taskId||!fixed.executionId)
-      throw new Error('Invalid bound interactive review');
-    request.jobId=fixed.jobId;
-    request.groupId=`job/${fixed.jobId}/task/${fixed.taskId}`;
+    if(binding){
+      // Neo alone owns Relay-specific interpretation; Markcut transports the opaque event.
+      validateRelayReviewTemplate(review.eventTemplate,binding);
+      if(review.eventTemplate.responseKey!=='interactive')throw Error('Invalid Relay review response binding');
+      request.jobId=binding.jobId;
+      request.groupId=`job/${binding.jobId}/task/${binding.taskId}`;
+    }else request.groupId=operation.requestedPath||result.requestedPath;
   } else if(request.delivery==='text'){
     request.contentHash=result.contentHash;request.revisionId=result.revisionId;
     request.groupId=operation.requestedPath||result.requestedPath;
@@ -320,13 +320,11 @@ export async function watchAndNotify(operationId,{directory=operationsDirectory(
     try{operation=JSON.parse(readFileSync(path,'utf8'));}
     catch(error){if(error?.code!=='ENOENT')throw error;}
     if(operation?.state==='failed'){
-      identity=relayIdentity(operation)||identity;
       await fail(operation.error||'Preview compilation failed');
       return {notified:false,failed:true,error:operation.error||'Preview compilation failed'};
     }
     if(operation?.state==='ready'){
-      identity=relayIdentity(operation)||identity;
-      const request=buildNeoReviewRequest(operationId,operation);
+      const request=buildNeoReviewRequest(operationId,operation,identity);
       try{
         const receipt=await notify(request);
         if(receipt?.stored!==true)throw new Error('Neo review inbox persistence was not acknowledged');
