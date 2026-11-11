@@ -7,7 +7,7 @@ import {spawn,execFileSync} from 'node:child_process';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {fileURLToPath} from 'node:url';
-import {federationConfiguration,operationIdFromResult,previewCall,relayControl,relayInteractiveArgs,notifyReview,reviewNotifyURL,commitShaForPreview,singleMediaPreviewPath} from '../markcut.mjs';
+import {federationConfiguration,operationIdFromResult,previewCall,relayControl,relayInteractiveArgs,notifyReview,reviewNotifyURL,newPreviewRevision,singleMediaPreviewPath} from '../markcut.mjs';
 const id=randomUUID();
 const relay={jobId:'j1',taskId:'producer',executionId:'exec-1'};
 const eventTemplate={type:'task.interactive_decision',source:'job/j1/task/producer/execution/exec-1',
@@ -34,57 +34,57 @@ test('Preview wrapper requests Relay Invocation, preserves MCP UI output, then w
  assert.deepEqual(passed[0].params.arguments.review.relay,relay);
  assert.equal(passed[0].params.arguments.path,'/tmp/video.md');
 });
-test('Managed Preview derives immutable 40-character Run Git SHA for the limited Neo tool schema',async()=>{
- const dir=mkdtempSync(join(tmpdir(),'neo-preview-git-'));
- try {
-   const file=join(dir,'director-hooks.md');writeFileSync(file,'# Source-grounded Director review\n');
-   const git=(...args)=>execFileSync('git',args,{cwd:dir,encoding:'utf8',timeout:8000}).trim();
-   git('init','-q');git('-c','user.name=Neo Test','-c','user.email=neo-test@localhost','add','--',file);
-   git('-c','user.name=Neo Test','-c','user.email=neo-test@localhost','commit','-qm','director checkpoint');
-   const sha=git('rev-parse','HEAD');assert.match(sha,/^[a-f0-9]{40}$/);
-   assert.equal(commitShaForPreview(file),sha);
-   let controls=[];
-   const request={...message,params:{...message.params,arguments:{path:file,review:{relay}}}};
-   const got=await previewCall(request,async forwarded=>{
-     assert.equal(forwarded.params.arguments.review.commitSha,sha);
-     assert.deepEqual(forwarded.params.arguments.review.eventTemplate,eventTemplate);
-     return {structuredContent:{operationId:randomUUID()}};
-   },{control:async command=>{controls.push(command);return command==='review.interactive.begin'?receipt:{waiting:true};},record:()=>{},notifyWatcher:()=>{}});
-   assert.ok(operationIdFromResult(got));
-   assert.deepEqual(controls,['review.interactive.begin','review.interactive.wait']);
-   appendFileSync(file,'Unreviewed change\n');
-   assert.throws(()=>commitShaForPreview(file),/differs from the immutable Run checkpoint/);
-   controls=[];
-   await assert.rejects(previewCall(request,async()=>{throw Error('must not compile');},
-     {control:async command=>{controls.push(command);throw Error('must not reserve');}}),/differs from the immutable Run checkpoint/);
-   assert.deepEqual(controls,[]);
- } finally {rmSync(dir,{recursive:true,force:true});}
-});
-test('one managed Preview auto-commits all nonignored Run files without review options or Stage gate',async()=>{
- const dir=mkdtempSync(join(tmpdir(),'neo-managed-auto-'));
+test('Managed review binds an opaque revision without changing Run Git or requiring committed Markdown',async()=>{
+ const dir=mkdtempSync(join(tmpdir(),'neo-preview-no-git-'));
  try{
-  const preview=join(dir,'visioner-review.md');
-  writeFileSync(join(dir,'.gitignore'),'assets/\n*.mp4\n.neo-project-run.json\n');
-  writeFileSync(join(dir,'.neo-project-run.json'),JSON.stringify({runPath:dir,project:'vlog'}));
-  writeFileSync(preview,'# Review before Stage completed');
-  writeFileSync(join(dir,'other-evidence.json'),'relevant dependency');
+  const path=join(dir,'in-progress.md');
+  writeFileSync(path,'# Source still being edited');
+  writeFileSync(join(dir,'other-evidence.json'),'uncommitted evidence');
   const git=(...args)=>execFileSync('git',args,{cwd:dir,encoding:'utf8',timeout:8000}).trim();
-  git('init','-q');git('add','--','.gitignore');
-  git('-c','user.name=Test','-c','user.email=t@x','commit','-qm','initialize');
-  let committedSha;
-  const req={...message,params:{...message.params,arguments:{path:preview,review:{relay}}}};
-  await previewCall(req,async forwarded=>{
-   committedSha=git('rev-parse','HEAD');
-   assert.equal(forwarded.params.arguments.review.commitSha,committedSha);
-   assert.equal(git('show',`${committedSha}:other-evidence.json`),'relevant dependency');
-   assert.equal(git('show',`${committedSha}:visioner-review.md`),'# Review before Stage completed');
-   return {structuredContent:{operationId:randomUUID()}};
-  },{control:async command=>command==='review.interactive.begin'?receipt:{waiting:true},record:()=>{},notifyWatcher:()=>{}});
-  assert.equal(git('status','--porcelain'),'');
-  assert.equal(git('rev-parse','HEAD'),committedSha);
- }finally{rmSync(dir,{recursive:true,force:true});}
+  git('init','-q');git('add','--',path);
+  git('-c','user.name=Test','-c','user.email=t@x','commit','-qm','initial');
+  const before=git('rev-parse','HEAD');
+  appendFileSync(path,'\nnew content');
+  const status=git('status','--porcelain');
+  const controls=[],tokens=[];
+  const request={...message,params:{...message.params,arguments:{path,review:{relay}}}};
+  for(let i=0;i<2;i++){
+    const result=await previewCall(request,async forwarded=>{
+      const token=forwarded.params.arguments.review.commitSha;
+      assert.match(token,/^[a-f0-9]{40}$/);
+      assert.notEqual(token,before);
+      assert.equal(forwarded.params.arguments.review.delivery,'event');
+      tokens.push(token);
+      return {structuredContent:{operationId:randomUUID()}};
+    },{control:async cmd=>{controls.push(cmd);return cmd==='review.interactive.begin'?receipt:{waiting:true};},
+      record:()=>{},notifyWatcher:()=>{}});
+    assert.ok(operationIdFromResult(result));
+  }
+  assert.notEqual(tokens[0],tokens[1]);
+  assert.deepEqual(controls,['review.interactive.begin','review.interactive.wait',
+    'review.interactive.begin','review.interactive.wait']);
+  assert.equal(git('rev-parse','HEAD'),before);
+  assert.equal(git('status','--porcelain'),status);
+  assert.match(newPreviewRevision(),/^[a-f0-9]{40}$/);
+ }finally{rmSync(dir,{recursive:true,force:true})}
 });
 
+test('managed review allows single-media ghost preview without a Git commit',async()=>{
+ const dir=mkdtempSync(join(tmpdir(),'neo-managed-media-'));
+ try {
+  const path=join(dir,'render.mp4');
+  writeFileSync(path,'fake video');
+  const request={...message,params:{...message.params,arguments:{path,review:{relay}}}};
+  await previewCall(request,async forwarded=>{
+   assert.equal(forwarded.params.arguments.path,join(realpathSync(dir),'.ghost.markcut.md'));
+   assert.match(forwarded.params.arguments.review.commitSha,/^[a-f0-9]{40}$/);
+   return {structuredContent:{operationId:randomUUID()}};
+  },{control:async cmd=>cmd==='review.interactive.begin'?receipt:{waiting:true},
+     record:()=>{},notifyWatcher:()=>{},
+     resolveMedia:value=>singleMediaPreviewPath(value,{probe:()=>JSON.stringify({streams:[{width:1280,height:720}],format:{duration:12}})})});
+  assert.equal(readFileSync(join(dir,'.ghost.markcut.md'),'utf8').includes('render.mp4'),true);
+ }finally{rmSync(dir,{recursive:true,force:true})}
+});
 test('single image, video and audio use one stable ghost Markdown filename with exact source and duration',()=>{
  const directory=mkdtempSync(join(tmpdir(),'neo-ghost-preview-'));
  try{
@@ -125,7 +125,7 @@ test('single media readonly forwards ghost Markdown without Relay, watcher or ph
   assert.equal(got,result);
  }finally{rmSync(directory,{recursive:true,force:true});}
 });
-test('single-media interactive preview uses existing standalone delivery, while managed media requires authored Markdown',async()=>{
+test('single-media interactive preview keeps existing standalone delivery and managed media uses ghost Markdown',async()=>{
  const directory=mkdtempSync(join(tmpdir(),'neo-ghost-interactive-'));
  try{
   const source=join(directory,'shot.png');writeFileSync(source,'fixture');
@@ -139,9 +139,14 @@ test('single-media interactive preview uses existing standalone delivery, while 
     record:()=>{calls.push('record')},notifyWatcher:()=>{calls.push('notify')},
     resolveMedia:path=>singleMediaPreviewPath(path,{probe:()=>JSON.stringify({streams:[{width:320,height:240}],format:{duration:1}})})});
   assert.deepEqual(calls,['record','notify']);
-  await assert.rejects(previewCall({...request,params:{...request.params,
-   arguments:{...request.params.arguments,review:{relay}}}},async()=>{throw Error('Must not call provider')}),
-   /requires an authored Markdown/);
+  const managed={...request,params:{...request.params,arguments:{...request.params.arguments,review:{relay}}}};
+  await previewCall(managed,async forwarded=>{
+   assert.equal(forwarded.params.arguments.path,join(realpathSync(directory),'.ghost.markcut.md'));
+   assert.match(forwarded.params.arguments.review.commitSha,/^[a-f0-9]{40}$/);
+   return {structuredContent:{operationId:randomUUID()}};
+  },{control:async cmd=>cmd==='review.interactive.begin'?receipt:{waiting:true},
+     record:()=>{},notifyWatcher:()=>{},
+     resolveMedia:path=>singleMediaPreviewPath(path,{probe:()=>JSON.stringify({streams:[{width:320,height:240}],format:{duration:1}})})});
  }finally{rmSync(directory,{recursive:true,force:true});}
 });
 
@@ -205,7 +210,10 @@ test('Upstream stdio preview UI descriptor and resources/read are forwarded inta
   const get=i=>result.find(r=>r.id===i);
   assert.equal(get(1).result.serverInfo.name,'mock');
   assert.match(get(2).result.tools[0].description,/Neo-hosted/);
+  assert.deepEqual(get(2).result.tools.map(tool=>tool.name),['markcut.preview','review.preview']);
   assert.equal(get(2).result.tools[0]._meta.ui.resourceUri,'ui://markcut/player.html');
+  assert.equal(get(2).result.tools[1]._meta.ui.resourceUri,'ui://markcut/player.html');
+  assert.deepEqual(get(2).result.tools[1].inputSchema.required,['path']);
   assert.match(get(3).result.contents[0].text,/Player/);
   assert.equal(get(4).result.isError,true);
  }finally{child.kill();rmSync(dir,{recursive:true,force:true})}

@@ -4,7 +4,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, readFileSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { loadRunGitConfig, ensureRunGit, commitRunStage, tagRunReview } from '../.bin/neo-run-git.mjs';
+import { loadRunGitConfig, ensureRunGit, commitRunStage } from '../.bin/neo-run-git.mjs';
 import { runProject } from '../.bin/neo-project-run.mjs';
 
 const sourceRoot = resolve(import.meta.dirname, '..');
@@ -45,7 +45,7 @@ test('Run repo commits all nonignored files and never media or private inputs', 
     const second=commitRunStage(f.run,f.config,'producer','exec-01');
     assert.notEqual(second.commitSha,first.commitSha);
     assert.equal(commitRunStage(f.run,f.config,'producer','exec-01').commitSha,second.commitSha);
-    assert.equal(tagRunReview(f.run,f.config,{status:'review_requested',requestId:'r1',commitSha:second.commitSha}).tag,'review/r1');
+    assert.equal(git(f.run,'tag','--list','review/r*'),'');
     writeFileSync(join(f.run,'other-note.txt'),'new version');
     const third=commitRunStage(f.run,f.config,'editor');
     assert.equal(git(f.run,'show',`${third.commitSha}:other-note.txt`),'new version');
@@ -113,7 +113,7 @@ test('Run config requires a safe ignore template but not a per-Agent trackedArti
   } finally {rmSync(f.base,{recursive:true,force:true});}
 });
 
-test('Project Runner automatically checkpoints verified stage callbacks and review SHA', async () => {
+test('Project Runner commits verified Stages but not review requests', async () => {
   const f=fixture(), calls=[], jobs=new Map(), tasks=new Map();
   try {
     const runRelay = args => {
@@ -138,9 +138,8 @@ test('Project Runner automatically checkpoints verified stage callbacks and revi
       onNodeEvent({nodeId:'director',type:'completed',data:{output:{title:'walk'}}});
       writeFileSync(join(f.run,'video.md'),'verified Markcut');
       writeFileSync(join(f.run,'production-receipt.json'),JSON.stringify({videoSha256:hash('c')}));
-      const preReview=commitRunStage(f.run,loadRunGitConfig(f.project,f.declaration),'producer');
-      onNodeEvent({nodeId:'producer',type:'completed',data:{output:{preview:{
-        status:'review_requested',requestId:'req-1',commitSha:preReview.commitSha
+        onNodeEvent({nodeId:'producer',type:'completed',data:{output:{preview:{
+        status:'review_requested',requestId:'req-1',commitSha:'f'.repeat(40)
       }}}});
       jobs.get('job-1').state='COMPLETED'; tasks.get('content-run').state='SUCCEEDED';
       return 0;
@@ -150,10 +149,11 @@ test('Project Runner automatically checkpoints verified stage callbacks and revi
       workspace:{neoRoot:f.neoRoot,harnessRoot:sourceRoot},runRelay,runRelayJob,emit:line=>lines.push(line)
     });
     assert.equal(result,0);
-    assert.match(git(f.run,'log','--pretty=%s'),/run: producer verified/);
+    assert.doesNotMatch(git(f.run,'log','--pretty=%s'),/run: producer verified/);
+    assert.match(git(f.run,'status','--porcelain'),/video.md/,'Review must leave work-in-progress uncommitted');
     assert.match(git(f.run,'log','--pretty=%s'),/run: director verified/);
-    assert.equal(git(f.run,'rev-list','-n','1','review/r1'),git(f.run,'rev-parse','HEAD'));
-    assert.equal(lines.filter(line=>line.includes('run.git.checkpoint')).length,2);
+    assert.equal(git(f.run,'tag','--list','review/r*'),'','Preview must not create review tags');
+    assert.equal(lines.filter(line=>line.includes('run.git.checkpoint')).length,1);
     assert.equal(calls.some(args=>args[0]==='job'&&args[1]==='run'),false);
   } finally {rmSync(f.base,{recursive:true,force:true});}
 });

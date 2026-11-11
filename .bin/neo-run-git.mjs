@@ -7,7 +7,6 @@ const inside = (root, path) => {
   const rel = relative(root, path);
   return rel === '' || (rel !== '..' && !rel.startsWith(`..${sep}`) && !isAbsolute(rel));
 };
-const revisionTag = /^review\/r([1-9][0-9]*)$/;
 
 /** Neo's global policy for every private Run Git, independent of project
  * run-template/.gitignore. Git's info/exclude is local and never committed.
@@ -82,7 +81,7 @@ export function ensureRunGit(run, config) {
   git(run, 'commit', '-q', '-m', 'run: initialize local version history');
 }
 
-/** Stage and Preview commits share one boundary: the Run's own .gitignore.
+/** Verified Stage commits use the Run's own .gitignore.
  * Never stage files in the Project checkout or a remote-enabled repository.
  * Refuse symlinks and gitlinks rather than silently snapshotting external paths.
  */
@@ -132,69 +131,4 @@ export function commitRunStage(run, config, nodeId, executionId = null) {
       `Run-Stage: ${nodeId}\nRun-Execution: ${executionId ?? 'none'}`);
   }
   return { commitSha: git(run, 'rev-parse', 'HEAD'), changed: staged.length > 0, reused: false, files: staged };
-}
-
-/** Preview owns this automatic checkpoint, not a particular Agent or Stage.
- * The marker fences this operation to a local private Neo Run Git repo.
- */
-export function commitRunPreview(previewPath) {
-  if (typeof previewPath !== 'string' || !isAbsolute(previewPath) || !previewPath.endsWith('.md'))
-    fail('Managed Preview requires an absolute Markdown path');
-  const file = realpathSync(previewPath);
-  if (!lstatSync(previewPath).isFile()) fail('Preview must be a regular file');
-  const run = realpathSync(git(dirname(file), 'rev-parse', '--show-toplevel'));
-  if (!inside(run, file) || run === file || !existsSync(join(run, '.git')) ||
-      !lstatSync(join(run, '.git')).isDirectory() || git(run,'remote'))
-    fail('Managed Preview requires a private standalone Run Git repository without remotes');
-  const markerFile = join(run,'.neo-project-run.json');
-  if (!existsSync(markerFile) || lstatSync(markerFile).isSymbolicLink() || !lstatSync(markerFile).isFile())
-    fail('Managed Preview requires a bound Neo Project Run');
-  const marker = JSON.parse(readFileSync(markerFile,'utf8'));
-  if (typeof marker.runPath !== 'string' || !existsSync(marker.runPath) || realpathSync(marker.runPath) !== run ||
-      typeof marker.project !== 'string' || !marker.project)
-    fail('Managed Preview Run identity mismatch');
-  const ignore = join(run,'.gitignore');
-  if (!existsSync(ignore) || !lstatSync(ignore).isFile() || lstatSync(ignore).isSymbolicLink())
-    fail('Managed Preview Run has no safe .gitignore');
-  const rel = relative(run,file);
-  if (!rel || isAbsolute(rel)) fail('Preview is outside the Run');
-  // Check reviewability before committing unrelated material: an ignored MD
-  // cannot be bound to an immutable SHA even if other files need staging.
-  const ignored=spawnSync('git',['-C',run,'check-ignore','-q','--',rel],{stdio:'ignore',timeout:10000});
-  if (ignored.error || ![0,1].includes(ignored.status) || ignored.status===0)
-    fail('Managed Preview Markdown is ignored or inaccessible');
-  const staged = stageRunChanges(run);
-  if (staged.length) git(run, 'commit','-q','-m','run: interactive preview checkpoint');
-  const sha = git(run, 'rev-parse', 'HEAD');
-  if (!/^[a-f0-9]{40}$/.test(sha)) fail('Invalid Preview revision');
-  git(run, 'cat-file', '-e', `HEAD:${rel}`);
-  return {commitSha:sha,changed:staged.length>0,files:staged,run};
-}
-
-export function assertReviewCheckpoint(run, config, commitSha) {
-  if (!config) fail('project does not support Git SHA reviews');
-  ensureRunGit(run, config);
-  if (!/^[a-f0-9]{40}$/.test(commitSha) || git(run, 'rev-parse', 'HEAD') !== commitSha)
-    fail('review must target current full Git Commit SHA');
-  if (git(run,'status','--porcelain','--untracked-files=all'))
-    fail('review has uncommitted non-ignored Run changes');
-  return commitSha;
-}
-
-export function tagRunReview(run, config, preview, commitSha = null) {
-  if (!config || !preview || preview.status !== 'review_requested') return null;
-  if (!/^[a-f0-9]{40}$/.test(preview.commitSha || '') ||
-      typeof preview.requestId !== 'string' || !/^[A-Za-z0-9_.:-]+$/.test(preview.requestId))
-    fail('review request requires commitSha and requestId');
-  const sha = assertReviewCheckpoint(run, config, commitSha ?? preview.commitSha);
-  if (sha !== preview.commitSha) fail('Review preview Commit SHA mismatch');
-  const names = git(run, 'tag', '--list', 'review/r*').split('\n').filter(Boolean);
-  for (const tag of names) {
-    if (git(run, 'rev-list', '-n', '1', tag) !== sha) continue;
-    return { tag, commitSha: sha, reused: true };
-  }
-  const number = 1 + Math.max(0, ...names.map(name => revisionTag.exec(name)?.[1]).filter(Boolean).map(Number));
-  const tag = `review/r${number}`;
-  git(run, 'tag', '-a', tag, sha, '-m', JSON.stringify({commitSha:sha,requestId:preview.requestId}));
-  return { tag, commitSha: sha, reused: false };
 }

@@ -9,7 +9,7 @@ const CALL_TIMEOUT_MS = 120_000;
 // Only explicitly approved local Neo.app MCP tools are CLI-callable.
 // Generic tools/list discovery must not grant access to setup/shell/cluster etc.
 // The computer facade remains under its own subcommand whitelist.
-const CLI_MCP_TOOLS = new Set(['markcut.preview']);
+const CLI_MCP_TOOLS = new Set(['markcut.preview','review.preview']);
 
 const COMPUTER_COMMANDS = new Set([
   'list_apps', 'get_app_state', 'click', 'drag', 'key', 'scroll',
@@ -110,6 +110,11 @@ export async function listLocalMcpTools(options={}){
 export async function callLocalMcpTool(name,args={},options={}){
  if(!CLI_MCP_TOOLS.has(name))throw Error(`Neo MCP CLI tool is not exposed: ${String(name)}`);
  if(!args || typeof args!=='object' || Array.isArray(args))throw Error('Neo MCP arguments must be a JSON object');
+ if(name==='review.preview'){
+  if(typeof args.path!=='string'||!args.path.startsWith('/'))throw Error('review.preview requires an absolute media or Markdown path');
+  if(Object.keys(args).some(key=>!['path','relay'].includes(key)))throw Error('review.preview only accepts path and optional relay');
+  if(args.relay!==undefined&&(!args.relay||typeof args.relay!=='object'||!String(args.relay.jobId||'')||!String(args.relay.taskId||'')||typeof args.relay.executionId!=='string'||!args.relay.executionId))throw Error('Managed review.preview requires relay.jobId, taskId and executionId');
+ }
  if(name==='markcut.preview'){
   if(typeof args.path!=='string'||!args.path.startsWith('/')||
     !/\.(?:md|mp4|mov|m4v|webm|png|jpg|jpeg|webp|gif|mp3|wav|m4a|aac|flac|ogg)$/i.test(args.path))
@@ -130,7 +135,7 @@ export async function runLocalMcpCli(argv,options={}){
  const [action,name,...args]=argv;
  if(action==='tools'&&name===undefined)return listLocalMcpTools(options);
  if(action!=='call'||!name||name.startsWith('-'))
-  throw Error('Usage: neo mcp tools | neo mcp call markcut.preview --args-file PATH');
+  throw Error('Usage: neo mcp tools | neo mcp call review.preview --args-file PATH');
  if(args.length!==2||args[0]!=='--args-file')
   throw Error('neo mcp call requires --args-file PATH');
  return callLocalMcpTool(name,readArgumentsFile(args[1]),options);

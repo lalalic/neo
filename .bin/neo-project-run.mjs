@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { chmodSync, closeSync, existsSync, linkSync, lstatSync, mkdirSync, openSync, readFileSync, realpathSync, statSync, unlinkSync, writeFileSync, writeSync } from 'node:fs';
 import { basename, dirname, isAbsolute, join, relative, sep } from 'node:path';
 import { loadWorkspaceConfig } from './workspace-config.mjs';
-import { loadRunGitConfig, ensureRunGit, commitRunStage, tagRunReview, assertReviewCheckpoint } from './neo-run-git.mjs';
+import { loadRunGitConfig, ensureRunGit, commitRunStage } from './neo-run-git.mjs';
 
 const TASK_ID = 'content-run';
 const bindingName = '.neo-project-run.json';
@@ -341,14 +341,13 @@ export function runProject(args, options = {}) {
   let stageCheckpoints = 0;
   const onNodeEvent = event => {
     if (!runGit || event?.type !== 'completed') return;
-    const preview = event.data?.output?.preview;
-    const checkpoint = preview?.status === 'review_requested'
-      ? { commitSha: assertReviewCheckpoint(runDir, runGit, preview.commitSha), changed:false, reused:true, files:[] }
-      : commitRunStage(runDir, runGit, event.nodeId, event.data?.executionId);
-    const review = tagRunReview(runDir, runGit, preview, checkpoint.commitSha);
+    // Review is an interactive pause, not a Git checkpoint. Normal
+    // verified Stage completion remains independently versioned below.
+    if(event.data?.output?.preview?.status === 'review_requested')return;
+    const checkpoint=commitRunStage(runDir,runGit,event.nodeId,event.data?.executionId);
     stageCheckpoints += 1;
     (options.emit ?? (text => process.stdout.write(text)))(JSON.stringify({
-      type: 'run.git.checkpoint', nodeId: event.nodeId, ...checkpoint, ...(review ? { review } : {})
+      type: 'run.git.checkpoint', nodeId: event.nodeId, ...checkpoint
     }) + '\n');
   };
   const runBound = async (jobId, previouslyCompleted = false) => {

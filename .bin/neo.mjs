@@ -50,7 +50,8 @@ function usage() {
   neo eval audit
   neo service list|status NAME|start|stop|restart NAME --apply
   neo mcp tools                                List permitted local Neo.app MCP tools
-  neo mcp call markcut.preview --args-file PATH  Call Neo.app preview (managed relay optional)
+  neo mcp call review.preview --args-file PATH   View-only or managed review (no Git commit)
+  neo mcp call markcut.preview --args-file PATH Existing provider-compatible preview
   neo mcp token issue (--stdout | --output ABSOLUTE_PATH) [--origin HTTPS_URL] [--client-name NAME]
   neo mcp token revoke --file ABSOLUTE_PATH [--origin HTTPS_URL]
   neo computer-use help | call COMMAND [--args-file PATH]

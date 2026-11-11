@@ -3,14 +3,13 @@
  * review handoff/notification; no Swift changes or middleware registry.
  */
 import {spawn,execFile,execFileSync} from 'node:child_process';
-import {randomUUID} from 'node:crypto';
+import {randomUUID,randomBytes} from 'node:crypto';
 import {promisify} from 'node:util';
 import {existsSync,readFileSync,writeFileSync,renameSync,statSync,unlinkSync,mkdirSync,readdirSync,realpathSync} from 'node:fs';
 import {join,basename,resolve,dirname,relative,isAbsolute,sep,extname} from 'node:path';
 import {homedir} from 'node:os';
 import {fileURLToPath} from 'node:url';
 import {startStdioProxy} from './stdio-proxy.mjs';
-import {commitRunPreview} from '../../.bin/neo-run-git.mjs';
 // Neo owns orchestration; Neo.app owns the durable Review REST service.
 // All review operations use HTTP REST, never the Agent MCP Tool surface.
 export function reviewNotifyURL({portFile=join(homedir(),'Library','Application Support','NeoY','deployment.json'),
@@ -71,30 +70,12 @@ function watcher(id){
   child.on('error',error=>{process.stderr.write('Neo Preview watcher: '+error.message+'\n');});
   child.unref();
 }
-/** A Relay review must bind a committed Run revision, not Markcut's media hash.
- * Neo's federated markcut_preview schema does not expose review.commitSha.
- * Resolve it deterministically from the checked-in Markdown source, before
- * reserving any Relay invocation; an uncommitted edit must fail closed.
+/** Legacy Markcut/Neo Mobile event transport names its 40-hex review token
+ * `commitSha`. It is an opaque per-invocation identity, NEVER a Git commit.
+ * Relay binds this token together with invocationId and executionId; Markcut
+ * independently binds the submitted action to the compiled contentHash.
  */
-export function commitShaForPreview(previewPath,{git=execFileSync}={}){
-  if(typeof previewPath!=='string'||!isAbsolute(previewPath)||!previewPath.endsWith('.md'))
-    throw Error('Event Preview requires an absolute committed Markdown path');
-  const file=realpathSync(previewPath);
-  if(!statSync(file).isFile())throw Error('Event Preview source is not a regular file');
-  const options={cwd:dirname(file),encoding:'utf8',timeout:8000,maxBuffer:1024*1024};
-  const call=(...args)=>String(git('git',args,options)).trim();
-  let root,sha;
-  try {root=realpathSync(call('rev-parse','--show-toplevel')); sha=call('rev-parse','--verify','HEAD^{commit}');}
-  catch {throw Error('Event Preview needs a valid committed Run Git revision; checkpoint the Stage first');}
-  const rel=relative(root,file);
-  if(!rel||rel==='..'||rel.startsWith(`..${sep}`)||isAbsolute(rel)||!/^[a-f0-9]{40}$/.test(sha))
-    throw Error('Event Preview is outside its committed Run or has an invalid Git SHA');
-  try {call('cat-file','-e',`HEAD:${rel}`);}
-  catch {throw Error('Event Preview Markdown must be tracked in the Run checkpoint before delivery');}
-  if(call('status','--porcelain=v1','--untracked-files=normal','--',rel))
-    throw Error('Event Preview Markdown differs from the immutable Run checkpoint; commit the Stage first');
-  return sha;
-}
+export function newPreviewRevision(){return randomBytes(20).toString('hex');}
 
 /** Adapt a single local media file to the native Markdown-only Preview Tool.
  * The ghost file is deliberately stable per media directory and is ignored by
@@ -139,10 +120,6 @@ export async function previewCall(message,forward,{control=relayControl,notifyWa
   const input=params.arguments||{};
   if(input.relay!==undefined)throw Error('Use review.relay instead of top-level relay');
   const relay=input.review?.relay;
-  // Single-media previews share the existing standalone review path. Managed
-  // reviews still require a tracked authored Markdown for the Git SHA binding.
-  if(relay!==undefined && typeof input.path==='string' && MEDIA_TYPES.has(extname(input.path).toLowerCase()))
-    throw Error('Managed Preview requires an authored Markdown file; single-media ghost previews are standalone');
   const markdownPath=resolveMedia(input.path);
   const prepared=markdownPath===input.path ? message :
     {...message,params:{...params,arguments:{...input,path:markdownPath}}};
@@ -160,17 +137,12 @@ export async function previewCall(message,forward,{control=relayControl,notifyWa
       !(typeof relay.taskId==='string'&&relay.taskId.length||Number.isSafeInteger(relay.taskId))||
       typeof relay.executionId!=='string'||!relay.executionId)
       throw Error('Managed preview requires relay.jobId, taskId and executionId');
-    // A missing commitSha is normal for the public Neo tool schema; do not
-    // reserve a Relay invocation or submit an invalid Markcut request for it.
-    // Bound Project Runs checkpoint every nonignored change before reserving the review.
-    // For non-Run Git sources, keep the existing read-only committed-SHA path.
-    const runMarker = (() => {
-      try { const run=execFileSync('git',['-C',dirname(realpathSync(input.path)),'rev-parse','--show-toplevel'],{encoding:'utf8',timeout:8000}).trim();
-        return existsSync(join(run,'.neo-project-run.json')); } catch { return false; }
-    })();
-    const commitSha=runMarker ? commitRunPreview(input.path).commitSha : (input.review?.commitSha??commitShaForPreview(input.path));
-    if (runMarker && input.review?.commitSha && input.review.commitSha!==commitSha) throw Error('Explicit Preview revision does not match current committed Run');
-    if(!/^[a-f0-9]{40}$/.test(commitSha))throw Error('Event Preview requires a full Git Commit SHA');
+    // Keep the old event transport field for Neo Mobile compatibility.
+    // An explicit legacy value is preserved; otherwise use an opaque token.
+    // Neither path runs Git commands or modifies Run files.
+    const commitSha=input.review?.commitSha??newPreviewRevision();
+    if(!/^[a-f0-9]{40}$/.test(commitSha))
+      throw Error('Managed Preview revision token must be 40 lowercase hex characters');
     const receipt=await control('review.interactive.begin',{
       jobId:relay.jobId,taskId:String(relay.taskId),executionId:relay.executionId});
     binding=assertBoundReceipt(receipt,{...relay,taskId:String(relay.taskId)});
@@ -220,7 +192,19 @@ export function startMarkcutWrapper(upstream,options={}){
     child.unref();
   }
   return startStdioProxy({command:upstream,args:options.args||[],toolName:'markcut.preview',
-    description:'Neo-hosted Markcut preview of Markdown or one image/audio/video file. Set readonly:true for view-only playback without review, Git checkpoint, Relay interaction, or iPhone notification. For managed review, use review.relay; standalone review omits it.',
+    description:'Neo-hosted Markcut preview; readonly:true disables review/phone notification; review.relay binds a managed Task. Existing markcut.preview behavior remains available.',
+    aliasName:'review.preview',aliasDescription:'Preview Markdown, image, audio or video. Supply path only for standalone view-only playback. For a managed Relay Task, include relay {jobId,taskId,executionId}; Neo waits for the decision and resumes the Task. Never commits Git.',
+    aliasInputSchema:{type:'object',additionalProperties:false,required:['path'],properties:{
+      path:{type:'string',description:'Absolute Markdown or supported media path'},
+      relay:{type:'object',additionalProperties:false,required:['jobId','taskId','executionId'],
+        properties:{jobId:{type:'string'},taskId:{anyOf:[{type:'string'},{type:'integer'}]},executionId:{type:'string'}}}
+    }},
+    transformAlias:(input)=>{
+      if(typeof input?.path!=='string'||!isAbsolute(input.path))throw Error('review.preview requires absolute path');
+      if(Object.keys(input).some(k=>!['path','relay'].includes(k)))throw Error('review.preview only accepts path and optional Relay context');
+      if(input.relay===undefined)return {path:input.path,readonly:true};
+      return {path:input.path,review:{relay:input.relay}};
+    },
     wrapCall:(message,forward)=>previewCall(message,forward)});
 }
 
