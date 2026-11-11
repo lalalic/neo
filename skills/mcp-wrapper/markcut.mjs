@@ -100,6 +100,13 @@ export async function previewCall(message,forward,{control=relayControl,notifyWa
   const params=message.params||{};
   const input=params.arguments||{};
   const relay=input.relay;
+  if(input.readonly===true){
+    // Read-only playback cannot create a checkpoint, Relay invocation, Inbox
+    // item, or watcher. The provider owns compilation and the view-only UI.
+    if(relay!==undefined||input.review!==undefined)
+      throw Error('Read-only preview cannot request Relay or review delivery');
+    return forward(message);
+  }
   let binding=null;
   let forwarded=message;
   if(relay!==undefined&&relay!==null){
@@ -167,7 +174,7 @@ export function startMarkcutWrapper(upstream,options={}){
     child.unref();
   }
   return startStdioProxy({command:upstream,args:options.args||[],toolName:'markcut.preview',
-    description:'Neo-hosted Markcut video preview. Call once with path and optional relay {jobId,taskId,executionId}. Neo handles Relay interaction and iPhone notification; standalone is supported.',
+    description:'Neo-hosted Markcut video preview. Set readonly:true for view-only playback without review, Git checkpoint, Relay interaction, or iPhone notification. Omit readonly for interactive review.',
     wrapCall:(message,forward)=>previewCall(message,forward)});
 }
 

@@ -84,6 +84,23 @@ test('one managed Preview auto-commits all nonignored Run files without review o
  }finally{rmSync(dir,{recursive:true,force:true});}
 });
 
+test('readonly preview bypasses Git, Relay, watcher and Inbox side effects',async()=>{
+ const source={...message,params:{...message.params,arguments:{path:'/tmp/readonly.md',readonly:true}}};
+ const expected={structuredContent:{operationId:randomUUID(),review:{delivery:'text',readonly:true}}};
+ const got=await previewCall(source,async forwarded=>{
+  assert.deepEqual(forwarded,source);
+  return expected;
+ },{control:()=>{throw Error('Readonly must not call Relay');},
+   record:()=>{throw Error('Readonly must not persist a delivery intent');},
+   notifyWatcher:()=>{throw Error('Readonly must not start notification watcher');}});
+ assert.deepEqual(got,expected);
+ for(const invalid of [
+  {...source,params:{...source.params,arguments:{...source.params.arguments,relay}}},
+  {...source,params:{...source.params,arguments:{...source.params.arguments,review:{delivery:'text'}}}}
+ ]){
+  await assert.rejects(previewCall(invalid,async()=>{throw Error('Must not compile');}),/cannot request Relay or review delivery/);
+ }
+});
 test('Preview wrapper keeps standalone Markcut independent of Relay',async()=>{
  const got=await previewCall({...message,params:{...message.params,arguments:{path:'/tmp/video.md'}}},
    async forwarded=>{assert.equal(forwarded.params.arguments.review,undefined);return {structuredContent:{operationId:randomUUID()}};},
