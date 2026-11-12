@@ -157,8 +157,14 @@ export function importLegacyInbox({directory=defaultDirectory(),legacyPath=join(
  if(legacy.version!==1||!legacy.requests||typeof legacy.requests!=='object')throw Error('Invalid legacy review data');
  let count=0;
  for(const row of Object.values(legacy.requests)){
-  const request=row?.review;
+  let request=row?.review;
   if(!request?.id||!UUID.test(request.id))continue;
+  // One-time normalization for an older event envelope already stored in
+  // reviews.json. Live requests are never accepted in this legacy shape.
+  if(request.delivery==='event'&&!request.mediaHash&&/^[0-9a-f]{64}$/.test(request.contentHash||'')){
+   const {contentHash,revisionId,...current}=request;
+   request={...current,mediaHash:contentHash};
+  }
   const file=recordPath(request.id,directory);
   // No migration overwrite: current durable wrapper record wins.
   if(!existsSync(file)||!JSON.parse(readFileSync(file,'utf8')).request){

@@ -81,3 +81,19 @@ test('Unknown event types stay opaque but injected decisions are rejected',()=>{
   assert.throws(()=>preserveRequest({...review,id:randomUUID(),eventTemplate:{...review.eventTemplate,data:{review:{decision:'approved'}}}},{directory}),/prefilled/);
  }finally{rmSync(directory,{recursive:true,force:true})}
 });
+
+test('Migration normalizes only historical event hash identity, never live submission',()=>{
+ const directory=mkdtempSync(join(tmpdir(),'neo-acquire-'));
+ try{
+  const legacyPath=join(directory,'legacy.json'),queue=join(directory,'requests');
+  const old={id:randomUUID(),title:'Earlier event',contentHash:'b'.repeat(64),revisionId:'r1',delivery:'event',
+    eventTemplate:{type:'task.interactive_decision',source:'test/review',data:{interactive:{executionId:'e1'}}}};
+  writeFileSync(legacyPath,JSON.stringify({version:1,requests:{[old.id]:{createdAt:new Date().toISOString(),review:old}}}));
+  assert.throws(()=>preserveRequest(old,{directory:queue}),/Invalid event media/);
+  assert.deepEqual(importLegacyInbox({directory:queue,legacyPath}),{imported:1});
+  const stored=acquireReviews({directory:queue,deviceId:randomUUID()}).requests[0];
+  assert.equal(stored.mediaHash,old.contentHash);
+  assert.equal(stored.contentHash,undefined);
+  assert.equal(stored.revisionId,undefined);
+ }finally{rmSync(directory,{recursive:true,force:true})}
+});
