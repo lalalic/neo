@@ -47,3 +47,5 @@ web-chatgpt/
 # Neo Projects: independent Git roots; do not track inside the Harness source.
 /vlog/
 /content-distribution/
+
+/toyalive-3d/
