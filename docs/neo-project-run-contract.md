@@ -1,7 +1,7 @@
 # Neo Project Run Contract
 
 `neo project run` creates or resumes **one ordinary Relay Job** with a fixed
-**Coordinator** Task (`id=coordinator`) and the canonical project `graph.mmd`,
+**Coordinator** Task (using Relay's returned numeric Task ID) and the canonical project `graph.mmd`,
 then activates it. Creation is atomic in Relay SQLite; there is **no separate
 Shortcut Job, initial Planner, foreground node runner, or `executionMode`**.
 The command returns the durable `ACTIVE`/`COMPLETED` status without waiting for
@@ -51,7 +51,7 @@ It makes one `job create` call with `--coordinator-graph-file`,
 `--coordinator-project-root`, `--coordinator-workspace-root` and
 `--coordinator-shared-root`; Relay persists the Job and Coordinator Task in a
 single SQLite transaction in DRAFT state. Neo saves the private Run binding,
-verifies the Task, then calls ordinary `job run --id JOB --task-id coordinator`
+verifies the Task, saves its numeric ID in the private run binding, then calls ordinary `job run --id JOB --task-id TASK_ID`
 to activate it and publish a wake event. The private Run input and result
 paths remain unchanged. The owner sees a Job ID immediately, with live
 progress, Review decisions, failures, and eventual completion in the standard

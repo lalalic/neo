@@ -35,12 +35,12 @@ function relayStub() {
     const id=`job-${++next}`,repository=args[args.indexOf('--repo')+1];
     const input=readFileSync(args[args.indexOf('--coordinator-input-file')+1],'utf8');
     const agentGraph=readFileSync(args[args.indexOf('--coordinator-graph-file')+1],'utf8');
-    const task={id:'coordinator',title:'Coordinator',state:'QUEUED',input,agentGraph,
+    const task={id:'17',title:'Coordinator',state:'QUEUED',input,agentGraph,
       output:{kind:'file',path:args[args.indexOf('--coordinator-output-path')+1]}};
     const row={id,repository,projectPath:args[args.indexOf('--project-path')+1],state:'DRAFT',
       reviewEnabled:!args.includes('--no-review'),autoMerge:!args.includes('--no-auto-merge'),tasks:[task]};
     jobs.set(id,row);tasks.set(id,[task]);
-    return {repository,pr:0,job:id,state:'DRAFT',taskId:'coordinator'};
+    return {repository,pr:0,job:id,state:'DRAFT',taskId:'17'};
    }
    if(key==='job:show')return jobs.get(args[args.indexOf('--id')+1])??{};
    if(key==='task:list')return {tasks:tasks.get(args[args.indexOf('--id')+1])??[]};
@@ -48,7 +48,7 @@ function relayStub() {
      const id=args[args.indexOf('--id')+1],job=jobs.get(id);
      if(!job)throw Error('Job does not exist');
      job.state='ACTIVE';
-     return {jobId:id,taskId:'coordinator',scheduled:true,state:'ACTIVE',graphRuntime:'tasks'};
+     return {jobId:id,taskId:'17',scheduled:true,state:'ACTIVE',graphRuntime:'tasks'};
    }
    throw new Error(`unexpected Relay argv: ${args.join(' ')}`);
   }
@@ -65,7 +65,7 @@ test('URL input supports both flag forms, keeps token private, and delegates exa
   try {
     const out = await run(['--url=https://rsroot.com/xxxid?token=secret-token', '--project', 'content-distribution'], f, relay);
     const result = JSON.parse(out);
-    assert.equal(result.project, 'content-distribution'); assert.equal(result.jobId, 'job-1'); assert.equal(result.taskId, 'coordinator');
+    assert.equal(result.project, 'content-distribution'); assert.equal(result.jobId, 'job-1'); assert.equal(result.taskId, '17');
     assert.equal(out.includes('secret-token'), false);
     assert.equal(out.includes('rsroot.com'), false);
     assert.equal(result.runPath.includes('rsroot.com'), false);
@@ -144,7 +144,7 @@ test('a saved DRAFT Coordinator Job resumes activation after a Relay failure',as
   relay.failures.add('job:run');
   await assert.rejects(()=>run(['--path',f.runDir,'--project','vlog'],f,relay),/stub job:run failure/);
   const binding=JSON.parse(readFileSync(join(f.runDir,'.neo-project-run.json'),'utf8'));
-  assert.equal(binding.jobId,'job-1');assert.equal(binding.taskId,'coordinator');
+  assert.equal(binding.jobId,'job-1');assert.equal(binding.taskId,'17');
   assert.equal(relay.jobs.get('job-1').state,'DRAFT');
   relay.failures.delete('job:run');
   const out=JSON.parse(await run(['--path',f.runDir,'--project','vlog'],f,relay));
@@ -158,7 +158,7 @@ test('rejects a tampered private binding that points Relay input outside the sel
   const f = fixture(), relay = relayStub();
   try {
     const binding = join(f.runDir, '.neo-project-run.json');
-    writeFileSync(binding, JSON.stringify({ schemaVersion: 1, project: 'vlog', runPath: f.runDir, jobId: 'job-1', taskId: 'coordinator', taskInput: '/tmp/private.md' }));
+    writeFileSync(binding, JSON.stringify({ schemaVersion: 1, project: 'vlog', runPath: f.runDir, jobId: 'job-1', taskId: '17', taskInput: '/tmp/private.md' }));
     chmodSync(binding, 0o600);
     await assert.rejects(() => run(['--project', 'vlog', '--path', f.runDir], f, relay), /binding does not match/);
     assert.equal(relay.calls.length, 0);
@@ -312,7 +312,7 @@ test('Coordinator Task and private binding survive a failed activation without d
   relay.failures.add('job:run');
   await assert.rejects(()=>run(['--path',f.runDir,'--project','vlog'],f,relay),/stub job:run failure/);
   const binding=JSON.parse(readFileSync(join(f.runDir,'.neo-project-run.json'),'utf8'));
-  assert.equal(binding.taskId,'coordinator');
+  assert.equal(binding.taskId,'17');
   assert.equal(relay.jobs.get(binding.jobId).state,'DRAFT');
   relay.failures.clear();
   const result=JSON.parse(await run(['--path',f.runDir,'--project','vlog'],f,relay));
@@ -339,7 +339,7 @@ test('private Vlog --no-review renders only with source approval, preserves poli
     writeFileSync(join(f.runDir,'source-manifest.json'),JSON.stringify(source));
     const args=['--project','vlog','--path',f.runDir,'--no-review'];
     const runId=JSON.parse(await run(args,f,relay));
-    assert.equal(runId.taskId,'coordinator');
+    assert.equal(runId.taskId,'17');
     const mode=JSON.parse(readFileSync(join(f.runDir,'review-mode.json'),'utf8'));
     assert.deepEqual(mode,{schemaVersion:1,mode:'private-render-test',reviewStatus:'UNREVIEWED',
       humanReview:'NOT_RUN',specialistReview:'NOT_RUN',publicationAllowed:false});

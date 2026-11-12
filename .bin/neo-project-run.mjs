@@ -5,7 +5,6 @@ import { basename, dirname, isAbsolute, join, relative, sep } from 'node:path';
 import { loadWorkspaceConfig } from './workspace-config.mjs';
 import { loadRunGitConfig, ensureRunGit } from './neo-run-git.mjs';
 
-const TASK_ID = 'coordinator';
 const bindingName = '.neo-project-run.json';
 const fail = message => { throw new Error(message); };
 const isWithin = (base, target) => {
@@ -147,7 +146,7 @@ function initializeRun(runDir, projectName, input, sourceUrl, publicationReview 
     try { saved = JSON.parse(readFileSync(binding, 'utf8')); } catch { fail('existing run binding is unreadable; preserving run for review'); }
     const expected = { evidence, objective, taskInput, output };
     const validJobId = (typeof saved.jobId === 'string' || typeof saved.jobId === 'number') && /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(String(saved.jobId));
-    if (saved.schemaVersion !== 1 || saved.project !== projectName || saved.runPath !== runDir || saved.taskId !== TASK_ID || !validJobId ||
+    if (saved.schemaVersion !== 1 || saved.project !== projectName || saved.runPath !== runDir || !/^[1-9][0-9]*$/.test(saved.taskId) || !validJobId ||
       Object.entries(expected).some(([key, value]) => saved[key] !== value)) fail('existing run binding does not match this request');
     return { ...expected, binding, saved };
   }
@@ -286,16 +285,16 @@ export function runProject(args, options = {}) {
   const repo = repoId;
   const projectPath = repoProjectPath;
   const invoke = args => relayInvocation(relayOptions,[...args,...relayFlags]);
-  const startBound=jobId=>{
+  const startBound=(jobId,taskId)=>{
     const job=invoke(['job','show','--repo',repo,'--id',jobId]);
     if(job.repository!==repo||job.projectPath!==projectPath)fail('existing Relay Job does not match this project');
     const task= parseTaskRows(invoke(['task','list','--repo',repo,'--id',jobId]))
-      .find(row=>String(row.id??row.taskId)===TASK_ID);
+      .find(row=>String(row.id??row.taskId)===taskId);
     if(!task)fail('Atomic Coordinator Task missing from Relay Job');
     verifyBoundTask(task,files,selected.graph);
     let state=job.state;
     if(state==='DRAFT'){
-      const activated=invoke(['job','run','--repo',repo,'--id',jobId,'--task-id',TASK_ID,
+      const activated=invoke(['job','run','--repo',repo,'--id',jobId,'--task-id',taskId,
         '--project-path',repoCheckout,'--shared-root',workspace.harnessRoot,
         '--workspace-root',workspace.neoRoot]);
       if(activated?.scheduled!==true||activated?.state!=='ACTIVE')fail('Relay Coordinator activation not acknowledged');
@@ -303,7 +302,7 @@ export function runProject(args, options = {}) {
     }
     if(!['ACTIVE','COMPLETED'].includes(state))fail('Bound Job is not active or completed: '+state);
     (options.emit??(value=>process.stdout.write(value)))(JSON.stringify({project:parsed.project,
-      runPath:runDir,jobId,taskId:TASK_ID,status:state,...(state==='COMPLETED'?{reused:true}:{})})+'\n');
+      runPath:runDir,jobId,taskId,status:state,...(state==='COMPLETED'?{reused:true}:{})})+'\n');
     return 0;
   };
   let jobId;
@@ -312,7 +311,7 @@ export function runProject(args, options = {}) {
     const job=invoke(['job','show','--repo',repo,'--id',String(files.saved.jobId)]);
     jobId=responseId(job,'verified Job');
     if(jobId!==String(files.saved.jobId))fail('existing Relay Job identity changed');
-    return startBound(jobId);
+    return startBound(jobId,files.saved.taskId);
   }
   const title=parsed.title??projectRunTitle(parsed.project,runDir);
   const created=invoke(['job','create','--repo',repo,'--project-root',repoCheckout,'--project-path',projectPath,'--title',title,
@@ -322,11 +321,12 @@ export function runProject(args, options = {}) {
     '--coordinator-shared-root',workspace.harnessRoot,
     ...(parsed.noReview?['--no-review']:[])]);
   jobId=responseId(created,'Job create');
-  if(created.taskId!==TASK_ID||created.state!=='DRAFT')fail('Relay did not atomically create a DRAFT Coordinator Job');
-  const binding={schemaVersion:1,project:parsed.project,runPath:runDir,jobId,taskId:TASK_ID,
+  if(typeof created.taskId!=='string'||! /^[1-9][0-9]*$/.test(created.taskId)||created.state!=='DRAFT')fail('Relay did not atomically create a DRAFT Coordinator Job with a numeric Task ID');
+  const taskId=created.taskId;
+  const binding={schemaVersion:1,project:parsed.project,runPath:runDir,jobId,taskId,
     repository:repo,evidence:files.evidence,objective:files.objective,taskInput:files.taskInput,output:files.output};
   writePrivate(files.binding,JSON.stringify(binding,null,2)+'\n');
-  return startBound(jobId);
+  return startBound(jobId,taskId);
 }
 
 export const projectRunHelp=`Usage: neo project run (--url HTTPS_URL | --path ABSOLUTE_RUN_DIR) --project NAME [--title TEXT] [--dry-run] [--no-review]
