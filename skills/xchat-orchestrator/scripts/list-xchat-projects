@@ -37,12 +37,12 @@ def origin_repo(path: Path) -> tuple[str, str | None]:
             text=True, stderr=subprocess.DEVNULL,
         ).strip()
     except (subprocess.CalledProcessError, OSError):
-        return f"local/{path.name}", None
+        return path.name, None
     github = re.fullmatch(
         r"(?:git@github\.com:|ssh://git@github\.com/|https?://github\.com/)"
         r"([^/]+/[^/]+?)(?:\.git)?/?", origin,
     )
-    return (github.group(1) if github else f"local/{path.name}"), origin
+    return path.name, origin
 
 
 def projects() -> list[dict[str, object]]:

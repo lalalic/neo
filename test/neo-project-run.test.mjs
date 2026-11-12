@@ -71,7 +71,7 @@ test('URL input supports both flag forms, keeps token private, and delegates exa
     assert.equal(result.runPath.includes('rsroot.com'), false);
     assert.deepEqual(relay.calls.map(x => x.slice(0, 2)), [['job', 'create'], ['job', 'show'], ['task', 'list'], ['job', 'run']]);
     const job = relay.calls[0], task = relay.calls[0];
-    assert.deepEqual(job.slice(2), ['--repo', 'local/content-distribution', '--project-path', '.', '--title', `Content Distribution · ${result.runPath.split('/').at(-1).replace(/[-_]+/g, ' ')}`, '--objective-file', join(result.runPath, 'neo-project-run.objective.md'), '--coordinator-graph-file',realpathSync(join(f.content,'graph.mmd')),'--coordinator-input-file',join(result.runPath,'neo-project-run.input.md'),'--coordinator-output-path',join(result.runPath,'neo-project-run.result.json'),'--coordinator-project-root',realpathSync(f.content),'--coordinator-workspace-root',f.workspace.neoRoot,'--coordinator-shared-root',f.workspace.harnessRoot,'--no-github']);
+    assert.deepEqual(job.slice(2), ['--repo', 'content-distribution', '--project-root', realpathSync(f.content), '--project-path', '.', '--title', `Content Distribution · ${result.runPath.split('/').at(-1).replace(/[-_]+/g, ' ')}`, '--objective-file', join(result.runPath, 'neo-project-run.objective.md'), '--coordinator-graph-file',realpathSync(join(f.content,'graph.mmd')),'--coordinator-input-file',join(result.runPath,'neo-project-run.input.md'),'--coordinator-output-path',join(result.runPath,'neo-project-run.result.json'),'--coordinator-project-root',realpathSync(f.content),'--coordinator-workspace-root',f.workspace.neoRoot,'--coordinator-shared-root',f.workspace.harnessRoot,'--no-github']);
     assert.equal(job[job.indexOf('--title') + 1].includes('rsroot.com'), false);
     assert.equal(task[task.indexOf('--coordinator-graph-file') + 1], realpathSync(join(f.content, 'graph.mmd')));
     assert.equal(task[task.indexOf('--coordinator-output-path') + 1], join(result.runPath, 'neo-project-run.result.json'));
@@ -413,7 +413,7 @@ test('independent local-only project binds Relay to its own Git root without Git
     const result = JSON.parse(await run(['--url', 'https://example.test/independent', '--project', 'content-distribution'], f, relay));
     assert.equal(result.project, 'content-distribution');
     const create = relay.calls.find(argv => argv[0] === 'job' && argv[1] === 'create');
-    assert.deepEqual(create.slice(2, 6), ['--repo', 'local/content-distribution', '--project-path', '.']);
+    assert.deepEqual(create.slice(2, 8), ['--repo', 'content-distribution', '--project-root', realpathSync(f.content), '--project-path', '.']);
     assert.ok(create.includes('--no-github'));
     const runCall = relay.calls.find(argv => argv[0] === 'job' && argv[1] === 'run');
     assert.equal(runCall[runCall.indexOf('--project-path') + 1], realpathSync(f.content));
@@ -421,5 +421,18 @@ test('independent local-only project binds Relay to its own Git root without Git
     assert.equal(runCall[runCall.indexOf('--shared-root') + 1], f.workspace.harnessRoot);
     assert.equal(runCall[runCall.indexOf('--workspace-root') + 1], f.workspace.neoRoot);
     assert.equal(relay.jobs.get('job-1').state, 'ACTIVE');
+  } finally { rmSync(f.base, { recursive: true, force: true }); }
+});
+
+test('GitHub origin never changes the local Relay repository identity', async () => {
+  const f = fixture(), relay = relayStub();
+  try {
+    execFileSync('git', ['-C', f.vlog, 'remote', 'add', 'origin', 'git@github.com:example/remote-vlog.git']);
+    await run(['--path', f.runDir, '--project', 'vlog'], f, relay);
+    const argv = relay.calls[0];
+    assert.equal(argv[argv.indexOf('--repo') + 1], 'vlog');
+    assert.equal(argv[argv.indexOf('--project-root') + 1], realpathSync(f.vlog));
+    assert.equal(argv.includes('--no-github'), true, 'GitHub origin cannot authorize remote effects');
+    await assert.rejects(run(['--path', f.runDir, '--project', 'vlog'], f, relay, {repository:'other/repo'}), /must match local Git project name/);
   } finally { rmSync(f.base, { recursive: true, force: true }); }
 });

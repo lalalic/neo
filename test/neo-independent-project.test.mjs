@@ -26,7 +26,7 @@ test('independent local-only Neo Project resolves and dry-runs without any GitHu
     assert.equal(info.git_root, realpathSync(project));
     assert.equal(info.local_path, realpathSync(project));
     assert.equal(info.neo_project, true);
-    assert.equal(info.repo, 'local/vlog');
+    assert.equal(info.repo, 'vlog');
     const denied = execFileSync(process.execPath, [cli, 'project', 'list'], { env, encoding: 'utf8' });
     assert.equal(JSON.parse(denied).every(item => item.neo_project === true), true);
     const output = JSON.parse(execFileSync(process.execPath, [cli, 'project', 'run', '--dry-run', '--project', 'vlog', '--url', 'https://example.test/item'], { env, encoding: 'utf8' }));
