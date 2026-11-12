@@ -189,8 +189,10 @@ function relayCommand(options) {
     if (!isAbsolute(localCli) || !statSync(localCli).isFile()) fail('NEO_RELAY_CLI must refer to an existing absolute Relay CLI file');
     return { executable: process.execPath, prefix: [realpathSync(localCli)] };
   }
-  const executable = options.relayExecutable ?? process.env.NEO_RELAY_EXECUTABLE ?? 'npx';
-  return { executable, prefix: executable === 'npx' ? ['-y', '--package', 'agents-relay@latest', 'agents-relay'] : [] };
+  // Use the installed Relay CLI for this host, not an independently cached
+  // npx @latest build that can lag the durable SQLite schema and Task IDs.
+  const executable = options.relayExecutable ?? process.env.NEO_RELAY_EXECUTABLE ?? 'agents-relay';
+  return { executable, prefix: [] };
 }
 
 
