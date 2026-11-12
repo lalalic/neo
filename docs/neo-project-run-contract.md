@@ -3,7 +3,7 @@
 `neo project run` creates or resumes **one ordinary Relay Job** with a fixed
 **Coordinator** Task (using Relay's returned numeric Task ID) and the canonical project `graph.mmd`,
 then activates it. Creation is atomic in Relay SQLite; there is **no separate
-Shortcut Job, initial Planner, foreground node runner, or `executionMode`**.
+Shortcut Job, initial Planner, separate foreground node runner, or `executionMode`**.
 The command returns the durable `ACTIVE`/`COMPLETED` status without waiting for
 all Agents to finish. Relay immediately dispatches dependency-ready DAG Tasks
 on their predecessor's terminal event, subject only to available Worker
@@ -23,11 +23,13 @@ Project declarations in `project.run.json` define the accepted input type and re
 ```sh
 neo project run --url="$PRIVATE_SOURCE_URL" --project=content-distribution
 neo project run --path=/absolute/neo/vlog/runs/2026-11-03-episode --project=vlog --title="加拿大周末随拍"
+# Start the same Coordinator immediately and stream Task messages in this terminal:
+neo project run --path=/absolute/neo/vlog/runs/2026-11-03-episode --project=vlog --foreground
 ```
 
 Set `PRIVATE_SOURCE_URL` in a private shell to the actual HTTPS reference; do not commit URLs or credentials to this public repo.
 
-Options accept either `--flag=value` or `--flag value` in any order. Use `--dry-run` to validate and preview without writing or contacting Relay. `NEO_ROOT` selects the parent directory of independently Git-rooted Projects. It defaults to `~/Workspace`, can be saved as `neoRoot` in `~/.config/neo/workspace.json`, and may be overridden by the `NEO_ROOT` environment variable. On Neo Master the saved value is `~/Workspace/neo`. Neither the caller's current directory nor the Harness installation directory selects the project. Legacy monorepo project resolution is not supported.
+Options accept either `--flag=value` or `--flag value` in any order. Use `--dry-run` to validate and preview without writing or contacting Relay. Use `--foreground` (mutually exclusive with `--dry-run`) to run the same ordinary Reconciler immediately in the terminal and stream events until the Job reaches a terminal state; Ctrl+C interrupts local workers but leaves the Job durable for recovery. `NEO_ROOT` selects the parent directory of independently Git-rooted Projects. It defaults to `~/Workspace`, can be saved as `neoRoot` in `~/.config/neo/workspace.json`, and may be overridden by the `NEO_ROOT` environment variable. On Neo Master the saved value is `~/Workspace/neo`. Neither the caller's current directory nor the Harness installation directory selects the project. Legacy monorepo project resolution is not supported.
 
 ## Project declaration
 
@@ -52,7 +54,7 @@ It makes one `job create` call with `--coordinator-graph-file`,
 `--coordinator-shared-root`; Relay persists the Job and Coordinator Task in a
 single SQLite transaction in DRAFT state. Neo saves the private Run binding,
 verifies the Task, saves its numeric ID in the private run binding, then calls ordinary `job run --id JOB --task-id TASK_ID`
-to activate it and publish a wake event. The private Run input and result
+to activate it and publish a wake event. In `--foreground` mode it instead invokes the same Relay `job run --foreground` CLI directly, without a background scheduler wait; Job binding and resumption remain unchanged. The private Run input and result
 paths remain unchanged. The owner sees a Job ID immediately, with live
 progress, Review decisions, failures, and eventual completion in the standard
 Relay Jobs dashboard and JEL.

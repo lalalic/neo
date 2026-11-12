@@ -51,7 +51,9 @@ Review, Retry, Failure and Recovery. On a completed node, the Reconciler
 immediately starts dependency-ready successor nodes when Worker capacity
 exists, with concurrent dispatch for independent branches. The transient
 QUEUED status remains durable for recovery, not for waiting through the next
-global Job scheduler scan. Normal Final Review and Merge policy are unaffected
+global Job scheduler scan. For immediate execution with terminal event streaming,
+use `neo project run --project NAME --path ABS_RUN --foreground` (or `--url`
+for URL projects); it forwards to the ordinary Relay `job run --foreground`. Normal Final Review and Merge policy are unaffected
 by this start point.
 
 Keep `parentTaskId` (semantic ownership) separate from `dependencies` (execution order). An Episode can have its own Root Task with Stage children; Visioner is not automatically the Episode Root. A Final Review Task needs no parent and references the Job/immutable reviewed artifact. Troubleshoot/revisions are dynamic Tasks outside the normal Graph. Pin the Graph version/hash in execution context when mid-run edits would change semantics.

@@ -436,3 +436,19 @@ test('GitHub origin never changes the local Relay repository identity', async ()
     await assert.rejects(run(['--path', f.runDir, '--project', 'vlog'], f, relay, {repository:'other/repo'}), /must match local Git project name/);
   } finally { rmSync(f.base, { recursive: true, force: true }); }
 });
+
+test('foreground creates one bound Job, forwards immediate Relay run and can reattach ACTIVE Job',async()=>{
+ const f=fixture(),relay=relayStub();try{
+  const first=JSON.parse(await run(['--project','vlog','--path',f.runDir,'--foreground'],f,relay));
+  assert.equal(first.foreground,true);
+  assert.equal(first.status,'DRAFT');
+  const forward=relay.calls.find(c=>c[0]==='job'&&c[1]==='run');
+  assert.ok(forward.includes('--foreground'));
+  assert.deepEqual(relay.calls.map(c=>c.slice(0,2)),[['job','create'],['job','show'],['task','list'],['job','run']]);
+  const second=JSON.parse(await run(['--project','vlog','--path',f.runDir,'--foreground'],f,relay));
+  assert.equal(second.status,'ACTIVE');
+  assert.equal(relay.calls.filter(c=>c[0]==='job'&&c[1]==='create').length,1);
+  assert.equal(relay.calls.filter(c=>c[0]==='job'&&c[1]==='run'&&c.includes('--foreground')).length,2);
+  await assert.rejects(()=>run(['--project','vlog','--path',f.runDir,'--dry-run','--foreground'],f,relay),/cannot be combined/);
+ }finally{rmSync(f.base,{recursive:true,force:true})}
+});

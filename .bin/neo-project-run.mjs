@@ -18,6 +18,7 @@ function parseOptions(args) {
     const raw = args[i];
     if (raw === '--help' || raw === '-h') { result.help = true; continue; }
     if (raw === '--dry-run') { if (result.dryRun) fail('--dry-run may be specified only once'); result.dryRun = true; continue; }
+    if (raw === '--foreground') { if (result.foreground) fail('--foreground may be specified only once'); result.foreground = true; continue; }
     if (raw === '--no-review') { if (result.noReview) fail('--no-review may be specified only once'); result.noReview = true; continue; }
     const match = /^(--(?:url|path|project|title))(?:=(.*))?$/.exec(raw);
     if (!match) fail(`unknown project run option: ${raw}`);
@@ -30,6 +31,7 @@ function parseOptions(args) {
   if (result.help) return result;
   if (!result.project) fail('project run requires --project NAME');
   if ((result.url === undefined) === (result.path === undefined)) fail('project run requires exactly one of --url URL or --path PATH');
+  if (result.foreground && result.dryRun) fail('--foreground cannot be combined with --dry-run');
   if (result.noReview && (result.project !== 'vlog' || result.path === undefined)) fail('--no-review is only supported for a private canonical Vlog run');
   if (result.title !== undefined && (!result.title.trim() || result.title.trim().length > 120 || /[\x00-\x1f\x7f]/.test(result.title))) fail('--title requires 1–120 printable characters');
   if (result.title !== undefined) result.title = result.title.trim();
@@ -287,6 +289,17 @@ export function runProject(args, options = {}) {
   const repo = repoId;
   const projectPath = repoProjectPath;
   const invoke = args => relayInvocation(relayOptions,[...args,...relayFlags]);
+  const foreground = (jobId, taskId) => {
+    const args=['job','run','--repo',repoId,'--id',jobId,'--task-id',taskId,
+      '--project-path',repoCheckout,'--shared-root',workspace.harnessRoot,
+      '--workspace-root',workspace.neoRoot,'--foreground',...relayFlags];
+    if(options.runRelay){options.runRelay(args);return;}
+    const {executable,prefix}=relayCommand(relayOptions);
+    const execution=(options.spawnSyncImpl??spawnSync)(executable,[...prefix,...args],{
+      stdio:'inherit',env:{...process.env,AGENTS_RELAY_SHARED_ROOT:workspace.harnessRoot},
+    });
+    if(execution.error||execution.status!==0)fail(`Agents Relay foreground execution exited (${execution.status??'spawn error'}); durable Job and Run binding are preserved`);
+  };
   const startBound=(jobId,taskId)=>{
     const job=invoke(['job','show','--repo',repo,'--id',jobId]);
     if(job.repository!==repo||job.projectPath!==projectPath)fail('existing Relay Job does not match this project');
@@ -295,6 +308,11 @@ export function runProject(args, options = {}) {
     if(!task)fail('Atomic Coordinator Task missing from Relay Job');
     verifyBoundTask(task,files,selected.graph);
     let state=job.state;
+    if(parsed.foreground && (state==='DRAFT'||state==='ACTIVE')){
+      (options.emit??(value=>process.stdout.write(value)))(JSON.stringify({project:parsed.project,runPath:runDir,jobId,taskId,status:state,foreground:true})+'\n');
+      foreground(jobId,taskId);
+      return 0;
+    }
     if(state==='DRAFT'){
       const activated=invoke(['job','run','--repo',repo,'--id',jobId,'--task-id',taskId,
         '--project-path',repoCheckout,'--shared-root',workspace.harnessRoot,
@@ -331,7 +349,7 @@ export function runProject(args, options = {}) {
   return startBound(jobId,taskId);
 }
 
-export const projectRunHelp=`Usage: neo project run (--url HTTPS_URL | --path ABSOLUTE_RUN_DIR) --project NAME [--title TEXT] [--dry-run] [--no-review]
+export const projectRunHelp=`Usage: neo project run (--url HTTPS_URL | --path ABSOLUTE_RUN_DIR) --project NAME [--title TEXT] [--dry-run] [--foreground] [--no-review]
 
 Creates one ordinary DRAFT Relay Job and its durable Coordinator DAG Task in
 a single SQLite transaction, binds this private Run, then activates the Job
@@ -348,6 +366,7 @@ Options accept --name value or --name=value in any order.
 --project   Independent project Git repository beneath NEO_ROOT
 --title     Human Job title (creation only, 1–120 printable characters)
 --dry-run   Validate and preview without writes or Relay calls
+--foreground Run the Coordinator DAG immediately in this terminal, streaming Task events until completion
 --no-review Private Vlog render test only: approved source-use required,
             publication blocked (not a general Final Review bypass)
 Vlog review-stages.json may opt in boolean visioner/director/producer stages;
