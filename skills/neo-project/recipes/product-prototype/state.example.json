@@ -1,0 +1,10 @@
+{
+  "_note": "Optional brief discussion notes; not release or spending authorization",
+  "schemaVersion": 1,
+  "agents": {
+    "example-builder": {
+      "prototype": {"status": "tried", "notes": "Temporary model preview"},
+      "ownerReview": {"decision": "changes_requested", "notes": "Try smaller eyes"}
+    }
+  }
+}

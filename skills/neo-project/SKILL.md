@@ -27,6 +27,10 @@ Create thin Neo projects. The project owns domain intent, Graph, Agent and Artif
 
 Do not create empty directories. Shared Agents, contracts and skills must be referenced, not copied. All actual execution inputs, intermediate files, versions, generated media, reviews, receipts and private state go under `runs/<YYYY-MM-DD[-slug]>/`, or `runs/<series-name>/<YYYY-MM-DD[-slug]>/` for series. Keep secrets and user content out of tracked files. Run-producing work uses the canonical project directory, never a temporary Git worktree. No project may depend on another project's `runs/`. When a project opts into `neo project run` versioning, provide `run-template/.gitignore`; the Run owns a private nested local Git repository, but human Preview never creates a Git commit or tag. See [Neo Project Run Contract](../../docs/neo-project-run-contract.md#local-run-git-versioning) for excluded media and versioning boundaries.
 
+## Mobile App and website Product Prototype recipe
+
+For exploratory product work load the [Product Prototype Recipe](recipes/product-prototype.md) and the [product-prototype Skill](../product-prototype/SKILL.md). Start by trying a small real prototype on the development host, discuss and iterate naturally with the user, then move the confirmed behavior to native App/site code or an authenticated API, and finally test the real product through the same App MCP/NeoUse or WebHelm feature. Do not require cryptographic hashes, Git revisions, formal reviews or complete production QA merely to begin experimenting. The lightweight optional router chooses a next discussion/development step, not a second DAG or Scheduler. Actual release/privacy/paid-action controls stay in their existing owners.
+
 ## 2. Canonical Graph
 
 The sole normal-stage DAG is `<project>/graph.mmd`. README, AGENTS, Planner and examples **refer to that file**; they must not separately maintain stage arrays or copy its edges.

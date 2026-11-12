@@ -19,6 +19,8 @@ are deployment and distribution targets, not source of truth.
 - events-bus — correlated lifecycle/progress protocol and orchestrator display
   contract for long-running Neo jobs, including its internal event-bus transport.
 - skill-builder — capability-first creation, review, and evaluation of agent skills.
+- neo-project — canonical Neo Project graph/Agent contracts and reusable product development recipes.
+- product-prototype — quick, discussion-led mobile App and website prototype to native/API implementation and real MCP/WebHelm QA.
 - neo-compute — reuse project Dockerfile images for authorized HF Jobs/Vast.ai runs, with dry-run, spend/upload gates and cleanup.
 
 Changes are made here first, tested locally, and then published/synchronized
