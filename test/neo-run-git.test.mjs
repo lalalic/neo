@@ -113,49 +113,35 @@ test('Run config requires a safe ignore template but not a per-Agent trackedArti
   } finally {rmSync(f.base,{recursive:true,force:true});}
 });
 
-test('Project Runner commits verified Stages but not review requests', async () => {
-  const f=fixture(), calls=[], jobs=new Map(), tasks=new Map();
-  try {
-    const runRelay = args => {
-      calls.push(args);
-      const type=args.slice(0,2).join(':');
-      if(type==='job:create'){
-        jobs.set('job-1',{id:'job-1',repository:'local/vlog',projectPath:'.',executionMode:'shortcut',contentOnly:true,state:'DRAFT'});
-        return {job:'job-1'};
-      }
-      if(type==='task:create'){
-        tasks.set('content-run',{id:'content-run',input:readFileSync(args[args.indexOf('--input-file')+1],'utf8'),
-          output:{kind:'file',path:args[args.indexOf('--output-path')+1]},
-          agentGraph:readFileSync(args[args.indexOf('--agent-graph-file')+1],'utf8'),state:'QUEUED'});
-        return {id:'content-run'};
-      }
-      if(type==='job:show')return jobs.get('job-1');
-      if(type==='task:list')return {tasks:[tasks.get('content-run')]};
-      throw new Error('unrecognized Relay call '+type);
-    };
-    const runRelayJob = async (_args,onNodeEvent) => {
-      writeFileSync(join(f.run,'story.md'),'walking by the river');
-      onNodeEvent({nodeId:'director',type:'completed',data:{output:{title:'walk'}}});
-      writeFileSync(join(f.run,'video.md'),'verified Markcut');
-      writeFileSync(join(f.run,'production-receipt.json'),JSON.stringify({videoSha256:hash('c')}));
-        onNodeEvent({nodeId:'producer',type:'completed',data:{output:{preview:{
-        status:'review_requested',requestId:'req-1',commitSha:'f'.repeat(40)
-      }}}});
-      jobs.get('job-1').state='COMPLETED'; tasks.get('content-run').state='SUCCEEDED';
-      return 0;
-    };
-    const lines=[];
-    const result=await runProject(['--path',f.run,'--project','vlog'],{
-      workspace:{neoRoot:f.neoRoot,harnessRoot:sourceRoot},runRelay,runRelayJob,emit:line=>lines.push(line)
-    });
-    assert.equal(result,0);
-    assert.doesNotMatch(git(f.run,'log','--pretty=%s'),/run: producer verified/);
-    assert.match(git(f.run,'status','--porcelain'),/video.md/,'Review must leave work-in-progress uncommitted');
-    assert.match(git(f.run,'log','--pretty=%s'),/run: director verified/);
-    assert.equal(git(f.run,'tag','--list','review/r*'),'','Preview must not create review tags');
-    assert.equal(lines.filter(line=>line.includes('run.git.checkpoint')).length,1);
-    assert.equal(calls.some(args=>args[0]==='job'&&args[1]==='run'),false);
-  } finally {rmSync(f.base,{recursive:true,force:true});}
+test('Coordinator creation initializes private Run Git without inventing a verified Stage or Review commit', async()=>{
+ const f=fixture(),calls=[],jobs=new Map(),tasks=new Map();try{
+  const runRelay=args=>{
+   calls.push(args);
+   const type=args.slice(0,2).join(':');
+   if(type==='job:create'){
+    const task={id:'coordinator',title:'Coordinator',state:'QUEUED',
+      input:readFileSync(args[args.indexOf('--coordinator-input-file')+1],'utf8'),
+      agentGraph:readFileSync(args[args.indexOf('--coordinator-graph-file')+1],'utf8'),
+      output:{kind:'file',path:args[args.indexOf('--coordinator-output-path')+1]}};
+    jobs.set('job-1',{id:'job-1',repository:'local/vlog',projectPath:'.',state:'DRAFT'});
+    tasks.set('job-1',[task]);return {job:'job-1',taskId:'coordinator',state:'DRAFT'};
+   }
+   if(type==='job:show')return jobs.get('job-1');
+   if(type==='task:list')return {tasks:tasks.get('job-1')};
+   if(type==='job:run'){jobs.get('job-1').state='ACTIVE';return {scheduled:true,state:'ACTIVE'};}
+   throw Error('unknown '+type);
+  };
+  const result=await runProject(['--path',f.run,'--project','vlog'],{
+   workspace:{neoRoot:f.neoRoot,harnessRoot:sourceRoot},runRelay,emit(){}
+  });
+  assert.equal(result,0);
+  assert.equal(jobs.get('job-1').state,'ACTIVE');
+  assert.equal(tasks.get('job-1').length,1);
+  assert.equal(git(f.run,'log','-1','--pretty=%s'),'run: initialize local version history');
+  assert.equal(git(f.run,'tag','--list','review/r*'),'');
+  assert.equal(calls.filter(a=>a[0]==='task'&&a[1]==='create').length,0);
+  assert.equal(calls.filter(a=>a[0]==='job'&&a[1]==='run').length,1);
+ }finally{rmSync(f.base,{recursive:true,force:true})}
 });
 
 test('Push guard catches force-added private files and earlier leaking commits', () => {
@@ -186,42 +172,26 @@ test('Push guard catches force-added private files and earlier leaking commits',
 });
 
 
-test('Foreground Relay stderr node events are reassembled across chunks and checkpointed', async () => {
-  const f=fixture();
-  try {
-    ensureRunGit(f.run,f.config);
-    const fake=join(f.base,'fake-relay.mjs');
-    writeFileSync(fake,`import {writeFileSync} from 'node:fs';
-writeFileSync(${JSON.stringify(join(f.run,'story.md'))}, 'foreground stage');
-process.stderr.write('shortcut.node {"nodeId":"director","type":"com');
-setTimeout(()=>{process.stderr.write('pleted","data":{"output":{}}}\\n');process.exit(0);},20);
-`);
-    const {executeBoundRun}=await import('../.bin/neo-project-run.mjs');
-    const stages=[];
-    const result=await executeBoundRun({
-      relayCli:fake,emit(){},error(){},onNodeEvent:event=>{
-        stages.push(event.nodeId);
-        commitRunStage(f.run,f.config,event.nodeId);
-      }
-    },{binding:join(f.run,'.neo-project-run.json')},['job','run']);
-    assert.equal(result,0);assert.deepEqual(stages,['director']);
-    assert.match(git(f.run,'log','-1','--pretty=%s'),/director verified/);
-    assert.match(readFileSync(join(f.run,'neo-project-run.log'),'utf8'),/shortcut.node/);
-  }finally{rmSync(f.base,{recursive:true,force:true});}
+test('verified Stage checkout commits are independent of Coordinator activation',()=>{
+ const f=fixture();try{
+  ensureRunGit(f.run,f.config);
+  writeFileSync(join(f.run,'story.md'),'verified stage content');
+  const result=commitRunStage(f.run,f.config,'director','execution-a');
+  assert.equal(result.changed,true);
+  assert.match(git(f.run,'log','-1','--pretty=%B'),/Run-Stage: director/);
+  assert.equal(commitRunStage(f.run,f.config,'director','execution-a').commitSha,result.commitSha);
+  assert.equal(git(f.run,'tag','--list','review/r*'),'');
+ }finally{rmSync(f.base,{recursive:true,force:true})}
 });
 
-test('A checkpoint failure stops the live Relay child instead of silently continuing', async () => {
-  const f=fixture();
-  try{
-    ensureRunGit(f.run,f.config);
-    const fake=join(f.base,'fake-relay.mjs');
-    writeFileSync(fake,`process.stderr.write('shortcut.node {"nodeId":"editor","type":"completed","data":{"output":{}}}\\n');
-setTimeout(()=>process.exit(0),1500);`);
-    const {executeBoundRun}=await import('../.bin/neo-project-run.mjs');
-    await assert.rejects(()=>executeBoundRun({
-      relayCli:fake,emit(){},error(){},onNodeEvent:()=>{
-        throw new Error('checkpoint validation failed');
-      }
-    },{binding:join(f.run,'.neo-project-run.json')},['job','run']),/checkpoint validation failed/);
-  }finally{rmSync(f.base,{recursive:true,force:true});}
+test('unsafe Stage changes cannot be auto-committed as review or execution evidence',()=>{
+ const f=fixture();try{
+  ensureRunGit(f.run,f.config);
+  writeFileSync(join(f.run,'unsafe-stage.json'),'private');
+  git(f.run,'add','unsafe-stage.json');
+  const before=git(f.run,'rev-parse','HEAD');
+  assert.throws(()=>commitRunStage(f.run,f.config,'producer','execution-b'),/unexpected staged/);
+  assert.equal(git(f.run,'rev-parse','HEAD'),before);
+  assert.equal(git(f.run,'tag','--list','review/r*'),'');
+ }finally{rmSync(f.base,{recursive:true,force:true})}
 });

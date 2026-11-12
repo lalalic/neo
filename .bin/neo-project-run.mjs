@@ -1,11 +1,11 @@
-import { spawn, spawnSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { chmodSync, closeSync, existsSync, linkSync, lstatSync, mkdirSync, openSync, readFileSync, realpathSync, statSync, unlinkSync, writeFileSync, writeSync } from 'node:fs';
 import { basename, dirname, isAbsolute, join, relative, sep } from 'node:path';
 import { loadWorkspaceConfig } from './workspace-config.mjs';
-import { loadRunGitConfig, ensureRunGit, commitRunStage } from './neo-run-git.mjs';
+import { loadRunGitConfig, ensureRunGit } from './neo-run-git.mjs';
 
-const TASK_ID = 'content-run';
+const TASK_ID = 'coordinator';
 const bindingName = '.neo-project-run.json';
 const fail = message => { throw new Error(message); };
 const isWithin = (base, target) => {
@@ -177,74 +177,6 @@ function relayCommand(options) {
   return { executable, prefix: executable === 'npx' ? ['-y', '--package', 'agents-relay@latest', 'agents-relay'] : [] };
 }
 
-/** Foreground child: forward every event as it arrives and retain an append-only,
- * private per-Run transcript so another observer can tail the same execution. */
-export async function executeBoundRun(options, files, args) {
-  if (options.runRelayJob) {
-    const result = await options.runRelayJob(args, options.onNodeEvent);
-    if (!Number.isInteger(result) || result < 0 || result > 255) fail('Relay run returned invalid exit status');
-    return result;
-  }
-  const { executable, prefix } = relayCommand(options);
-  const path = join(dirname(files.binding), 'neo-project-run.log');
-  if (existsSync(path)) {
-    const stat = lstatSync(path);
-    if (!stat.isFile() || stat.isSymbolicLink() || (stat.mode & 0o077)) fail('existing run log is not a private regular file');
-  }
-  const fd = openSync(path, 'a', 0o600);
-  chmodSync(path, 0o600);
-  const output = options.emit ?? (value => process.stdout.write(value));
-  const errors = options.error ?? (value => process.stderr.write(value));
-  let nodeBuffer = '', checkpointError = null;
-  const scanNodeEvents = data => {
-    nodeBuffer += data;
-    if (nodeBuffer.length > 1024 * 1024) throw new Error('Relay node event line exceeds safety limit');
-    while (nodeBuffer.includes('\n')) {
-      const boundary = nodeBuffer.indexOf('\n');
-      const line = nodeBuffer.slice(0, boundary);
-      nodeBuffer = nodeBuffer.slice(boundary + 1);
-      if (!line.startsWith('shortcut.node ')) continue;
-      const event = JSON.parse(line.slice('shortcut.node '.length));
-      if (event?.type === 'completed') options.onNodeEvent?.(event);
-    }
-  };
-  let child;
-  try {
-    child = (options.spawnImpl ?? spawn)(executable, [...prefix, ...args], {
-      cwd: dirname(files.binding), stdio: ['inherit', 'pipe', 'pipe'], env: process.env,
-    });
-  } catch (error) { closeSync(fd); throw error; }
-  const forward = (data, sink, isStderr = false) => {
-    const bytes = Buffer.isBuffer(data) ? data : Buffer.from(data);
-    writeSync(fd, bytes);
-    sink(bytes.toString('utf8'));
-    if (isStderr && options.onNodeEvent && !checkpointError) {
-      try { scanNodeEvents(bytes.toString('utf8')); } catch (error) {
-        checkpointError = error;
-        if (child?.pid && child.exitCode === null) child.kill('SIGTERM');
-      }
-    }
-  };
-  child.stdout?.on('data', chunk => forward(chunk, output));
-  child.stderr?.on('data', chunk => forward(chunk, errors, true));
-  const onSignal = signal => { if (child.pid && child.exitCode === null && !child.killed) child.kill(signal); };
-  const interrupt = () => onSignal('SIGINT');
-  const terminate = () => onSignal('SIGTERM');
-  process.on('SIGINT', interrupt);
-  process.on('SIGTERM', terminate);
-  try {
-    const result = await new Promise((resolve, reject) => {
-      child.once('error', reject);
-      child.once('close', (code, signal) => resolve(signal ? 5 : code ?? 1));
-    });
-    if (checkpointError) throw checkpointError;
-    return result;
-  } finally {
-    process.off('SIGINT', interrupt);
-    process.off('SIGTERM', terminate);
-    closeSync(fd);
-  }
-}
 
 function relayInvocation(options, args) {
   if (options.runRelay) return options.runRelay(args);
@@ -337,71 +269,70 @@ export function runProject(args, options = {}) {
   ensureRunGit(runDir, runGit);
   const repo = repoId;
   const projectPath = repoProjectPath;
-  const invoke = args => relayInvocation(relayOptions, [...((options.localShortcut ?? Boolean(options.relayCli ?? process.env.NEO_RELAY_CLI)) ? [...args, '--shortcut-local'] : args), ...relayFlags]);
-  let stageCheckpoints = 0;
-  const onNodeEvent = event => {
-    if (!runGit || event?.type !== 'completed') return;
-    // Review is an interactive pause, not a Git checkpoint. Normal
-    // verified Stage completion remains independently versioned below.
-    if(event.data?.output?.preview?.status === 'review_requested')return;
-    const checkpoint=commitRunStage(runDir,runGit,event.nodeId,event.data?.executionId);
-    stageCheckpoints += 1;
-    (options.emit ?? (text => process.stdout.write(text)))(JSON.stringify({
-      type: 'run.git.checkpoint', nodeId: event.nodeId, ...checkpoint
-    }) + '\n');
-  };
-  const runBound = async (jobId, previouslyCompleted = false) => {
-    if (previouslyCompleted) {
-      (options.emit ?? (value => process.stdout.write(value)))(`${JSON.stringify({ project: parsed.project, runPath: runDir, jobId, taskId: TASK_ID, status: 'COMPLETED', reused: true })}\n`);
-      return 0;
+  const invoke = args => relayInvocation(relayOptions,[...args,...relayFlags]);
+  const startBound=jobId=>{
+    const job=invoke(['job','show','--repo',repo,'--id',jobId]);
+    if(job.repository!==repo||job.projectPath!==projectPath)fail('existing Relay Job does not match this project');
+    const task= parseTaskRows(invoke(['task','list','--repo',repo,'--id',jobId]))
+      .find(row=>String(row.id??row.taskId)===TASK_ID);
+    if(!task)fail('Atomic Coordinator Task missing from Relay Job');
+    verifyBoundTask(task,files,selected.graph);
+    let state=job.state;
+    if(state==='DRAFT'){
+      const activated=invoke(['job','run','--repo',repo,'--id',jobId,'--task-id',TASK_ID,
+        '--project-path',repoCheckout,'--shared-root',workspace.harnessRoot,
+        '--workspace-root',workspace.neoRoot]);
+      if(activated?.scheduled!==true||activated?.state!=='ACTIVE')fail('Relay Coordinator activation not acknowledged');
+      state='ACTIVE';
     }
-    const exitCode = await executeBoundRun({ ...relayOptions, onNodeEvent }, files, [
-      'job', 'run', '--mode', 'shortcut', '--repo', repo,
-      '--id', jobId, '--task-id', TASK_ID,
-      '--project-path', repoCheckout, '--shared-root', workspace.harnessRoot,
-      '--workspace-root', workspace.neoRoot, ...relayFlags,
-    ]);
-    if (exitCode !== 0) return exitCode;
-    // Process exit alone does not establish success. Recheck SQLite-backed
-    // Relay state after the child has exited, not its terminal text output.
-    const updated = invoke(['job', 'show', '--repo', repo, '--id', jobId]);
-    const tasks = parseTaskRows(invoke(['task', 'list', '--repo', repo, '--id', jobId]));
-    const actual = tasks.find(row => String(row.id ?? row.taskId) === TASK_ID);
-    if (updated.state !== 'COMPLETED' || actual?.state !== 'SUCCEEDED') {
-      (options.error ?? (value => process.stderr.write(value)))('Relay exited zero without proven durable Job/Task completion\n');
-      return 2;
-    }
-    if (runGit && stageCheckpoints === 0) commitRunStage(runDir, runGit, 'recovery');
+    if(!['ACTIVE','COMPLETED'].includes(state))fail('Bound Job is not active or completed: '+state);
+    (options.emit??(value=>process.stdout.write(value)))(JSON.stringify({project:parsed.project,
+      runPath:runDir,jobId,taskId:TASK_ID,status:state,...(state==='COMPLETED'?{reused:true}:{})})+'\n');
     return 0;
   };
   let jobId;
-  if (files.saved?.jobId) {
-    if (files.saved.repository !== repo) fail('existing Run binding is associated with a different Relay repository');
-    const job = invoke(['job', 'show', '--repo', repo, '--id', String(files.saved.jobId)]);
-    jobId = responseId(job, 'verified Job');
-    if (jobId !== String(files.saved.jobId) || job.repository !== repo || job.projectPath !== projectPath ||
-        job.executionMode !== 'shortcut' || job.contentOnly !== true)
-      fail('existing Relay Job does not match this content-only project Run binding');
-    const tasks = parseTaskRows(invoke(['task', 'list', '--repo', repo, '--id', jobId]));
-    const existing = tasks.find(task => String(task.id ?? task.taskId) === TASK_ID);
-    if (existing) {
-      verifyBoundTask(existing, files, selected.graph);
-      (options.emit ?? (text => process.stdout.write(text)))(`${JSON.stringify({ project: parsed.project, runPath: runDir, jobId, taskId: TASK_ID, verified: true })}\n`);
-      return runBound(jobId, existing.state === 'SUCCEEDED' && job.state === 'COMPLETED');
-    }
-  } else {
-    const title = parsed.title ?? projectRunTitle(parsed.project, runDir);
-    const created = invoke(['job', 'create', '--repo', repo, '--project-path', projectPath, '--title', title, '--objective-file', files.objective, '--shortcut-execution']);
-    jobId = responseId(created, 'Job create');
-    const binding = { schemaVersion: 1, project: parsed.project, runPath: runDir, jobId, taskId: TASK_ID, repository: repo, evidence: files.evidence, objective: files.objective, taskInput: files.taskInput, output: files.output };
-    writePrivate(files.binding, `${JSON.stringify(binding, null, 2)}\n`);
+  if(files.saved?.jobId){
+    if(files.saved.repository!==repo)fail('existing Run binding belongs to another Relay repository');
+    const job=invoke(['job','show','--repo',repo,'--id',String(files.saved.jobId)]);
+    jobId=responseId(job,'verified Job');
+    if(jobId!==String(files.saved.jobId))fail('existing Relay Job identity changed');
+    return startBound(jobId);
   }
-  const task = invoke(['task', 'create', '--repo', repo, '--id', jobId, '--task-id', TASK_ID, '--input-file', files.taskInput, '--output', 'file', '--output-path', files.output, '--agent-graph-file', selected.graph]);
-  const taskId = responseId(task, 'Task create');
-  if (taskId !== TASK_ID) fail('Agents Relay created an unexpected Task id; run binding is preserved');
-  (options.emit ?? (text => process.stdout.write(text)))(`${JSON.stringify({ project: parsed.project, runPath: runDir, jobId, taskId })}\n`);
-  return runBound(jobId);
+  const title=parsed.title??projectRunTitle(parsed.project,runDir);
+  const created=invoke(['job','create','--repo',repo,'--project-path',projectPath,'--title',title,
+    '--objective-file',files.objective,'--coordinator-graph-file',selected.graph,
+    '--coordinator-input-file',files.taskInput,'--coordinator-output-path',files.output,
+    '--coordinator-project-root',repoCheckout,'--coordinator-workspace-root',workspace.neoRoot,
+    '--coordinator-shared-root',workspace.harnessRoot,
+    ...(parsed.noReview?['--no-review']:[])]);
+  jobId=responseId(created,'Job create');
+  if(created.taskId!==TASK_ID||created.state!=='DRAFT')fail('Relay did not atomically create a DRAFT Coordinator Job');
+  const binding={schemaVersion:1,project:parsed.project,runPath:runDir,jobId,taskId:TASK_ID,
+    repository:repo,evidence:files.evidence,objective:files.objective,taskInput:files.taskInput,output:files.output};
+  writePrivate(files.binding,JSON.stringify(binding,null,2)+'\n');
+  return startBound(jobId);
 }
 
-export const projectRunHelp = `Usage: neo project run (--url HTTPS_URL | --path ABSOLUTE_RUN_DIR) --project NAME [--title TEXT] [--dry-run] [--no-review]\n\nOptions accept --name value or --name=value in any order.\n--url       HTTPS source reference for a project that declares URL input\n--path      Existing canonical dated Run (URL projects may resume a bound Run or opt in to verified preparedPath)\n--project   Independent project repository beneath NEO_ROOT\n--dry-run   Validate and preview without writing files or invoking Agents Relay
---no-review Legacy explicit private-render test policy for Vlog; normal Vlog already skips interactive review by default. Does NOT authorize publication\n`;
+export const projectRunHelp=`Usage: neo project run (--url HTTPS_URL | --path ABSOLUTE_RUN_DIR) --project NAME [--title TEXT] [--dry-run] [--no-review]
+
+Creates one ordinary DRAFT Relay Job and its durable Coordinator DAG Task in
+a single SQLite transaction, binds this private Run, then activates the Job
+through regular Relay job run. Returns ACTIVE without waiting for final media.
+Each Script/Model Agent is a separate durable Task. On terminal completion,
+all newly ready DAG successors start immediately when Worker capacity permits.
+Reviews, retry, recovery, Final Review and Git Merge use the ordinary Job/Task
+lifecycle. Human Preview never auto-commits Git. No Shortcut Runner, separate
+DAG scheduler, initial Planner or content-only execution mode is created.
+
+Options accept --name value or --name=value in any order.
+--url       HTTPS source reference for a project declaring URL input
+--path      Existing canonical dated Run (or a prepared URL-project Run)
+--project   Independent project Git repository beneath NEO_ROOT
+--title     Human Job title (creation only, 1–120 printable characters)
+--dry-run   Validate and preview without writes or Relay calls
+--no-review Private Vlog render test only: approved source-use required,
+            publication blocked (not a general Final Review bypass)
+
+Re-running an already-bound Run verifies the stored Job/Graph/Task and returns
+its current state; it does not create another Job or restart completed work.
+`;

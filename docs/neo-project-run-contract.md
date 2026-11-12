@@ -1,6 +1,20 @@
 # Neo Project Run Contract
 
-`neo project run` is the explicit foreground CLI entry point for creating or resuming one content-only Agents Relay Job and one Task for a project, then executing it until a verified terminal result. The optional `--title` (or `--title=TEXT`) sets the readable Relay Job title at **creation time**, independently of the numeric Job ID. If omitted, Neo formats the project and canonical Run folder into a default title, such as `Vlog · 2026 11 08 new unused iPhone media run3`. This never exposes a private source URL or URL token. Resuming an existing bound Run keeps its original Job title and does not create or rename a Job. Titles must be 1–120 printable characters.
+`neo project run` creates or resumes **one ordinary Relay Job** with a fixed
+**Coordinator** Task (`id=coordinator`) and the canonical project `graph.mmd`,
+then activates it. Creation is atomic in Relay SQLite; there is **no separate
+Shortcut Job, initial Planner, foreground node runner, or `executionMode`**.
+The command returns the durable `ACTIVE`/`COMPLETED` status without waiting for
+all Agents to finish. Relay immediately dispatches dependency-ready DAG Tasks
+on their predecessor's terminal event, subject only to available Worker
+capacity and human Review; QUEUED is a recovery state, not another global
+Job scheduler admission. The job's Final Review and Git Merge remain controlled
+by its normal independent policies.
+
+`--title` sets the human-readable title at creation. Otherwise Neo uses the
+project and canonical private Run folder, never the source URL or secret token.
+Resuming a bound Run verifies the Job, Coordinator input, output and Graph; it
+cannot create a duplicate Job or silently change title or policy.
 
 Project declarations in `project.run.json` define the accepted input type and restrictions. A project without a valid declaration is not enabled. The declaration is input validation metadata; the project's `graph.mmd` remains the sole authority for workflow ordering.
 
@@ -28,17 +42,44 @@ The CLI validates required project files (`AGENTS.md`, `README.md`, and `graph.m
 
 URL input creates a unique dated directory under the project's canonical `runs/`, with private mode-0600 source evidence and objective/input documents. The complete URL stays in the private evidence file and is never placed on Relay argv or printed. Path input references an existing run and never replaces its files. Both forms write a private atomic binding pointer containing only the project/run and Relay Job/Task identifiers and private artifact paths.
 
-Neo invokes the installed `agents-relay` CLI through argv: it creates a shortcut Job using the owning **independent project Git repository**. If the repository has a GitHub `origin`, the GitHub repository identity is used; otherwise it uses `local/<project>` and local-only Relay mode. The optional `NEO_RELAY_REPOSITORY` overrides this identity explicitly. Neither new Vlog nor Content Distribution Jobs default to `lalalic/neo`. It then creates a Task with the canonical project graph and invokes `agents-relay job run --mode shortcut` as a foreground child, forwarding stdout/stderr and per-node events as they arrive. Exit 0 requires checking the authoritative Relay Job is `COMPLETED` and the bound Task is `SUCCEEDED`; non-success exit codes are forwarded (1 failure, 2 unverified success, 3 waiting event, 4 timeout, 5 interrupted). A repeated path verifies the Job repository/project/execution policy and Task input, output path and Agent Graph before resuming its bound Task. A fully completed bound Run returns success without rerunning completed work; if a verified Job exists but its Task does not, Neo resumes Task creation.
+Neo invokes the installed `agents-relay` CLI using argv with the owning
+independent project repository (GitHub origin, explicit override, or
+`local/<project>`). It makes one `job create` call with `--coordinator-graph-file`,
+`--coordinator-input-file`, `--coordinator-output-path`,
+`--coordinator-project-root`, `--coordinator-workspace-root` and
+`--coordinator-shared-root`; Relay persists the Job and Coordinator Task in a
+single SQLite transaction in DRAFT state. Neo saves the private Run binding,
+verifies the Task, then calls ordinary `job run --id JOB --task-id coordinator`
+to activate it and publish a wake event. The private Run input and result
+paths remain unchanged. The owner sees a Job ID immediately, with live
+progress, Review decisions, failures, and eventual completion in the standard
+Relay Jobs dashboard and JEL.
 
-The live terminal stream is also appended to a mode-0600 `neo-project-run.log` in the same canonical Run. An observer can follow it with `tail -f <run-dir>/neo-project-run.log` while the foreground command runs. The log may contain private run content: never commit or publish it. When testing unmerged Relay changes use `NEO_RELAY_CLI=/absolute/path/to/agents-relay/dist/cli.js` so **both** setup commands and the foreground execution target the same local build; the default is the installed `agents-relay@latest`. Do not use this override to bypass approval or authorization gates.
+The Coordinator is **not** a leased Worker and cannot consume a Worker slot.
+Each DAG node is an Agent-named, independently durable Task. Script and Model
+Task nodes use the same execution events, retries, human `review.preview`
+and recovery as any other Relay Task. Node terminal events continue directly
+to ready successors (forks can launch concurrently); only capacity exhaustion,
+unsatisfied dependencies or a human Review stop progression. There is no
+Shortcut receipt format or special mobile review wake route.
 
-Runs, source evidence, binding pointers, output, and diagnostics belong in ignored canonical project `runs/`. Source code changes and tests may use isolated worktrees; production runs must use the configured canonical Neo project tree.
+A DRAFT Job whose binding is saved but whose activation failed is retried
+idempotently. Once ACTIVE, re-invoking the Project Run checks the binding
+and returns the current Job state; it does not start another runner. When
+COMPLETED, it returns reused status. No process exit is mistaken for Job
+completion. Normal Git Merge and Final Review apply without modification.
 
 ## Local Run Git versioning
 
 Enabled Neo Projects declare `versioning: { "mode": "local-git", "template": "run-template" }` in `project.run.json` and maintain a project-owned `run-template/.gitignore`. The Runner copies this template into the canonical Run as `.gitignore` and initializes a private nested `.git/` with **no remote**. It never rewrites an existing Run template on resumption, and never copies run files or introduces revision folders. Existing Runs are adopted in place on the next explicit `neo project run` invocation, without moving original media.
 
-The Runner stages **all non-ignored changes inside the private Run Git repository** using `git add -A`. The Run's `.gitignore` excludes original media, private inputs, rendered outputs and other sensitive data. Changes to any non-ignored source or generated file, regardless of the producing Agent, enter the same revision. The Runner rejects symlinks/submodules and unexpected pre-staged changes. A verified Relay Shortcut Stage completion creates a Git Commit (an empty Stage Commit is allowed); replay of the same Stage execution is idempotent.
+The private Run Git repository is initialized with its ignored media and
+secret paths excluded. A stage Agent can explicitly call `commitRunStage` after
+verification to record descriptive stage source revisions; Project Run itself
+no longer streams `shortcut.node` events or automatically commits stage files.
+Never treat a Git commit as human approval, and never automatically commit
+working files merely because Review was requested. The Run Git helper rejects
+symlinks, submodules and unexpected pre-staged files.
 
 Agent Workers request Interactive Review with `agents-relay review interactive --path PATH --id JOB --task-id TASK --execution-id EXEC` (which calls Neo `review.preview`) for the current Relay Task execution. The Neo wrapper reuses Markcut compilation,
 the Markcut UI, Neo Mobile inbox and Relay's existing
@@ -53,8 +94,8 @@ Markcut remains the underlying media preview; Agents call Relay CLI to request m
 Neo Runner automatically maintains .ghost.* as a global rule in every private
 Run Git .git/info/exclude, independent of project templates; existing Run
 repositories are migrated in place. Ghost Markdown is never committed
-for review. Normal verified Stage completions still have their separate
-Run Git commits and Stage validation.
+for review. Explicitly verified stage revisions can be committed by their owning Agent;
+Project Run itself does not auto-commit them.
 
 **Media retention:** Git does not store ignored MP4/audio/image bytes. Normal Stage Git commits can restore committed text/metadata, but a Review Preview creates no commit or tag. Replaying old preview media requires separately retained immutable media; a Stage Git commit alone cannot recreate an ignored MP4. A changed output video must update its production receipt before Stage verification. Do not imply old media is available from Git.
 

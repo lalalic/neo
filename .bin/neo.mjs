@@ -39,7 +39,7 @@ function usage() {
   neo escalation challenges [--search TEXT] [--limit N]  Inspect durable challenges and attempts
   neo status|doctor
   neo agent list [--project PATH] [--source project|shared|global|agency]\n  neo agent search QUERY [--project PATH] [--source ...] [--limit N]\n  neo project list|resolve NAME|setup-agent NAME
-  neo project run (--url HTTPS_URL | --path ABSOLUTE_RUN_DIR) --project NAME [--dry-run] [--no-review]
+  neo project run (--url HTTPS_URL | --path ABSOLUTE_RUN_DIR) --project NAME [--title TEXT] [--dry-run] [--no-review]
   neo compute build|run|web|services|doctor|cleanup [options]  On-demand Docker compute
   neo gpu ...                                 Legacy alias for neo compute
   neo workspace show

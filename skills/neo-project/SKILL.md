@@ -25,7 +25,7 @@ Create thin Neo projects. The project owns domain intent, Graph, Agent and Artif
 └── runs/                    # ignored, private durable execution artifacts
 ```
 
-Do not create empty directories. Shared Agents, contracts and skills must be referenced, not copied. All actual execution inputs, intermediate files, versions, generated media, reviews, receipts and private state go under `runs/<YYYY-MM-DD[-slug]>/`, or `runs/<series-name>/<YYYY-MM-DD[-slug]>/` for series. Keep secrets and user content out of tracked files. Run-producing work uses the canonical project directory, never a temporary Git worktree. No project may depend on another project's `runs/`. When a project opts into `neo project run` versioning, provide `run-template/.gitignore` and an exact tracked-artifact allowlist in `project.run.json`; the Runner maintains a private nested Run Git repository. See [Neo Project Run Contract](../../docs/neo-project-run-contract.md#local-run-git-versioning) for commit, review tag, and ignored-media boundaries.
+Do not create empty directories. Shared Agents, contracts and skills must be referenced, not copied. All actual execution inputs, intermediate files, versions, generated media, reviews, receipts and private state go under `runs/<YYYY-MM-DD[-slug]>/`, or `runs/<series-name>/<YYYY-MM-DD[-slug]>/` for series. Keep secrets and user content out of tracked files. Run-producing work uses the canonical project directory, never a temporary Git worktree. No project may depend on another project's `runs/`. When a project opts into `neo project run` versioning, provide `run-template/.gitignore`; the Run owns a private nested local Git repository, but human Preview never creates a Git commit or tag. See [Neo Project Run Contract](../../docs/neo-project-run-contract.md#local-run-git-versioning) for excluded media and versioning boundaries.
 
 ## 2. Canonical Graph
 
@@ -40,7 +40,15 @@ flowchart TD
     edit --> produce[agent:vlog-producer]
 ```
 
-Graph nodes define normal roles and predecessor relations, not an entire historical Task Tree. Relay's existing `agentGraph` parser executes roles **inside a Task**; it does not automatically create persistent Stage Tasks. A project Planner may map project Graph nodes to durable Stage Tasks where independent artifacts/lifecycle justify it. Do not claim an automatic Graph-to-Plan validator exists, and do not require one: Plans can be partial, incremental and revised.
+The Graph creates one durable **Coordinator** Task and one durable Agent Task
+per dependency-ready DAG node. No initial Planner is required. Each Agent
+uses the ordinary Relay Task lifecycle, including Script/Model execution,
+Review, Retry, Failure and Recovery. On a completed node, the Reconciler
+immediately starts dependency-ready successor nodes when Worker capacity
+exists, with concurrent dispatch for independent branches. The transient
+QUEUED status remains durable for recovery, not for waiting through the next
+global Job scheduler scan. Normal Final Review and Merge policy are unaffected
+by this start point.
 
 Keep `parentTaskId` (semantic ownership) separate from `dependencies` (execution order). An Episode can have its own Root Task with Stage children; Visioner is not automatically the Episode Root. A Final Review Task needs no parent and references the Job/immutable reviewed artifact. Troubleshoot/revisions are dynamic Tasks outside the normal Graph. Pin the Graph version/hash in execution context when mid-run edits would change semantics.
 
@@ -84,23 +92,28 @@ reviewers:
 
 The owning Stage Agent can invoke the existing Relay `review run` Action for specialist reviews, fix the output and request review again before exiting. Specialist reviewers do not automatically become Graph nodes or durable Tasks.
 
-### Human interaction within a Stage
+### Human interaction within an Agent Task
 
-Set human review requirements in the **project Stage contract**, not as
-special nodes in `graph.mmd` or an implicit Relay Task. Use `optional` when
-the Agent may need facts or creative guidance; use `required` when the
-current artifact revision must be approved before Stage completion.
+Set human review requirements in the **project Agent artifact contract**,
+not as another `graph.mmd` node or independent Task. Required approval must
+suspend the same Agent Task until the owner acts; optional feedback must not
+be mistaken for an approval.
 
-The Stage Agent chooses an available interactive tool based on the artifact:
-questions for missing facts, choices for alternatives, and an existing
-specialized preview for renderable media. A required video preview currently
-needs an interactive ChatGPT Worker and Markcut `video.md`; Planner must
-declare the capability requirement for routing. If unavailable, fail/hold
-without fabricating approval. Feedback -> fix -> new preview happens inside
-the **same Worker** until the current revision is approved. Save feedback and
-version-bound approval evidence under `runs/`; downstream QA checks it.
-An interactive UI approval is not automatically a Relay Task transition or
-permission to publish. This contract does not add a new Relay HITL Action.
+For a managed preview, the Agent calls the existing pinned Relay CLI:
+`review interactive --path ABS --id JOB --task-id TASK --execution-id EXEC`.
+Neo's `review.preview` wrapper renders the chosen media via Markcut, delivers
+it to the configured UI/Neo Mobile, and passes the opaque review event through
+the existing Events Bus. Relay records `AWAITING_DECISION`, releases the Worker
+lease, accepts Approve or Request Changes and requeues the **same Task**.
+Request Changes carries feedback to the next execution; a Script Agent may
+use its Model executor for semantic editing, then Script verifies the output.
+Do not add another DAG/revision Task or turn a delivery receipt into approval.
+
+**Interactive Preview does not create Git commits, tags or snapshots.** The
+review decision history belongs to the Relay Task; a verified artifact may
+be committed separately with a useful descriptive message when the owning
+Agent has a separate versioning requirement. Final Job Review and Git Merge
+follow the normal Job policies and are not a consequence of an Agent preview.
 
 ## 4. Artifact contract and handoff
 
