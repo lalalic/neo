@@ -231,12 +231,10 @@ export function runProject(args, options = {}) {
   const gitRoot = git('rev-parse', '--show-toplevel');
   const independent = gitRoot === selected.project;
   if (!independent) fail('NEO_ROOT projects must be independent Git repositories');
-  const remote = independent ? git('remote', 'get-url', 'origin') : null;
-  const github = remote?.replace(/\.git$/, '').match(/github\.com[/:]([^/]+\/[^/]+)$/i)?.[1] ?? null;
   const repoId = options.repository ?? process.env.NEO_RELAY_REPOSITORY ?? parsed.project;
   if (repoId !== parsed.project) fail('Relay repository identity must match local Git project name');
-  const noGitHub = !github;
-  const relayFlags = noGitHub ? ['--no-github'] : [];
+  // A GitHub origin is not approval to create a PR or push. Neo Projects stay local.
+  const relayFlags = ['--no-github'];
   const repoProjectPath = '.';
   const repoCheckout = selected.project;
   const relayOptions = { ...options, sharedRoot: workspace.harnessRoot };

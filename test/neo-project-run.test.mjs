@@ -432,6 +432,7 @@ test('GitHub origin never changes the local Relay repository identity', async ()
     const argv = relay.calls[0];
     assert.equal(argv[argv.indexOf('--repo') + 1], 'vlog');
     assert.equal(argv[argv.indexOf('--project-root') + 1], realpathSync(f.vlog));
+    assert.equal(argv.includes('--no-github'), true, 'GitHub origin cannot authorize remote effects');
     await assert.rejects(run(['--path', f.runDir, '--project', 'vlog'], f, relay, {repository:'other/repo'}), /must match local Git project name/);
   } finally { rmSync(f.base, { recursive: true, force: true }); }
 });
