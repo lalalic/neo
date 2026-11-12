@@ -191,14 +191,15 @@ test('Upstream stdio preview UI descriptor and resources/read are forwarded inta
  const input=[{jsonrpc:'2.0',id:1,method:'initialize',params:{protocolVersion:'2025-06-18',capabilities:{},clientInfo:{name:'test',version:'1'}}},
  {jsonrpc:'2.0',id:2,method:'tools/list',params:{}},
  {jsonrpc:'2.0',id:3,method:'resources/read',params:{uri:'ui://markcut/player.html'}},
- {jsonrpc:'2.0',id:4,method:'tools/call',params:{name:'markcut.preview',arguments:{path:'/missing.md'}}}];
+ {jsonrpc:'2.0',id:4,method:'tools/call',params:{name:'markcut.preview',arguments:{path:'/missing.md'}}},
+ {jsonrpc:'2.0',id:5,method:'tools/call',params:{name:'review.preview.acquire',arguments:{deviceId:randomUUID()}}}];
  try{
   const result=await new Promise((resolve,reject)=>{
    let stdout='',stderr='';const found=[];
    const timer=setTimeout(()=>reject(Error('Proxy timed out '+stderr+' '+stdout)),9000);
    child.stdout.on('data',b=>{stdout+=b.toString();let index;
      while((index=stdout.indexOf('\n'))>=0){const line=stdout.slice(0,index);stdout=stdout.slice(index+1);
-       if(line){found.push(JSON.parse(line));if(found.length===4){clearTimeout(timer);resolve(found);}}
+       if(line){found.push(JSON.parse(line));if(found.length===5){clearTimeout(timer);resolve(found);}}
      }});
    child.stderr.on('data',b=>{stderr+=b.toString()});
    child.on('error',reject);
@@ -207,12 +208,14 @@ test('Upstream stdio preview UI descriptor and resources/read are forwarded inta
   const get=i=>result.find(r=>r.id===i);
   assert.equal(get(1).result.serverInfo.name,'mock');
   assert.match(get(2).result.tools[0].description,/Neo-hosted/);
-  assert.deepEqual(get(2).result.tools.map(tool=>tool.name),['markcut.preview','review.preview']);
+  assert.deepEqual(get(2).result.tools.map(tool=>tool.name),['markcut.preview','review.preview','review.preview.acquire']);
   assert.equal(get(2).result.tools[0]._meta.ui.resourceUri,'ui://markcut/player.html');
   assert.equal(get(2).result.tools[1]._meta.ui.resourceUri,'ui://markcut/player.html');
   assert.deepEqual(get(2).result.tools[1].inputSchema.required,['path']);
   assert.match(get(3).result.contents[0].text,/Player/);
   assert.equal(get(4).result.isError,true);
+  assert.deepEqual(get(5).result.structuredContent.requests,[]);
+  assert.deepEqual(get(5).result.structuredContent.acked,[]);
  }finally{child.kill();rmSync(dir,{recursive:true,force:true})}
 });
 
@@ -254,17 +257,20 @@ test('Neo integration calls private localhost REST notify without MCP or CLI',as
   res.end(JSON.stringify({stored:true,accepted:false,requestId:payload.id}));
  });
  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
- const url=`http://127.0.0.1:${server.address().port}/mobile/review/notify`;
+ const url=`http://127.0.0.1:${server.address().port}/mobile/notify`;
  const request={id:randomUUID(),title:'Preview',contentHash:'a'.repeat(64),revisionId:'r1'};
+ const persisted=[];
  try{
-  assert.equal((await notifyReview(request,{url})).requestId,request.id);
+  assert.equal((await notifyReview(request,{url,persist:v=>persisted.push(v)})).requestId,request.id);
   assert.equal(received.length,1);
-  assert.equal(received[0].path,'/mobile/review/notify');
+  assert.equal(received[0].path,'/mobile/notify');
   assert.equal(received[0].method,'POST');
   assert.equal(received[0].contentType,'application/json');
-  assert.deepEqual(received[0].payload,request);
-  await assert.rejects(()=>notifyReview(request,{url:'https://neo.example.com/mobile/review/notify'}),/localhost/);
-  await assert.rejects(()=>notifyReview(request,{url:'http://127.0.0.1:6767/mcp'}),/localhost/);
+  assert.equal(received[0].payload.id,request.id);
+  assert.equal(received[0].payload.payload.neoReviewRequestId,request.id);
+  assert.deepEqual(persisted,[request]);
+  await assert.rejects(()=>notifyReview(request,{url:'https://neo.example.com/mobile/notify'}),/loopback/);
+  await assert.rejects(()=>notifyReview(request,{url:'http://127.0.0.1:6767/mcp'}),/loopback/);
  }finally{await new Promise(resolve=>server.close(resolve));}
 });
 test('notify URL reads deployed Neo.app port and rejects remote overrides',()=>{
@@ -272,7 +278,7 @@ test('notify URL reads deployed Neo.app port and rejects remote overrides',()=>{
  try{
   const file=join(dir,'deployment.json');writeFileSync(file,JSON.stringify({mcpPort:6808}));
   assert.equal(reviewNotifyURL({portFile:file,override:null}),
-    'http://127.0.0.1:6808/mobile/review/notify');
-  assert.throws(()=>reviewNotifyURL({portFile:file,override:'https://example.org/mobile/review/notify'}),/loopback/);
+    'http://127.0.0.1:6808/mobile/notify');
+  assert.throws(()=>reviewNotifyURL({portFile:file,override:'https://example.org/mobile/notify'}),/loopback/);
  }finally{rmSync(dir,{recursive:true,force:true})}
 });

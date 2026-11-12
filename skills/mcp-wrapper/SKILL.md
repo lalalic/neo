@@ -41,15 +41,23 @@ Relay is not called. In Relay-managed mode the authoritative waiting event is
 The wrapper must reuse the exact execution binding and
 Relay's canonical `task.interactive_decision` event template, with no separate invocation ID,
 Git commit, revision, or snapshot. Decisions are deduplicated by the existing Task execution. A `review_requested`
-receipt is not user approval or Task completion. Markcut owns preview media,
-Core owns notification/InBox delivery, and Relay alone owns durable Review
-state. Do not add a second Preview Provider. **Only Neo Wrapper validates Relay-specific
-identity and constructs the event template.** Markcut and Neo Mobile/Core receive
-a generic Events Bus envelope; they only validate transport safety, attach the
-human response in the caller-designated field, and publish without inspecting
-Task IDs or event types. It invokes Neo.app Core's loopback-only REST endpoint
-`POST /mobile/review/notify` and persists the intent until Core confirms
-Inbox storage. There is **no public notification-sending MCP Tool**.
+receipt is not user approval or Task completion. Markcut owns preview media;
+Neo Wrapper owns only pending delivery requests; Neo Mobile owns Review Inbox
+history and user decisions; Relay alone owns durable Task Review state.
+**Only Neo Wrapper** validates Relay-specific identities, creates the event
+binding, and retains the full request until acquired. Markcut transports opaque
+review templates; Neo Mobile publishes decisions through Events Bus or ChatGPT.
+
+After a non-readonly preview becomes ready, the wrapper persists the request in
+`apns/preview-requests/` and calls NeoY's generic loopback-only
+`POST /mobile/notify` for a pointer-only APNs hint. Neo Mobile uses the
+Master-authenticated MCP `review.preview.acquire` Tool (`deviceId`, optional
+`requestId`, optional `ackIds`) to fetch unsynchronized requests, including on
+foreground when APNs was missed. It ACKs only after local persistence, keeps
+its history when the Master queue expires, and never treats ACK as approval.
+NeoY uses `POST /mobile/device/register` with the existing Master Access Code,
+not a Review-specific device API. There is no Review Core REST Inbox, Node
+`review.mjs`, or notification-sending MCP Tool.
 
 Generate a machine-specific stdio Federation entry with:
 

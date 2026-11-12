@@ -3,7 +3,7 @@ import {spawn} from 'node:child_process';
 import readline from 'node:readline';
 import {randomUUID} from 'node:crypto';
 
-export function startStdioProxy({command,args=[],toolName,wrapCall,description,aliasName,aliasDescription,aliasInputSchema,transformAlias,stdin=process.stdin,stdout=process.stdout}) {
+export function startStdioProxy({command,args=[],toolName,wrapCall,description,aliasName,aliasDescription,aliasInputSchema,transformAlias,localTools=[],stdin=process.stdin,stdout=process.stdout}) {
   if(!command||typeof command!=='string'||!command.startsWith('/'))throw Error('MCP upstream command must be absolute');
   const child=spawn(command,args,{stdio:['pipe','pipe','inherit'],env:process.env});
   const pending=new Map();
@@ -27,6 +27,7 @@ export function startStdioProxy({command,args=[],toolName,wrapCall,description,a
         if(aliasName)message.result.tools.push({...tool,name:aliasName,
           description:aliasDescription,inputSchema:aliasInputSchema});
       }
+      for(const local of localTools)message.result.tools.push(local.definition);
       send(message);
     }else stdout.write(line+'\n');
   });
@@ -43,6 +44,17 @@ export function startStdioProxy({command,args=[],toolName,wrapCall,description,a
   const incoming=readline.createInterface({input:stdin,crlfDelay:Infinity});
   incoming.on('line',line=>{
     let message;try{message=JSON.parse(line);}catch{child.stdin.write(line+'\n');return;}
+    if(message?.method==='tools/call'){
+      const local=localTools.find(x=>x.definition.name===message.params?.name);
+      if(local){
+        if(message.id===undefined)return;
+        void Promise.resolve().then(()=>local.call(message.params?.arguments||{}))
+          .then(result=>send({jsonrpc:'2.0',id:message.id,result}))
+          .catch(error=>send({jsonrpc:'2.0',id:message.id,result:{isError:true,
+            content:[{type:'text',text:String(error?.message||error)}]}}));
+        return;
+      }
+    }
     const isAlias=message?.params?.name===aliasName&&Boolean(aliasName);
     const isPreview=message?.params?.name===toolName||isAlias;
     if(message?.method==='tools/call'&&isPreview&&message.id===undefined){

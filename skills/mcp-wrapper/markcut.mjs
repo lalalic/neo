@@ -5,6 +5,7 @@
 import {spawn,execFile,execFileSync} from 'node:child_process';
 import {randomUUID} from 'node:crypto';
 import {promisify} from 'node:util';
+import {preserveRequest,acquireTool,acquireCall,importLegacyInbox,markDeliveryStatus} from './review-delivery.mjs';
 import {existsSync,readFileSync,writeFileSync,renameSync,statSync,unlinkSync,mkdirSync,readdirSync,realpathSync} from 'node:fs';
 import {join,basename,resolve,dirname,relative,isAbsolute,sep,extname} from 'node:path';
 import {homedir} from 'node:os';
@@ -17,7 +18,7 @@ export function reviewNotifyURL({portFile=join(homedir(),'Library','Application 
   if(override){
     const url=new URL(override);
     if(url.protocol!=='http:'||!['127.0.0.1','localhost'].includes(url.hostname)||
-       url.pathname!=='/mobile/review/notify'||url.username||url.password||url.search||url.hash)
+       url.pathname!=='/mobile/notify'||url.username||url.password||url.search||url.hash)
       throw Error('Neo Review notify URL must be a loopback HTTP REST endpoint');
     return url.href;
   }
@@ -27,23 +28,32 @@ export function reviewNotifyURL({portFile=join(homedir(),'Library','Application 
     if(Number.isInteger(settings.mcpPort)&&settings.mcpPort>=1&&settings.mcpPort<=65535)
       port=settings.mcpPort;
   }
-  return `http://127.0.0.1:${port}/mobile/review/notify`;
+  return `http://127.0.0.1:${port}/mobile/notify`;
 }
-export async function notifyReview(request,{fetchImpl=fetch,url=reviewNotifyURL()}={}){
+/** Persist the complete request in the wrapper queue BEFORE sending APNs.
+ * APNs is only a wake-up hint; the phone later acquires and persists locally.
+ */
+export async function notifyReview(request,{fetchImpl=fetch,url=reviewNotifyURL(),persist=preserveRequest}={}){
   const destination=new URL(url);
   if(destination.protocol!=='http:'||!['127.0.0.1','localhost'].includes(destination.hostname)||
-     destination.pathname!=='/mobile/review/notify'||destination.search||destination.hash||
+     destination.pathname!=='/mobile/notify'||destination.search||destination.hash||
      destination.username||destination.password)
-    throw Error('Neo Core notify only accepts localhost REST');
-  const response=await fetchImpl(destination.href,{
-    method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},
-    body:JSON.stringify(request),signal:AbortSignal.timeout(55000),redirect:'error'
-  });
-  if(!response.ok)throw Error(`Neo.app Review REST notify failed: HTTP ${response.status}`);
-  const receipt=await response.json();
-  if(receipt?.stored!==true||receipt?.requestId!==request.id)
-    throw Error('Neo.app Review REST did not confirm durable Inbox storage');
-  return receipt;
+    throw Error('Neo notification destination must be loopback');
+  persist(request);
+  let receipt={accepted:false};
+  try{
+    const response=await fetchImpl(destination.href,{
+      method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},
+      body:JSON.stringify({id:request.id,title:request.title,
+        body:request.delivery==='event'?'Video ready for review':'Video preview ready',
+        payload:{neoReviewRequestId:request.id}}),
+      signal:AbortSignal.timeout(15000),redirect:'error'
+    });
+    if(response.ok)receipt=await response.json();
+  }catch(error){
+    process.stderr.write('Neo review APNs delivery unavailable: '+String(error?.message||error).slice(0,140)+'\n');
+  }
+  return {stored:true,requestId:request.id,accepted:receipt.accepted===true};
 }
 
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -189,6 +199,7 @@ export function startMarkcutWrapper(upstream,options={}){
   }
   return startStdioProxy({command:upstream,args:options.args||[],toolName:'markcut.preview',
     description:'Neo-hosted generic Markcut preview. Neo Wrapper handles Relay review binding; Markcut only compiles and delivers caller-supplied event templates.',
+    localTools:[{definition:acquireTool,call:acquireCall}],
     aliasName:'review.preview',aliasDescription:'Show a view-only media preview or request human review for the current Relay Task execution. Called by agents-relay review interactive CLI; never commits Git.',
     aliasInputSchema:{type:'object',additionalProperties:false,required:['path'],properties:{
       path:{type:'string',description:'Absolute Markdown or supported media path'},
@@ -354,12 +365,12 @@ export async function runRecordedDelivery(id,{recordDir=deliveryDirectory(),dire
   if(!lock)return {alreadyRunning:true};
   try{
     const result=await watchAndNotify(id,{directory,notify,onReady,onFailed,initialIdentity:record.binding||null});
-    persistDelivery(file,{...record,status:result.notified?'delivered':'failed',updatedAt:new Date().toISOString(),
-      ...(result.error?{error:result.error}:{})});
+    markDeliveryStatus(id,result.notified?'delivered':'failed',
+      {directory:recordDir,error:result.error});
     return result;
   }catch(error){
-    persistDelivery(file,{...record,status:'pending',lastError:String(error?.message||error).slice(0,300),
-      updatedAt:new Date().toISOString()});
+    markDeliveryStatus(id,'pending',
+      {directory:recordDir,error:String(error?.message||error).slice(0,300)});
     throw error;
   }finally{try{unlinkSync(lock);}catch{}}
 }
@@ -389,7 +400,14 @@ export async function recoverPendingDeliveries({recordDir=deliveryDirectory(),di
 
 
 if(process.argv[1]&&resolve(process.argv[1])===fileURLToPath(import.meta.url)){
-  if(process.argv[2]==='--federation'){
+  if(process.argv[2]==='migrate-review-inbox'){
+    process.stdout.write(JSON.stringify(importLegacyInbox())+'\n');
+  }else if(process.argv[2]==='deliver'){
+    let input='';
+    for await(const part of process.stdin){input+=part;if(input.length>65536)throw Error('Review request too large');}
+    const result=await notifyReview(JSON.parse(input));
+    process.stdout.write(JSON.stringify(result)+'\n');
+  }else if(process.argv[2]==='--federation'){
     const upstream=process.argv[3]||process.env.NEO_MARKCUT_MCP_SERVER;
     process.stdout.write(JSON.stringify(federationConfiguration({upstream}),null,2)+'\n');
   }else if(process.argv[2]==='watch'&&process.argv[3]){
