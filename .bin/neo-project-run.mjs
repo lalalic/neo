@@ -156,12 +156,29 @@ function initializeRun(runDir, projectName, input, sourceUrl, publicationReview 
   writePrivate(evidence, `${JSON.stringify(data, null, 2)}\n`);
   const creativeOnly = publicationReview === 'separate';
   const vlogPublisher = projectName === 'vlog' && publicationReview === 'publisher-explicit-authorization';
+  const reviewStagesFile = projectName === 'vlog' ? join(runDir, 'review-stages.json') : null;
+  let requestedReviews = [];
+  if (reviewStagesFile && existsSync(reviewStagesFile)) {
+    let stages;
+    try { stages = JSON.parse(readFileSync(reviewStagesFile, 'utf8')); }
+    catch { fail('invalid Vlog review-stages.json'); }
+    if (!stages || typeof stages !== 'object' || Array.isArray(stages) ||
+        Object.entries(stages).some(([name, enabled]) =>
+          !['visioner', 'director', 'producer'].includes(name) || typeof enabled !== 'boolean'))
+      fail('Vlog review-stages.json accepts only boolean visioner/director/producer');
+    requestedReviews = ['visioner', 'director', 'producer'].filter(stage => stages[stage] === true);
+    if (noReview && requestedReviews.length) fail('--no-review conflicts with enabled Vlog interactive review stages');
+  }
+  const requestedReviewPolicy = requestedReviews.length
+    ? `EXPLICIT INTERACTIVE REVIEWS: review-stages.json requires human Preview and authenticated approval for these exact Task stages: ${requestedReviews.join(', ')}. Each enabled Agent must call Relay review interactive with its own Task execution identity, enter AWAITING_DECISION, and only complete after a matching approved decision; Request Changes must revise and re-preview. Do NOT claim stage completion based on Preview compilation or notification delivery. No extra Review Task or Final Review.`
+    : '';
   const publishingPolicy = vlogPublisher
-    ? 'Default: no human interactive review, no specialist Final Review or separate Final QA Task. Editor must run Markcut verify and noninteractive source/asset checks (no real viewer required); Producer verifies and renders, with human Preview only on explicit request. Publisher uses WeChat Channels/XHS only with explicit per-video, per-platform and signed-in account authorization; otherwise SKIPPED, and Publisher itself has no review.'
+    ? `${requestedReviews.length ? 'Requested stages must perform the interactive review in review-stages.json.' : 'Default: no human interactive review.'} No specialist Final Review or separate Final QA Task. Editor must run Markcut verify and noninteractive source/asset checks (no real viewer required); Producer verifies and renders, with human Preview only on explicit request. Publisher uses WeChat Channels/XHS only with explicit per-video, per-platform and signed-in account authorization; otherwise SKIPPED, and Publisher itself has no review.`
     : null;
   const objectiveText = `Run the ${projectName} project workflow for the selected private canonical run.\n\nRead the run input at ${taskInput} and its source evidence at ${evidence}. ${publishingPolicy || (creativeOnly ? 'Perform Stage contract validation/self-heal; a separate workflow owns all publication/license/use audits. Do not publish.' : 'Apply project source-use, review and publication gates. Do not infer permission or publish.')}\n`;
   const taskText = `Process this selected Neo Project run.\n\n- Project: ${projectName}\n- Canonical run: ${runDir}\n- Private input evidence: ${evidence}\n\nUse the project contract and existing Agent Graph. Preserve existing run files. ${publishingPolicy || (creativeOnly ? 'Do not perform licensing or rights checks in creative Stages; publication review is separate.' : 'Source references do not establish rights or publication permission.')}\n`;
-  const instruction = noReview ? '\nPRIVATE RENDER TEST ONLY: honor review-mode.json. SKIP human Preview and specialist review entirely, never call review/notify, render a real MP4, check playback, mark review UNREVIEWED/NOT_RUN, force Publisher SKIPPED, prohibit publication.\n' : '';
+  const instruction = noReview ? '\nPRIVATE RENDER TEST ONLY: honor review-mode.json. SKIP human Preview and specialist review entirely, never call review/notify, render a real MP4, check playback, mark review UNREVIEWED/NOT_RUN, force Publisher SKIPPED, prohibit publication.\n' :
+    requestedReviewPolicy ? `\n${requestedReviewPolicy}\n` : '';
   writePrivate(objective, objectiveText + instruction);
   writePrivate(taskInput, taskText + instruction);
   return { evidence, objective, taskInput, output, binding, saved: null };
@@ -332,6 +349,8 @@ Options accept --name value or --name=value in any order.
 --dry-run   Validate and preview without writes or Relay calls
 --no-review Private Vlog render test only: approved source-use required,
             publication blocked (not a general Final Review bypass)
+Vlog review-stages.json may opt in boolean visioner/director/producer stages;
+            opted-in stages require Task-bound approval or Request Changes.
 
 Re-running an already-bound Run verifies the stored Job/Graph/Task and returns
 its current state; it does not create another Job or restart completed work.

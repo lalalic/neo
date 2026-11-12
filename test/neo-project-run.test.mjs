@@ -376,6 +376,35 @@ test('default Vlog run skips interactive review, routes conditional Publisher, n
  }finally{rmSync(f.base,{recursive:true,force:true});}
 });
 
+test('explicit Vlog review stages propagate to Coordinator and conflict with --no-review', async () => {
+ const f=fixture(),relay=relayStub();
+ try {
+  writeFileSync(join(f.runDir,'review-stages.json'), JSON.stringify({visioner:true,director:true,producer:true}));
+  await run(['--project','vlog','--path',f.runDir],f,relay);
+  const task=readFileSync(join(f.runDir,'neo-project-run.input.md'),'utf8');
+  const objective=readFileSync(join(f.runDir,'neo-project-run.objective.md'),'utf8');
+  for (const text of [task,objective]) {
+    assert.match(text,/EXPLICIT INTERACTIVE REVIEWS/);
+    assert.match(text,/visioner, director, producer/);
+    assert.match(text,/AWAITING_DECISION/);
+    assert.match(text,/Request Changes must revise and re-preview/);
+    assert.doesNotMatch(text,/Default: no human interactive review/);
+  }
+  assert.equal(relay.jobs.get('job-1').reviewEnabled,true);
+  writeFileSync(join(f.runDir,'source-manifest.json'), JSON.stringify({source_use:{approved:true,scope:'private test'}}));
+  await assert.rejects(()=>run(['--project','vlog','--path',f.runDir,'--no-review'],f,relay),/Cannot change existing bound Vlog review policy/);
+ }finally{rmSync(f.base,{recursive:true,force:true});}
+});
+
+test('Vlog review stage file rejects unknown or non-boolean flags before Job creation', async () => {
+ const f=fixture(),relay=relayStub();
+ try {
+  writeFileSync(join(f.runDir,'review-stages.json'), JSON.stringify({director:'yes'}));
+  await assert.rejects(()=>run(['--project','vlog','--path',f.runDir],f,relay),/accepts only boolean/);
+  assert.equal(relay.calls.length,0);
+ }finally{rmSync(f.base,{recursive:true,force:true});}
+});
+
 test('independent local-only project binds Relay to its own Git root without GitHub', async () => {
   const f = fixture(), relay = relayStub();
   try {
