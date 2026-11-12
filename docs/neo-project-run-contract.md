@@ -43,8 +43,10 @@ The CLI validates required project files (`AGENTS.md`, `README.md`, and `graph.m
 URL input creates a unique dated directory under the project's canonical `runs/`, with private mode-0600 source evidence and objective/input documents. The complete URL stays in the private evidence file and is never placed on Relay argv or printed. Path input references an existing run and never replaces its files. Both forms write a private atomic binding pointer containing only the project/run and Relay Job/Task identifiers and private artifact paths.
 
 Neo invokes the installed `agents-relay` CLI using argv with the owning
-independent project repository (GitHub origin, explicit override, or
-`local/<project>`). It makes one `job create` call with `--coordinator-graph-file`,
+independent local Git repository name (for example `vlog`) and its canonical
+Git root via `--project-root`. GitHub origin is optional remote metadata, never
+the Job identity; an explicit repository override must match the local project name.
+It makes one `job create` call with `--coordinator-graph-file`,
 `--coordinator-input-file`, `--coordinator-output-path`,
 `--coordinator-project-root`, `--coordinator-workspace-root` and
 `--coordinator-shared-root`; Relay persists the Job and Coordinator Task in a

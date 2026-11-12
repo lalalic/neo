@@ -233,8 +233,9 @@ export function runProject(args, options = {}) {
   if (!independent) fail('NEO_ROOT projects must be independent Git repositories');
   const remote = independent ? git('remote', 'get-url', 'origin') : null;
   const github = remote?.replace(/\.git$/, '').match(/github\.com[/:]([^/]+\/[^/]+)$/i)?.[1] ?? null;
-  const repoId = options.repository ?? process.env.NEO_RELAY_REPOSITORY ?? github ?? `local/${parsed.project}`;
-  const noGitHub = !github && !options.repository && !process.env.NEO_RELAY_REPOSITORY;
+  const repoId = options.repository ?? process.env.NEO_RELAY_REPOSITORY ?? parsed.project;
+  if (repoId !== parsed.project) fail('Relay repository identity must match local Git project name');
+  const noGitHub = !github;
   const relayFlags = noGitHub ? ['--no-github'] : [];
   const repoProjectPath = '.';
   const repoCheckout = selected.project;
@@ -316,7 +317,7 @@ export function runProject(args, options = {}) {
     return startBound(jobId);
   }
   const title=parsed.title??projectRunTitle(parsed.project,runDir);
-  const created=invoke(['job','create','--repo',repo,'--project-path',projectPath,'--title',title,
+  const created=invoke(['job','create','--repo',repo,'--project-root',repoCheckout,'--project-path',projectPath,'--title',title,
     '--objective-file',files.objective,'--coordinator-graph-file',selected.graph,
     '--coordinator-input-file',files.taskInput,'--coordinator-output-path',files.output,
     '--coordinator-project-root',repoCheckout,'--coordinator-workspace-root',workspace.neoRoot,

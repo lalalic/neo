@@ -62,7 +62,7 @@ test('skill discovery uses installed shared assets, not workspace source files',
     assert.ok(skills.some(skill=>skill.name==='xchat-orchestrator'), 'Installed Harness Skills remain available');
   } finally { rmSync(base,{recursive:true,force:true}); }
 });
-test('live CLI project route resolves only independent NEO_ROOT projects',()=>{const data=JSON.parse(execFileSync(process.execPath,[cli,'project','resolve','vlog'],{encoding:'utf8',timeout:15000}));assert.equal(data.name,'vlog');assert.equal(data.neo_project,true);assert.equal(data.repo,'local/vlog');});
+test('live CLI project route resolves only independent NEO_ROOT projects',()=>{const data=JSON.parse(execFileSync(process.execPath,[cli,'project','resolve','vlog'],{encoding:'utf8',timeout:15000}));assert.equal(data.name,'vlog');assert.equal(data.neo_project,true);assert.equal(data.repo,'vlog');});
 
 test('launchd NeoY is an explicitly managed service, not an arbitrary process',()=>{
 const c=captured();const original=c.opts.run;c.opts.run=(cmd,args)=>{if(cmd==='launchctl'){c.calls.push([cmd,args]);return {code:0,stdout:'state = running\n pid = 42\n'};}return original(cmd,args);};

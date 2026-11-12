@@ -58,6 +58,7 @@ class ListXchatProjectsTests(unittest.TestCase):
             (generic / "README.md").write_text("# Generic repository\n", encoding="utf-8")
             (generic / "AGENTS.md").write_text("# Rules\n", encoding="utf-8")
             subprocess.run(["git", "init", "-q", str(generic)], check=True)
+            subprocess.run(["git", "-C", str(project), "remote", "add", "origin", "git@github.com:someone/remote-name.git"], check=True)
             nested = project / "nested"
             nested.mkdir()
             (nested / "README.md").write_text("# Nested\n", encoding="utf-8")
@@ -68,7 +69,8 @@ class ListXchatProjectsTests(unittest.TestCase):
                 rows = module.projects()
                 self.assertEqual([row["xchat_project"] for row in rows], ["sample"])
                 self.assertEqual(rows[0]["local_path"], str(project.resolve()))
-                self.assertEqual(rows[0]["repo"], "local/sample")
+                self.assertEqual(rows[0]["repo"], "sample")
+                self.assertEqual(rows[0]["origin"], "git@github.com:someone/remote-name.git")
                 self.assertEqual(rows[0]["neo_project"], True)
                 self.assertEqual(module.resolve(rows, "sample")["git_root"], str(project.resolve()))
                 with self.assertRaises(SystemExit):
