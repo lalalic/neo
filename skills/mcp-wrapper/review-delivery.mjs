@@ -179,6 +179,7 @@ export function importLegacyInbox({directory=defaultDirectory(),legacyPath=join(
 export const acquireTool={
  name:'review.preview.acquire',
  description:'Neo Mobile only: fetch an immutable pending preview by requestId or list undelivered previews, then acknowledge after durable local import. Not a review decision.',
+ _meta:{ui:{visibility:['app']}},
  inputSchema:{type:'object',additionalProperties:false,required:['deviceId'],properties:{
   deviceId:{type:'string'},requestId:{type:'string'},ackIds:{type:'array',items:{type:'string'},maxItems:100}
  }}

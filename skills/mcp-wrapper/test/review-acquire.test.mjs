@@ -4,7 +4,7 @@ import {mkdtempSync,rmSync,readFileSync,writeFileSync} from 'node:fs';
 import {randomUUID} from 'node:crypto';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {preserveRequest,acquireReviews,importLegacyInbox,recordPath,markDeliveryStatus} from '../review-delivery.mjs';
+import {preserveRequest,acquireReviews,importLegacyInbox,recordPath,markDeliveryStatus,acquireTool} from '../review-delivery.mjs';
 
 const request=(id=randomUUID())=>({id,title:'A media review',contentHash:'a'.repeat(64),revisionId:'v1',delivery:'text'});
 test('Review delivery is durable, per-device idempotent and does not interpret decisions',()=>{
@@ -96,4 +96,8 @@ test('Migration normalizes only historical event hash identity, never live submi
   assert.equal(stored.contentHash,undefined);
   assert.equal(stored.revisionId,undefined);
  }finally{rmSync(directory,{recursive:true,force:true})}
+});
+
+test('Acquisition is an app-only direct tool, not an ordinary public facade command',()=>{
+ assert.deepEqual(acquireTool._meta,{ui:{visibility:['app']}});
 });
