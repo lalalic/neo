@@ -10,6 +10,8 @@ Cross-project release memory, verified during the 2026-11-05 Neox AI internal Te
 - Inspecting the app and the RoyalVNCKit/CryptoSwift dependency revealed standard third-party encryption in the VNC implementation. Export compliance was classified according to the actual implementation and approved distribution scope, and the exact new build was associated with the intended internal tester group. Official API read-back then confirmed internalBuildState=IN_BETA_TESTING, group linkage, and tester membership.
 - Phone visibility was not verified because iPhone Mirroring was blocked. Never report phone E2E as passed based on store-side API status.
 
+For Neox and ToyAlive, use one shared [`apple-delivery` Skill](../skills/apple-delivery/SKILL.md) and a project-owned `apple-delivery.json`. The skill CLI owns deterministic preflight, API-key signing, build number bump, upload, previously reviewed encryption classification (`ITSAppUsesNonExemptEncryption` or Apple Modify a build), and existing internal group linkage. Continue to enforce the independent website/phone verification gates below.
+
 ## Mandatory workflow for every authorized iOS/TestFlight release
 
 1. **Preflight identity/build.** Read the repository's release policy, selected build scheme, bundle ID, Apple team, entitlements, distribution audience, and app-specific approval. Check the existing store builds first; the next CFBundleVersion must be strictly greater than prior builds. Preserve source-to-archive-to-upload identity.

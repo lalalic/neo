@@ -21,6 +21,7 @@ are deployment and distribution targets, not source of truth.
 - skill-builder — capability-first creation, review, and evaluation of agent skills.
 - neo-project — canonical Neo Project graph/Agent contracts and reusable product development recipes.
 - product-prototype — quick, discussion-led mobile App and website prototype to native/API implementation and real MCP/WebHelm QA.
+- apple-delivery — shared iOS internal TestFlight release, export compliance, signing and App Store Connect state verification.
 - neo-compute — reuse project Dockerfile images for authorized HF Jobs/Vast.ai runs, with dry-run, spend/upload gates and cleanup.
 
 Changes are made here first, tested locally, and then published/synchronized

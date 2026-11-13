@@ -38,7 +38,7 @@ All external posting and publishing requires explicit owner permission. Draft/pr
 
 ## Software distribution
 
-For any authorized iOS/TestFlight release, consult the shared [TestFlight release playbook](docs/testflight-release-playbook.md): check existing API-key upload capabilities before treating an Xcode login prompt as an owner-only blocker, and **always inspect the actual App Store Connect TestFlight website after upload** for encryption compliance, the exact build, tester-group distribution, and installability.
+For any authorized iOS/TestFlight release, load the shared [apple-delivery Skill](skills/apple-delivery/SKILL.md) and consult the [TestFlight release playbook](docs/testflight-release-playbook.md): check existing API-key upload capabilities before treating an Xcode login prompt as an owner-only blocker, and **always inspect the actual App Store Connect TestFlight website after upload** for encryption compliance, the exact build, tester-group distribution, and installability.
 
 ## Learning
 
