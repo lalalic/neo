@@ -1,7 +1,7 @@
 import { isTerminalStatus } from './job-status.mjs';
 
 export const JOB_ID_PATTERN = /^[A-Za-z0-9_.-]{1,64}$/;
-export const REPOSITORY_PATTERN = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,36}[A-Za-z0-9])?\/[A-Za-z0-9._-]{1,100}$/;
+export const REPOSITORY_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/;
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})$/;
 const clip = (value, max) => (typeof value === 'string' ? value.slice(0, max) : '');
 

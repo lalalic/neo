@@ -1,3 +1,4 @@
+import { REPOSITORY_PATTERN, normalizeRepository } from '../core/relay-jobs.mjs';
 export const MAX_REPORT_CHARS = 2000;
 const LEVELS = ['info', 'attention'];
 const NEEDS = ['work_node', 'phone', 'none'];
@@ -80,7 +81,7 @@ export const TOOL_DEFS = Object.freeze([
     inputSchema: {
       type: 'object',
       properties: {
-        repository: { type: 'string', pattern: '^[A-Za-z0-9](?:[A-Za-z0-9-]{0,36}[A-Za-z0-9])?/[A-Za-z0-9._-]{1,100}$' },
+        repository: { type: 'string', pattern: REPOSITORY_PATTERN.source },
         jobId: { type: 'string', pattern: '^[A-Za-z0-9_.-]{1,64}$' },
       },
       required: ['repository', 'jobId'], additionalProperties: false,
@@ -92,7 +93,7 @@ export const TOOL_DEFS = Object.freeze([
     inputSchema: {
       type: 'object',
       properties: {
-        repository: { type: 'string', pattern: '^[A-Za-z0-9](?:[A-Za-z0-9-]{0,36}[A-Za-z0-9])?/[A-Za-z0-9._-]{1,100}$' },
+        repository: { type: 'string', pattern: REPOSITORY_PATTERN.source },
         jobId: { type: 'string', pattern: '^[A-Za-z0-9_.-]{1,64}$' },
       },
       required: ['repository', 'jobId'], additionalProperties: false,
@@ -156,8 +157,7 @@ export function validateJobIdentity(args, toolName) {
       Object.keys(args).some((key) => key !== 'repository' && key !== 'jobId')) {
     throw new Error(`${toolName} requires only repository and jobId`);
   }
-  if (typeof args.repository !== 'string' ||
-      !/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,36}[A-Za-z0-9])?\/[A-Za-z0-9._-]{1,100}$/.test(args.repository)) {
+  if (!normalizeRepository(args.repository)) {
     throw new Error('repository is invalid');
   }
   if (typeof args.jobId !== 'string' || !/^[A-Za-z0-9_.-]{1,64}$/.test(args.jobId)) {

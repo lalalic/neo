@@ -18,8 +18,8 @@ The loopback MCP service at http://127.0.0.1:8791/mcp is federated into authenti
 - chat_env: office/home mode and source, plus phone connection observation if available.
 - chat_feed: optional limit 1..100, default 50. Returns owner-safe report/owner history with no raw Job events, prompts or paths.
 - chat_jobs: optional limit 1..100, default 100. Returns active and recent Relay jobs from the dashboard, containing only ID, title, status, repository, creation and update timestamp; supplies the separate Neo Mobile Jobs tab.
-- chat_job_activity: exact repository and jobId. Returns repository-scoped, owner-safe, ordered durable lifecycle events from the public Events Bus history; no raw payloads or private metadata.
-- chat_job_cancel: exact repository and jobId. Cancels an eligible Relay Job through Relay's real cancellation Graph and returns only after an authoritative CANCELLED readback. No PR number is required.
+- chat_job_activity: exact local repository name (e.g. vlog) and jobId. Returns repository-scoped, owner-safe, ordered durable lifecycle events from the public Events Bus history; no raw payloads or private metadata.
+- chat_job_cancel: exact local repository name (e.g. vlog) and jobId. Cancels an eligible Relay Job through Relay's real cancellation Graph and returns only after an authoritative CANCELLED readback. No PR number is required.
 - chat_head: whether a current orchestrator ChatGPT head thread is bound.
 - chat_bind: threadId (validated) to bind or update the orchestrator head thread on creation/handoff.
 - chat_send: owner text and stable requestId. Forwards to bound head using Neo.app ChatGPT durable async queue, stores the result. Submitted means queue acceptance, NOT an assistant reply. Duplicate requestId never submits again.

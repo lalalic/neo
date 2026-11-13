@@ -8,21 +8,47 @@ const response = (body, status = 200) => new Response(JSON.stringify(body), { st
 
 test('job normalization is typed, repository scoped, and drops synthesized timestamps', () => {
   const raw = {
-    id: 21, title: 'Private title', repository: 'example/neo',
+    id: 21, title: 'Private title', repository: 'vlog',
     state: 'ACTIVE', runtimeStatus: 'RUNNING', createdAt: '2026-11-10T13:42:00.461Z',
     updatedAt: '2026-11-10T13:45:00Z', objective: 'secret objective',
     projectPath: '/Users/private/project',
   };
   const job = normalizeJob(raw);
   assertStrict.deepEqual(job, {
-    id: '21', title: 'Private title', repository: 'example/neo', status: 'RUNNING',
+    id: '21', title: 'Private title', repository: 'vlog', status: 'RUNNING',
     createdAt: '2026-11-10T13:42:00.461Z', updatedAt: '2026-11-10T13:45:00Z',
     cancellable: true,
   });
-  assertStrict.equal(normalizeJob(raw, { jobId: '22', repository: 'example/neo' }), null);
+  assertStrict.equal(normalizeJob(raw, { jobId: '22', repository: 'vlog' }), null);
   assertStrict.equal(normalizeJob({ ...raw, createdAt: '2026/11/10' }), null);
   assertStrict.equal(normalizeJob({ ...raw, createdAt: '2026-02-31T13:00:00Z' }), null);
   assertStrict.deepEqual(normalizeJobs({ jobs: [{ ...raw, createdAt: null }] }), []);
+});
+
+test('Relay local repository slugs survive Jobs normalization and reject legacy remote paths', () => {
+  const sample = (id, repository) => ({ id, repository, title: 'Public title',
+    state: 'COMPLETED', runtimeStatus: 'COMPLETED',
+    createdAt: '2026-11-12T20:53:55.691Z', updatedAt: '2026-11-12T20:59:02.990Z',
+    objective: 'private', projectRoot: '/private/path' });
+  const normalized = normalizeJobs({ jobs: [sample('625', 'content-distribution'),
+    sample('619', 'vlog'), sample('617', 'agents-relay'), sample('611', 'lalalic/neo'),
+    sample('614', '../secret'), sample('615', '')] });
+  assertStrict.deepEqual(normalized.map(j => [j.id, j.repository]), [
+    ['625', 'content-distribution'], ['619', 'vlog'], ['617', 'agents-relay']]);
+  assertStrict.equal(JSON.stringify(normalized).includes('/private/path'), false);
+  assertStrict.equal(JSON.stringify(normalized).includes('private'), false);
+});
+
+test('MCP repository contract matches the dashboard local slug and validated job identity', async () => {
+  const { TOOL_DEFS, validateJobIdentity } = await import('../mcp/tools.mjs');
+  const { REPOSITORY_PATTERN } = await import('../core/relay-jobs.mjs');
+  for (const name of ['chat_job_activity', 'chat_job_cancel']) {
+    const tool = TOOL_DEFS.find(x => x.name === name);
+    assertStrict.equal(tool.inputSchema.properties.repository.pattern, REPOSITORY_PATTERN.source);
+    assertStrict.deepEqual(validateJobIdentity({ repository: 'vlog', jobId: '619' }, name),
+      { repository: 'vlog', jobId: '619' });
+    assertStrict.throws(() => validateJobIdentity({ repository: 'lalalic/neo', jobId: '619' }, name), /repository is invalid/);
+  }
 });
 
 test('dashboard job readback requires exact repository identity and stays sanitized', async () => {
@@ -31,19 +57,19 @@ test('dashboard job readback requires exact repository identity and stays saniti
     baseUrl: 'http://127.0.0.1:8787',
     fetcher: async (url, options = {}) => {
       requests.push({ url: String(url), method: options.method ?? 'GET' });
-      return response({ id: '31', repository: 'example/neo', state: 'ACTIVE',
+      return response({ id: '31', repository: 'vlog', state: 'ACTIVE',
         runtimeStatus: 'RUNNING', title: 'Isolated job', createdAt: '2026-11-10T13:00:00Z',
         updatedAt: '2026-11-10T13:01:00Z', objective: 'secret' });
     },
   });
-  const job = await dashboard.fetchJob('31', 'example/neo');
-  assertStrict.deepEqual(job, { id: '31', title: 'Isolated job', repository: 'example/neo',
+  const job = await dashboard.fetchJob('31', 'vlog');
+  assertStrict.deepEqual(job, { id: '31', title: 'Isolated job', repository: 'vlog',
     status: 'RUNNING', createdAt: '2026-11-10T13:00:00Z', updatedAt: '2026-11-10T13:01:00Z',
     jobState: 'ACTIVE', cancellable: true });
-  assertStrict.deepEqual(requests, [{ url: 'http://127.0.0.1:8787/api/job?id=31&repo=example%2Fneo', method: 'GET' }]);
-  await dashboard.requestCancellation('31', 'example/neo');
+  assertStrict.deepEqual(requests, [{ url: 'http://127.0.0.1:8787/api/job?id=31&repo=vlog', method: 'GET' }]);
+  await dashboard.requestCancellation('31', 'vlog');
   assertStrict.deepEqual(requests[1], {
-    url: 'http://127.0.0.1:8787/api/job-state?id=31&state=CANCELLED&repo=example%2Fneo', method: 'POST',
+    url: 'http://127.0.0.1:8787/api/job-state?id=31&state=CANCELLED&repo=vlog', method: 'POST',
   });
 });
 
@@ -106,7 +132,7 @@ test('MCP activity validates the exact job pair and hides source errors and priv
     fetchJobs: async () => [],
     fetchJob: async (jobId, repository) => {
       assertStrict.equal(jobId, '61');
-      assertStrict.equal(repository, 'example/neo');
+      assertStrict.equal(repository, 'vlog');
       return { id: jobId, repository, status: 'RUNNING', jobState: 'ACTIVE',
         createdAt: '2026-11-10T13:00:00Z', updatedAt: '2026-11-10T13:01:00Z' };
     },
@@ -130,13 +156,13 @@ test('MCP activity validates the exact job pair and hides source errors and priv
     const response = await fetch(`http://127.0.0.1:${port}/mcp`, {
       method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream' },
       body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call',
-        params: { name: 'chat_job_activity', arguments: { repository: 'example/neo', jobId: '61' } } }),
+        params: { name: 'chat_job_activity', arguments: { repository: 'vlog', jobId: '61' } } }),
     });
     return response.json();
   };
   const result = await call();
   assertStrict.deepEqual(result.result.structuredContent, {
-    jobId: '61', repository: 'example/neo', source: 'events-bus-history',
+    jobId: '61', repository: 'vlog', source: 'events-bus-history',
     events: [{ type: 'task.progress', status: 'PROGRESS', label: 'Task progress',
       timestamp: '2026-11-10T13:02:00Z', taskId: '71' }], truncated: false,
   });
@@ -153,13 +179,13 @@ test('MCP cancellation is repo scoped, reads final CANCELLED state, and serializ
   const fetchGates = [];
   let initialRead = true;
   let duplicateResponse = false;
-  const rawJob = () => ({ id: '41', repository: 'example/neo', state,
+  const rawJob = () => ({ id: '41', repository: 'vlog', state,
     runtimeStatus: state === 'ACTIVE' ? 'RUNNING' : state, title: 'Isolated cancel',
     createdAt: '2026-11-10T13:00:00Z', updatedAt: '2026-11-10T13:01:00Z' });
   const dashboard = {
     fetchJobs: async () => [rawJob()],
     fetchJob: async (jobId, repository) => {
-      if (jobId !== '41' || repository !== 'example/neo') throw new Error('Job not found');
+      if (jobId !== '41' || repository !== 'vlog') throw new Error('Job not found');
       if (initialRead) {
         initialRead = false;
         await new Promise((resolve) => fetchGates.push(resolve));
@@ -169,7 +195,7 @@ test('MCP cancellation is repo scoped, reads final CANCELLED state, and serializ
     },
     requestCancellation: async (jobId, repository) => {
       cancelCalls += 1;
-      if (jobId !== '41' || repository !== 'example/neo') throw new Error('Job not found');
+      if (jobId !== '41' || repository !== 'vlog') throw new Error('Job not found');
       state = 'CANCELLED';
       return { id: jobId, repository, status: state, title: 'Isolated cancel',
         jobState: state, createdAt: '2026-11-10T13:00:00Z', updatedAt: '2026-11-10T13:01:00Z' };
@@ -187,7 +213,7 @@ test('MCP cancellation is repo scoped, reads final CANCELLED state, and serializ
     const rpcResponse = await fetch(`http://127.0.0.1:${port}/mcp`, {
       method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream' },
       body: JSON.stringify({ jsonrpc: '2.0', id, method: 'tools/call',
-        params: { name: 'chat_job_cancel', arguments: { repository: 'example/neo', jobId: '41' } } }),
+        params: { name: 'chat_job_cancel', arguments: { repository: 'vlog', jobId: '41' } } }),
     });
     const result = await rpcResponse.json();
     if (id === 2) duplicateResponse = true;
@@ -212,13 +238,13 @@ test('cancellation uses ACTIVE job state while runtime status is RUNNING and rej
   let cancelCalls = 0;
   const dashboard = {
     fetchJobs: async () => [],
-    fetchJob: async () => ({ id: '51', repository: 'example/neo', status: 'RUNNING',
+    fetchJob: async () => ({ id: '51', repository: 'vlog', status: 'RUNNING',
       jobState: state, title: 'Running lifecycle', createdAt: '2026-11-10T13:00:00Z',
       updatedAt: '2026-11-10T13:01:00Z' }),
     requestCancellation: async () => {
       cancelCalls += 1;
       state = 'CANCELLED';
-      return { id: '51', repository: 'example/neo', status: 'CANCELLED', jobState: state,
+      return { id: '51', repository: 'vlog', status: 'CANCELLED', jobState: state,
         title: 'Running lifecycle', createdAt: '2026-11-10T13:00:00Z',
         updatedAt: '2026-11-10T13:01:00Z' };
     },
@@ -234,7 +260,7 @@ test('cancellation uses ACTIVE job state while runtime status is RUNNING and rej
     const response = await fetch(`http://127.0.0.1:${port}/mcp`, {
       method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream' },
       body: JSON.stringify({ jsonrpc: '2.0', id, method: 'tools/call',
-        params: { name: 'chat_job_cancel', arguments: { repository: 'example/neo', jobId: '51' } } }),
+        params: { name: 'chat_job_cancel', arguments: { repository: 'vlog', jobId: '51' } } }),
     });
     return response.json();
   };
