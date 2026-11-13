@@ -9,7 +9,7 @@ const CALL_TIMEOUT_MS = 120_000;
 // Only explicitly approved local Neo.app MCP tools are CLI-callable.
 // Generic tools/list discovery must not grant access to setup/shell/cluster etc.
 // The computer facade remains under its own subcommand whitelist.
-const CLI_MCP_TOOLS = new Set(['markcut.preview','review.preview']);
+const CLI_MCP_TOOLS = new Set(['markcut.preview','review.preview','askquestions']);
 // Tool names in the Neo MCP gateway are already canonical; do not add
 // provider-specific aliases to the local CLI.
 
@@ -117,8 +117,16 @@ export async function callLocalMcpTool(name,args={},options={}){
  if(!args || typeof args!=='object' || Array.isArray(args))throw Error('Neo MCP arguments must be a JSON object');
  if(name==='review.preview'){
   if(typeof args.path!=='string'||!args.path.startsWith('/'))throw Error('review.preview requires an absolute media or Markdown path');
-  if(Object.keys(args).some(key=>!['path','relay'].includes(key)))throw Error('review.preview only accepts path and optional relay');
+  if(Object.keys(args).some(key=>!['path','title','relay'].includes(key)))throw Error('review.preview only accepts path, optional title and relay');
   if(args.relay!==undefined&&(!args.relay||typeof args.relay!=='object'||!String(args.relay.jobId||'')||!String(args.relay.taskId||'')||typeof args.relay.executionId!=='string'||!args.relay.executionId))throw Error('Managed review.preview requires relay.jobId, taskId and executionId');
+ }
+ if(name==='askquestions'){
+  if(Object.keys(args).some(key=>!['title','questions','relay'].includes(key)))throw Error('askquestions accepts only title, questions and optional relay');
+  if(!Array.isArray(args.questions)||args.questions.length<1||args.questions.length>40||args.questions.some(q=>typeof q!=='string'||!q.trim()||q.length>10000))
+   throw Error('askquestions requires 1-40 non-empty Markdown questions');
+  if(args.title!==undefined&&(typeof args.title!=='string'||!args.title.trim()||args.title.length>160))throw Error('askquestions title must be 1-160 characters');
+  if(args.relay!==undefined&&(!args.relay||typeof args.relay!=='object'||!String(args.relay.jobId||'')||!String(args.relay.taskId||'')||typeof args.relay.executionId!=='string'||!args.relay.executionId))
+   throw Error('Managed askquestions requires relay.jobId, taskId and executionId');
  }
  if(name==='markcut.preview'){
   if(typeof args.path!=='string'||!args.path.startsWith('/')||
@@ -140,7 +148,7 @@ export async function runLocalMcpCli(argv,options={}){
  const [action,name,...args]=argv;
  if(action==='tools'&&name===undefined)return listLocalMcpTools(options);
  if(action!=='call'||!name||name.startsWith('-'))
-  throw Error('Usage: neo mcp tools | neo mcp call review.preview --args-file PATH');
+  throw Error('Usage: neo mcp tools | neo mcp call askquestions --args-file PATH');
  if(args.length!==2||args[0]!=='--args-file')
   throw Error('neo mcp call requires --args-file PATH');
  return callLocalMcpTool(name,readArgumentsFile(args[1]),options);
