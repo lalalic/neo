@@ -497,3 +497,43 @@ test('named DAG only accepts project-contained declared graph files', async () =
    assert.equal(relay.calls.length,0);
  }finally{rmSync(f.base,{recursive:true,force:true});}
 });
+
+test('autonomous discovery DAG starts without URL and persists source-free evidence with idempotent resume', async()=>{
+ const f=fixture(),relay=relayStub();try{
+  const path=join(f.content,'project.run.json');const config=JSON.parse(readFileSync(path,'utf8'));
+  config.graphs={growth:'graph-growth.mmd',promotion:'graph.mmd'};
+  config.defaultDag='promotion';config.dagInputs={growth:{type:'discovery'}};
+  writeFileSync(path,JSON.stringify(config));
+  writeFileSync(join(f.content,'graph-growth.mmd'),'flowchart TD\n  research[agent:growth-researcher] --> editor[agent:growth-editor]\n');
+  const dry=JSON.parse(await run(['--project','content-distribution','--dag=growth','--dry-run'],f,relay));
+  assert.equal(dry.dag,'growth');assert.equal(dry.inputType,'discovery');assert.match(dry.runPath,/discovery-<unique>/);
+  assert.equal(relay.calls.length,0);
+  const first=JSON.parse(await run(['--project','content-distribution','--dag','growth'],f,relay));
+  assert.equal(first.dag,'growth');assert.match(first.runPath,/discovery-/);
+  const source=JSON.parse(readFileSync(join(first.runPath,'source-reference.json'),'utf8'));
+  assert.equal(source.kind,'discovery');assert.equal(source.sourceUrl,undefined);assert.equal(source.sourceRunPath,undefined);
+  const task=readFileSync(join(first.runPath,'neo-project-run.input.md'),'utf8');
+  assert.match(task,/independently search public trending videos/);
+  assert.match(task,/NOT licensed source media/);
+  const create=relay.calls.find(c=>c[0]==='job'&&c[1]==='create');
+  assert.equal(create[create.indexOf('--coordinator-graph-file')+1],realpathSync(join(f.content,'graph-growth.mmd')));
+  const resumed=JSON.parse(await run(['--project','content-distribution','--path',first.runPath],f,relay));
+  assert.equal(resumed.jobId,first.jobId);assert.equal(resumed.dag,'growth');
+  assert.equal(relay.calls.filter(c=>c[0]==='job'&&c[1]==='create').length,1);
+  await assert.rejects(()=>run(['--project','content-distribution','--dag','promotion'],f,relay),/requires --url/);
+  await assert.rejects(()=>run(['--project','vlog','--dag','growth'],f,relay),/unknown or unconfigured/);
+ }finally{rmSync(f.base,{recursive:true,force:true});}
+});
+
+test('discovery is explicitly opt-in, never inferred from default DAG or foreign project flags', async()=>{
+ const f=fixture(),relay=relayStub();try{
+  await assert.rejects(()=>run(['--project','content-distribution'],f,relay),/requires --url/);
+  const path=join(f.content,'project.run.json');const config=JSON.parse(readFileSync(path,'utf8'));
+  config.graphs={growth:'graph-growth.mmd',promotion:'graph.mmd'};
+  config.defaultDag='promotion';config.dagInputs={growth:{type:'invalid'}};
+  writeFileSync(path,JSON.stringify(config));
+  writeFileSync(join(f.content,'graph-growth.mmd'),'flowchart TD\n  research[agent:growth-researcher] --> editor[agent:growth-editor]\n');
+  await assert.rejects(()=>run(['--project','content-distribution','--dag','growth','--dry-run'],f,relay),/unsupported named DAG input/);
+  assert.equal(relay.calls.length,0);
+ }finally{rmSync(f.base,{recursive:true,force:true});}
+});
