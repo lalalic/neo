@@ -537,3 +537,54 @@ test('discovery is explicitly opt-in, never inferred from default DAG or foreign
   assert.equal(relay.calls.length,0);
  }finally{rmSync(f.base,{recursive:true,force:true});}
 });
+
+test('growth prepared discovery run requires approvals of all six declared stages and preserves original Relay Job', async () => {
+ const f=fixture(),relay=relayStub();try{
+  const configPath=join(f.content,'project.run.json');
+  const declaration=JSON.parse(readFileSync(configPath,'utf8'));
+  declaration.graphs={growth:'graph-growth.mmd',promotion:'graph.mmd'};
+  declaration.defaultDag='promotion';
+  declaration.input.preparedPath=true;
+  declaration.dagInputs={growth:{type:'discovery'}};
+  declaration.reviewableDags={growth:['growth-researcher','growth-strategist','growth-writer','growth-editor','growth-operator','growth-analyst']};
+  writeFileSync(configPath,JSON.stringify(declaration));
+  writeFileSync(join(f.content,'graph-growth.mmd'), 'flowchart TD\n  a[agent:growth-researcher] --> b[agent:growth-strategist]\n  b --> c[agent:growth-writer]\n  c --> d[agent:growth-editor]\n  d --> e[agent:growth-operator]\n  e --> f[agent:growth-analyst]\n');
+  const runDir=join(f.content,'runs','2026-11-13-first-growth-review');
+  mkdirSync(runDir,{recursive:true});
+  const reviewStages=Object.fromEntries(declaration.reviewableDags.growth.map(agent=>[agent,true]));
+  writeFileSync(join(runDir,'review-stages.json'),JSON.stringify(reviewStages));
+  const first=JSON.parse(await run(['--project','content-distribution','--dag','growth','--path',runDir],f,relay));
+  assert.equal(first.dag,'growth');assert.equal(first.status,'ACTIVE');
+  assert.equal(JSON.parse(readFileSync(join(runDir,'source-reference.json'),'utf8')).kind,'discovery');
+  const input=readFileSync(join(runDir,'neo-project-run.input.md'),'utf8');
+  const objective=readFileSync(join(runDir,'neo-project-run.objective.md'),'utf8');
+  for(const agent of Object.keys(reviewStages)){
+   assert.ok(input.includes(agent),`review directive missing ${agent}`);
+   assert.ok(objective.includes(agent),`review objective missing ${agent}`);
+  }
+  assert.match(input,/review interactive --path/);
+  assert.match(input,/AWAITING_DECISION|Wait for actual human Approve/);
+  assert.match(input,/This approval of creative work NEVER grants external publication permission/);
+  const reused=JSON.parse(await run(['--project','content-distribution','--path',runDir],f,relay));
+  assert.equal(reused.jobId,first.jobId);
+  assert.equal(relay.calls.filter(c=>c[0]==='job'&&c[1]==='create').length,1);
+ }finally{rmSync(f.base,{recursive:true,force:true});}
+});
+
+test('growth review policy fails closed on unknown stage flag', async()=>{
+ const f=fixture(),relay=relayStub();try{
+  const configPath=join(f.content,'project.run.json');
+  const declaration=JSON.parse(readFileSync(configPath,'utf8'));
+  declaration.graphs={growth:'graph-growth.mmd'};declaration.defaultDag='growth';
+  declaration.input.preparedPath=true;
+  declaration.dagInputs={growth:{type:'discovery'}};
+  declaration.reviewableDags={growth:['growth-researcher']};
+  writeFileSync(configPath,JSON.stringify(declaration));
+  writeFileSync(join(f.content,'graph-growth.mmd'),'flowchart TD\n a[agent:growth-researcher] --> b[agent:growth-strategist]\n');
+  const runDir=join(f.content,'runs','2026-11-13-review-invalid');
+  mkdirSync(runDir,{recursive:true});
+  writeFileSync(join(runDir,'review-stages.json'),'{"growth-researcher":true,"growth-fake":true}');
+  await assert.rejects(()=>run(['--project','content-distribution','--dag','growth','--path',runDir],f,relay),/review-stages.json must contain boolean/);
+  assert.equal(relay.calls.length,0);
+ }finally{rmSync(f.base,{recursive:true,force:true});}
+});

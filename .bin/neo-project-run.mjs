@@ -138,7 +138,7 @@ function writePrivate(file, content) {
   chmodSync(file, 0o600);
 }
 
-function initializeRun(runDir, projectName, input, sourceUrl, publicationReview = null, noReview = false, discovery = false) {
+function initializeRun(runDir, projectName, input, sourceUrl, publicationReview = null, noReview = false, discovery = false, stageReviewAgents = null) {
   const evidence = join(runDir, 'source-reference.json');
   const objective = join(runDir, 'neo-project-run.objective.md');
   const taskInput = join(runDir, 'neo-project-run.input.md');
@@ -181,21 +181,23 @@ function initializeRun(runDir, projectName, input, sourceUrl, publicationReview 
   writePrivate(evidence, `${JSON.stringify(data, null, 2)}\n`);
   const creativeOnly = publicationReview === 'separate';
   const vlogPublisher = projectName === 'vlog' && publicationReview === 'publisher-explicit-authorization';
-  const reviewStagesFile = projectName === 'vlog' ? join(runDir, 'review-stages.json') : null;
+  const reviewStagesFile = (projectName === 'vlog' || Array.isArray(stageReviewAgents)) ? join(runDir, 'review-stages.json') : null;
   let requestedReviews = [];
   if (reviewStagesFile && existsSync(reviewStagesFile)) {
     let stages;
     try { stages = JSON.parse(readFileSync(reviewStagesFile, 'utf8')); }
     catch { fail('invalid Vlog review-stages.json'); }
+    const allowedStages = projectName === 'vlog' ? ['visioner', 'director', 'producer'] : stageReviewAgents;
     if (!stages || typeof stages !== 'object' || Array.isArray(stages) ||
-        Object.entries(stages).some(([name, enabled]) =>
-          !['visioner', 'director', 'producer'].includes(name) || typeof enabled !== 'boolean'))
-      fail('Vlog review-stages.json accepts only boolean visioner/director/producer');
-    requestedReviews = ['visioner', 'director', 'producer'].filter(stage => stages[stage] === true);
+        Object.entries(stages).some(([name, enabled]) => !allowedStages.includes(name) || typeof enabled !== 'boolean'))
+      fail(projectName === 'vlog' ? 'Vlog review-stages.json accepts only boolean visioner/director/producer' : 'review-stages.json must contain boolean flags for selected DAG Agents only');
+    requestedReviews = allowedStages.filter(stage => stages[stage] === true);
     if (noReview && requestedReviews.length) fail('--no-review conflicts with enabled Vlog interactive review stages');
   }
   const requestedReviewPolicy = requestedReviews.length
-    ? `EXPLICIT INTERACTIVE REVIEWS: review-stages.json requires human Preview and authenticated approval for these exact Task stages: ${requestedReviews.join(', ')}. Each enabled Agent must call Relay review interactive with its own Task execution identity, enter AWAITING_DECISION, and only complete after a matching approved decision; Request Changes must revise and re-preview. Do NOT claim stage completion based on Preview compilation or notification delivery. No extra Review Task or Final Review.`
+    ? projectName === 'vlog'
+      ? `EXPLICIT INTERACTIVE REVIEWS: review-stages.json requires human Preview and authenticated approval for these exact Task stages: ${requestedReviews.join(', ')}. Each enabled Agent must call Relay review interactive with its own Task execution identity, enter AWAITING_DECISION, and only complete after a matching approved decision; Request Changes must revise and re-preview. Do NOT claim stage completion based on Preview compilation or notification delivery. No extra Review Task or Final Review.`
+      : `MANDATORY STAGE-BY-STAGE HUMAN REVIEWS: Before each of these DAG Agents succeeds, request a managed Neo Mobile Review using its **own real Relay Task execution identity**: ${requestedReviews.join(', ')}. For each Stage, first write and validate its real artifact, then run 'node scripts/growth-stage-review.mjs ${runDir} AGENT_NAME' to generate the Markcut review path and call 'agents-relay review interactive --path REVIEW_PATH --id JOB_ID --task-id TASK_ID --execution-id EXECUTION_ID'. Refer to docs/growth-stage-review.md. Wait for actual human Approve or Request Changes on that same Task: do not mark SUCCEEDED, create a fake receipt, skip a pending approval or automatically approve any stage. On Request Changes, revise the underlying artifact and send a new review. This approval of creative work NEVER grants external publication permission.`
     : '';
   const publishingPolicy = vlogPublisher
     ? `${requestedReviews.length ? 'Requested stages must perform the interactive review in review-stages.json.' : 'Default: no human interactive review.'} No specialist Final Review or separate Final QA Task. Editor must run Markcut verify and noninteractive source/asset checks (no real viewer required); Producer verifies and renders, with human Preview only on explicit request. Publisher uses WeChat Channels/XHS only with explicit per-video, per-platform and signed-in account authorization; otherwise SKIPPED, and Publisher itself has no review.`
@@ -274,6 +276,12 @@ export function runProject(args, options = {}) {
   if (isPath) runDir = validateRunPath(parsed.path, selected);
   const graphChoice = selectProjectGraph(selected, parsed.dag, runDir);
   selected.graph = graphChoice.graph;
+  const reviewable = selected.declaration.reviewableDags?.[graphChoice.dag];
+  if (reviewable !== undefined && (!Array.isArray(reviewable) ||
+       !reviewable.length || new Set(reviewable).size !== reviewable.length ||
+       reviewable.some(name => typeof name !== 'string' || !/^[a-z][a-z0-9-]*$/.test(name) ||
+         !readFileSync(selected.graph, 'utf8').includes(`[agent:${name}]`))))
+    fail('invalid reviewableDags entry for selected Graph');
   const dagInput = selected.declaration.dagInputs?.[graphChoice.dag];
   const discoveryAllowed = dagInput?.type === 'discovery';
   if (dagInput !== undefined && (!dagInput || typeof dagInput !== 'object' || Array.isArray(dagInput) || !discoveryAllowed))
@@ -316,7 +324,10 @@ export function runProject(args, options = {}) {
     chmodSync(runDir, 0o700);
     runDir = realpathSync(runDir);
   }
-  const files = initializeRun(runDir, parsed.project, isPath ? runDir : undefined, isUrl ? parsed.url : undefined, selected.declaration.publicationReview, parsed.noReview === true, isDiscovery);
+  const preparedDiscovery = isPath && discoveryAllowed && !existsSync(join(runDir, bindingName)) &&
+    !existsSync(join(runDir, 'campaign.json'));
+  const files = initializeRun(runDir, parsed.project, isPath ? runDir : undefined, isUrl ? parsed.url : undefined,
+    selected.declaration.publicationReview, parsed.noReview === true, isDiscovery || preparedDiscovery, reviewable);
   ensureRunGit(runDir, runGit);
   const repo = repoId;
   const projectPath = repoProjectPath;
