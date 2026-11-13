@@ -16,7 +16,8 @@ through unchanged, including MCP Apps UI metadata.
 - `review.preview({path, title?, relay?})` forwards that title unchanged.
   Without `relay` it remains view-only; with a valid Relay execution it uses
   the existing interactive wait/decision path.
-- `askquestions({title?, questions, relay?})` is a lightweight alias:
+- `askquestions({title?, questions, relay?})` is a **top-level** MCP Tool
+  (not `markcut.askquestions`), federated from the Markcut wrapper as a lightweight alias:
   `questions` is an array of 1-40 **Markdown** strings. The wrapper generates
   an isolated `.ghost.askquestions.md` with one Markcut Scene per question.
   The player renders Markdown and shows one answer box per Scene with a single
