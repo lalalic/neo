@@ -6,9 +6,9 @@ import {spawn,execFile,execFileSync} from 'node:child_process';
 import {randomUUID} from 'node:crypto';
 import {promisify} from 'node:util';
 import {preserveRequest,acquireTool,acquireCall,importLegacyInbox,markDeliveryStatus} from './review-delivery.mjs';
-import {existsSync,readFileSync,writeFileSync,renameSync,statSync,unlinkSync,mkdirSync,readdirSync,realpathSync} from 'node:fs';
+import {existsSync,readFileSync,writeFileSync,renameSync,statSync,unlinkSync,mkdirSync,readdirSync,realpathSync,mkdtempSync} from 'node:fs';
 import {join,basename,resolve,dirname,relative,isAbsolute,sep,extname} from 'node:path';
-import {homedir} from 'node:os';
+import {homedir,tmpdir} from 'node:os';
 import {fileURLToPath} from 'node:url';
 import {startStdioProxy} from './stdio-proxy.mjs';
 // Neo owns orchestration; Neo.app owns the durable Review REST service.
@@ -189,6 +189,24 @@ export function federationConfiguration({node=existsSync('/opt/homebrew/bin/node
   return {name:'markcut',url:`stdio://${node}?${query}`,isEnabled:true};
 }
 
+/** Each question is an ordinary Markcut Scene; its title holds encoded Markdown. */
+export function questionsPreviewPath(questions){
+  if(!Array.isArray(questions)||questions.length<1||questions.length>40||
+    questions.some(question=>typeof question!=='string'||!question.trim()||question.length>10000))
+    throw Error('askquestions requires 1-40 non-empty Markdown questions (max 10000 characters each)');
+  const directory=mkdtempSync(join(tmpdir(),'neo-askquestions-'));
+  const content=['# video','width:640 height:480 fps:30 layout:series',
+    ...questions.flatMap((question,i)=>[
+      '## Q'+(i+1)+' title:"md64:'+Buffer.from(question,'utf8').toString('base64')+'"',
+      '- component duration:1 jsx:"<div/>"',
+    ])].join('\n')+'\n';
+  const path=join(directory,'.ghost.askquestions.md');
+  writeFileSync(path,content,{mode:0o600,flag:'wx'});
+  return path;
+}
+const relaySchema={type:'object',additionalProperties:false,required:['jobId','taskId','executionId'],
+  properties:{jobId:{type:'string'},taskId:{anyOf:[{type:'string'},{type:'integer'}]},executionId:{type:'string'}}};
+
 export function startMarkcutWrapper(upstream,options={}){
   if(typeof upstream!=='string'||!upstream.startsWith('/'))throw Error('Expected absolute upstream MCP executable');
   if(pendingDeliveryIds().length){
@@ -203,15 +221,32 @@ export function startMarkcutWrapper(upstream,options={}){
     aliasName:'review.preview',aliasDescription:'Show a view-only media preview or request human review for the current Relay Task execution. Called by agents-relay review interactive CLI; never commits Git.',
     aliasInputSchema:{type:'object',additionalProperties:false,required:['path'],properties:{
       path:{type:'string',description:'Absolute Markdown or supported media path'},
-      relay:{type:'object',additionalProperties:false,required:['jobId','taskId','executionId'],
-        properties:{jobId:{type:'string'},taskId:{anyOf:[{type:'string'},{type:'integer'}]},executionId:{type:'string'}}}
+      title:{type:'string',minLength:1,maxLength:160},
+      relay:relaySchema
     }},
     transformAlias:(input)=>{
       if(typeof input?.path!=='string'||!isAbsolute(input.path))throw Error('review.preview requires absolute path');
-      if(Object.keys(input).some(k=>!['path','relay'].includes(k)))throw Error('review.preview only accepts path and optional Relay context');
-      if(input.relay===undefined)return {path:input.path,readonly:true};
-      return {path:input.path,review:{relay:input.relay}};
+      if(Object.keys(input).some(k=>!['path','title','relay'].includes(k)))throw Error('review.preview accepts only path, optional title and Relay context');
+      if(input.title!==undefined&&(typeof input.title!=='string'||!input.title.trim()||input.title.length>160))throw Error('Invalid preview title');
+      if(input.relay===undefined)return {path:input.path,...(input.title?{title:input.title}:{}),readonly:true};
+      return {path:input.path,...(input.title?{title:input.title}:{}),review:{relay:input.relay}};
     },
+    extraAliases:[{
+      name:'askquestions',
+      description:'Ask Markdown-formatted questions (one Markcut Scene per question). Each scene comment is an answer. Only Submit; managed Relay uses the existing waiting/notification/resume workflow.',
+      inputSchema:{type:'object',additionalProperties:false,required:['questions'],properties:{
+        title:{type:'string',minLength:1,maxLength:160},
+        questions:{type:'array',minItems:1,maxItems:40,items:{type:'string',minLength:1,maxLength:10000}},
+        relay:relaySchema,
+      }},
+      transform:input=>{
+        if(Object.keys(input||{}).some(k=>!['title','questions','relay'].includes(k)))throw Error('Unsupported askquestions parameter');
+        if(input.title!==undefined&&(typeof input.title!=='string'||!input.title.trim()||input.title.length>160))throw Error('Invalid askquestions title');
+        const path=questionsPreviewPath(input.questions);
+        return {path,title:input.title||'Questions',mode:'questions',
+          ...(input.relay!==undefined?{review:{relay:input.relay}}:{})};
+      },
+    }],
     wrapCall:(message,forward)=>previewCall(message,forward)});
 }
 
@@ -295,7 +330,9 @@ export function buildNeoReviewRequest(operationId,operation,binding=null){
   if(!HASH.test(result.contentHash||'')||typeof result.revisionId!=='string'||!result.revisionId||
      typeof result.id!=='string'||!result.id)throw new Error('Invalid immutable preview identity');
   const review=result.review||{delivery:'text'};
-  const request={id:operationId,previewId:result.id,title:basename(operation.requestedPath||result.requestedPath||'video.md','.md'),
+  const request={id:operationId,previewId:result.id,title:result.title||basename(operation.requestedPath||result.requestedPath||'video.md','.md'),
+    ...(review.mode==='questions'?{mode:'questions'}:{}),
+    ...(result.title?{customTitle:true}:{}),
     delivery:review.delivery||'text'};
   if(request.delivery==='event'){
     request.mediaHash=result.contentHash;

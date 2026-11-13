@@ -3,8 +3,9 @@ import {spawn} from 'node:child_process';
 import readline from 'node:readline';
 import {randomUUID} from 'node:crypto';
 
-export function startStdioProxy({command,args=[],toolName,wrapCall,description,aliasName,aliasDescription,aliasInputSchema,transformAlias,localTools=[],stdin=process.stdin,stdout=process.stdout}) {
+export function startStdioProxy({command,args=[],toolName,wrapCall,description,aliasName,aliasDescription,aliasInputSchema,transformAlias,extraAliases=[],localTools=[],stdin=process.stdin,stdout=process.stdout}) {
   if(!command||typeof command!=='string'||!command.startsWith('/'))throw Error('MCP upstream command must be absolute');
+  const aliases=[...(aliasName?[{name:aliasName,description:aliasDescription,inputSchema:aliasInputSchema,transform:transformAlias}]:[]),...extraAliases];
   const child=spawn(command,args,{stdio:['pipe','pipe','inherit'],env:process.env});
   const pending=new Map();
   const send=message=>stdout.write(JSON.stringify(message)+'\n');
@@ -24,8 +25,8 @@ export function startStdioProxy({command,args=[],toolName,wrapCall,description,a
       for(const tool of [...message.result.tools]){
         if(tool.name!==toolName)continue;
         tool.description=description;
-        if(aliasName)message.result.tools.push({...tool,name:aliasName,
-          description:aliasDescription,inputSchema:aliasInputSchema});
+        for(const alias of aliases)message.result.tools.push({...tool,name:alias.name,
+          description:alias.description,inputSchema:alias.inputSchema});
       }
       for(const local of localTools)message.result.tools.push(local.definition);
       send(message);
@@ -55,8 +56,8 @@ export function startStdioProxy({command,args=[],toolName,wrapCall,description,a
         return;
       }
     }
-    const isAlias=message?.params?.name===aliasName&&Boolean(aliasName);
-    const isPreview=message?.params?.name===toolName||isAlias;
+    const alias=aliases.find(item=>item.name===message?.params?.name);
+    const isPreview=message?.params?.name===toolName||Boolean(alias);
     if(message?.method==='tools/call'&&isPreview&&message.id===undefined){
       process.stderr.write('Neo MCP wrapper: ignoring uncorrelated preview call\n');return;
     }
@@ -65,8 +66,8 @@ export function startStdioProxy({command,args=[],toolName,wrapCall,description,a
     }
     void (async()=>{
       try{
-        const request=isAlias?{...message,params:{...message.params,name:toolName,
-          arguments:transformAlias(message.params?.arguments||{})}}:message;
+        const request=alias?{...message,params:{...message.params,name:toolName,
+          arguments:alias.transform(message.params?.arguments||{})}}:message;
         const result=await wrapCall(request,async forwarded=>{
           const response=await requestChild(forwarded);
           if(response.error)throw Error(response.error.message||'Upstream MCP call failed');

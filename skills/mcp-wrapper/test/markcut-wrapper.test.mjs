@@ -7,13 +7,28 @@ import {spawn,execFileSync} from 'node:child_process';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {fileURLToPath} from 'node:url';
-import {federationConfiguration,operationIdFromResult,previewCall,relayControl,relayInteractiveArgs,notifyReview,reviewNotifyURL,singleMediaPreviewPath} from '../markcut.mjs';
+import {federationConfiguration,operationIdFromResult,previewCall,relayControl,relayInteractiveArgs,notifyReview,reviewNotifyURL,singleMediaPreviewPath,questionsPreviewPath} from '../markcut.mjs';
 const id=randomUUID();
 const relay={jobId:'j1',taskId:'producer',executionId:'exec-1'};
 const eventTemplate={type:'task.interactive_decision',source:'job/j1/task/producer/execution/exec-1',
  data:{interactive:{...relay}}};
 const receipt={...relay,eventTemplate};
 const message={jsonrpc:'2.0',id:44,method:'tools/call',params:{name:'markcut.preview',arguments:{path:'/tmp/video.md',review:{relay}}}};
+test('askquestions generates Markdown scene titles without losing multiline UTF-8 formatting',()=>{
+ const dir=mkdtempSync(join(tmpdir(),'neo-qtest-'));
+ try{
+  const markdown='**中文问题？**\n- one\n- two \"quoted\"';
+  const path=questionsPreviewPath([markdown,'Plain text']);
+  const body=readFileSync(path,'utf8');
+  assert.match(body,/## Q1 title:"md64:/);
+  assert.match(body,/## Q2 title:"md64:/);
+  const encoded=body.match(/## Q1 title:"md64:([^"]+)"/)[1];
+  assert.equal(Buffer.from(encoded,'base64').toString('utf8'),markdown);
+  assert.match(body,/- component duration:1 jsx:"<div\/>"/);
+  assert.throws(()=>questionsPreviewPath([]),/1-40/);
+  rmSync(path.slice(0,path.lastIndexOf('/')),{recursive:true,force:true});
+ }finally{rmSync(dir,{recursive:true,force:true});}
+});
 test('stdio federation config points to wrapper, not original provider',()=>{
  const config=federationConfiguration({node:'/opt/homebrew/bin/node',wrapper:'/tmp/neox/wrapper.mjs',upstream:'/tmp/markcut/launch.sh'});
  assert.equal(config.name,'markcut');const url=new URL(config.url);
@@ -208,7 +223,7 @@ test('Upstream stdio preview UI descriptor and resources/read are forwarded inta
   const get=i=>result.find(r=>r.id===i);
   assert.equal(get(1).result.serverInfo.name,'mock');
   assert.match(get(2).result.tools[0].description,/Neo-hosted/);
-  assert.deepEqual(get(2).result.tools.map(tool=>tool.name),['markcut.preview','review.preview','review.preview.acquire']);
+  assert.deepEqual(get(2).result.tools.map(tool=>tool.name),['markcut.preview','review.preview','askquestions','review.preview.acquire']);
   assert.equal(get(2).result.tools[0]._meta.ui.resourceUri,'ui://markcut/player.html');
   assert.equal(get(2).result.tools[1]._meta.ui.resourceUri,'ui://markcut/player.html');
   assert.deepEqual(get(2).result.tools[1].inputSchema.required,['path']);
