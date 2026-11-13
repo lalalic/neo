@@ -10,8 +10,8 @@ const CALL_TIMEOUT_MS = 120_000;
 // Generic tools/list discovery must not grant access to setup/shell/cluster etc.
 // The computer facade remains under its own subcommand whitelist.
 const CLI_MCP_TOOLS = new Set(['markcut.preview','review.preview']);
-// Neo.app qualifies a tool that does not already begin with its provider name.
-const CLI_TOOL_WIRE_NAMES = {'review.preview':'markcut.review.preview'};
+// Tool names in the Neo MCP gateway are already canonical; do not add
+// provider-specific aliases to the local CLI.
 
 const COMPUTER_COMMANDS = new Set([
   'list_apps', 'get_app_state', 'click', 'drag', 'key', 'scroll',
@@ -106,7 +106,7 @@ export async function listLocalMcpTools(options={}){
  const result=await localRpc('tools/list',{},options);
  if(!Array.isArray(result.tools))throw Error('Neo.app MCP tools/list response lacks tools');
  return {tools:result.tools.flatMap(tool=>{
-  const name=Object.entries(CLI_TOOL_WIRE_NAMES).find(([,wire])=>wire===tool?.name)?.[0]??tool?.name;
+  const name=tool?.name;
   return CLI_MCP_TOOLS.has(name)?[{...tool,name}]:[];
  })};
 }
@@ -133,7 +133,7 @@ export async function callLocalMcpTool(name,args={},options={}){
  }
  const inventory=await listLocalMcpTools(options);
  if(!inventory.tools.some(t=>t.name===name))throw Error(`Neo.app MCP tool not currently registered: ${name}`);
- return localRpc('tools/call',{name:CLI_TOOL_WIRE_NAMES[name]??name,arguments:args},options);
+ return localRpc('tools/call',{name,arguments:args},options);
 }
 
 export async function runLocalMcpCli(argv,options={}){

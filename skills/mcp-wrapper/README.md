@@ -21,7 +21,11 @@ The wrapper discovers the listener port from Neo.app's deployed
 through the local-only `POST /mobile/notify` REST endpoint. Override via
 `NEO_REVIEW_NOTIFY_URL` only for a loopback endpoint. The full request is already
 stored in the wrapper before any APNs attempt, and failed APNs delivery does
-not lose the request. `review.preview.acquire` serves pending requests through
+not lose the request. Neo.app publishes the wrapper's `review.preview` and app-only
+`review.preview.acquire` under these exact names (no `markcut.` prefix).
+`markcut.preview.media` is an app-only media lookup by compiled content hash;
+it is consumed by the phone and does not initiate a review or compile.
+`review.preview.acquire` serves pending requests through
 the authenticated Neo MCP gateway; the phone ACKs after local persistence.
 The standalone Markcut CLI delivers via the installed wrapper's `deliver`
 command, not via a separate Review REST endpoint.
