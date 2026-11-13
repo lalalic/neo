@@ -10,7 +10,7 @@ Neo Projects require the Neo-owned [agency-agents](skills/agency-agents/SKILL.md
 
 A normal project may contain `agents/`, `docs/`, `config/`, `templates/`, `scripts/` and other reusable source. Do not copy reusable Skill text into Agents or include optional platforms in every Worker Prompt. Product-specific executable structure (for example Markcut `.md` video templates), reusable configuration and media behavior belong in their owning project, not this file. Preserve one authoritative source for each setting.
 
-Content-producing Projects that opt into `neo project run` must follow the canonical [Neo Project Run Contract](docs/neo-project-run-contract.md), declare their accepted input in project-local `project.run.json`, and retain the canonical `graph.mmd` as workflow authority.
+Content-producing Projects that opt into `neo project run` must follow the canonical [Neo Project Run Contract](docs/neo-project-run-contract.md), declare their accepted input in project-local `project.run.json`, and retain the canonical `graph.mmd` as default workflow authority; a project may additionally declare named `graphs`/`defaultDag` in `project.run.json` and select one with `neo project run --dag NAME`.
 
 ## Canonical execution and Git boundary
 

@@ -452,3 +452,48 @@ test('foreground creates one bound Job, forwards immediate Relay run and can rea
   await assert.rejects(()=>run(['--project','vlog','--path',f.runDir,'--dry-run','--foreground'],f,relay),/cannot be combined/);
  }finally{rmSync(f.base,{recursive:true,force:true})}
 });
+
+test('named DAG selects declared graph, binds exact choice, and cannot switch an existing Run', async () => {
+  const f = fixture(), relay = relayStub();
+  try {
+    const configPath = join(f.content, 'project.run.json');
+    const doc = JSON.parse(readFileSync(configPath, 'utf8'));
+    doc.graphs = { promotion: 'graph.mmd', growth: 'graph-growth.mmd' };
+    doc.defaultDag = 'promotion';
+    writeFileSync(configPath, JSON.stringify(doc));
+    writeFileSync(join(f.content, 'graph-growth.mmd'), 'flowchart TD\n  research[agent:growth-researcher] --> plan[agent:growth-strategist]\n');
+    const dry = JSON.parse(await run(['--project', 'content-distribution', '--dag', 'growth', '--url', 'https://example.org/trending', '--dry-run'], f, relay));
+    assert.equal(dry.dag, 'growth');
+    assert.equal(relay.calls.length, 0);
+    const first = JSON.parse(await run(['--project', 'content-distribution', '--dag=growth', '--url=https://example.org/trending'], f, relay));
+    assert.equal(first.dag, 'growth');
+    const create = relay.calls.find(x=>x[0]==='job'&&x[1]==='create');
+    assert.equal(create[create.indexOf('--coordinator-graph-file')+1], realpathSync(join(f.content, 'graph-growth.mmd')));
+    assert.equal(JSON.parse(readFileSync(join(first.runPath,'.neo-project-run.json'),'utf8')).dag, 'growth');
+    const resumed = JSON.parse(await run(['--project','content-distribution','--path',first.runPath],f,relay));
+    assert.equal(resumed.dag,'growth');
+    assert.equal(resumed.jobId,first.jobId);
+    await assert.rejects(()=>run(['--project','content-distribution','--path',first.runPath,'--dag=promotion'],f,relay),/different DAG/);
+    await assert.rejects(()=>run(['--project','content-distribution','--url','https://example.org/new','--dag=unknown'],f,relay),/unknown or unconfigured/);
+    assert.equal(relay.calls.filter(x=>x[0]==='job'&&x[1]==='create').length,1);
+    const standard = JSON.parse(await run(['--project','content-distribution','--url','https://example.org/other'],f,relay));
+    assert.equal(standard.dag,'promotion');
+    const second = relay.calls.filter(x=>x[0]==='job'&&x[1]==='create')[1];
+    assert.equal(second[second.indexOf('--coordinator-graph-file')+1],realpathSync(join(f.content,'graph.mmd')));
+  } finally { rmSync(f.base,{recursive:true,force:true}); }
+});
+
+test('named DAG only accepts project-contained declared graph files', async () => {
+ const f=fixture(),relay=relayStub();try {
+   const configPath=join(f.content,'project.run.json');
+   const doc=JSON.parse(readFileSync(configPath,'utf8'));
+   doc.graphs={growth:'../unrelated.mmd'};doc.defaultDag='growth';
+   writeFileSync(configPath,JSON.stringify(doc));
+   await assert.rejects(()=>run(['--project','content-distribution','--url','https://example.org/a','--dry-run'],f,relay),/invalid project DAG filename/);
+   doc.graphs={growth:'graph-growth.mmd'};writeFileSync(configPath,JSON.stringify(doc));
+   const external=join(f.base,'external-graph.mmd');writeFileSync(external,'flowchart TD\nA-->B');
+   symlinkSync(external,join(f.content,'graph-growth.mmd'));
+   await assert.rejects(()=>run(['--project','content-distribution','--url','https://example.org/a','--dry-run'],f,relay),/escapes project directory/);
+   assert.equal(relay.calls.length,0);
+ }finally{rmSync(f.base,{recursive:true,force:true});}
+});

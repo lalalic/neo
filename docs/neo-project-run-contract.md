@@ -1,7 +1,7 @@
 # Neo Project Run Contract
 
 `neo project run` creates or resumes **one ordinary Relay Job** with a fixed
-**Coordinator** Task (using Relay's returned numeric Task ID) and the canonical project `graph.mmd`,
+**Coordinator** Task (using Relay's returned numeric Task ID) and the selected project Agent Graph (`graph.mmd` by default),
 then activates it. Creation is atomic in Relay SQLite; there is **no separate
 Shortcut Job, initial Planner, separate foreground node runner, or `executionMode`**.
 The command returns the durable `ACTIVE`/`COMPLETED` status without waiting for
@@ -16,12 +16,13 @@ project and canonical private Run folder, never the source URL or secret token.
 Resuming a bound Run verifies the Job, Coordinator input, output and Graph; it
 cannot create a duplicate Job or silently change title or policy.
 
-Project declarations in `project.run.json` define the accepted input type and restrictions. A project without a valid declaration is not enabled. The declaration is input validation metadata; the project's `graph.mmd` remains the sole authority for workflow ordering.
+Project declarations in `project.run.json` define the accepted input type and restrictions. A project without a valid declaration is not enabled. The declaration may additionally define `graphs: { "name": "graph-name.mmd" }` and `defaultDag: "name"`, with `graph.mmd` retained as the canonical default fallback. The selected file is the sole authority for that Run's workflow ordering. `--dag NAME` resolves a named graph; without it, the project default is used. The private Run binding persists the choice and rejects switching DAGs on resume.
 
 ## Invocation
 
 ```sh
-neo project run --url="$PRIVATE_SOURCE_URL" --project=content-distribution
+neo project run --url="$PRIVATE_SOURCE_URL" --project=content-distribution --dag=promotion
+neo project run --url="$PUBLIC_VIRAL_REFERENCE" --project=content-distribution --dag=growth
 neo project run --path=/absolute/neo/vlog/runs/2026-11-03-episode --project=vlog --title="加拿大周末随拍"
 # Start the same Coordinator immediately and stream Task messages in this terminal:
 neo project run --path=/absolute/neo/vlog/runs/2026-11-03-episode --project=vlog --foreground
@@ -29,7 +30,7 @@ neo project run --path=/absolute/neo/vlog/runs/2026-11-03-episode --project=vlog
 
 Set `PRIVATE_SOURCE_URL` in a private shell to the actual HTTPS reference; do not commit URLs or credentials to this public repo.
 
-Options accept either `--flag=value` or `--flag value` in any order. Use `--dry-run` to validate and preview without writing or contacting Relay. Use `--foreground` (mutually exclusive with `--dry-run`) to run the same ordinary Reconciler immediately in the terminal and stream events until the Job reaches a terminal state; Ctrl+C interrupts local workers but leaves the Job durable for recovery. `NEO_ROOT` selects the parent directory of independently Git-rooted Projects. It defaults to `~/Workspace`, can be saved as `neoRoot` in `~/.config/neo/workspace.json`, and may be overridden by the `NEO_ROOT` environment variable. On Neo Master the saved value is `~/Workspace/neo`. Neither the caller's current directory nor the Harness installation directory selects the project. Legacy monorepo project resolution is not supported.
+Options accept either `--flag=value` or `--flag value` in any order. `--dag` is optional and only valid for a project that declares that name. It does not introduce a new scheduler or Agent type. Use `--dry-run` to validate and preview without writing or contacting Relay. Use `--foreground` (mutually exclusive with `--dry-run`) to run the same ordinary Reconciler immediately in the terminal and stream events until the Job reaches a terminal state; Ctrl+C interrupts local workers but leaves the Job durable for recovery. `NEO_ROOT` selects the parent directory of independently Git-rooted Projects. It defaults to `~/Workspace`, can be saved as `neoRoot` in `~/.config/neo/workspace.json`, and may be overridden by the `NEO_ROOT` environment variable. On Neo Master the saved value is `~/Workspace/neo`. Neither the caller's current directory nor the Harness installation directory selects the project. Legacy monorepo project resolution is not supported.
 
 ## Project declaration
 
@@ -38,11 +39,11 @@ Each enabled project has `project.run.json` with `schemaVersion: 1` and one `inp
 - `url` declares allowed schemes and may opt in to `resumePath: true` so an existing bound URL Run can be resumed by `--path` without another Job. An explicit `preparedPath: true` additionally permits a new Job against an already populated canonical private Run with `campaign.json` and `evidence/original-source.json`; project-specific source, license and publication checks still run at their own stages. The current URL contract requires HTTPS and rejects credentials and invalid/control characters. The URL is only an acquisition reference; it is not evidence of licensing, owner permission, or permission to download, publish, or monetize.
 - `path` declares `path.base: "runs"` and `path.datedRunDirectory: true`. The selected path must be an existing dated run directory whose real path stays inside that project's canonical `runs/` tree.
 
-The CLI validates required project files (`AGENTS.md`, `README.md`, and `graph.mmd`), real path containment, and declaration shape. The wrapper does not copy media or reproduce graph edges.
+The CLI validates required project files (`AGENTS.md`, `README.md`, and `graph.mmd`), selected named graph real-path containment, and declaration shape. Named graph filenames must stay within the project and may not be arbitrary paths or symlinks outside it. The wrapper does not copy media or reproduce graph edges.
 
 ## Run and Relay behavior
 
-URL input creates a unique dated directory under the project's canonical `runs/`, with private mode-0600 source evidence and objective/input documents. The complete URL stays in the private evidence file and is never placed on Relay argv or printed. Path input references an existing run and never replaces its files. Both forms write a private atomic binding pointer containing only the project/run and Relay Job/Task identifiers and private artifact paths.
+URL input creates a unique dated directory under the project's canonical `runs/`, with private mode-0600 source evidence and objective/input documents. The complete URL stays in the private evidence file and is never placed on Relay argv or printed. Path input references an existing run and never replaces its files. Both forms write a private atomic binding pointer containing the project/run, selected DAG when configured, Relay Job/Task identifiers, and private artifact paths.
 
 Neo invokes the installed `agents-relay` CLI using argv with the owning
 independent local Git repository name (for example `vlog`) and its canonical
@@ -107,7 +108,7 @@ Project Run itself does not auto-commit them.
 
 ## Project-specific permissions and existing flows
 
-- **Content Distribution** accepts HTTPS source references. A public RS Root URL does not imply provider license, permission to download, asset rights, account authorization, or publication permission. Follow the independent Content Distribution Project's `AGENTS.md`, verify the licensed original and campaign rights, and retain distinct owner authorization before publishing. The CLI does not download or post.
+- **Content Distribution** accepts HTTPS source references for two named DAGs: `promotion` (licensed ReelShort CPS audience-voice recommendations, default) and `growth` (original drama-adjacent organic content inspired by observed viral structures). A public RS Root URL does not imply provider license, permission to download, asset rights, account authorization, or publication permission. Public viral videos on the growth lane are references only, not media reproduction rights. Follow the independent Content Distribution Project's `AGENTS.md`, verify the licensed original and campaign rights, and retain distinct owner authorization before publishing. The CLI does not download or post.
 - **Vlog** accepts an existing canonical run path only. Input media must be owner-approved for the intended private production. By default skip interactive Preview and independent Final QA/Final Review: Editor verifies complete video.md without a player; Producer verifies and renders MP4, with Preview only on demand; Publisher is a conditional final Agent (WeChat Channels/XHS) with no review and acts only on explicitly authorized per-video/per-platform/account request. For an explicit `--no-review` run (Vlog path input only), require `source-manifest.json` owner approval and a private scope; create an immutable run-local `review-mode.json` with `private-render-test` / `UNREVIEWED` / `publicationAllowed:false`. Producer renders and verifies a real MP4 without interactive review; the separate Final QA Agent no longer runs. Publisher must skip the private-test Run even if a publication request exists. No publication is authorized, and retries cannot alter this policy. This explicit CLI path does not migrate the iCloud watcher or its Planner-backed Jobs.
 
 Existing watcher entry points and project-local Planner Jobs follow their Project contracts. Previously bound Jobs may still refer to the former `lalalic/neo` identity; these require an explicit, read-back-verified Job migration rather than silent rebinding. See [Neo Harness and Project layout](neo-harness-project-layout.md).
