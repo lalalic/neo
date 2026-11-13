@@ -74,3 +74,45 @@ test('authenticated MCP chat_jobs keeps current Relay local repo rows for Neo Mo
   assert.ok(!JSON.stringify(body).includes('secret'));
   assert.ok(!JSON.stringify(body).includes('/private'));
 });
+
+
+test('chat_jobs pages 20 at a time, uses stable active-first ordering and reports exhaustion', async (t) => {
+  const { dir, clock } = await fixture(t);
+  const rows = Array.from({ length: 47 }, (_, i) => ({ id: String(i + 1),
+    repository: 'vlog', title: `Job ${i + 1}`,
+    state: i === 0 ? 'ACTIVE' : 'COMPLETED',
+    runtimeStatus: i === 0 ? 'WAITING' : 'COMPLETED',
+    createdAt: '2026-11-12T20:53:55.691Z',
+    updatedAt: new Date(Date.parse('2026-11-12T21:00:00Z') - i * 1000).toISOString(),
+  }));
+  const gateway = await createGateway({
+    config: resolveTestConfig(dir),
+    dashboard: { fetchJobs: async () => normalizeJobs({ jobs: rows }) },
+    notifier: fakeNotifier(), now: clock.now, log: () => {},
+    makeSubscriber: () => ({ start() {}, async stop() {},
+      status: () => ({ connected: true, lastError: null }) }),
+  });
+  await gateway.start();
+  t.after(() => gateway.stop());
+  const url = `http://127.0.0.1:${gateway.server.server.address().port}/mcp`;
+  const call = async args => {
+    const response = await fetch(url, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call',
+        params: { name: 'chat_jobs', arguments: args } }),
+    });
+    return (await response.json()).result;
+  };
+  const p1 = (await call({})).structuredContent;
+  const p2 = (await call({ limit: 20, offset: 20 })).structuredContent;
+  const p3 = (await call({ limit: 20, offset: 40 })).structuredContent;
+  assert.deepEqual([p1.jobs.length, p2.jobs.length, p3.jobs.length], [20, 20, 7]);
+  assert.deepEqual([p1.nextOffset,p2.nextOffset,p3.nextOffset], [20, 40, 47]);
+  assert.deepEqual([p1.hasMore,p2.hasMore,p3.hasMore], [true,true,false]);
+  assert.equal(p1.jobs[0].id, '1');
+  assert.equal(p1.jobs[0].status, 'WAITING');
+  assert.equal(new Set([...p1.jobs,...p2.jobs,...p3.jobs].map(x => x.id)).size, 47);
+  const bad = await call({ limit: 20, offset: -1 });
+  assert.equal(bad.isError, true);
+  assert.equal(bad.structuredContent.error.includes('offset'), true);
+});

@@ -71,7 +71,8 @@ export const TOOL_DEFS = Object.freeze([
     description: 'List recent and active Relay jobs from the Neo Master dashboard. Returns only job ID, title, repository, status, creation time, and last update; no objectives or job prompts.',
     inputSchema: {
       type: 'object',
-      properties: { limit: { type: 'integer', minimum: 1, maximum: 100, default: 100 } },
+      properties: { limit: { type: 'integer', minimum: 1, maximum: 100, default: 20 },
+        offset: { type: 'integer', minimum: 0, maximum: 100000, default: 0 } },
       additionalProperties: false,
     },
   },

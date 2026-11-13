@@ -90,16 +90,24 @@ export async function createGateway({
     onCall: async (name, args) => {
       if (name === 'chat_jobs') {
         if (!args || typeof args !== 'object' || Array.isArray(args) ||
-            Object.keys(args).some((key) => key !== 'limit') ||
+            Object.keys(args).some((key) => key !== 'limit' && key !== 'offset') ||
             (args.limit !== undefined &&
-             (!Number.isInteger(args.limit) || args.limit < 1 || args.limit > 100))) {
-          throw new Error('chat_jobs accepts optional integer limit (1..100)');
+             (!Number.isInteger(args.limit) || args.limit < 1 || args.limit > 100)) ||
+            (args.offset !== undefined &&
+             (!Number.isInteger(args.offset) || args.offset < 0 || args.offset > 100000))) {
+          throw new Error('chat_jobs accepts limit (1..100) and offset (0..100000)');
         }
-        const limit = args.limit ?? 100;
+        const limit = args.limit ?? 20;
+        const offset = args.offset ?? 0;
         const jobs = await dashboard.fetchJobs();
-        jobs.sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? '') ||
+        jobs.sort((a, b) => (Number(b.status !== 'COMPLETED' && b.status !== 'CANCELLED') -
+          Number(a.status !== 'COMPLETED' && a.status !== 'CANCELLED')) ||
+          (b.updatedAt ?? '').localeCompare(a.updatedAt ?? '') ||
           a.id.localeCompare(b.id));
-        return { jobs: jobs.slice(0, limit).map(job => ({ ...job, cancellable: job.cancellable === true })), total: jobs.length };
+        const page = jobs.slice(offset, offset + limit);
+        const nextOffset = Math.min(jobs.length, offset + page.length);
+        return { jobs: page.map(job => ({ ...job, cancellable: job.cancellable === true })),
+          total: jobs.length, nextOffset, hasMore: nextOffset < jobs.length };
       }
       if (name === 'chat_job_activity') {
         const identity = validateJobIdentity(args, 'chat_job_activity');
