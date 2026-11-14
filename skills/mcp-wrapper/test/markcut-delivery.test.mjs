@@ -15,7 +15,7 @@ function withOp(data){const dir=mkdtempSync(join(tmpdir(),'neo-preview-test-'));
 test('Neo builds immutable review request using provider output; Markcut does not notify',()=>{
   const id=randomUUID(),request=buildNeoReviewRequest(id,op,{jobId:'j1',taskId:'producer',executionId:'e1'});
   assert.equal(request.id,id);assert.equal(request.mediaHash,hash);assert.equal(request.commitSha,undefined);assert.equal(request.contentHash,undefined);
-  assert.equal(request.title,'movie');assert.equal(request.delivery,'event');
+  assert.equal(request.title,'Job #j1');assert.equal(request.delivery,'event');
   assert.equal(request.groupId,'job/j1/task/producer');
   assert.equal(request.eventTemplate.data.interactive.executionId,'e1');
 });

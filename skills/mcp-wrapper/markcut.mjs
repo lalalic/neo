@@ -124,14 +124,40 @@ export function singleMediaPreviewPath(path,{probe=execFileSync}={}){
 }
 
 /** Called only for markcut.preview. All other MCP methods are transparent. */
-export async function previewCall(message,forward,{control=relayControl,notifyWatcher=watcher,record=recordDeliveryIntent,resolveMedia=singleMediaPreviewPath}={}){
+export async function relayJobTitle(jobId,{exec=runFile}={}){
+  const binary=process.env.NEOY_RELAY_CLI||'/opt/homebrew/bin/agents-relay';
+  const {stdout}=await exec(binary,['job','show','--id',String(jobId)],{timeout:15000,maxBuffer:1024*1024});
+  const job=JSON.parse(stdout);
+  if(String(job.id)!==String(jobId)||typeof job.title!=='string'||!job.title.trim())
+    throw Error('Relay Job title unavailable for '+jobId);
+  return job.title.replace(/\s+/g,' ').trim();
+}
+export function managedReviewTitle(jobId,title){
+  const prefix=String(jobId)+':';
+  const clean=String(title).replace(/\s+/g,' ').trim();
+  if(!clean)throw Error('Relay Job title is empty');
+  return prefix+clean.slice(0,160-prefix.length);
+}
+export async function previewCall(message,forward,{control=relayControl,notifyWatcher=watcher,record=recordDeliveryIntent,resolveMedia=singleMediaPreviewPath,getJobTitle=relayJobTitle}={}){
   const params=message.params||{};
   const input=params.arguments||{};
   if(input.relay!==undefined)throw Error('Use review.relay instead of top-level relay');
   const relay=input.review?.relay;
   const markdownPath=resolveMedia(input.path);
-  const prepared=markdownPath===input.path ? message :
-    {...message,params:{...params,arguments:{...input,path:markdownPath}}};
+  // .ghost.*.md files are private adapter/artifact names, never review titles.
+  // Retain an explicit caller title; otherwise identify managed reviews by Job
+  // and single-media previews by their ORIGINAL file, not the ghost adapter.
+  const internalGhost=basename(input.path).startsWith('.ghost.');
+  if(relay && (!relay.jobId || !(typeof relay.jobId==='string') ||
+      !(typeof relay.taskId==='string'&&relay.taskId.length||Number.isSafeInteger(relay.taskId)) ||
+      typeof relay.executionId!=='string'||!relay.executionId))
+    throw Error('Managed preview requires relay.jobId, taskId and executionId');
+  const defaultTitle=relay && !input.title ? managedReviewTitle(relay.jobId,await getJobTitle(relay.jobId)) :
+    markdownPath!==input.path ? basename(input.path) :
+    internalGhost ? 'Preview' : null;
+  const prepared=(markdownPath===input.path && (!defaultTitle || input.title)) ? message :
+    {...message,params:{...params,arguments:{...input,path:markdownPath,
+      ...(!input.title && defaultTitle ? {title:defaultTitle} : {})}}};
   if(input.readonly===true){
     // Read-only playback cannot create a checkpoint, Relay invocation, Inbox
     // item, or watcher. The provider owns compilation and the view-only UI.
@@ -330,9 +356,13 @@ export function buildNeoReviewRequest(operationId,operation,binding=null){
   if(!HASH.test(result.contentHash||'')||typeof result.revisionId!=='string'||!result.revisionId||
      typeof result.id!=='string'||!result.id)throw new Error('Invalid immutable preview identity');
   const review=result.review||{delivery:'text'};
-  const request={id:operationId,previewId:result.id,title:result.title||basename(operation.requestedPath||result.requestedPath||'video.md','.md'),
+  const sourceName=basename(operation.requestedPath||result.requestedPath||'video.md','.md');
+  const fallbackTitle=sourceName.startsWith('.ghost.') ? 'Preview' : sourceName;
+  const generatedForJob=binding?.jobId && result.title?.startsWith(`${binding.jobId}:`);
+  const request={id:operationId,previewId:result.id,title:result.title||(binding?.jobId?`Job #${binding.jobId}`:fallbackTitle),
     ...(review.mode==='questions'?{mode:'questions'}:{}),
-    ...(result.title?{customTitle:true}:{}),
+    ...(result.title && !generatedForJob ? {customTitle:true} : {}),
+    ...(generatedForJob ? {groupTitle:result.title} : {}),
     delivery:review.delivery||'text'};
   if(request.delivery==='event'){
     request.mediaHash=result.contentHash;

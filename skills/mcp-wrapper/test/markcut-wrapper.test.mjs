@@ -7,7 +7,8 @@ import {spawn,execFileSync} from 'node:child_process';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {fileURLToPath} from 'node:url';
-import {federationConfiguration,operationIdFromResult,previewCall,relayControl,relayInteractiveArgs,notifyReview,reviewNotifyURL,singleMediaPreviewPath,questionsPreviewPath} from '../markcut.mjs';
+import {federationConfiguration,operationIdFromResult,previewCall as previewCallRaw,relayJobTitle,managedReviewTitle,relayControl,relayInteractiveArgs,notifyReview,reviewNotifyURL,singleMediaPreviewPath,questionsPreviewPath,buildNeoReviewRequest} from '../markcut.mjs';
+const previewCall=(message,forward,options={})=>previewCallRaw(message,forward,{getJobTitle:async()=> 'Sample Job',...options});
 const id=randomUUID();
 const relay={jobId:'j1',taskId:'producer',executionId:'exec-1'};
 const eventTemplate={type:'task.interactive_decision',source:'job/j1/task/producer/execution/exec-1',
@@ -29,6 +30,34 @@ test('askquestions generates Markdown scene titles without losing multiline UTF-
   rmSync(path.slice(0,path.lastIndexOf('/')),{recursive:true,force:true});
  }finally{rmSync(dir,{recursive:true,force:true});}
 });
+test('managed title resolves real Relay metadata and honors explicit caller titles',async()=>{
+ const fetched=await relayJobTitle('626',{exec:async(_bin,args)=>{
+   assert.deepEqual(args,['job','show','--id','626']);
+   return {stdout:JSON.stringify({id:'626',title:'Growth 第一条爆款复刻 · 六阶段审核'})};
+ }});
+ assert.equal(managedReviewTitle('626',fetched),'626:Growth 第一条爆款复刻 · 六阶段审核');
+ await assert.rejects(relayJobTitle('627',{exec:async()=>({stdout:JSON.stringify({id:'626',title:'Wrong job'})})}),/title unavailable/);
+ const explicit={...message,params:{...message.params,arguments:{...message.params.arguments,title:'Review for editor'}}};
+ await previewCall(explicit,async forwarded=>{
+   assert.equal(forwarded.params.arguments.title,'Review for editor');
+   return {structuredContent:{operationId:randomUUID()}};
+ },{getJobTitle:()=>{throw Error('Explicit title must bypass lookup')},
+    control:async command=>command==='review.interactive.begin'?receipt:{waiting:true},record:()=>{},notifyWatcher:()=>{}});
+});
+test('review inbox metadata never uses private ghost filenames as user-visible titles',()=>{
+ const operation={state:'ready',requestedPath:'/private/.ghost.growth-review-growth-researcher.md',
+  result:{id:'preview',contentHash:'a'.repeat(64),revisionId:'r1',review:{delivery:'text'}}};
+ assert.equal(buildNeoReviewRequest(randomUUID(),operation,{jobId:'626'}).title,'Job #626');
+ assert.equal(buildNeoReviewRequest(randomUUID(),operation).title,'Preview');
+ const generated={...operation,result:{...operation.result,title:'626:Growth 第一条爆款复刻 · 六阶段审核'}};
+ const generatedRequest=buildNeoReviewRequest(randomUUID(),generated,{jobId:'626'});
+ assert.equal(generatedRequest.title,'626:Growth 第一条爆款复刻 · 六阶段审核');
+ assert.equal(generatedRequest.customTitle,undefined);
+ assert.equal(generatedRequest.groupTitle,generatedRequest.title);
+ const withTitle={...operation,result:{...operation.result,title:'Chosen title'}};
+ assert.equal(buildNeoReviewRequest(randomUUID(),withTitle,{jobId:'627'}).title,'Chosen title');
+ assert.equal(buildNeoReviewRequest(randomUUID(),withTitle,{jobId:'627'}).customTitle,true);
+});
 test('stdio federation config points to wrapper, not original provider',()=>{
  const config=federationConfiguration({node:'/opt/homebrew/bin/node',wrapper:'/tmp/neox/wrapper.mjs',upstream:'/tmp/markcut/launch.sh'});
  assert.equal(config.name,'markcut');const url=new URL(config.url);
@@ -49,6 +78,7 @@ test('Preview wrapper requests Relay Invocation, preserves MCP UI output, then w
  assert.equal(passed[0].params.arguments.review.relay,undefined);
  assert.equal(passed[0].params.arguments.review.eventTemplate.responseKey,'interactive');
  assert.equal(passed[0].params.arguments.path,'/tmp/video.md');
+ assert.equal(passed[0].params.arguments.title,'j1:Sample Job');
 });
 test('Neo Wrapper, not Markcut, rejects unauthorized Relay event type or identity',async()=>{
  for(const bad of [
@@ -89,6 +119,7 @@ test('managed review allows single-media ghost preview without a Git commit',asy
   const request={...message,params:{...message.params,arguments:{path,review:{relay}}}};
   await previewCall(request,async forwarded=>{
    assert.equal(forwarded.params.arguments.path,join(realpathSync(dir),'.ghost.markcut.md'));
+   assert.equal(forwarded.params.arguments.title,'j1:Sample Job');
    assert.equal(forwarded.params.arguments.review.commitSha,undefined);
    return {structuredContent:{operationId:randomUUID()}};
   },{control:async cmd=>cmd==='review.interactive.begin'?receipt:{waiting:true},
@@ -128,6 +159,7 @@ test('single media readonly forwards ghost Markdown without Relay, watcher or ph
   const got=await previewCall(request,async forwarded=>{
    assert.equal(forwarded.params.arguments.path,join(realpathSync(directory),'.ghost.markcut.md'));
    assert.equal(forwarded.params.arguments.readonly,true);
+   assert.equal(forwarded.params.arguments.title,'my image.jpg');
    assert.equal(request.params.arguments.path,source);
    return result;
   },{control:()=>{throw Error('No Relay')},
@@ -146,6 +178,7 @@ test('single-media interactive preview keeps existing standalone delivery and ma
   await previewCall(request,async forwarded=>{
    assert.equal(forwarded.params.arguments.path,join(realpathSync(directory),'.ghost.markcut.md'));
    assert.equal(forwarded.params.arguments.review,undefined);
+   assert.equal(forwarded.params.arguments.title,'shot.png');
    return {structuredContent:{operationId:randomUUID()}};
   },{control:()=>{throw Error('No Relay')},
     record:()=>{calls.push('record')},notifyWatcher:()=>{calls.push('notify')},
