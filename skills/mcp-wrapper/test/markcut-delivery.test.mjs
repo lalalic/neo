@@ -23,10 +23,30 @@ test('Neo sends execution-bound review without a revision command',async()=>{
   const f=withOp(op),steps=[];
   try{
     const result=await watchAndNotify(f.id,{directory:f.dir,initialIdentity:{jobId:'j1',taskId:'producer',executionId:'e1'},
+      getReviewLabels:async()=>({title:'j1:Sample Job',subtitle:'producer:Producer'}),
       onReady:async()=>{throw Error('No revision binding');},
-      notify:async request=>{steps.push('notify');assert.equal(request.id,f.id);return {stored:true,accepted:false};}});
+      notify:async request=>{
+        steps.push('notify');assert.equal(request.id,f.id);
+        assert.equal(request.title,'j1:Sample Job');
+        assert.equal(request.subtitle,'producer:Producer');
+        return {stored:true,accepted:false};}});
     assert.deepEqual(steps,['notify']);assert.equal(result.notified,true);
   }finally{f.clean();}
+});
+test('explicit review title overrides Job default while wrapper still supplies Task subtitle',async()=>{
+ const fixture=withOp({...op,result:{...op.result,title:'My custom review'}});
+ try{
+  const result=await watchAndNotify(fixture.id,{directory:fixture.dir,
+   initialIdentity:{jobId:'j1',taskId:'producer',executionId:'e1'},
+   getReviewLabels:async()=>({title:'j1:Sample Job',subtitle:'producer:Producer'}),
+   notify:async request=>{
+     assert.equal(request.title,'My custom review');
+     assert.equal(request.customTitle,true);
+     assert.equal(request.subtitle,'producer:Producer');
+     return {stored:true,accepted:false};
+   }});
+  assert.equal(result.notified,true);
+ }finally{fixture.clean();}
 });
 test('Failed or invalid Preview is never sent to iPhone',async()=>{
   const f=withOp({state:'failed',error:'compiler unavailable'}),steps=[];

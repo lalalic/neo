@@ -23,6 +23,18 @@ test('Review delivery is durable, per-device idempotent and does not interpret d
   assert.deepEqual(JSON.parse(readFileSync(recordPath(review.id,directory))).acknowledgedBy[phoneA.toLowerCase()]!==undefined,true);
  }finally{rmSync(directory,{recursive:true,force:true})}
 });
+test('acquire transports wrapper-provided subtitle but does not store review history',()=>{
+ const directory=mkdtempSync(join(tmpdir(),'neo-acquire-'));
+ const deviceId=randomUUID();
+ try{
+  const review={...request(),subtitle:'1683:growth-researcher'};
+  preserveRequest(review,{directory});
+  assert.equal(acquireReviews({deviceId,directory}).requests[0].subtitle,review.subtitle);
+  assert.deepEqual(acquireReviews({deviceId,ackIds:[review.id],directory}).acked,[review.id]);
+  assert.deepEqual(acquireReviews({deviceId,directory}).requests,[]);
+  assert.throws(()=>preserveRequest({...request(),subtitle:'x'.repeat(200)},{directory}),/Invalid review request/);
+ }finally{rmSync(directory,{recursive:true,force:true})}
+});
 test('Request acquisition validates IDs and rejects cross-directory/path-traversal injection',()=>{
  const directory=mkdtempSync(join(tmpdir(),'neo-acquire-'));
  try{

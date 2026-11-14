@@ -132,6 +132,22 @@ export async function relayJobTitle(jobId,{exec=runFile}={}){
     throw Error('Relay Job title unavailable for '+jobId);
   return job.title.replace(/\s+/g,' ').trim();
 }
+/** Resolve new Review request labels at the Neo-owned wrapper boundary.
+ * Relay is consulted only while preparing an outgoing request. This is NOT a
+ * review-history store; acknowledged history belongs exclusively to iPhone.
+ */
+export async function relayReviewLabels(jobId,taskId,{exec=runFile}={}){
+  const binary=process.env.NEOY_RELAY_CLI||'/opt/homebrew/bin/agents-relay';
+  const {stdout}=await exec(binary,['job','show','--id',String(jobId)],{timeout:15000,maxBuffer:1024*1024});
+  const job=JSON.parse(stdout);
+  if(String(job.id)!==String(jobId)||typeof job.title!=='string'||!job.title.trim())
+    throw Error('Relay Review Job metadata unavailable: '+jobId);
+  const task=job.tasks?.find(item=>String(item.id)===String(taskId));
+  if(!task||typeof task.title!=='string'||!task.title.trim())
+    throw Error('Relay Review Task metadata unavailable: '+jobId+'/'+taskId);
+  return {title:managedReviewTitle(jobId,job.title),
+    subtitle:String(taskId)+':'+task.title.replace(/\s+/g,' ').trim().slice(0,150)};
+}
 export function managedReviewTitle(jobId,title){
   const prefix=String(jobId)+':';
   const clean=String(title).replace(/\s+/g,' ').trim();
@@ -359,9 +375,10 @@ export function buildNeoReviewRequest(operationId,operation,binding=null){
   const sourceName=basename(operation.requestedPath||result.requestedPath||'video.md','.md');
   const fallbackTitle=sourceName.startsWith('.ghost.') ? 'Preview' : sourceName;
   const generatedForJob=binding?.jobId && result.title?.startsWith(`${binding.jobId}:`);
+  const privateAdapterTitle=typeof result.title==='string' && result.title.startsWith('.ghost.');
   const request={id:operationId,previewId:result.id,title:result.title||(binding?.jobId?`Job #${binding.jobId}`:fallbackTitle),
     ...(review.mode==='questions'?{mode:'questions'}:{}),
-    ...(result.title && !generatedForJob ? {customTitle:true} : {}),
+    ...(result.title && !generatedForJob && !privateAdapterTitle ? {customTitle:true} : {}),
     ...(generatedForJob ? {groupTitle:result.title} : {}),
     delivery:review.delivery||'text'};
   if(request.delivery==='event'){
@@ -384,7 +401,7 @@ export function buildNeoReviewRequest(operationId,operation,binding=null){
 
 /** Delivery is never attempted for failed or unfinished revisions. */
 export async function watchAndNotify(operationId,{directory=operationsDirectory(),deadlineMs=600000,
-  intervalMs=350,notify=notifyReview,onFailed, onReady, initialIdentity=null}={}){
+  intervalMs=350,notify=notifyReview,onFailed, onReady, initialIdentity=null,getReviewLabels=relayReviewLabels}={}){
   if(!UUID.test(operationId))throw new Error('Invalid operation ID');
   const path=join(directory,operationId+'.json');
   let identity=initialIdentity;
@@ -402,8 +419,16 @@ export async function watchAndNotify(operationId,{directory=operationsDirectory(
       return {notified:false,failed:true,error:operation.error||'Preview compilation failed'};
     }
     if(operation?.state==='ready'){
-      const request=buildNeoReviewRequest(operationId,operation,identity);
       try{
+        const request=buildNeoReviewRequest(operationId,operation,identity);
+        if(identity){
+          const labels=await getReviewLabels(identity.jobId,identity.taskId);
+          if(!request.customTitle){
+            request.title=labels.title;
+            request.groupTitle=labels.title;
+          }
+          request.subtitle=labels.subtitle;
+        }
         const receipt=await notify(request);
         if(receipt?.stored!==true)throw new Error('Neo review inbox persistence was not acknowledged');
         return {notified:true,requestId:request.id,receipt};
@@ -422,7 +447,7 @@ export async function watchAndNotify(operationId,{directory=operationsDirectory(
 
 /** The Neo-owned intent is durable and replayable after a native-app restart. */
 export async function runRecordedDelivery(id,{recordDir=deliveryDirectory(),directory=operationsDirectory(),
-  notify=notifyReview,onReady,onFailed}={}){
+  notify=notifyReview,onReady,onFailed,getReviewLabels=relayReviewLabels}={}){
   const file=deliveryRecord(id,recordDir);
   const record=JSON.parse(readFileSync(file,'utf8'));
   if(record.operationId!==id)throw new Error('Mismatched Neo delivery intent');
@@ -431,7 +456,8 @@ export async function runRecordedDelivery(id,{recordDir=deliveryDirectory(),dire
   const lock=acquireDeliveryLock(file);
   if(!lock)return {alreadyRunning:true};
   try{
-    const result=await watchAndNotify(id,{directory,notify,onReady,onFailed,initialIdentity:record.binding||null});
+    const result=await watchAndNotify(id,{directory,notify,onReady,onFailed,
+      initialIdentity:record.binding||null,getReviewLabels});
     markDeliveryStatus(id,result.notified?'delivered':'failed',
       {directory:recordDir,error:result.error});
     return result;

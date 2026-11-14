@@ -36,7 +36,9 @@ function withLock(file,action){
 function validateReviewRequest(request){
  const HASH=/^[0-9a-f]{64}$/;
  if(!request||typeof request!=='object'||!UUID.test(request.id||'')||
-    typeof request.title!=='string'||request.title.length<1||request.title.length>180)
+    typeof request.title!=='string'||request.title.length<1||request.title.length>180||
+    (request.subtitle!==undefined&&(typeof request.subtitle!=='string'||
+      !request.subtitle.trim()||request.subtitle.length>180)))
    throw Error('Invalid review request');
  const delivery=request.delivery||'text';
  if(delivery==='event'){

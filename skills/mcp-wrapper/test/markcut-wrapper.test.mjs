@@ -7,7 +7,7 @@ import {spawn,execFileSync} from 'node:child_process';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {fileURLToPath} from 'node:url';
-import {federationConfiguration,operationIdFromResult,previewCall as previewCallRaw,relayJobTitle,managedReviewTitle,relayControl,relayInteractiveArgs,notifyReview,reviewNotifyURL,singleMediaPreviewPath,questionsPreviewPath,buildNeoReviewRequest} from '../markcut.mjs';
+import {federationConfiguration,operationIdFromResult,previewCall as previewCallRaw,relayJobTitle,relayReviewLabels,managedReviewTitle,relayControl,relayInteractiveArgs,notifyReview,reviewNotifyURL,singleMediaPreviewPath,questionsPreviewPath,buildNeoReviewRequest} from '../markcut.mjs';
 const previewCall=(message,forward,options={})=>previewCallRaw(message,forward,{getJobTitle:async()=> 'Sample Job',...options});
 const id=randomUUID();
 const relay={jobId:'j1',taskId:'producer',executionId:'exec-1'};
@@ -57,6 +57,18 @@ test('review inbox metadata never uses private ghost filenames as user-visible t
  const withTitle={...operation,result:{...operation.result,title:'Chosen title'}};
  assert.equal(buildNeoReviewRequest(randomUUID(),withTitle,{jobId:'627'}).title,'Chosen title');
  assert.equal(buildNeoReviewRequest(randomUUID(),withTitle,{jobId:'627'}).customTitle,true);
+});
+test('review.preview resolves Job and Task labels from the exact Relay job show result',async()=>{
+ const data={id:'626',title:'Growth 第一条爆款复刻 · 六阶段审核',tasks:[
+   {id:'1682',title:'Coordinator'}, {id:'1683',title:'growth-researcher'}]};
+ const exec=async(_bin,args)=>{
+   assert.deepEqual(args,['job','show','--id','626']);
+   return {stdout:JSON.stringify(data)};
+ };
+ assert.deepEqual(await relayReviewLabels('626','1683',{exec}),
+   {title:'626:Growth 第一条爆款复刻 · 六阶段审核',subtitle:'1683:growth-researcher'});
+ await assert.rejects(relayReviewLabels('626','not-a-task',{exec}),/Task metadata unavailable/);
+ await assert.rejects(relayReviewLabels('627','1683',{exec:async()=>({stdout:JSON.stringify(data)})}),/Job metadata unavailable/);
 });
 test('stdio federation config points to wrapper, not original provider',()=>{
  const config=federationConfiguration({node:'/opt/homebrew/bin/node',wrapper:'/tmp/neox/wrapper.mjs',upstream:'/tmp/markcut/launch.sh'});
