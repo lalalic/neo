@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assertStrict from 'node:assert/strict';
-import { createDashboardClient, createRelayEventHistoryClient, normalizeJob, normalizeJobs, normalizeRelayEvents } from '../core/relay-jobs.mjs';
+import { createDashboardClient, createRelayEventHistoryClient, normalizeJob, normalizeJobs, normalizeJobTasks, normalizeRelayEvents } from '../core/relay-jobs.mjs';
 import { createGateway } from '../core/service.mjs';
 import { fixture, fakeNotifier, resolveTestConfig } from './helpers.mjs';
 
@@ -123,6 +123,34 @@ test('event history pages oldest-first, skips unknown data, and marks a hard cap
   assertStrict.deepEqual(normalizeRelayEvents({
     job_id: '31', order: 'asc', next_cursor: 0, events: [],
   }, { jobId: '31' }), { rows: [], count: 0, nextCursor: 0 });
+});
+
+test('MCP task titles expose only sanitized names scoped to the exact Job', async (t) => {
+  const { dir, clock } = await fixture(t);
+  const tasks = [{id:'1683', title:'growth-researcher', objective:'SECRET', path:'/private'},
+    {id:'1684', title:'Editor', raw:'do not send'}];
+  const dashboard = {fetchJobs:async()=>[],fetchJobTasks:async(jobId,repository)=>
+    normalizeJobTasks({id:jobId,repository,tasks}, {jobId,repository})};
+  const gateway = await createGateway({config:resolveTestConfig(dir), dashboard,
+    notifier:fakeNotifier(),now:clock.now,
+    makeSubscriber:()=>({start(){},async stop(){},status:()=>({connected:true,lastError:null})}),log:()=>{}});
+  await gateway.start();t.after(()=>gateway.stop());
+  const port=gateway.server.server.address().port;
+  async function call(argumentsValue) {
+    const response=await fetch(`http://127.0.0.1:${port}/mcp`,{method:'POST',
+      headers:{'content-type':'application/json',accept:'application/json, text/event-stream'},
+      body:JSON.stringify({jsonrpc:'2.0',id:1,method:'tools/call',params:{name:'chat_job_tasks',arguments:argumentsValue}})});
+    return (await response.json()).result;
+  }
+  const ok=await call({repository:'content-distribution',jobId:'626'});
+  assertStrict.deepEqual(ok.structuredContent,{jobId:'626',repository:'content-distribution',tasks:[
+    {id:'1683',title:'growth-researcher'},{id:'1684',title:'Editor'}]});
+  assertStrict.equal(JSON.stringify(ok).includes('SECRET'),false);
+  assertStrict.equal(JSON.stringify(ok).includes('/private'),false);
+  const denied=await call({repository:'../private',jobId:'626'});
+  assertStrict.equal(denied.isError,true);
+  assertStrict.throws(()=>normalizeJobTasks({id:'other',repository:'content-distribution',tasks},
+    {jobId:'626',repository:'content-distribution'}));
 });
 
 test('MCP activity validates the exact job pair and hides source errors and private event data', async (t) => {

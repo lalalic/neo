@@ -77,6 +77,18 @@ export const TOOL_DEFS = Object.freeze([
     },
   },
   {
+    name: 'chat_job_tasks',
+    description: 'Read only task IDs and task titles for one authorized local Relay Job. No objectives, prompts, private paths or artifacts.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        repository: { type: 'string', pattern: REPOSITORY_PATTERN.source },
+        jobId: { type: 'string', pattern: '^[A-Za-z0-9_.-]{1,64}$' },
+      },
+      required: ['repository', 'jobId'], additionalProperties: false,
+    },
+  },
+  {
     name: 'chat_job_activity',
     description: 'Return sanitized, durable lifecycle activity for one Relay job. Requires the exact repository and jobId; contains only stable event types, owner-safe labels/status, timestamps, and optional task identity.',
     inputSchema: {

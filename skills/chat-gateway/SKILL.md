@@ -18,6 +18,7 @@ The loopback MCP service at http://127.0.0.1:8791/mcp is federated into authenti
 - chat_env: office/home mode and source, plus phone connection observation if available.
 - chat_feed: optional limit 1..100, default 50. Returns owner-safe report/owner history with no raw Job events, prompts or paths.
 - chat_jobs: optional limit 1..100 (default 20), offset >= 0 (default 0). Returns stable, active-first pages of Relay jobs (total, nextOffset, hasMore) from the dashboard, containing only ID, title, status, repository, creation and update timestamp; supplies the separate Neo Mobile Jobs tab.
+- chat_job_tasks: exact local repository and jobId. Returns only durable Task IDs and Task titles, for Neo Mobile Review list labeling (including already-acknowledged historical reviews); no prompts, objectives, or paths.
 - chat_job_activity: exact local repository name (e.g. vlog) and jobId. Returns repository-scoped, owner-safe, ordered durable lifecycle events from the public Events Bus history; no raw payloads or private metadata.
 - chat_job_cancel: exact local repository name (e.g. vlog) and jobId. Cancels an eligible Relay Job through Relay's real cancellation Graph and returns only after an authoritative CANCELLED readback. No PR number is required.
 - chat_head: whether a current orchestrator ChatGPT head thread is bound.

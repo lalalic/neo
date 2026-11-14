@@ -109,6 +109,10 @@ export async function createGateway({
         return { jobs: page.map(job => ({ ...job, cancellable: job.cancellable === true })),
           total: jobs.length, nextOffset, hasMore: nextOffset < jobs.length };
       }
+      if (name === 'chat_job_tasks') {
+        const identity = validateJobIdentity(args, 'chat_job_tasks');
+        return await dashboard.fetchJobTasks(identity.jobId, identity.repository);
+      }
       if (name === 'chat_job_activity') {
         const identity = validateJobIdentity(args, 'chat_job_activity');
         const job = await dashboard.fetchJob(identity.jobId, identity.repository);

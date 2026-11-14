@@ -54,6 +54,18 @@ export function normalizeJob(row, { jobId, repository, includeState = false } = 
   return normalized;
 }
 
+/** Task labels only: no objectives, prompts, artifacts, runtime details or paths. */
+export function normalizeJobTasks(payload, {jobId, repository} = {}) {
+  if (normalizeJobId(payload?.id) !== jobId || normalizeRepository(payload?.repository) !== repository ||
+      !Array.isArray(payload?.tasks)) throw new Error('Invalid Relay Job task response');
+  const tasks = payload.tasks.slice(0, 500).flatMap(row => {
+    const id = normalizeJobId(row?.id);
+    const title = clip(row?.title, 160).trim();
+    return id && title ? [{id, title}] : [];
+  });
+  return {jobId, repository, tasks};
+}
+
 export function normalizeJobs(payload) {
   const rows = Array.isArray(payload?.jobs) ? payload.jobs : [];
   const jobs = [];
@@ -228,6 +240,11 @@ export function createDashboardClient({ baseUrl, fetcher = fetch, timeoutMs = 20
         { jobId, repository, includeState: true });
       if (!job) throw new Error('Job not found');
       return job;
+    },
+    async fetchJobTasks(jobId, repository) {
+      if (!normalizeJobId(jobId) || !normalizeRepository(repository)) throw new Error('Invalid job identity');
+      const params = new URLSearchParams({ id: jobId, repo: repository });
+      return normalizeJobTasks(await request(`${baseUrl}/api/job?${params}`), {jobId, repository});
     },
     async requestCancellation(jobId, repository) {
       if (!normalizeJobId(jobId) || !normalizeRepository(repository)) throw new Error('Invalid job identity');
