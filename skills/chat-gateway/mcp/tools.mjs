@@ -8,12 +8,15 @@ export const TOOL_DEFS = Object.freeze([
     name: 'chat_report',
     description: 'Report to the owner\'s phone when something deserves their attention: a result, a blocker, a milestone. '
       + 'For Neo Mobile owner messages, publish the user-facing reply here; only unsolicited progress reports are optional. '
+      + 'The text supports Markdown (headings, bold, lists, links, code blocks). For diagrams, include '
+      + 'a fenced Mermaid code block such as ```mermaid\nflowchart LR\nA[Start] --> B[Done]\n```. '
+      + 'Neo Mobile renders Mermaid locally as a chart. '
       + 'level=attention sends a phone notification, info only records the report. '
       + 'Call chat_env first when you need to ask the owner for help, and set needs to work_node or phone accordingly.',
     inputSchema: {
       type: 'object',
       properties: {
-        text: { type: 'string', minLength: 1, maxLength: MAX_REPORT_CHARS },
+        text: { type: 'string', minLength: 1, maxLength: MAX_REPORT_CHARS, description: 'Owner-facing Markdown message; use ```mermaid\nflowchart LR\nA[Start] --> B[Done]\n``` for diagrams rendered by Neo Mobile.' },
         level: { type: 'string', enum: LEVELS, default: 'info' },
         jobId: { type: 'string', pattern: '^[A-Za-z0-9_.-]{1,64}$' },
         needs: { type: 'string', enum: NEEDS },

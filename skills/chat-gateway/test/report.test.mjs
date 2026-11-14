@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createReporter } from '../core/report.mjs';
-import { validateReport } from '../mcp/tools.mjs';
+import { TOOL_DEFS, validateReport } from '../mcp/tools.mjs';
 import { fixture } from './helpers.mjs';
 
 test('valid reports are persisted and attention alone is queued', async (t) => {
@@ -29,4 +29,15 @@ test('silence produces no report, notification or liveness state', async (t) => 
   const { ledger } = await fixture(t);
   createReporter({ ledger });
   assert.equal(ledger.all().length, 0);
+});
+
+
+test('chat_report tool advertises Markdown and Mermaid fenced chart format', () => {
+  const tool = TOOL_DEFS.find(def => def.name === 'chat_report');
+  assert.ok(tool);
+  for (const field of [tool.description, tool.inputSchema.properties.text.description]) {
+    assert.match(field, /Markdown/);
+    assert.match(field, /```mermaid\nflowchart LR\nA\[Start\] --> B\[Done\]\n```/);
+  }
+  assert.match(tool.description, /Neo Mobile renders Mermaid locally/);
 });
