@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildNotifyCommand, reportNotification, sanitizeText } from '../core/notify.mjs';
+import { reportNotification, sanitizeText } from '../core/notify.mjs';
 import { terminalTurn } from '../core/terminal-dispatch.mjs';
 
 test('terminal turn contains only job metadata and asks Orchestrator to verify', () => {
@@ -20,10 +20,8 @@ test('terminal turn contains only job metadata and asks Orchestrator to verify',
   assert.equal(reportNotification([{ text: 'Verified result', needs: 'phone' }]).kind, 'blocked');
 });
 
-test('Neo setup command is validated, bounded and never interprets shell metacharacters', () => {
+test('APNs text sanitation bounds content without invoking a shell', () => {
   assert.equal(sanitizeText('hello\nworld', 20), 'hello world');
-  const command = buildNotifyCommand({ kind: 'completed', title: 'a"\\`$;token', body: 'okay\nfor owner' });
-  assert.match(command, /^events notify completed/);
-  assert.equal(command.includes('"\\`$'), false);
-  assert.throws(() => buildNotifyCommand({ kind: 'unauthorized', title: 'x', body: 'y' }));
+  assert.equal(sanitizeText('a'.repeat(300), 170).length,170);
+  assert.equal(sanitizeText('\u0000\u007f', 10),'-');
 });

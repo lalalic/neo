@@ -38,3 +38,13 @@ shows `degraded` if a configured live subscriber is disconnected.
 This watcher delivers to the configured Orchestrator head, not to the ChatGPT
 thread that registered the watch. It does not assert physical iPhone push
 receipt; actual push still depends on the Neo notification path and policy.
+
+## Mobile push delivery
+
+The gateway sends attention reports through Neo Master's loopback-only native
+APNs `POST /mobile/notify` endpoint, not foreground iPhone MCP calls. Device
+IDs come from Neo's private registry; device tokens are not transmitted by the
+gateway or written to its logs. The current Neo notification policy is checked
+before each send. One native APNs request fans out to the registered devices without duplicate pushes. Only an APNs-accepted request is acknowledged; a failure
+remains pending in the existing retry ledger. Apple acceptance is not proof
+that iOS displayed an alert.

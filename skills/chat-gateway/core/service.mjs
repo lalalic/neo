@@ -81,7 +81,7 @@ export async function createGateway({
   const probe = async () => {
     try {
       const result = await notifier.probe();
-      notifyPath = { reachable: result.reachable === true, lastProbeAt: new Date(now()).toISOString(), policy: result.policy, error: null };
+      notifyPath = { reachable: result.reachable === true, lastProbeAt: new Date(now()).toISOString(), policy: result.policy, transport: result.transport, targets: result.targets, error: null };
     } catch (error) {
       notifyPath = { reachable: false, lastProbeAt: new Date(now()).toISOString(), error: String(error.message).slice(0, 150) };
     }
