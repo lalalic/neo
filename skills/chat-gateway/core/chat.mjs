@@ -4,9 +4,37 @@ const THREAD_ID = /^[A-Za-z0-9_-]{8,160}$/;
 const PROJECT_ID = /^g-p-[A-Za-z0-9_-]{8,128}$/;
 const REQUEST_ID = /^[A-Za-z0-9_-]{8,128}$/;
 
-export function createChat({ ledger, files, dir, submit, attachmentStore, now = () => Date.now() }) {
+/** The recurring envelope is intentionally tiny. Instructions and history live
+ * in the Project; only current routing identity belongs in each owner turn. */
+export function ownerTurn({requestId, text, projectId, threadId, attachments = []}) {
+  const head = [
+    `[Neo Mobile owner message id=${requestId}]`,
+    '[Short context]',
+    'source: neo-mobile',
+    `headThreadId: ${threadId}`,
+    ...(projectId ? [`projectId: ${projectId}`] : []),
+    'replyVia: mcp.chat-gateway chat_report',
+    'replyRequired: MUST call chat_report for every user-facing answer; a ChatGPT web reply is not delivered to Neo Mobile',
+    '[User]',
+    text,
+  ];
+  if (attachments.length) {
+    head.push('Attachments: ' + attachments.map(a => String(a.name).replace(/[\r\n\t]/g, ' ')).join(', '));
+  }
+  return head.join('\n');
+}
+
+export function createChat({ ledger, files, dir, submit, attachmentStore, verifyProjectThread, now = () => Date.now() }) {
   const headFile = join(dir, 'head.json');
   const inFlight = new Map();
+  // Handoffs are serialized: competing successor requests must not overwrite
+  // each other after running independent browser verification.
+  let binding = Promise.resolve();
+  const serializeBinding = fn => {
+    const work = binding.then(fn);
+    binding = work.catch(() => {});
+    return work;
+  };
   const readHead = async () => {
     const saved = await files.readJson(headFile, {});
     return THREAD_ID.test(saved.threadId ?? '') ? saved : null;
@@ -20,26 +48,54 @@ export function createChat({ ledger, files, dir, submit, attachmentStore, now = 
       } : {}) };
     },
     async bind(args) {
-      if (!args || typeof args !== 'object' || Array.isArray(args) ||
-          Object.keys(args).some((key) => key !== 'threadId') ||
-          !THREAD_ID.test(args.threadId ?? '')) {
-        throw new Error('chat_bind requires one valid threadId');
-      }
-      const existing = await readHead();
-      await files.writeJsonAtomic(headFile, {
-        threadId: args.threadId,
-        ...(PROJECT_ID.test(existing?.projectId ?? '') ? { projectId: existing.projectId } : {}),
-        since: new Date(now()).toISOString(),
+      return serializeBinding(async () => {
+        if (!args || typeof args !== 'object' || Array.isArray(args) ||
+            Object.keys(args).some((key) => !['threadId','previousThreadId'].includes(key)) ||
+            !THREAD_ID.test(args.threadId ?? '')) {
+          throw new Error('chat_bind requires one valid threadId');
+        }
+        const existing = await readHead();
+        // A new head can only be installed after independently verifying that
+        // its canonical ChatGPT conversation belongs to the existing Project.
+        // The initiating model cannot self-certify its own handoff identifier.
+        if (!PROJECT_ID.test(existing?.projectId ?? '')) {
+          throw new Error('chat_bind requires an initialized orchestrator Project');
+        }
+        if (args.threadId !== existing.threadId) {
+          if (args.previousThreadId !== existing.threadId) {
+            throw new Error('chat_bind requires the previous head thread ID for an atomic handoff');
+          }
+          if (typeof verifyProjectThread !== 'function') {
+            throw new Error('chat_bind Project verification unavailable');
+          }
+          const verified = await verifyProjectThread({
+            projectId: existing.projectId, threadId: args.threadId,
+          });
+          if (verified !== true) throw new Error('chat_bind Project verification failed');
+        }
+        // Do not allow a slow verification to overwrite a newer head installed
+        // through another process or during a Project bootstrap.
+        const current = await readHead();
+        if (current?.threadId !== existing.threadId || current?.projectId !== existing.projectId) {
+          throw new Error('chat_bind head changed during validation');
+        }
+        await files.writeJsonAtomic(headFile, {
+          threadId: args.threadId,
+          projectId: existing.projectId,
+          since: new Date(now()).toISOString(),
+        });
+        return { bound: true, threadId: args.threadId };
       });
-      return { bound: true, threadId: args.threadId };
     },
     /** Only verified project-setup receipts may install a Project binding. */
     async bindSystem({ threadId, projectId }) {
-      if (!THREAD_ID.test(threadId ?? '') || !PROJECT_ID.test(projectId ?? '')) {
-        throw new Error('Invalid verified Project/thread binding');
-      }
-      await files.writeJsonAtomic(headFile, { threadId, projectId, since: new Date(now()).toISOString() });
-      return { bound: true, projectId, threadId };
+      return serializeBinding(async () => {
+        if (!THREAD_ID.test(threadId ?? '') || !PROJECT_ID.test(projectId ?? '')) {
+          throw new Error('Invalid verified Project/thread binding');
+        }
+        await files.writeJsonAtomic(headFile, { threadId, projectId, since: new Date(now()).toISOString() });
+        return { bound: true, projectId, threadId };
+      });
     },
     async send(args) {
       if (!args || typeof args !== 'object' || Array.isArray(args) ||
@@ -90,7 +146,7 @@ export function createChat({ ledger, files, dir, submit, attachmentStore, now = 
             requestId: args.requestId,
             file,
             ...(head.projectId ? { projectId: head.projectId } : {}),
-            text: `[Neo Mobile owner message id=${args.requestId}]\n${text}${attachments.length ? '\nAttachments: ' + attachments.map(a => a.name).join(', ') : ''}\n\nThis owner message may be retried after a transport failure; avoid duplicate actions for the same id. The response in this ChatGPT thread is not visible in Neo Mobile. For this owner message, send the user-facing answer through mcp.chat-gateway chat_report (level info for a normal answer); do not rely on web-page reply extraction. You can send important progress reports, but a final answer or verified blocker must be reported.`,
+            text: ownerTurn({requestId: args.requestId, text, attachments, projectId: head.projectId, threadId: head.threadId}),
           });
           await ledger.put({ ...record, status: 'submitted', attempts: (record.attempts ?? 0) + 1 });
           return { id: args.requestId, status: 'submitted' };

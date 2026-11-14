@@ -14,7 +14,7 @@ const threadId = 'a2345678-aaaa-bbbb-cccc-ddddeeeeffff';
 test('Project bootstrap reuses durable Project/Thread across restarts and serializes concurrent ensure', async (t) => {
   const { dir } = await fixture(t);
   const ledger = await openLedger({ dir });
-  const chat = createChat({ ledger, files, dir, submit: async () => {} });
+  const chat = createChat({ ledger, files, dir, submit: async () => {}, verifyProjectThread: async () => true });
   let calls = 0;
   const init = () => createOrchestratorBootstrap({
     chat,
@@ -38,7 +38,7 @@ test('Project bootstrap reuses durable Project/Thread across restarts and serial
   assert.equal((await restarted.ensure()).state, 'ready');
   assert.equal(calls, 1);
 
-  await chat.bind({ threadId: 'new-head-thread-12345678' });
+  await chat.bind({ threadId: 'new-head-thread-12345678', previousThreadId: threadId });
   assert.equal((await chat.head()).projectId, projectId);
   await restarted.ensure();
   assert.equal(calls, 1);
@@ -109,10 +109,16 @@ test('WebHelm failed action exposes structured action error rather than SQLite s
 test('Orchestrator Project Instructions require explicit Mobile replies and own successor handoff', async () => {
   const {readFileSync} = await import('node:fs');
   const text = readFileSync(new URL('../project-instructions.md', import.meta.url),'utf8');
-  assert.match(text,/Every owner message that calls for an answer must receive/);
-  assert.match(text,/chat_report\(\{text, level\}\)/);
-  assert.match(text,/You, the Orchestrator, own succession/);
+  assert.match(text,/Every owner message requiring a response MUST/);
+  assert.match(text,/\[Short context\]/);
+  assert.match(text,/one-time concise handoff/);
+  assert.match(text,/chat_report\(\{text, level:/);
+  assert.match(text,/You, the Orchestrator, decide/);
   assert.match(text,/inside the same orchestrator Project/);
-  assert.match(text,/chat_bind\(\{threadId\}\)/);
-  assert.match(text,/read `chat_head` to confirm/);
+  assert.match(text,/`mcp.chatgpt` `thread` tool/);
+  assert.match(text,/canonical redirect/);
+  assert.match(text,/chat_bind\(\{threadId, previousThreadId\}\)/);
+  assert.match(text,/, then `chat_head` to confirm/);
+  assert.match(text,/Mermaid|mermaid/);
+  assert.match(text,/markcut:\/\/preview/);
 });

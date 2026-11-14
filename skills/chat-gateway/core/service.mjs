@@ -13,6 +13,7 @@ import { createFeed } from './feed.mjs';
 import { createChat } from './chat.mjs';
 import { createAttachmentStore } from './attachments.mjs';
 import { createChatGPTSubmitter } from './chatgpt-client.mjs';
+import { createThreadProjectVerifier } from './thread-verifier.mjs';
 import { createOrchestratorBootstrap } from './orchestrator.mjs';
 import { createTerminalDispatcher } from './terminal-dispatch.mjs';
 import { createEnvStore } from './env.mjs';
@@ -30,7 +31,7 @@ export async function createGateway({
   eventHistory = createRelayEventHistoryClient({ apiUrl: config.eventsApiUrl }),
   delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
   notifier = dryRun ? createDryRunNotifier({ log }) : createNeoNotifier({ endpoint: config.neoMcpEndpoint }),
-  makeSubscriber = createSubscriber, now = () => Date.now(), chatSubmit,
+  makeSubscriber = createSubscriber, now = () => Date.now(), chatSubmit, verifyProjectThread = createThreadProjectVerifier(),
   autoPrepareOrchestrator = !dryRun && config.port !== 0, createProject,
 } = {}) {
   const ledger = await openLedger({ dir: config.stateDir, now });
@@ -63,7 +64,7 @@ export async function createGateway({
   const submit = chatSubmit ?? createChatGPTSubmitter();
   const chat = createChat({
     ledger, files, dir: config.stateDir, now, attachmentStore,
-    submit,
+    submit, verifyProjectThread,
   });
   const terminalDispatch = createTerminalDispatcher({ ledger, chat, submit, now, log });
   const orchestrator = createOrchestratorBootstrap({

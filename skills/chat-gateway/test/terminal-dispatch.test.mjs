@@ -33,6 +33,9 @@ test('dispatcher queues only for a bound head and deduplicates after restart', a
   assert.equal(requests[0].threadId, 'thread-abcdefgh');
   assert.match(requests[0].text, /jobId/);
   assert.match(requests[0].text, /mcp.chat-gateway chat_report/);
+  assert.match(requests[0].text, /replyRequired: MUST call chat_report/);
+  assert.match(requests[0].text, /requestId: relay-terminal-/);
+  assert.match(requests[0].text, /not proof of completion/);
   assert.equal(ledger.get(key).status, 'submitted');
   dispatch = createTerminalDispatcher({ ledger, chat, submit, now: clock.now });
   await dispatch.tick();
@@ -42,7 +45,7 @@ test('dispatcher queues only for a bound head and deduplicates after restart', a
 test('transient submission failure retries the same turn with backoff and stable identity', async (t) => {
   const { dir, clock, ledger } = await fixture(t);
   const chat = createChat({ files, dir, ledger, now: clock.now, submit: async () => {} });
-  await chat.bind({ threadId: 'thread-123456789' });
+  await chat.bindSystem({ projectId: 'g-p-abcdefghijkl', threadId: 'thread-123456789' });
   const key = await queueJob(ledger, clock, '904', 'CANCELLED');
   const sent = [];
   const dispatch = createTerminalDispatcher({
@@ -70,7 +73,7 @@ test('transient submission failure retries the same turn with backoff and stable
 test('dispatcher preserves bounded batches and backlog until further passes', async (t) => {
   const { dir, clock, ledger } = await fixture(t);
   const chat = createChat({ files, dir, ledger, now: clock.now, submit: async () => {} });
-  await chat.bind({ threadId: 'thread-123456789' });
+  await chat.bindSystem({ projectId: 'g-p-abcdefghijkl', threadId: 'thread-123456789' });
   for (let i = 0; i < 5; i++) await queueJob(ledger, clock, String(910 + i));
   const sent = [];
   const dispatch = createTerminalDispatcher({ ledger, chat,
@@ -87,7 +90,7 @@ test('dispatcher preserves bounded batches and backlog until further passes', as
 test('first dispatcher attempt ignores legacy push notification retry backoff', async (t) => {
   const { dir, clock, ledger } = await fixture(t);
   const chat = createChat({ files, dir, ledger, now: clock.now, submit: async () => {} });
-  await chat.bind({ threadId: 'thread-123456789' });
+  await chat.bindSystem({ projectId: 'g-p-abcdefghijkl', threadId: 'thread-123456789' });
   const key = await queueJob(ledger, clock, '915');
   await ledger.put({
     ...ledger.get(key), attempts: 26, nextAttemptAt: clock.now() + 3_600_000,
@@ -102,4 +105,25 @@ test('first dispatcher attempt ignores legacy push notification retry backoff', 
   assert.equal(requests.length, 1, 'legacy push backoff must not delay the initial turn');
   assert.equal(ledger.get(key).attempts, 1, 'turn retry counter starts independently');
   assert.equal(ledger.get(key).nextAttemptAt, clock.now() + 5000);
+});
+
+
+test('terminal events use current head even when successor changes mid-batch',async t=>{
+  const {dir,clock,ledger}=await fixture(t);
+  const oldHead='thread-first-abcdefgh';
+  const newHead='thread-second-abcdefgh';
+  let head={bound:true,projectId:'g-p-abcdefghijkl',threadId:oldHead};
+  const sent=[];
+  const chat={head:async()=>({...head})};
+  await queueJob(ledger,clock,'1001');
+  await queueJob(ledger,clock,'1002');
+  const dispatch=createTerminalDispatcher({ledger,chat,now:clock.now,submit:async req=>{
+    sent.push(req);
+    if(sent.length===1)head={...head,threadId:newHead};
+    return {status:'submitted'};
+  }});
+  await dispatch.tick();
+  assert.equal(sent.length,2);
+  assert.deepEqual(sent.map(x=>x.threadId),[oldHead,newHead]);
+  assert.ok(sent.every(x=>x.text.includes('replyRequired: MUST call chat_report')));
 });

@@ -24,10 +24,11 @@ export const TOOL_DEFS = Object.freeze([
   },
   {
     name: 'chat_bind',
-    description: 'Bind this logical Neo Mobile chat to its current orchestrator ChatGPT thread. Invoke on head-thread handoff.',
+    description: 'Bind the verified new Orchestrator Project thread. A changed head requires the previousThreadId compare-and-swap guard; wrong-Project threads are rejected.',
     inputSchema: {
       type: 'object',
-      properties: { threadId: { type: 'string', pattern: '^[A-Za-z0-9_-]{8,160}$' } },
+      properties: { threadId: { type: 'string', pattern: '^[A-Za-z0-9_-]{8,160}$' },
+        previousThreadId: { type: 'string', pattern: '^[A-Za-z0-9_-]{8,160}$' } },
       required: ['threadId'], additionalProperties: false,
     },
   },

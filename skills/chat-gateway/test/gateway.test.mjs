@@ -30,7 +30,7 @@ test('in-process E2E: startup baseline, event, reconnection, dedupe, reports and
   const config = { ...resolveConfig({ env: { EVENTS_BUS_CONFIG: `${dir}/test-events-not-configured.json` } }), stateDir: dir, port: 0, settleMs: 0,
     deliveryTickMs: 300_000, reconcileIntervalMs: 300_000 };
   const gateway = await createGateway({ config, notifier, dashboard, now: clock.now,
-    makeSubscriber, chatSubmit: async (request) => { chatSubmissions.push(request); return { status: 'submitted' }; }, log: () => {} });
+    makeSubscriber, verifyProjectThread: async () => true, chatSubmit: async (request) => { chatSubmissions.push(request); return { status: 'submitted' }; }, log: () => {} });
   await gateway.start();
   t.after(() => gateway.stop());
   assert.equal(gateway.health().status, 'ok');
@@ -87,6 +87,7 @@ test('in-process E2E: startup baseline, event, reconnection, dedupe, reports and
   const noHead = await rpc(port, 'tools/call', { name: 'chat_send',
     arguments: { text: 'Hello', requestId: 'request-12345678' } });
   assert.equal(noHead.result.isError, true);
+  await gateway.chat.bindSystem({projectId:'g-p-abcdefghijkl',threadId:'orchestrator-thread-12345678'});
   const bind = await rpc(port, 'tools/call', { name: 'chat_bind',
     arguments: { threadId: 'orchestrator-thread-12345678' } });
   assert.equal(bind.result.structuredContent.bound, true);

@@ -14,7 +14,7 @@ One service, chat-gateway/server, monitors Relay terminal events and reconciles 
 
 The loopback MCP service at http://127.0.0.1:8791/mcp is federated into authenticated Neo.app as tool mcp.chat-gateway, accepting these command subcommands:
 
-- chat_report: text (1..2000 characters), optional level info/attention, jobId and needs. Info persists silently; attention may push. Do not require per-turn reports.
+- chat_report: text (1..2000 characters), optional level info/attention, jobId and needs. Info persists silently; attention may push. A user-facing answer to each Neo Mobile owner message requires `chat_report`; intermediate progress reports are optional.
 - chat_env: office/home mode and source, plus phone connection observation if available.
 - chat_feed: optional limit 1..100, default 50. Returns owner-safe report/owner history with no raw Job events, prompts or paths.
 - chat_jobs: optional limit 1..100 (default 20), offset >= 0 (default 0). Returns stable, active-first pages of Relay jobs (total, nextOffset, hasMore) from the dashboard, containing only ID, title, status, repository, creation and update timestamp; supplies the separate Neo Mobile Jobs tab.
@@ -22,8 +22,9 @@ The loopback MCP service at http://127.0.0.1:8791/mcp is federated into authenti
 - chat_job_activity: exact local repository name (e.g. vlog) and jobId. Returns repository-scoped, owner-safe, ordered durable lifecycle events from the public Events Bus history; no raw payloads or private metadata.
 - chat_job_cancel: exact local repository name (e.g. vlog) and jobId. Cancels an eligible Relay Job through Relay's real cancellation Graph and returns only after an authoritative CANCELLED readback. No PR number is required.
 - chat_head: whether a current orchestrator ChatGPT head thread is bound.
-- chat_bind: threadId (validated) to bind or update the orchestrator head thread on creation/handoff.
+- chat_bind: threadId, and previousThreadId when changing the head, to update the orchestrator head on creation/handoff. The Gateway verifies the candidate is a loaded conversation in the same bound Project (read-only WebHelm inspection); an unverified or cross-Project ID cannot replace the head.
 - chat_send: owner text and stable requestId. Forwards to bound head using Neo.app ChatGPT durable async queue, stores the result. Submitted means queue acceptance, NOT an assistant reply. Duplicate requestId never submits again.
+  Every turn carries only a short routing envelope (`source`, `requestId`, bound `projectId`, bound `headThreadId`, `replyVia`) and the actual user text; full Project Instructions are not copied into each turn. A full pending-work handoff is supplied only when the Orchestrator creates a successor thread.
 
 ## Lifecycle: source direct, like Vlog Watcher
 
