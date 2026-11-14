@@ -6,6 +6,8 @@ import { createDashboardClient } from './dashboard.mjs';
 import { createTracker } from './tracker.mjs';
 import { createReconciler } from './reconcile.mjs';
 import { createSubscriber } from './subscriber.mjs';
+import { createLiveRegistry, createLiveWatch, decodeLiveEvent } from './live-watch.mjs';
+import { createLiveHistory } from './live-history.mjs';
 import { createNeoNotifier, createDryRunNotifier } from './notify.mjs';
 import { createDelivery } from './delivery.mjs';
 import { createReporter } from './report.mjs';
@@ -31,13 +33,18 @@ export async function createGateway({
   eventHistory = createRelayEventHistoryClient({ apiUrl: config.eventsApiUrl }),
   delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
   notifier = dryRun ? createDryRunNotifier({ log }) : createNeoNotifier({ endpoint: config.neoMcpEndpoint }),
-  makeSubscriber = createSubscriber, now = () => Date.now(), chatSubmit, verifyProjectThread = createThreadProjectVerifier(),
+  makeSubscriber = createSubscriber, makeLiveSubscriber = createSubscriber, now = () => Date.now(), chatSubmit, verifyProjectThread = createThreadProjectVerifier(),
   autoPrepareOrchestrator = !dryRun && config.port !== 0, createProject,
+  liveHistory = createLiveHistory({apiUrl:config.eventsApiUrl}),
 } = {}) {
   const ledger = await openLedger({ dir: config.stateDir, now });
   const envStore = createEnvStore({ dir: config.stateDir, files, now: () => new Date(now()) });
   const tracker = createTracker({ ledger, snapshotFile: join(config.stateDir, 'snapshot.json'), files, now });
   await tracker.load();
+  const liveRegistry = createLiveRegistry({dir: config.stateDir, now});
+  const liveWatch = createLiveWatch({registry:liveRegistry,ledger,dashboard,history:liveHistory,now});
+  let liveSubscriber = null;
+  let liveWatchCount = 0;
 
   // Serialize NATS and HTTP reconciliation updates to avoid losing a snapshot transition.
   let writes = Promise.resolve();
@@ -80,10 +87,12 @@ export async function createGateway({
     }
   };
   const health = () => ({
-    status: !subscriber.status().connected || !reconciler.status().reachable || !notifyPath.reachable ? 'degraded' : 'ok',
+    status: !subscriber.status().connected || !reconciler.status().reachable || !notifyPath.reachable ||
+      (liveWatchCount > 0 && !liveSubscriber?.status().connected) ? 'degraded' : 'ok',
     nats: subscriber.status(), dashboard: reconciler.status(), notify: notifyPath,
     ledger: ledger.counts(), baselined: tracker.isBaselined(),
     terminalDispatch: terminalDispatch.status(),
+    liveWatch: {count:liveWatchCount, ...(liveSubscriber?.status() ?? {connected:false, lastError:null})},
     orchestrator: autoPrepareOrchestrator ? orchestrator.status() : { state: 'disabled' },
   });
   const server = createMcpHttpServer({
@@ -194,7 +203,7 @@ export async function createGateway({
   const timers = [];
   let started = false;
   return {
-    ledger, tracker, reporter, feed, chat, orchestrator, terminalDispatch, delivery, reconciler, subscriber, server, health,
+    ledger, tracker, reporter, feed, chat, orchestrator, terminalDispatch, delivery, reconciler, subscriber, liveRegistry, liveWatch, server, health,
     async start() {
       if (started) return;
       // Baseline before subscribing: historical completed jobs must not send pushes.
@@ -203,6 +212,32 @@ export async function createGateway({
       const port = await server.listen();
       started = true;
       subscriber.start();
+      const watches = await liveRegistry.list();
+      liveWatchCount = watches.length;
+      if (watches.length) {
+        // A separate wildcard listener preserves the existing production
+        // terminal-only subscription without broadening its decoding path.
+        liveSubscriber = makeLiveSubscriber({
+          natsUrl:config.natsUrl, subject:`${config.subjectPrefix}.*.>`,
+          connectionName:'neo-chat-gateway-live-watch', decoder:decodeLiveEvent, log,
+          onEvent:async event => {
+            const queued = await exclusive(() => liveWatch.observe(event));
+            if (queued) await terminalDispatch.tick().catch(error =>
+              log('live_watch.dispatch_error',{error:String(error.message).slice(0,120)}));
+          },
+          onReconnect:async () => {
+            await reconciler.run();
+            const queued = await exclusive(() => liveWatch.catchup());
+            if (queued) await terminalDispatch.tick();
+          },
+        });
+        liveSubscriber.start();
+        // Catch up any real events recorded between watch registration and
+        // subscription, without sending historical pre-watch notifications.
+        void exclusive(() => liveWatch.catchup()).then(count => {
+          if (count) return terminalDispatch.tick();
+        }).catch(error => log('live_watch.catchup_error',{error:String(error.message).slice(0,140)}));
+      }
       // Project creation uses a browser action and can take minutes. Never block
       // NATS notifications or the local MCP listener while it initializes.
       if (autoPrepareOrchestrator) void orchestrator.ensure();
@@ -222,6 +257,7 @@ export async function createGateway({
     async stop() {
       for (const timer of timers) clearInterval(timer);
       await subscriber.stop();
+      await liveSubscriber?.stop();
       if (started) await server.close();
       started = false;
     },

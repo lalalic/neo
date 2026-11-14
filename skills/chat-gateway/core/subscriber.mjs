@@ -16,6 +16,7 @@ export function decodeEvent(data) {
 /** Core NATS is intentionally non-durable; the dashboard reconciler fills gaps. */
 export function createSubscriber({
   natsUrl, subject, onEvent, onReconnect = async () => {},
+  decoder = decodeEvent, connectionName = 'neo-chat-gateway',
   connectNats = connect, log = () => {},
   backoff = { baseMs: 1000, capMs: 30_000 },
   sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
@@ -31,7 +32,7 @@ export function createSubscriber({
     while (!stopping) {
       try {
         active = await connectNats({
-          servers: natsUrl, name: 'neo-chat-gateway', maxReconnectAttempts: -1,
+          servers: natsUrl, name: connectionName, maxReconnectAttempts: -1,
           reconnectTimeWait: 1500, timeout: 4000,
         });
         if (stopping) break;
@@ -56,7 +57,7 @@ export function createSubscriber({
         const subscription = connection.subscribe(subject);
         for await (const message of subscription) {
           if (stopping) break;
-          const event = decodeEvent(message.data);
+          const event = decoder(message.data);
           if (event) {
             try { await onEvent(event); }
             catch (error) { log('subscriber.event_error', { error: String(error.message).slice(0, 120) }); }

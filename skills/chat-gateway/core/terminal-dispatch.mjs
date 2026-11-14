@@ -25,7 +25,7 @@ This is NOT a new owner request and not proof of completion. Check the authorita
 }
 
 const requestIdFor = (key) =>
-  'relay-terminal-' + createHash('sha256').update(key).digest('hex').slice(0, 40);
+  (key.startsWith('watch:') ? 'relay-watch-' : 'relay-terminal-') + createHash('sha256').update(key).digest('hex').slice(0, 40);
 
 /**
  * Queue each terminal transition once to the bound Orchestrator thread.
@@ -44,7 +44,7 @@ export function createTerminalDispatcher({
     if (running) return;
     running = true;
     try {
-      const pending = ledger.pending('job')
+      const pending = ledger.pending().filter(record => record.kind === 'job' || record.kind === 'watch')
         .filter(record => !record.requestId || (record.nextAttemptAt ?? 0) <= now())
         .sort((a, b) => (a.createdAt ?? '').localeCompare(b.createdAt ?? ''))
         .slice(0, batchSize);
@@ -89,7 +89,7 @@ export function createTerminalDispatcher({
   return {
     tick,
     status: () => ({
-      pending: ledger.pending('job').length, running,
+      pending: ledger.pending().filter(record => record.kind === 'job' || record.kind === 'watch').length, running,
       lastSubmittedAt, lastError,
     }),
   };

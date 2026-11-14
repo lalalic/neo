@@ -9,6 +9,9 @@ import { resolveConfig } from '../core/config.mjs';
 import { createEnvStore } from '../core/env.mjs';
 import { files } from '../core/files.mjs';
 import { createGateway } from '../core/service.mjs';
+import { createLiveRegistry } from '../core/live-watch.mjs';
+import { createLiveHistory } from '../core/live-history.mjs';
+import { createDashboardClient } from '../core/dashboard.mjs';
 import { registerGateway } from '../mcp/admin.mjs';
 
 const print = (value) => console.log(JSON.stringify(value, null, 2));
@@ -86,6 +89,28 @@ async function commandMain(args) {
     if (!response.ok) throw new Error(`Gateway health HTTP ${response.status}`);
     return print(await response.json());
   }
+  if (command === 'watch') {
+    const registry = createLiveRegistry({dir: config.stateDir});
+    if (sub === 'list' && !mode) return print({watches:await registry.list()});
+    const repository = words[2], jobId = words[3];
+    if (!['add','remove'].includes(sub) || !repository || !jobId || words.length !== 4) {
+      throw new Error('Usage: chat-gateway watch list | watch add|remove REPOSITORY JOB_ID [--apply]');
+    }
+    if (sub === 'add') {
+      const job = await createDashboardClient({baseUrl:config.dashboardUrl}).fetchJob(jobId,repository);
+      if (job.jobState !== 'ACTIVE' && job.jobState !== 'DRAFT') {
+        throw new Error('Live watch only accepts an existing nonterminal Relay Job');
+      }
+    }
+    if (!flags.apply) return print({dryRun:true, operation:sub, repository, jobId,
+      serviceRestartRequired:true});
+    const startCursor = sub === 'add' ?
+      await createLiveHistory({apiUrl:config.eventsApiUrl}).latestCursor(jobId) : null;
+    const result = sub === 'add' ? await registry.add({repository,jobId,startCursor}) :
+      await registry.remove({repository,jobId});
+    return print({operation:sub,repository,jobId,...result,
+      serviceRestartRequired:result.changed});
+  }
   if (command === 'env') {
     const store = createEnvStore({ dir: config.stateDir, files });
     if (sub === 'get' || !sub) return print(await store.resolve());
@@ -96,7 +121,7 @@ async function commandMain(args) {
     }
     throw new Error('Usage: chat-gateway env get | set <office|home|auto> [--apply]');
   }
-  throw new Error('Usage: chat-gateway setup [--apply] | serve [--dry-run] | health | status | env get | env set MODE [--apply]');
+  throw new Error('Usage: chat-gateway setup [--apply] | serve [--dry-run] | health | status | watch list | watch add|remove REPOSITORY JOB_ID [--apply] | env get | env set MODE [--apply]');
 }
 
 // Allow direct source execution and local bin symlinks.
