@@ -90,7 +90,7 @@ export function createChat({ ledger, files, dir, submit, attachmentStore, now = 
             requestId: args.requestId,
             file,
             ...(head.projectId ? { projectId: head.projectId } : {}),
-            text: `[Neo Mobile owner message id=${args.requestId}]\n${text}${attachments.length ? '\nAttachments: ' + attachments.map(a => a.name).join(', ') : ''}\n\nThis owner message may be retried after a transport failure; avoid duplicate actions for the same id. Reply using mcp.chat-gateway chat_report when appropriate.`,
+            text: `[Neo Mobile owner message id=${args.requestId}]\n${text}${attachments.length ? '\nAttachments: ' + attachments.map(a => a.name).join(', ') : ''}\n\nThis owner message may be retried after a transport failure; avoid duplicate actions for the same id. The response in this ChatGPT thread is not visible in Neo Mobile. For this owner message, send the user-facing answer through mcp.chat-gateway chat_report (level info for a normal answer); do not rely on web-page reply extraction. You can send important progress reports, but a final answer or verified blocker must be reported.`,
           });
           await ledger.put({ ...record, status: 'submitted', attempts: (record.attempts ?? 0) + 1 });
           return { id: args.requestId, status: 'submitted' };

@@ -105,3 +105,14 @@ test('WebHelm failed action exposes structured action error rather than SQLite s
     /Project settings Save button was not found/,
   );
 });
+
+test('Orchestrator Project Instructions require explicit Mobile replies and own successor handoff', async () => {
+  const {readFileSync} = await import('node:fs');
+  const text = readFileSync(new URL('../project-instructions.md', import.meta.url),'utf8');
+  assert.match(text,/Every owner message that calls for an answer must receive/);
+  assert.match(text,/chat_report\(\{text, level\}\)/);
+  assert.match(text,/You, the Orchestrator, own succession/);
+  assert.match(text,/inside the same orchestrator Project/);
+  assert.match(text,/chat_bind\(\{threadId\}\)/);
+  assert.match(text,/read `chat_head` to confirm/);
+});

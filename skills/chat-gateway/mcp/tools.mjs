@@ -7,7 +7,7 @@ export const TOOL_DEFS = Object.freeze([
   {
     name: 'chat_report',
     description: 'Report to the owner\'s phone when something deserves their attention: a result, a blocker, a milestone. '
-      + 'Reporting is optional; stay silent when there is nothing worth saying. '
+      + 'For Neo Mobile owner messages, publish the user-facing reply here; only unsolicited progress reports are optional. '
       + 'level=attention sends a phone notification, info only records the report. '
       + 'Call chat_env first when you need to ask the owner for help, and set needs to work_node or phone accordingly.',
     inputSchema: {

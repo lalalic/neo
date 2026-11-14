@@ -67,3 +67,19 @@ test('chat binding persists privately, validates input, and failed submits never
   assert.equal((await chat2.head()).bound, true);
   await assert.rejects(chat2.send({ text: ' ', requestId: 'new-12345678' }), /requires text/);
 });
+
+test('a Neo Mobile owner turn instructs Orchestrator to deliver the answer with chat_report, not web scraping', async t => {
+  const { dir } = await fixture(t);
+  const ledger = await openLedger({ dir });
+  const submitted = [];
+  const chat = createChat({ ledger, files, dir,
+    submit: async args => { submitted.push(args); },
+  });
+  await chat.bindSystem({projectId:'g-p-abcdefghijkl',threadId:'orchestrator-12345678'});
+  await chat.send({text:'hi',requestId:'phone-report-contract-123'});
+  assert.equal(submitted.length,1);
+  assert.equal(submitted[0].threadId,'orchestrator-12345678');
+  assert.equal(submitted[0].projectId,'g-p-abcdefghijkl');
+  assert.match(submitted[0].text,/send the user-facing answer through mcp\.chat-gateway chat_report/);
+  assert.match(submitted[0].text,/do not rely on web-page reply extraction/);
+});
