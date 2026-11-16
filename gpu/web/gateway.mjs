@@ -120,9 +120,9 @@ function proxyWebsocket(req,socket,head,name,state,backend,origin){
 export function createGateway({origin='https://compute.qili2.com',start=startAction,stop=startAction,
   resolveBackend=backendFor,hfCredentialReady=()=>{try{return Boolean(hubToken());}catch{return false;}}}={}){
   const base=new URL(origin).origin;
-  // Preserve browser Start/Stop for the old public URL during domain migration.
+  // Only the configured public origin may issue browser POST actions.
   // Do not trust arbitrary request Origin headers or hostnames.
-  const allowedPostOrigins=new Set([base,...(base==='https://compute.qili2.com'?['https://gpu.qili2.com']:[])]);
+  const allowedPostOrigins=new Set([base]);
   const server=createServer(async(req,res)=>{
     try{
       const parsed=new URL(req.url,'http://localhost');

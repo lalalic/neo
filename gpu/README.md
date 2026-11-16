@@ -2,8 +2,8 @@
 
 `neo compute` is the primary public command. The old `neo gpu` command and
 existing private `gpu/` runtime/state paths are preserved for compatibility.
-The new public gateway is `https://compute.qili2.com` and the previous
-`https://gpu.qili2.com` hostname is retained as an alias.
+The public gateway is `https://compute.qili2.com`. The former
+`https://gpu.qili2.com` hostname has been retired.
 
 A **project-owned Dockerfile** is all that is needed to define the application
 runtime. Neo adds its shared Node.js service entrypoint and dispatches the
@@ -168,18 +168,17 @@ credentials in a public plist.
 
 The persistent gateway is a user LaunchAgent named `com.neo.gpu-web-gateway`
 that runs `neo compute web serve --port 8798 --origin https://compute.qili2.com` on
-**loopback only**. A separate `com.neo.gpu-web-cloudflared` LaunchAgent uses a
-named Cloudflare Tunnel `neo-gpu-web`, avoiding modifications to NeoY's
-app-generated tunnel ingress configuration. The public hostname is
-`https://compute.qili2.com`; no GPU is rented simply because the gateway is up.
+**loopback only**. Neo.app owns the shared Cloudflare Tunnel and maps
+`compute.qili2.com` to this local gateway; there is no separate GPU tunnel
+LaunchAgent. No GPU is rented simply because the gateway is up.
 
 Operator-only state stays outside Git:
 
 - `~/.config/neo/gpu/web/services.json` — per-service provider, budget and cap;
 - `~/.config/neo/gpu/web/tokens/SERVICE.token` — 256-bit token (mode 0600);
-- `~/.config/neo/gpu/web/cloudflared.yml` — tunnel ID and credentials-file path;
 - `~/.local/state/neo/gpu/web/SERVICE.json` — current rental/deadline;
-- `~/Library/LaunchAgents/com.neo.gpu-web-{gateway,cloudflared}.plist` — keepalive.
+- `~/Library/LaunchAgents/com.neo.gpu-web-gateway.plist` — gateway keepalive;
+- Neo.app owns the shared tunnel ingress/connector for the public hostname.
 
 Verification: `launchctl print gui/$(id -u)/com.neo.gpu-web-gateway`,
 `neo compute web status`, `curl -i https://compute.qili2.com/health`, and a browser
