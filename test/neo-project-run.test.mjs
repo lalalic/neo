@@ -32,7 +32,7 @@ function relayStub() {
    const key=`${args[0]}:${args[1]}`;
    if(failures.has(key))throw new Error(`stub ${key} failure`);
    if(key==='job:create'){
-    const id=`job-${++next}`,repository=args[args.indexOf('--repo')+1];
+    const id=String(100 + ++next),repository=args[args.indexOf('--repo')+1];
     const input=readFileSync(args[args.indexOf('--coordinator-input-file')+1],'utf8');
     const agentGraph=readFileSync(args[args.indexOf('--coordinator-graph-file')+1],'utf8');
     const task={id:'17',title:'Coordinator',state:'QUEUED',input,agentGraph,
@@ -65,13 +65,13 @@ test('URL input supports both flag forms, keeps token private, and delegates exa
   try {
     const out = await run(['--url=https://rsroot.com/xxxid?token=secret-token', '--project', 'content-distribution'], f, relay);
     const result = JSON.parse(out);
-    assert.equal(result.project, 'content-distribution'); assert.equal(result.jobId, 'job-1'); assert.equal(result.taskId, '17');
+    assert.equal(result.project, 'content-distribution'); assert.equal(result.jobId, '101'); assert.equal(result.taskId, '17');
     assert.equal(out.includes('secret-token'), false);
     assert.equal(out.includes('rsroot.com'), false);
     assert.equal(result.runPath.includes('rsroot.com'), false);
     assert.deepEqual(relay.calls.map(x => x.slice(0, 2)), [['job', 'create'], ['job', 'show'], ['task', 'list'], ['job', 'run']]);
     const job = relay.calls[0], task = relay.calls[0];
-    assert.deepEqual(job.slice(2), ['--repo', 'content-distribution', '--project-root', realpathSync(f.content), '--project-path', '.', '--title', `Content Distribution · ${result.runPath.split('/').at(-1).replace(/[-_]+/g, ' ')}`, '--objective-file', join(result.runPath, 'neo-project-run.objective.md'), '--coordinator-graph-file',realpathSync(join(f.content,'graph.mmd')),'--coordinator-input-file',join(result.runPath,'neo-project-run.input.md'),'--coordinator-output-path',join(result.runPath,'neo-project-run.result.json'),'--coordinator-project-root',realpathSync(f.content),'--coordinator-workspace-root',f.workspace.neoRoot,'--coordinator-shared-root',f.workspace.harnessRoot,'--no-github']);
+    assert.deepEqual(job.slice(2), ['--repo', 'content-distribution', '--project-root', realpathSync(f.content), '--project-path', '.', '--title', `Content Distribution · ${result.runPath.split('/').at(-1).replace(/[-_]+/g, ' ')}`, '--objective-file', join(result.runPath, 'neo-project-run.objective.md'), '--coordinator-graph-file',realpathSync(join(f.content,'graph.mmd')),'--coordinator-input-file',join(result.runPath,'neo-project-run.input.md'),'--coordinator-output-path',join(result.runPath,'neo-project-run.result.json'),'--coordinator-project-root',realpathSync(f.content),'--coordinator-workspace-root',realpathSync(f.workspace.neoRoot),'--coordinator-shared-root',f.workspace.harnessRoot]);
     assert.equal(job[job.indexOf('--title') + 1].includes('rsroot.com'), false);
     assert.equal(task[task.indexOf('--coordinator-graph-file') + 1], realpathSync(join(f.content, 'graph.mmd')));
     assert.equal(task[task.indexOf('--coordinator-output-path') + 1], join(result.runPath, 'neo-project-run.result.json'));
@@ -95,7 +95,7 @@ test('opted-in URL project processes a prepared canonical private Run without in
     writeFileSync(join(runPath,'evidence','original-source.json'),'{}');
     const info=JSON.parse(await run(['--project=content-distribution','--path',runPath],f,relay));
     assert.equal(info.runPath,realpathSync(runPath));
-    assert.equal(info.jobId,'job-1');
+    assert.equal(info.jobId,'101');
     const input=JSON.parse(readFileSync(join(runPath,'source-reference.json'),'utf8'));
     assert.equal(input.kind,'canonical-run');
     assert.equal(input.sourceUrl,undefined);
@@ -109,7 +109,7 @@ test('human Job title defaults to project and Run name, supports override and pr
     const first = JSON.parse(await run(['--project','vlog','--path',f.runDir,'--title=加拿大周末随拍'],f,relay));
     const create = relay.calls.find(argv => argv[0] === 'job' && argv[1] === 'create');
     assert.equal(create[create.indexOf('--title')+1], '加拿大周末随拍');
-    assert.equal(first.jobId,'job-1');
+    assert.equal(first.jobId,'101');
     await run(['--project','vlog','--path',f.runDir],f,relay);
     assert.equal(relay.calls.filter(argv => argv[0] === 'job' && argv[1] === 'create').length,1);
   } finally { rmSync(f.base,{recursive:true,force:true}); }
@@ -144,13 +144,13 @@ test('a saved DRAFT Coordinator Job resumes activation after a Relay failure',as
   relay.failures.add('job:run');
   await assert.rejects(()=>run(['--path',f.runDir,'--project','vlog'],f,relay),/stub job:run failure/);
   const binding=JSON.parse(readFileSync(join(f.runDir,'.neo-project-run.json'),'utf8'));
-  assert.equal(binding.jobId,'job-1');assert.equal(binding.taskId,'17');
-  assert.equal(relay.jobs.get('job-1').state,'DRAFT');
+  assert.equal(binding.jobId,'101');assert.equal(binding.taskId,'17');
+  assert.equal(relay.jobs.get('101').state,'DRAFT');
   relay.failures.delete('job:run');
   const out=JSON.parse(await run(['--path',f.runDir,'--project','vlog'],f,relay));
   assert.equal(out.status,'ACTIVE');
   assert.equal(relay.calls.filter(a=>a[0]==='job'&&a[1]==='create').length,1);
-  assert.equal(relay.tasks.get('job-1').length,1);
+  assert.equal(relay.tasks.get('101').length,1);
  }finally{rmSync(f.base,{recursive:true,force:true})}
 });
 
@@ -158,7 +158,7 @@ test('rejects a tampered private binding that points Relay input outside the sel
   const f = fixture(), relay = relayStub();
   try {
     const binding = join(f.runDir, '.neo-project-run.json');
-    writeFileSync(binding, JSON.stringify({ schemaVersion: 1, project: 'vlog', runPath: f.runDir, jobId: 'job-1', taskId: '17', taskInput: '/tmp/private.md' }));
+    writeFileSync(binding, JSON.stringify({ schemaVersion: 1, project: 'vlog', runPath: f.runDir, jobId: '101', taskId: '17', taskInput: '/tmp/private.md' }));
     chmodSync(binding, 0o600);
     await assert.rejects(() => run(['--project', 'vlog', '--path', f.runDir], f, relay), /binding does not match/);
     assert.equal(relay.calls.length, 0);
@@ -171,12 +171,12 @@ test('URL project resumes an atomically bound Run without creating another Job',
   await assert.rejects(()=>run(['--url','https://rsroot.com/episode?token=secret','--project','content-distribution'],f,relay),/stub job:run failure/);
   const runDir=join(f.content,'runs',readdirSync(join(f.content,'runs'))[0]);
   const saved=JSON.parse(readFileSync(join(runDir,'.neo-project-run.json'),'utf8'));
-  assert.equal(saved.jobId,'job-1');
+  assert.equal(saved.jobId,'101');
   relay.failures.delete('job:run');
   const resumed=JSON.parse(await run(['--path='+runDir,'--project=content-distribution'],f,relay));
-  assert.equal(resumed.jobId,'job-1');assert.equal(resumed.status,'ACTIVE');
+  assert.equal(resumed.jobId,'101');assert.equal(resumed.status,'ACTIVE');
   assert.equal(relay.calls.filter(a=>a[0]==='job'&&a[1]==='create').length,1);
-  assert.equal(relay.tasks.get('job-1').length,1);
+  assert.equal(relay.tasks.get('101').length,1);
   const empty=join(f.content,'runs','2026-11-03-empty');mkdirSync(empty);
   await assert.rejects(()=>run(['--path',empty,'--project','content-distribution'],f,relay),/only an existing bound Run/);
  }finally{rmSync(f.base,{recursive:true,force:true})}
@@ -186,11 +186,11 @@ test('existing Relay Job and Task must match Run binding before reuse', async ()
   const f = fixture(), relay = relayStub(), args = ['--project=vlog', '--path', f.runDir];
   try {
     await run(args, f, relay);
-    const job = relay.jobs.get('job-1');
+    const job = relay.jobs.get('101');
     job.projectPath = 'another-project';
     await assert.rejects(() => run(args, f, relay), /does not match this project/);
     job.projectPath = '.';
-    const task = relay.tasks.get('job-1')[0];
+    const task = relay.tasks.get('101')[0];
     for (const [property, value] of [['input', 'unrelated input'], ['agentGraph', 'flowchart TD\nC[agent:wrong]'], ['output', {kind:'file', path:'/tmp/unrelated'}]]) {
       const original = task[property]; task[property] = value;
       await assert.rejects(() => run(args, f, relay), /does not match this canonical Run/);
@@ -299,8 +299,8 @@ test('Coordinator activation returns ACTIVE without foreground Shortcut Runner o
  const f=fixture(),relay=relayStub();try{
   const result=JSON.parse(await run(['--path',f.runDir,'--project','vlog'],f,relay));
   assert.equal(result.status,'ACTIVE');
-  assert.equal(relay.jobs.get('job-1').state,'ACTIVE');
-  assert.equal(relay.tasks.get('job-1')[0].state,'QUEUED');
+  assert.equal(relay.jobs.get('101').state,'ACTIVE');
+  assert.equal(relay.tasks.get('101')[0].state,'QUEUED');
   assert.equal(relay.calls.filter(x=>x[0]==='job'&&x[1]==='run').length,1);
   assert.equal(relay.calls.filter(x=>x[0]==='task'&&x[1]==='create').length,0);
   assert.equal(existsSync(join(f.runDir,'neo-project-run.log')),false);
@@ -325,7 +325,7 @@ test('a completed bound Coordinator Run remains idempotent without relaunch',asy
  const f=fixture(),relay=relayStub();try{
   const args=['--path',f.runDir,'--project','vlog'];
   await run(args,f,relay);
-  relay.jobs.get('job-1').state='COMPLETED';
+  relay.jobs.get('101').state='COMPLETED';
   const output=JSON.parse(await run(args,f,relay));
   assert.equal(output.status,'COMPLETED');assert.equal(output.reused,true);
   assert.equal(relay.calls.filter(x=>x[0]==='job'&&x[1]==='run').length,1);
@@ -390,7 +390,7 @@ test('explicit Vlog review stages propagate to Coordinator and conflict with --n
     assert.match(text,/Request Changes must revise and re-preview/);
     assert.doesNotMatch(text,/Default: no human interactive review/);
   }
-  assert.equal(relay.jobs.get('job-1').reviewEnabled,true);
+  assert.equal(relay.jobs.get('101').reviewEnabled,true);
   writeFileSync(join(f.runDir,'source-manifest.json'), JSON.stringify({source_use:{approved:true,scope:'private test'}}));
   await assert.rejects(()=>run(['--project','vlog','--path',f.runDir,'--no-review'],f,relay),/Cannot change existing bound Vlog review policy/);
  }finally{rmSync(f.base,{recursive:true,force:true});}
@@ -414,13 +414,13 @@ test('independent local-only project binds Relay to its own Git root without Git
     assert.equal(result.project, 'content-distribution');
     const create = relay.calls.find(argv => argv[0] === 'job' && argv[1] === 'create');
     assert.deepEqual(create.slice(2, 8), ['--repo', 'content-distribution', '--project-root', realpathSync(f.content), '--project-path', '.']);
-    assert.ok(create.includes('--no-github'));
+    assert.equal(create.includes('--no-github'), false);
     const runCall = relay.calls.find(argv => argv[0] === 'job' && argv[1] === 'run');
     assert.equal(runCall[runCall.indexOf('--project-path') + 1], realpathSync(f.content));
-    assert.ok(runCall.includes('--no-github'));
+    assert.equal(runCall.includes('--no-github'), false);
     assert.equal(runCall[runCall.indexOf('--shared-root') + 1], f.workspace.harnessRoot);
-    assert.equal(runCall[runCall.indexOf('--workspace-root') + 1], f.workspace.neoRoot);
-    assert.equal(relay.jobs.get('job-1').state, 'ACTIVE');
+    assert.equal(runCall[runCall.indexOf('--workspace-root') + 1], realpathSync(f.workspace.neoRoot));
+    assert.equal(relay.jobs.get('101').state, 'ACTIVE');
   } finally { rmSync(f.base, { recursive: true, force: true }); }
 });
 
@@ -432,7 +432,9 @@ test('GitHub origin never changes the local Relay repository identity', async ()
     const argv = relay.calls[0];
     assert.equal(argv[argv.indexOf('--repo') + 1], 'vlog');
     assert.equal(argv[argv.indexOf('--project-root') + 1], realpathSync(f.vlog));
-    assert.equal(argv.includes('--no-github'), true, 'GitHub origin cannot authorize remote effects');
+    assert.equal(argv.includes('--pr'), false);
+    assert.equal(argv.includes('--github-repo'), false);
+    assert.equal(argv.includes('--no-github'), false, 'The removed GitHub CLI flag must never be passed');
     await assert.rejects(run(['--path', f.runDir, '--project', 'vlog'], f, relay, {repository:'other/repo'}), /must match local Git project name/);
   } finally { rmSync(f.base, { recursive: true, force: true }); }
 });
@@ -587,4 +589,19 @@ test('growth review policy fails closed on unknown stage flag', async()=>{
   await assert.rejects(()=>run(['--project','content-distribution','--dag','growth','--path',runDir],f,relay),/review-stages.json must contain boolean/);
   assert.equal(relay.calls.length,0);
  }finally{rmSync(f.base,{recursive:true,force:true});}
+});
+
+// Contract regression: Relay owns global numeric Job identities, even when the
+// caller's legacy Run binding reader still accepts historical opaque IDs.
+test('new Run rejects legacy nonnumeric Relay Job IDs without creating a bound Run', async () => {
+  const f = fixture(), relay = relayStub();
+  try {
+    const original = relay.runRelay;
+    relay.runRelay = args => {
+      const response = original(args);
+      return args[0] === 'job' && args[1] === 'create' ? { ...response, job: 'old-id' } : response;
+    };
+    await assert.rejects(run(['--path', f.runDir, '--project', 'vlog'], f, relay), /valid id/);
+    assert.equal(existsSync(join(f.runDir, '.neo-project-run.json')), false);
+  } finally { rmSync(f.base, { recursive: true, force: true }); }
 });

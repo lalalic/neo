@@ -11,6 +11,19 @@ capacity and human Review; QUEUED is a recovery state, not another global
 Job scheduler admission. The job's Final Review and Git Merge remain controlled
 by its normal independent policies.
 
+**Local Git and remote boundary:** Neo passes `--repo` as the selected project's
+local Git basename and `--project-root` as its canonical absolute Git root.
+The Coordinator creation and activation both use the same canonical
+Neo workspace root, avoiding symlink-induced execution-context mismatches.
+New Relay Jobs and Coordinator Tasks use globally numeric IDs; historical Run
+bindings are verified, never silently migrated. The removed `--no-github`,
+`--github-repo` and `--pr` options are not sent by `neo project run`.
+Final Review, local merge, and SQLite `COMPLETED` require no origin, PR or
+network access. Only after `COMPLETED`, Relay may inspect a configured
+`origin` and push a verified `main` fast-forward; failures are retried
+separately without changing Job/Task lifecycle. Neo neither pushes nor
+interprets the presence of an origin as publication permission.
+
 `--title` sets the human-readable title at creation. Otherwise Neo uses the
 project and canonical private Run folder, never the source URL or secret token.
 Resuming a bound Run verifies the Job, Coordinator input, output and Graph; it
@@ -47,8 +60,9 @@ URL input and explicitly enabled source-free `discovery` inputs create unique da
 
 Neo invokes the installed `agents-relay` CLI using argv with the owning
 independent local Git repository name (for example `vlog`) and its canonical
-Git root via `--project-root`. GitHub origin is optional remote metadata, never
-the Job identity; an explicit repository override must match the local project name.
+Git root via `--project-root`. An optional origin is inspected by Relay only
+after `COMPLETED`, never as Job identity; an explicit repository override must
+match the local project name.
 It makes one `job create` call with `--coordinator-graph-file`,
 `--coordinator-input-file`, `--coordinator-output-path`,
 `--coordinator-project-root`, `--coordinator-workspace-root` and

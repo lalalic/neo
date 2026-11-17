@@ -71,7 +71,9 @@ Job context. Never conflate it with an additional Neo setting.
 - additional optional files such as `agents/`, `agents/.shortcut/`,
   `contracts/`, `scripts/` and `project.run.json`.
 
-A local Git repository **does not need a GitHub remote**. The source
+A local Git repository **does not need a GitHub remote**. Job completion
+uses local SQLite and Git; only after `COMPLETED` may Relay optionally
+fast-forward-push the verified `main`, without Neo CLI or PR flags. The source
 repository's former `neo/vlog` aliases, nested project discovery and
 monorepo fallback are intentionally unsupported. Git identity belongs to the
 selected Project, not to `lalalic/neo`. A canonical private `runs/` directory

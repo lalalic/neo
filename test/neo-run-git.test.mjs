@@ -119,24 +119,24 @@ test('Coordinator creation initializes private Run Git without inventing a verif
    calls.push(args);
    const type=args.slice(0,2).join(':');
    if(type==='job:create'){
-    const task={id:'coordinator',title:'Coordinator',state:'QUEUED',
+    const task={id:'17',title:'Coordinator',state:'QUEUED',
       input:readFileSync(args[args.indexOf('--coordinator-input-file')+1],'utf8'),
       agentGraph:readFileSync(args[args.indexOf('--coordinator-graph-file')+1],'utf8'),
       output:{kind:'file',path:args[args.indexOf('--coordinator-output-path')+1]}};
-    jobs.set('job-1',{id:'job-1',repository:'vlog',projectPath:'.',state:'DRAFT'});
-    tasks.set('job-1',[task]);return {job:'job-1',taskId:'coordinator',state:'DRAFT'};
+    jobs.set('101',{id:'101',repository:'vlog',projectPath:'.',state:'DRAFT'});
+    tasks.set('101',[task]);return {job:'101',taskId:'17',state:'DRAFT'};
    }
-   if(type==='job:show')return jobs.get('job-1');
-   if(type==='task:list')return {tasks:tasks.get('job-1')};
-   if(type==='job:run'){jobs.get('job-1').state='ACTIVE';return {scheduled:true,state:'ACTIVE'};}
+   if(type==='job:show')return jobs.get('101');
+   if(type==='task:list')return {tasks:tasks.get('101')};
+   if(type==='job:run'){jobs.get('101').state='ACTIVE';return {scheduled:true,state:'ACTIVE'};}
    throw Error('unknown '+type);
   };
   const result=await runProject(['--path',f.run,'--project','vlog'],{
    workspace:{neoRoot:f.neoRoot,harnessRoot:sourceRoot},runRelay,emit(){}
   });
   assert.equal(result,0);
-  assert.equal(jobs.get('job-1').state,'ACTIVE');
-  assert.equal(tasks.get('job-1').length,1);
+  assert.equal(jobs.get('101').state,'ACTIVE');
+  assert.equal(tasks.get('101').length,1);
   assert.equal(git(f.run,'log','-1','--pretty=%s'),'run: initialize local version history');
   assert.equal(git(f.run,'tag','--list','review/r*'),'');
   assert.equal(calls.filter(a=>a[0]==='task'&&a[1]==='create').length,0);

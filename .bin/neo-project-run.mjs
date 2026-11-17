@@ -236,7 +236,9 @@ function relayInvocation(options, args) {
 function responseId(value, label) {
   // Relay job create returns {repository, pr, job: '<ID>', state}; show returns a Job object.
   const id = value?.id ?? (typeof value?.job === 'string' || typeof value?.job === 'number' ? value.job : value?.job?.id) ?? value?.task?.id;
-  if (!(typeof id === 'string' || typeof id === 'number') || !/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(String(id))) fail(`Agents Relay ${label} response did not include a valid id`);
+  if (!(typeof id === 'string' || typeof id === 'number') ||
+      !(label === 'Job create' ? /^[1-9][0-9]*$/ : /^[A-Za-z0-9][A-Za-z0-9._-]*$/).test(String(id)))
+    fail(`Agents Relay ${label} response did not include a valid id`);
   return String(id);
 }
 
@@ -263,8 +265,8 @@ export function runProject(args, options = {}) {
   if (!independent) fail('NEO_ROOT projects must be independent Git repositories');
   const repoId = options.repository ?? process.env.NEO_RELAY_REPOSITORY ?? parsed.project;
   if (repoId !== parsed.project) fail('Relay repository identity must match local Git project name');
-  // A GitHub origin is not approval to create a PR or push. Neo Projects stay local.
-  const relayFlags = ['--no-github'];
+  // Relay inspects an optional origin only after SQLite marks the Job COMPLETED.
+  // Neo never requests GitHub/PR effects or changes the remote-delivery policy.
   const repoProjectPath = '.';
   const repoCheckout = selected.project;
   const relayOptions = { ...options, sharedRoot: workspace.harnessRoot };
@@ -331,11 +333,11 @@ export function runProject(args, options = {}) {
   ensureRunGit(runDir, runGit);
   const repo = repoId;
   const projectPath = repoProjectPath;
-  const invoke = args => relayInvocation(relayOptions,[...args,...relayFlags]);
+  const invoke = args => relayInvocation(relayOptions,args);
   const foreground = (jobId, taskId) => {
     const args=['job','run','--repo',repoId,'--id',jobId,'--task-id',taskId,
       '--project-path',repoCheckout,'--shared-root',workspace.harnessRoot,
-      '--workspace-root',workspace.neoRoot,'--foreground',...relayFlags];
+      '--workspace-root',selected.root,'--foreground'];
     if(options.runRelay){options.runRelay(args);return;}
     const {executable,prefix}=relayCommand(relayOptions);
     const execution=(options.spawnSyncImpl??spawnSync)(executable,[...prefix,...args],{
@@ -359,7 +361,7 @@ export function runProject(args, options = {}) {
     if(state==='DRAFT'){
       const activated=invoke(['job','run','--repo',repo,'--id',jobId,'--task-id',taskId,
         '--project-path',repoCheckout,'--shared-root',workspace.harnessRoot,
-        '--workspace-root',workspace.neoRoot]);
+        '--workspace-root',selected.root]);
       if(activated?.scheduled!==true||activated?.state!=='ACTIVE')fail('Relay Coordinator activation not acknowledged');
       state='ACTIVE';
     }
@@ -380,7 +382,7 @@ export function runProject(args, options = {}) {
   const created=invoke(['job','create','--repo',repo,'--project-root',repoCheckout,'--project-path',projectPath,'--title',title,
     '--objective-file',files.objective,'--coordinator-graph-file',selected.graph,
     '--coordinator-input-file',files.taskInput,'--coordinator-output-path',files.output,
-    '--coordinator-project-root',repoCheckout,'--coordinator-workspace-root',workspace.neoRoot,
+    '--coordinator-project-root',repoCheckout,'--coordinator-workspace-root',selected.root,
     '--coordinator-shared-root',workspace.harnessRoot,
     ...(parsed.noReview?['--no-review']:[])]);
   jobId=responseId(created,'Job create');
