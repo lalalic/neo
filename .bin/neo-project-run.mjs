@@ -267,7 +267,6 @@ export function runProject(args, options = {}) {
   if (repoId !== parsed.project) fail('Relay repository identity must match local Git project name');
   // Relay inspects an optional origin only after SQLite marks the Job COMPLETED.
   // Neo never requests GitHub/PR effects or changes the remote-delivery policy.
-  const repoProjectPath = '.';
   const repoCheckout = selected.project;
   const relayOptions = { ...options, sharedRoot: workspace.harnessRoot };
   const runGit = loadRunGitConfig(selected.project, selected.declaration);
@@ -332,11 +331,10 @@ export function runProject(args, options = {}) {
     selected.declaration.publicationReview, parsed.noReview === true, isDiscovery || preparedDiscovery, reviewable);
   ensureRunGit(runDir, runGit);
   const repo = repoId;
-  const projectPath = repoProjectPath;
   const invoke = args => relayInvocation(relayOptions,args);
   const foreground = (jobId, taskId) => {
     const args=['job','run','--repo',repoId,'--id',jobId,'--task-id',taskId,
-      '--project-path',repoCheckout,'--shared-root',workspace.harnessRoot,
+      '--shared-root',workspace.harnessRoot,
       '--workspace-root',selected.root,'--foreground'];
     if(options.runRelay){options.runRelay(args);return;}
     const {executable,prefix}=relayCommand(relayOptions);
@@ -347,7 +345,7 @@ export function runProject(args, options = {}) {
   };
   const startBound=(jobId,taskId)=>{
     const job=invoke(['job','show','--repo',repo,'--id',jobId]);
-    if(job.repository!==repo||job.projectPath!==projectPath)fail('existing Relay Job does not match this project');
+    if(job.repository!==repo || job.projectRoot!==repoCheckout)fail('existing Relay Job repository or projectRoot does not match this independent Git repository');
     const task= parseTaskRows(invoke(['task','list','--repo',repo,'--id',jobId]))
       .find(row=>String(row.id??row.taskId)===taskId);
     if(!task)fail('Atomic Coordinator Task missing from Relay Job');
@@ -360,7 +358,7 @@ export function runProject(args, options = {}) {
     }
     if(state==='DRAFT'){
       const activated=invoke(['job','run','--repo',repo,'--id',jobId,'--task-id',taskId,
-        '--project-path',repoCheckout,'--shared-root',workspace.harnessRoot,
+        '--shared-root',workspace.harnessRoot,
         '--workspace-root',selected.root]);
       if(activated?.scheduled!==true||activated?.state!=='ACTIVE')fail('Relay Coordinator activation not acknowledged');
       state='ACTIVE';
@@ -379,7 +377,7 @@ export function runProject(args, options = {}) {
     return startBound(jobId,files.saved.taskId);
   }
   const title=parsed.title??projectRunTitle(parsed.project,runDir);
-  const created=invoke(['job','create','--repo',repo,'--project-root',repoCheckout,'--project-path',projectPath,'--title',title,
+  const created=invoke(['job','create','--repo',repo,'--project-root',repoCheckout,'--title',title,
     '--objective-file',files.objective,'--coordinator-graph-file',selected.graph,
     '--coordinator-input-file',files.taskInput,'--coordinator-output-path',files.output,
     '--coordinator-project-root',repoCheckout,'--coordinator-workspace-root',selected.root,

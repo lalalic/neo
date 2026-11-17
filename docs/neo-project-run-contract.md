@@ -18,6 +18,8 @@ Neo workspace root, avoiding symlink-induced execution-context mismatches.
 New Relay Jobs and Coordinator Tasks use globally numeric IDs; historical Run
 bindings are verified, never silently migrated. The removed `--no-github`,
 `--github-repo` and `--pr` options are not sent by `neo project run`.
+
+**Git-root-only Job identity:** Every Neo Project is an independent Git repository. The runner sends `--repo LOCAL_ROOT_NAME` and `--project-root CANONICAL_GIT_ROOT`; it never sends the retired Job `--project-path`. On reattachment it checks the saved Relay Job’s `repository` and `projectRoot` against the selected independent Git root before starting or reporting a bound Run. `--path ABSOLUTE_RUN_DIR` selects private Run input, **not** a Job subproject identity. Coordinator workspace-root is an execution support path, not repository discovery.
 Final Review, local merge, and SQLite `COMPLETED` require no origin, PR or
 network access. Only after `COMPLETED`, Relay may inspect a configured
 `origin` and push a verified `main` fast-forward; failures are retried

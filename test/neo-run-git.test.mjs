@@ -123,7 +123,7 @@ test('Coordinator creation initializes private Run Git without inventing a verif
       input:readFileSync(args[args.indexOf('--coordinator-input-file')+1],'utf8'),
       agentGraph:readFileSync(args[args.indexOf('--coordinator-graph-file')+1],'utf8'),
       output:{kind:'file',path:args[args.indexOf('--coordinator-output-path')+1]}};
-    jobs.set('101',{id:'101',repository:'vlog',projectPath:'.',state:'DRAFT'});
+    jobs.set('101',{id:'101',repository:'vlog',projectRoot:realpathSync(f.project),state:'DRAFT'});
     tasks.set('101',[task]);return {job:'101',taskId:'17',state:'DRAFT'};
    }
    if(type==='job:show')return jobs.get('101');
