@@ -104,6 +104,35 @@ function eventLabel(type, status) {
   return 'Lifecycle update';
 }
 
+// The authenticated phone needs concrete progress, not a repeated event type.
+// Forward only a bounded redacted description, never source data or artifacts.
+function ownerSafeEventContent(value) {
+  if (typeof value !== 'string') return '';
+  const text = value.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!text) return '';
+  return text
+    .replace(/\b(?:Bearer|Basic)\s+[A-Za-z0-9._~+/-]+=*/gi, '[redacted]')
+    .replace(/\b(?:password|token|secret|api[-_]?key|authorization|credential)\s*[:=]\s*[^\s,;]+/gi, '[redacted]')
+    .replace(/(?:https?:\/\/|wss?:\/\/|nats:\/\/)[^\s)\]}]+/gi, '[link]')
+    .replace(/(?:\/Users\/|\/private\/|\/var\/|\/tmp\/|\/etc\/|\/Volumes\/|\/home\/|~\/)[^\s,;:)\]}]+/g, '[path]')
+    .replace(/\b[A-Z]:\\(?:[^\s,;:)\]}]+\\)*[^\s,;:)\]}]+/gi, '[path]')
+    .replace(/\b[\w.+-]+@[\w.-]+\.[a-z]{2,}\b/gi, '[email]')
+    .replace(/\b(?:secret|password|credential|private prompt)\b/gi, '[redacted]')
+    .slice(0, 320).trim();
+}
+
+function eventContent(event) {
+  const data = event.data && typeof event.data === 'object' && !Array.isArray(event.data) ? event.data : {};
+  const candidates = [data.message, data.summary, data.implementedSolution, event.message];
+  for (const candidate of candidates) {
+    const safe = ownerSafeEventContent(candidate);
+    if (safe && !/^(?:script worker|task|worker) (?:started|completed|running)$/i.test(safe) &&
+        safe.toLowerCase() !== event.type.toLowerCase() &&
+        safe.toLowerCase() !== eventLabel(event.type, EVENT_STATUS[event.type]).toLowerCase()) return safe;
+  }
+  return '';
+}
+
 const EVENT_STATUS = Object.freeze({
   'job.created': 'CREATED',
   'planner.started': 'PLANNING',
@@ -155,12 +184,14 @@ export function normalizeRelayEvents(payload, { jobId } = {}) {
       if (typeof to !== 'string' || !/^[A-Z_]{2,40}$/.test(to)) continue;
       status = to;
     }
+    const content = eventContent(event);
     rows.push({
       type: event.type,
       status,
       label: eventLabel(event.type, status),
       timestamp,
       ...(taskId ? { taskId } : {}),
+      ...(content ? { content } : {}),
     });
   }
   return { rows, count: payload.events.length, nextCursor: payload.next_cursor };

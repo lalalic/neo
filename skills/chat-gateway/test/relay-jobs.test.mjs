@@ -82,6 +82,33 @@ test('job.blocked activity preserves the terminal lifecycle without source text'
   assertStrict.ok(!JSON.stringify(result).includes('/private/secret'));
 });
 
+test('progress and completion send owner-safe actual text without event internals', () => {
+  const payload = { job_id: '658', order: 'asc', next_cursor: 4, events: [
+    { cursor: 1, event: { job_id: '658', task_id: '1943', type: 'task.progress',
+      timestamp: '2026-11-17T11:12:00Z',
+      message: 'task.progress', data: {
+        message: 'Compared six views; calibration passed and verified.' },
+      objective: 'private prompt', output: '/private/result' } },
+    { cursor: 2, event: { job_id: '658', task_id: '1941', type: 'task.completed',
+      timestamp: '2026-11-17T11:01:00Z',
+      message: 'task.completed', data: { summary: 'Rendered preview and verified eyes.' } } },
+    { cursor: 3, event: { job_id: '658', task_id: '1943', type: 'task.started',
+      timestamp: '2026-11-17T11:02:00Z', message: 'Script Worker started' } },
+    { cursor: 4, event: { job_id: '658', task_id: '1943', type: 'task.progress',
+      timestamp: '2026-11-17T11:13:00Z', data: { message:
+        'Checked /Users/worker/private.json at https://internal.example and token=ABC123 secret' } } },
+  ] };
+  const rows = normalizeRelayEvents(payload, { jobId: '658' }).rows;
+  assertStrict.equal(rows[0].content, 'Compared six views; calibration passed and verified.');
+  assertStrict.equal(rows[1].content, 'Rendered preview and verified eyes.');
+  assertStrict.equal(rows[2].content, undefined, 'generic worker event uses Task title in mobile');
+  assertStrict.match(rows[3].content, /Checked \[path\]/);
+  const exposed = JSON.stringify(rows);
+  for (const sensitive of ['private.json', 'internal.example', 'ABC123', 'private prompt', 'objective']) {
+    assertStrict.ok(!exposed.includes(sensitive), sensitive);
+  }
+});
+
 test('event history pages oldest-first, skips unknown data, and marks a hard cap', async () => {
   const urls = [];
   const firstEvents = [
@@ -113,7 +140,7 @@ test('event history pages oldest-first, skips unknown data, and marks a hard cap
       { type: 'job.created', status: 'CREATED', label: 'Job created',
         timestamp: '2026-11-10T13:00:00Z', taskId: '91' },
       { type: 'task.progress', status: 'PROGRESS', label: 'Task progress',
-        timestamp: '2026-11-10T13:00:01Z', taskId: '91' },
+        timestamp: '2026-11-10T13:00:01Z', taskId: '91', content: '[path] and [redacted]' },
     ],
   });
   assertStrict.deepEqual(urls, [
