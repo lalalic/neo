@@ -210,24 +210,38 @@ test('HF web Job uses exact one-hour provider-side timeout, exposed private port
   assert.equal(args[args.indexOf('--attempts')+1],'1');
 });
 
-test('compute gateway accepts only the configured compute.qili2.com origin',async()=>{
-  const dir=fixture(),secret=register('alias-test',controlConfig());
-  let starts=0;
-  const gateway=createGateway({origin:'https://compute.qili2.com',start:()=>starts++});
+test('compute gateway accepts only the configured compute.qili2.com origin for Start and Stop',async()=>{
+  const name='origin-test',dir=fixture(),secret=register(name,controlConfig());
+  let starts=0,stops=0;
+  const origin='https://compute.qili2.com';
+  const gateway=createGateway({origin,start:()=>starts++,stop:()=>stops++});
   const port=await listen(gateway),url=`http://127.0.0.1:${port}`;
   try{
-    const login=await fetch(url+'/alias-test/_login',{method:'POST',
+    const login=await fetch(url+`/${name}/_login`,{method:'POST',
       body:new URLSearchParams({token:secret}),redirect:'manual'});
+    assert.equal(login.status,303);
     const cookie=login.headers.get('set-cookie').split(';')[0];
-    const accepted=await fetch(url+'/alias-test/_start',{method:'POST',
-      headers:{Cookie:cookie,Origin:'https://compute.qili2.com'},redirect:'manual'});
-    assert.equal(accepted.status,303);
+    const post=async(action,submittedOrigin)=>fetch(url+`/${name}/_${action}`,{method:'POST',
+      headers:{Cookie:cookie,...(submittedOrigin===undefined?{}:{Origin:submittedOrigin})},redirect:'manual'});
+    assert.equal((await post('start',origin)).status,303);
     assert.equal(starts,1);
-    for(const origin of ['https://other.example','https://compute.qili2.com.evil.com','http://compute.qili2.com']){
-      const reply=await fetch(url+'/alias-test/_start',{method:'POST',
-        headers:{Cookie:cookie,Origin:origin},redirect:'manual'});
-      assert.equal(reply.status,403);
+
+    // A correct cookie must not bypass exact Origin checks, even for an
+    // already-running session or a missing Origin header.
+    const rejected=[undefined,'null','https://other.example',
+      'https://api.compute.qili2.com','https://compute.qili2.com.evil.com',
+      'https://compute.qili2.com:8443','http://compute.qili2.com'];
+    for(const submittedOrigin of rejected){
+      assert.equal((await post('start',submittedOrigin)).status,403);
     }
     assert.equal(starts,1);
+
+    saveSession(name,{phase:'running',provider:'vast',instanceId:42,deadline:Date.now()+3600000});
+    for(const submittedOrigin of rejected){
+      assert.equal((await post('stop',submittedOrigin)).status,403);
+    }
+    assert.equal(stops,0);
+    assert.equal((await post('stop',origin)).status,303);
+    assert.equal(stops,1);
   }finally{await close(gateway);rmSync(dir,{recursive:true,force:true});}
 });
