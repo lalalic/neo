@@ -197,7 +197,7 @@ function initializeRun(runDir, projectName, input, sourceUrl, publicationReview 
   const requestedReviewPolicy = requestedReviews.length
     ? projectName === 'vlog'
       ? `EXPLICIT INTERACTIVE REVIEWS: review-stages.json requires human Preview and authenticated approval for these exact Task stages: ${requestedReviews.join(', ')}. Each enabled Agent must call Relay review interactive with its own Task execution identity, enter AWAITING_DECISION, and only complete after a matching approved decision; Request Changes must revise and re-preview. Do NOT claim stage completion based on Preview compilation or notification delivery. No extra Review Task or Final Review.`
-      : `MANDATORY STAGE-BY-STAGE HUMAN REVIEWS: Before each of these DAG Agents succeeds, request a managed Neo Mobile Review using its **own real Relay Task execution identity**: ${requestedReviews.join(', ')}. For each Stage, first write and validate its real artifact, then run 'node scripts/growth-stage-review.mjs ${runDir} AGENT_NAME' to generate the Markcut review path and call 'agents-relay review interactive --path REVIEW_PATH --id JOB_ID --task-id TASK_ID --execution-id EXECUTION_ID'. Refer to docs/growth-stage-review.md. Wait for actual human Approve or Request Changes on that same Task: do not mark SUCCEEDED, create a fake receipt, skip a pending approval or automatically approve any stage. On Request Changes, revise the underlying artifact and send a new review. This approval of creative work NEVER grants external publication permission.`
+      : `MANDATORY STAGE-BY-STAGE HUMAN REVIEWS: Before each of these DAG Agents succeeds, request a managed Neo Mobile Review using its **own real Relay Task execution identity**: ${requestedReviews.join(', ')}. For each Stage, first write and validate its real artifact, then run 'node scripts/growth-stage-review.mjs ${runDir} AGENT_NAME' to generate the Markcut review path and call 'npx --yes --package agents-relay@latest agents-relay review interactive --path REVIEW_PATH --id JOB_ID --task-id TASK_ID --execution-id EXECUTION_ID'. Refer to docs/growth-stage-review.md. Wait for actual human Approve or Request Changes on that same Task: do not mark SUCCEEDED, create a fake receipt, skip a pending approval or automatically approve any stage. On Request Changes, revise the underlying artifact and send a new review. This approval of creative work NEVER grants external publication permission.`
     : '';
   const publishingPolicy = vlogPublisher
     ? `${requestedReviews.length ? 'Requested stages must perform the interactive review in review-stages.json.' : 'Default: no human interactive review.'} No specialist Final Review or separate Final QA Task. Editor must run Markcut verify and noninteractive source/asset checks (no real viewer required); Producer verifies and renders, with human Preview only on explicit request. Publisher uses WeChat Channels/XHS only with explicit per-video, per-platform and signed-in account authorization; otherwise SKIPPED, and Publisher itself has no review.`
@@ -212,16 +212,17 @@ function initializeRun(runDir, projectName, input, sourceUrl, publicationReview 
   return { evidence, objective, taskInput, output, binding, saved: null };
 }
 
-function relayCommand(options) {
+export function relayCommand(options = {}) {
+  // The explicit test/dev overrides must not replace production's published package default.
   const localCli = options.relayCli ?? process.env.NEO_RELAY_CLI;
   if (localCli) {
     if (!isAbsolute(localCli) || !statSync(localCli).isFile()) fail('NEO_RELAY_CLI must refer to an existing absolute Relay CLI file');
     return { executable: process.execPath, prefix: [realpathSync(localCli)] };
   }
-  // Use the installed Relay CLI for this host, not an independently cached
-  // npx @latest build that can lag the durable SQLite schema and Task IDs.
-  const executable = options.relayExecutable ?? process.env.NEO_RELAY_EXECUTABLE ?? 'agents-relay';
-  return { executable, prefix: [] };
+  const executable = options.relayExecutable ?? process.env.NEO_RELAY_EXECUTABLE;
+  if (executable) return { executable, prefix: [] };
+  // Neo Master CLI and PM2 daemon use the same published npm latest package.
+  return { executable: 'npx', prefix: ['--yes', '--package', 'agents-relay@latest', 'agents-relay'] };
 }
 
 

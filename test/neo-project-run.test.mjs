@@ -4,7 +4,19 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { runProject } from '../.bin/neo-project-run.mjs';
+import { runProject, relayCommand } from '../.bin/neo-project-run.mjs';
+
+test('production Neo Project CLI defaults to published npm latest Relay, with explicit dev/test overrides', () => {
+  const priorCli=process.env.NEO_RELAY_CLI,priorExe=process.env.NEO_RELAY_EXECUTABLE;
+  try {
+    delete process.env.NEO_RELAY_CLI;delete process.env.NEO_RELAY_EXECUTABLE;
+    assert.deepEqual(relayCommand(), {executable:'npx',prefix:['--yes','--package','agents-relay@latest','agents-relay']});
+    assert.deepEqual(relayCommand({relayExecutable:'/tmp/relay-fixture'}),{executable:'/tmp/relay-fixture',prefix:[]});
+  }finally{
+    if(priorCli===undefined)delete process.env.NEO_RELAY_CLI;else process.env.NEO_RELAY_CLI=priorCli;
+    if(priorExe===undefined)delete process.env.NEO_RELAY_EXECUTABLE;else process.env.NEO_RELAY_EXECUTABLE=priorExe;
+  }
+});
 
 const root = resolve(import.meta.dirname, '..');
 function fixture() {
