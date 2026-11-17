@@ -210,7 +210,7 @@ test('HF web Job uses exact one-hour provider-side timeout, exposed private port
   assert.equal(args[args.indexOf('--attempts')+1],'1');
 });
 
-test('compute canonical gateway accepts only its exact origin and the old gpu.qili2.com alias',async()=>{
+test('compute gateway accepts only the configured compute.qili2.com origin',async()=>{
   const dir=fixture(),secret=register('alias-test',controlConfig());
   let starts=0;
   const gateway=createGateway({origin:'https://compute.qili2.com',start:()=>starts++});
@@ -219,16 +219,15 @@ test('compute canonical gateway accepts only its exact origin and the old gpu.qi
     const login=await fetch(url+'/alias-test/_login',{method:'POST',
       body:new URLSearchParams({token:secret}),redirect:'manual'});
     const cookie=login.headers.get('set-cookie').split(';')[0];
-    for(const origin of ['https://compute.qili2.com','https://gpu.qili2.com']){
-      const reply=await fetch(url+'/alias-test/_start',{method:'POST',
-        headers:{Cookie:cookie,Origin:origin},redirect:'manual'});
-      assert.equal(reply.status,303);
-    }
-    assert.equal(starts,2);
-    for(const origin of ['https://other.example','https://gpu.qili2.com.evil.com','http://gpu.qili2.com']){
+    const accepted=await fetch(url+'/alias-test/_start',{method:'POST',
+      headers:{Cookie:cookie,Origin:'https://compute.qili2.com'},redirect:'manual'});
+    assert.equal(accepted.status,303);
+    assert.equal(starts,1);
+    for(const origin of ['https://other.example','https://compute.qili2.com.evil.com','http://compute.qili2.com']){
       const reply=await fetch(url+'/alias-test/_start',{method:'POST',
         headers:{Cookie:cookie,Origin:origin},redirect:'manual'});
       assert.equal(reply.status,403);
     }
+    assert.equal(starts,1);
   }finally{await close(gateway);rmSync(dir,{recursive:true,force:true});}
 });
