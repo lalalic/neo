@@ -10,7 +10,7 @@ test('terminal turn contains only job metadata and asks Orchestrator to verify',
     objective: 'THIS_OBJECTIVE_IS_SECRET', path: '/private/sensitive/file',
     secret: 'THIS_KEY_IS_SECRET', prompt: 'THIS_PROMPT_IS_SECRET',
   });
-  assert.match(text, /A useful title/);
+  assert.doesNotMatch(text, /A useful title/);
   assert.match(text, /Relay Job/);
   assert.match(text, /chat_report/);
   assert.match(text, /123/);

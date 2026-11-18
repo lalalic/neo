@@ -31,11 +31,12 @@ test('dispatcher queues only for a bound head and deduplicates after restart', a
   assert.equal(requests.length, 1);
   assert.equal(requests[0].projectId, 'g-p-abcdefghijkl');
   assert.equal(requests[0].threadId, 'thread-abcdefgh');
-  assert.match(requests[0].text, /jobId/);
+  assert.match(requests[0].text, /Job demo\/neo\/903 completed \(unverified event\)/);
   assert.match(requests[0].text, /mcp.chat-gateway chat_report/);
-  assert.match(requests[0].text, /replyRequired: MUST call chat_report/);
+  assert.match(requests[0].text, /chat_report to the user concisely/);
   assert.match(requests[0].text, /requestId: relay-terminal-/);
-  assert.match(requests[0].text, /not proof of completion/);
+  assert.doesNotMatch(requests[0].text, /Short context|Event: untrusted metadata|title|terminalUpdatedAt/);
+  assert.ok(requests[0].text.length < 500);
   assert.equal(ledger.get(key).status, 'submitted');
   dispatch = createTerminalDispatcher({ ledger, chat, submit, now: clock.now });
   await dispatch.tick();
@@ -66,7 +67,7 @@ test('transient submission failure retries the same turn with backoff and stable
   assert.equal(sent.length, 2);
   assert.equal(sent[0].requestId, sent[1].requestId);
   assert.equal(sent[0].text, sent[1].text);
-  assert.match(sent[1].text, /cancellation/);
+  assert.match(sent[1].text, /Job demo\/neo\/904 cancelled \(unverified event\)/);
   assert.equal(ledger.get(key).status, 'submitted');
 });
 
@@ -125,5 +126,5 @@ test('terminal events use current head even when successor changes mid-batch',as
   await dispatch.tick();
   assert.equal(sent.length,2);
   assert.deepEqual(sent.map(x=>x.threadId),[oldHead,newHead]);
-  assert.ok(sent.every(x=>x.text.includes('replyRequired: MUST call chat_report')));
+  assert.ok(sent.every(x=>x.text.includes('chat_report to the user concisely')));
 });
