@@ -94,3 +94,24 @@ test('Neo Project method is DAG-first and optimizes Agents with scripts, Shortcu
     assert.ok(!existsSync(join(skillDir, old)), `obsolete prototype-state router remains: ${old}`);
   }
 });
+
+
+test('each Agent owns an evidence-backed Markcut outcome presentation with distinct Preview, question and approval semantics', () => {
+  const main = read(join(skillDir, 'SKILL.md'));
+  const workflow = read(join(skillDir, 'recipes/dag-agent-evolution.md'));
+  const contract = read(join(skillDir, 'references/project-contract.md'));
+  const cases = read(join(skillDir, 'evals/cases.md'));
+  assert.match(main, /Every Agent designs how its outcome is understood by the user/);
+  for (const name of ['review.preview', 'askquestions', 'Markcut', 'Exit Gate']) {
+    for (const [where, value] of [['main Skill', main], ['evolution workflow', workflow], ['project contract', contract]]) {
+      assert.ok(value.includes(name), `${where} missing ${name}`);
+    }
+  }
+  assert.match(workflow, /one Markcut Scene per question/);
+  assert.match(workflow, /answer submission, not approval/);
+  assert.match(workflow, /LLM → script → Shortcut/);
+  assert.match(contract, /user-understandable Markcut presentation/);
+  for (const caseName of ['Agent outcome presentation', 'Questions for a real decision', 'No unnecessary interruption', 'Review semantics', 'Shortcut presentation equivalence']) {
+    assert.ok(cases.includes(caseName), `Missing communication eval ${caseName}`);
+  }
+});

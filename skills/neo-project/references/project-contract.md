@@ -96,6 +96,10 @@ reviewers:
 
 The owning Stage Agent can invoke the existing Relay `review run` Action for specialist reviews, fix the output and request review again before exiting. Specialist reviewers do not automatically become Graph nodes or durable Tasks.
 
+### Agent-owned outcome presentation
+
+Every Agent owns a **user-understandable Markcut presentation** of its own stage outcome, whether the result is a clip, 3D object, image comparison, analysis or plan. Define the presentation objective alongside its input/output and Exit Gate: which real artifacts/scenes demonstrate success, what tradeoffs matter, and what user response (if any) is needed. Use the [DAG Agent Evolution recipe](../recipes/dag-agent-evolution.md) for the workflow. `review.preview` displays a verified Markcut/media outcome; `askquestions` presents targeted Markdown questions as Markcut scenes for clarifications. Use the existing Relay interactive CLI for a managed Task's required human decision. A view-only presentation, question submission, or render receipt is **not** approval. Do not create separate DAG nodes, duplicate Task identity, or demand user action for automatically resolvable decisions. Reusable stage-specific presentation guidance belongs in the owning Project Agent, not as a generic video template imposed on every Project.
+
 ### Human interaction within an Agent Task
 
 Set human review requirements in the **project Agent artifact contract**,
