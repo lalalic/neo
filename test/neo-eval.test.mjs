@@ -12,7 +12,7 @@ test('Neo CLI lists Vlog project eval cases from the canonical .evals path',()=>
  assert.equal(result.project,'vlog');
  const artifactEval=result.cases.find(c=>c.id==='editor-creative-markdown-quality');
  assert.equal(artifactEval.type,'node-tests');
- assert.equal(artifactEval.role,'vlog-editor');
+ assert.equal(artifactEval.role,'editor');
  assert.ok(result.cases.length>=11);
 });
 test('Neo CLI dry-run never executes Codex or artifact quality tests',()=>{
@@ -57,7 +57,7 @@ test('CLI eval audit reports full current Worker and DAG decision coverage',()=>
  const summary=JSON.parse(output.slice(output.lastIndexOf('\n{')+1));
  assert.deepEqual(summary.missingDagDecisionCases,[]);
  assert.deepEqual(summary.dagCoverage.vlog.agents.map(x=>x.role),[
-  'vlog-visioner','vlog-director','vlog-editor','vlog-producer','vlog-publisher']);
+  'visioner','director','editor','producer','publisher']);
  assert.ok(summary.dagCoverage.vlog.agents.every(x=>x.caseCount>=1));
 });
 test('CLI rejects unknown case and does not silently report PASS',()=>{
@@ -69,10 +69,10 @@ test('CLI rejects unknown case and does not silently report PASS',()=>{
 test('DAG Eval selects only Relay-parsed graph agents and excludes obsolete roles',()=>{
  const result=JSON.parse(run('list','--project','vlog','--dag'));
  assert.deepEqual(result.dagRoles,[
-  'vlog-visioner','vlog-director','vlog-editor','vlog-producer','vlog-publisher']);
+  'visioner','director','editor','producer','publisher']);
  assert.ok(result.cases.length>5);
  assert.ok(result.cases.every(c=>result.dagRoles.includes(c.role)));
- assert.equal(result.cases.some(c=>c.role==='vlog-final-qa'||c.role==='planner'),false);
+ assert.equal(result.cases.some(c=>c.role==='final-qa'||c.role==='planner'),false);
 });
 
 test('DAG smoke dry-run assembles one real Relay Worker prompt per graph Agent',()=>{

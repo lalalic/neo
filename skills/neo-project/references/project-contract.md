@@ -37,9 +37,9 @@ Use the currently supported Relay `parseAgentGraph` subset: one `flowchart TD|TB
 
 ```mermaid
 flowchart TD
-    vision[agent:vlog-visioner] --> direction[agent:vlog-director]
-    direction --> edit[agent:vlog-editor]
-    edit --> produce[agent:vlog-producer]
+    vision[agent:visioner] --> direction[agent:director]
+    direction --> edit[agent:editor]
+    edit --> produce[agent:producer]
 ```
 
 The Graph creates one durable **Coordinator** Task and one durable Agent Task
@@ -72,7 +72,7 @@ Create `agents/<name>.agent.md` only for project-specific behavior. Shared Agent
 
 ```yaml
 ---
-name: vlog-producer
+name: producer
 description: Produce a video from an approved edit plan
 type: worker
 inputs:
