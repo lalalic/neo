@@ -33,7 +33,7 @@ Implement `neo project run` as a thin front-end to the existing Agents Relay CLI
 .bin/neo-control.mjs                     # project run route
 .bin/neo.mjs                             # CLI help
 scripts/stage-neo-cli.mjs                # explicit packaged entrypoint allowlist
-docs/neo-project-run-contract.md         # authoritative cross-project contract
+skills/neo-project/references/run-contract.md         # authoritative cross-project contract
 content-distribution/project.run.json    # HTTPS URL input declaration
 vlog/project.run.json                    # canonical path input declaration
 content-distribution/{AGENTS,README}.md  # rights and URL behavior

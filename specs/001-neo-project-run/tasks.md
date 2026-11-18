@@ -5,7 +5,7 @@
 
 ## Phase 1: Setup
 
-- [X] T001 Add canonical cross-project execution and permissions contract in `docs/neo-project-run-contract.md`.
+- [X] T001 Add canonical cross-project execution and permissions contract in `skills/neo-project/references/run-contract.md`.
 - [X] T002 Add declared URL and canonical-path input metadata in `content-distribution/project.run.json` and `vlog/project.run.json`.
 
 ## Phase 2: Foundational

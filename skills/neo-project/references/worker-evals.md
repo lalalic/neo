@@ -46,7 +46,7 @@ An executable test is a separate layer from model decisions. Do not label a dry 
 
 `agents-relay prompt --eval-file CASE.json --adapter codex` runs the production Builder using isolated synthetic execution IDs, without persisting a Job or Task. This validates current PromptBuilder assembly, not an old Task's immutable historical prompt. Each report contains `*.builder-input.json`, `*.builder-output.json`, `*.production.prompt.txt`, `*.prompt.txt`, `*.response.txt`, and reference snapshots. The generated production prompt is **inspected**, never executed (it contains Task events); only the Builder's safe evaluation mode is fed to the model. To evaluate an exact historical Task prompt, use a persisted execution-bound Relay `prompt --id --task-id` when its execution ID is still available; never claim synthetic IDs are historical.
 
-## Vlog quality matrix
+## Historical Vlog example (not a shared project requirement)
 
 | Role | Observable decision |
 | --- | --- |
@@ -59,4 +59,4 @@ An executable test is a separate layer from model decisions. Do not label a dry 
 | Video Director / Market | Cannot PASS from contact sheets without AV playback |
 | Planner | Build actual five stages from the Vlog Graph, not a wrapper Task |
 
-When adding more Worker roles or cases, extend this matrix and run the model eval, then verify implementation separately. Generic word-search tests are for Markdown links and budgets, not creative quality.
+For a real Vlog run, consult that project’s current Graph and local `.evals/cases.json` rather than treating this example as an authoritative role roster. Generic word-search tests are for Markdown links and budgets, not creative quality.

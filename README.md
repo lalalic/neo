@@ -8,7 +8,7 @@ This repository is the public **Neo Harness source**: CLI, bootstrap/discovery t
 
 - `MISSION.md` — canonical Neo identity and mission context for agents and projects.
 - `AGENTS.md` — workspace-wide agent operating rules.
-- `skills/` — canonical editable Neo skills, including orchestration, events, model routing, social posting, and skill authoring.
+- `skills/` — canonical editable Neo skills; the [Neo Project Skill](skills/neo-project/SKILL.md) owns all Neo Project knowledge and links to its detailed reference contracts.
 - `skills/mcp-wrapper/` — orchestrate external MCP providers, Relay and the Neo.app Core review service with one-call Markcut Preview wrappers.
 - `skills/chat-gateway/` — authenticated Neo Mobile Chat/Jobs feed, scoped Job activity and cancellation via Relay; see [Chat Gateway Skill](skills/chat-gateway/SKILL.md) and [Mobile Job controls](skills/chat-gateway/docs/neo-mobile-job-controls.md).
 - `.bin/` — compatibility and packaging helpers; canonical XChat discovery/resolution scripts live under `skills/xchat-orchestrator/scripts/`.
@@ -28,9 +28,9 @@ This repository is the public **Neo Harness source**: CLI, bootstrap/discovery t
 - `package.json` — legacy workspace metadata retained during repository-history consolidation.
 
 Nested repositories such as `markcut/`, `neox/`, `wechat-bro/`, and `mac-developer-bridge/` are managed independently and are not committed through this repository.
-For Projects enabled for `neo project run`, each project owns a `run-template/.gitignore` and explicit text-artifact allowlist. Run Git is local, nested inside ignored `runs/`, and never pushed. Git safety hooks are checked into `.githooks/`; enable them in the canonical Neo checkout with `git config core.hooksPath .githooks` (or use `npm run push`, which independently checks outgoing Run paths). See [Run Contract](docs/neo-project-run-contract.md#local-run-git-versioning).
+For Projects enabled for `neo project run`, each project owns a `run-template/.gitignore` and explicit text-artifact allowlist. Run Git is local, nested inside ignored `runs/`, and never pushed. Git safety hooks are checked into `.githooks/`; enable them in the canonical Neo checkout with `git config core.hooksPath .githooks` (or use `npm run push`, which independently checks outgoing Run paths). See [Run Contract](skills/neo-project/references/run-contract.md#local-run-git-versioning).
 
-The [Neo Harness and independent Projects design](docs/neo-harness-project-layout.md)
+The [Neo Harness and independent Projects integration](skills/neo-project/references/harness-integration.md)
 defines the one-root configuration, Agent/Skill/Shortcut lookup, repository
 ownership and the boundary with Agents Relay. It also identifies uncompleted
 release gates and historical Job migration work.
@@ -39,4 +39,4 @@ release gates and historical Job migration work.
 
 Neo Harness owns shared tooling. `neo project list|resolve|run` recognizes only direct children of `NEO_ROOT` whose Git root is **that project**. Legacy source-folders tracked by the Harness Git repository are not runnable Neo Projects. The default `NEO_ROOT` is `~/Workspace`; on Neo Master, `~/.config/neo/workspace.json` explicitly selects `~/Workspace/neo`, allowing `vlog/` and `content-distribution/` to keep their existing canonical Run paths. The `NEO_ROOT` environment variable overrides the saved `neoRoot` setting.
 
-Every runnable project owns its own `.git`, `AGENTS.md`, `README.md`, `graph.mmd` DAG, and private `runs/`. Each project excludes `runs/` from source Git, while nested Run Git histories remain local and private. No GitHub remote is required. Unmigrated historic project directories may still be present in this source checkout but are not discovered by `neo project`. See [Neo Project Run Contract](docs/neo-project-run-contract.md) for execution details.
+Every runnable project owns its own `.git`, `AGENTS.md`, `README.md`, `graph.mmd` DAG, and private `runs/`. Each project excludes `runs/` from source Git, while nested Run Git histories remain local and private. No GitHub remote is required. Unmigrated historic project directories may still be present in this source checkout but are not discovered by `neo project`. See [Neo Project Run Contract](skills/neo-project/references/run-contract.md) for execution details.

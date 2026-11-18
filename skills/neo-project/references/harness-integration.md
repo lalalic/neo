@@ -1,7 +1,6 @@
-# Neo Harness, independent Projects, and Relay
+# Neo Harness and Independent Project Integration
 
-**Agreed design, with remaining release gates explicitly noted.** This is the
-Neo-side integration contract. For Relay's generic boundary and remaining
+This is the Neo-side integration contract owned by the [Neo Project Skill](../SKILL.md). For Relay's generic boundary and remaining
 Neo-specific runtime references, see
 `agents-relay/docs/harness-independence.md` in the Relay source repository.
 
@@ -121,8 +120,7 @@ provides the existing generic `review.interactive.begin/wait/ready/fail/abort`
 operations, current execution/revision binding and accepted decision state.
 The emitted wait event uses `source.component: interactive-review`; Neo's
 Markcut wrapper and native Review Inbox own rendering, notification and human
-feedback. The original event template and immutable Commit SHA remain
-mandatory; a notification or compile receipt alone is never approval.
+feedback. Review decisions must be bound to the current Relay Task execution; no Git Commit SHA or preview snapshot is required. A notification or compile receipt alone is never approval.
 
 ## Execution and migration safety
 
@@ -137,20 +135,6 @@ Relay Jobs**: old `lalalic/neo` Run bindings need a separately verified job
 migration, even though new Jobs resolve to the independent repositories.
 
 `neo project run` details remain in
-[Neo Project Run Contract](neo-project-run-contract.md). A project-specific
+[Neo Project Run Contract](run-contract.md). A project-specific
 Agent's Markcut/media validation belongs in the Project or its own Shortcut;
 it must not become a required feature of Relay.
-
-## Release readiness and known limits
-
-- Independent Neo Projects, single-root configuration, installed shared Agent
-  staging and dry-run execution have been tested locally.
-- Neo.app's pinned `@lalalic/neo@1.0.3` package must be published **before**
-  the app can deploy the matching managed Harness version.
-- A clean Neo.app installation still requires an available Node.js/npm
-  runtime; a fully bundled zero-prerequisite install is a future gate.
-- Relay still has Neo-specific source-level coupling; its standalone target
-  is specified in `agents-relay/docs/harness-independence.md`.
-- Code and Git-index migration changes are pending owner approval. Do not
-  infer merge, push, npm publication, live app install or a completed
-  historical Job-binding migration from these documents.
