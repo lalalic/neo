@@ -1,6 +1,0 @@
-{
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Deprecated Execution Director Plan",
-  "description": "Deprecated. Use execution-index-v1 plus typed lane schemas.",
-  "type": "object"
-}

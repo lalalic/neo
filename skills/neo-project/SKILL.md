@@ -29,7 +29,7 @@ Do not create empty directories. Shared Agents, contracts and skills must be ref
 
 ## Mobile App and website Product Prototype recipe
 
-For exploratory product work load the [Product Prototype Recipe](recipes/product-prototype.md) and the [product-prototype Skill](../product-prototype/SKILL.md). Start by trying a small real prototype on the development host, discuss and iterate naturally with the user, then move the confirmed behavior to native App/site code or an authenticated API, and finally test the real product through the same App MCP/NeoUse or WebHelm feature. Do not require cryptographic hashes, Git revisions, formal reviews or complete production QA merely to begin experimenting. The lightweight optional router chooses a next discussion/development step, not a second DAG or Scheduler. Actual release/privacy/paid-action controls stay in their existing owners.
+For exploratory product work load the [Product Prototype Recipe](recipes/product-prototype.md). Start by trying a small real prototype on the development host, discuss and iterate naturally with the user, then move the confirmed behavior to native App/site code or an authenticated API, and finally test the real product through the same App MCP/NeoUse or WebHelm feature. Do not require cryptographic hashes, Git revisions, formal reviews or complete production QA merely to begin experimenting. The lightweight optional router chooses a next discussion/development step, not a second DAG or Scheduler. Actual release/privacy/paid-action controls stay in their existing owners.
 
 ## 2. Canonical Graph
 
