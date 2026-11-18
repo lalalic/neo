@@ -30,7 +30,7 @@ test('all Neo Project Skill local Markdown links resolve after relocation', () =
     'SKILL.md',
     ...references.map((name) => `references/${name}`),
     'evals/cases.md',
-    'recipes/product-prototype.md',
+    'recipes/dag-agent-evolution.md',
   ];
   for (const source of sources) {
     const file = join(skillDir, source);
@@ -58,10 +58,39 @@ test('installed Neo CLI distribution includes all Project reference contracts', 
   try {
     const dst = join(temp, 'dist');
     execFileSync(process.execPath, [join(repo, 'scripts/stage-neo-cli.mjs'), dst], { stdio: 'pipe' });
-    for (const path of ['SKILL.md', ...references.map(name => `references/${name}`), 'recipes/product-prototype.md', 'evals/cases.md']) {
+    for (const path of ['SKILL.md', ...references.map(name => `references/${name}`), 'recipes/dag-agent-evolution.md', 'evals/cases.md']) {
       assert.ok(existsSync(join(dst, 'skills/neo-project', path)), `packaged Skill is missing ${path}`);
     }
   } finally {
     rmSync(temp, { recursive: true, force: true });
+  }
+});
+
+
+test('Neo Project method is DAG-first and optimizes Agents with scripts, Shortcuts, JEL and Evals', () => {
+  const main = read(join(skillDir, 'SKILL.md'));
+  const recipe = read(join(skillDir, 'recipes/dag-agent-evolution.md'));
+  const structure = read(join(skillDir, 'references/project-contract.md'));
+  const quality = read(join(skillDir, 'references/worker-evals.md'));
+  const cases = read(join(skillDir, 'evals/cases.md'));
+  assert.match(main, /Core Neo Project development loop/);
+  for (const phrase of ['DAG first', 'Script gradually', 'Shortcut ultimately', 'JEL feedback', 'Agent Evals feedback']) {
+    assert.ok(main.includes(phrase), `Missing project evolution step ${phrase}`);
+  }
+  for (const phrase of ['Exit Gate', 'Troubleshooter', 'bottleneck', 'same DAG node', 'same Task']) {
+    assert.ok(recipe.includes(phrase), `Missing required recipe policy ${phrase}`);
+  }
+  assert.match(structure, /DAG-first Agent development/);
+  assert.match(quality, /JEL-driven prompt improvement/);
+  for (const phrase of ['DAG-first design', 'Partial scripting', 'Full Shortcut promotion', 'Premature Shortcut', 'JEL bottleneck', 'Prompt Eval feedback']) {
+    assert.ok(cases.includes(phrase), `Missing architecture Eval scenario ${phrase}`);
+  }
+  for (const old of [
+    'recipes/product-prototype.md',
+    'recipes/product-prototype/route.mjs',
+    'recipes/product-prototype/route.test.mjs',
+    'recipes/product-prototype/state.example.json',
+  ]) {
+    assert.ok(!existsSync(join(skillDir, old)), `obsolete prototype-state router remains: ${old}`);
   }
 });

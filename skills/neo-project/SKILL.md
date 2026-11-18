@@ -15,7 +15,7 @@ A Neo Project owns its **domain goal, independent Git repository, Agent Graph, p
 | Discover projects; choose `NEO_ROOT`; understand shared/project Agent and Git boundaries | [Harness integration](references/harness-integration.md) |
 | Run, resume, validate `project.run.json`, select a DAG, manage private Run Git and remote permissions | [Run contract](references/run-contract.md) |
 | Audit/author Worker prompts, decision cases or executable Project quality checks | [Worker evals](references/worker-evals.md); load global `skill-builder` for Skill/Agent-eval refactors |
-| Try a mobile/web capability before implementing it | [Product Prototype Recipe](recipes/product-prototype.md) |
+| Design the DAG and Agent responsibilities/Tasks/Exit Gates; optimize with scripts, Shortcuts, JEL and Evals | [DAG → Agent → Script → Shortcut](recipes/dag-agent-evolution.md) |
 | Evaluate the Neo Project architecture Skill itself | [Capability eval cases](evals/cases.md) |
 
 ## Invariants
@@ -26,6 +26,16 @@ A Neo Project owns its **domain goal, independent Git repository, Agent Graph, p
 - Store execution inputs, media, provenance, review history and private state under Git-ignored `runs/`, never in tracked source. Run-producing work stays in the canonical project directory, not a task worktree.
 - Relay owns Job/Task/Review decisions and recovery. Human approval suspends/resumes the **same Task**, and Preview does not create a Git commit or establish approval. Final Review revisions affect only necessary upstream owners and invalidated consumers.
 - Require explicit authority for publishing, paid generation, uploads or external commitments. Local Git completion and optional post-completion push are separate from publication consent.
+
+## Core Neo Project development loop
+
+1. **DAG first:** define each Agent's responsibility, Tasks, internal workflow and **Exit Gate**, then connect the stages in the single `graph.mmd`.
+2. **Script gradually:** automate repeatable work inside an Agent without changing its ownership or bypassing Exit Gate validation.
+3. **Shortcut ultimately:** when the entire stage is deterministic and validated end-to-end, replace model execution with an Agent Shortcut while keeping the same DAG node/Agent contract.
+4. **JEL feedback:** inspect Relay Job/Task/JEL evidence for retries, Troubleshooter frequency, stage latency, waiting, failed quality gates and DAG bottlenecks; fix causes, not symptoms.
+5. **Agent Evals feedback:** convert real failure patterns into targeted decision cases, improve the owning Agent prompt, and re-verify with Evals and subsequent real Runs.
+
+Full procedures and safety gates: [DAG → Agent → Script → Shortcut recipe](recipes/dag-agent-evolution.md). Do not introduce a separate prototype-state router or another scheduler.
 
 ## Deliver a project change
 

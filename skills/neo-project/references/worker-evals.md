@@ -10,6 +10,10 @@
 4. Hold on missing playback, missing input, or missing human approval without claiming PASS.
 5. Preserve source/version correlation and choose a recoverable failure action.
 
+## JEL-driven prompt improvement
+
+After real Relay Jobs, inspect authoritative Job/Task/JEL evidence and reviewer feedback. Convert repeated Agent misunderstandings, wrong choices and premature PASS into project-local decision cases. Improve the **responsible Agent's prompt** and rerun the exact cases, then compare an actual new Run. Mechanical/repeatable problems instead belong in tested scripts; a fully deterministic stage can be replaced by a Shortcut. See the [DAG Agent Evolution Recipe](../recipes/dag-agent-evolution.md). Do not count removed tests, suppressed errors or skipped reviews as quality improvements.
+
 ## Project-owned eval contract
 
 Every Neo Project contains `.evals/cases.json` and a local `.evals/reports/` directory. For projects defining `agents/*.agent.md`, include at least one source-grounded positive, negative or adversarial choice per local Worker role. An empty cases array explicitly means `NOT_EVALUATED`, not a passing project. Each case includes a distinct `capability`, `task`, and an unambiguous set of decisions, with `expectedDecision`; optional `required` checks test concrete output detail. Scenarios are not derived by paraphrasing SKILL headings. Use the discovered global `skill-builder` Skill and global Markdown rules for role or eval changes.

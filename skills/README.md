@@ -1,28 +1,7 @@
-# Neo skills
+# Neo-owned Skills
 
-This directory is the canonical editable source for skills maintained with the
-Neo workspace. Installed copies under ~/.codex and packaged XChat bootstrap artifacts
-are deployment and distribution targets, not source of truth.
+This directory contains Neo Harness's editable Skills, not a static inventory of Agent workflows. Discover the currently installed or project-scoped Skills through `neo skill list` (and inspect each matching `SKILL.md`). Avoid maintaining an outdated parallel catalog here.
 
-## Skills
+**Neo Project knowledge** has one canonical entrypoint: [neo-project/SKILL.md](neo-project/SKILL.md). It owns the DAG-first development method, Stage Agent responsibilities/Tasks/Exit Gates, incremental scripting and Shortcut replacement, JEL-based bottleneck/Troubleshooter improvement, and Agent Eval prompt refinement. Domain-specific behavior stays with the actual Project; Relay lifecycle internals remain with the `agents-relay` Skill.
 
-- xchat-orchestrator — closed-loop cross-web-chat orchestration of local Codex work
-  through GitHub pull requests.
-- codex-handoff — deprecated Drive handoff protocol retained temporarily for
-  migration only.
-- video-director — Markcut-backed product-demo story and semantic shot intent;
-  it deliberately excludes UI automation details.
-- execution-director — stable semantic executable shot contracts for Demo Agent,
-  with fresh-UI success criteria and explicit recovery boundaries.
-- daemon-service-manage — inspection and PM2 lifecycle guidance for persistent
-  daemons and services.
-- events-bus — correlated lifecycle/progress protocol and orchestrator display
-  contract for long-running Neo jobs, including its internal event-bus transport.
-- skill-builder — capability-first creation, review, and evaluation of agent skills.
-- neo-project — canonical Neo Project graph/Agent contracts and reusable product development recipes.
-- product-prototype — quick, discussion-led mobile App and website prototype to native/API implementation and real MCP/WebHelm QA.
-- apple-delivery — shared iOS internal TestFlight release, export compliance, signing and App Store Connect state verification.
-- neo-compute — reuse project Dockerfile images for authorized HF Jobs/Vast.ai runs, with dry-run, spend/upload gates and cleanup.
-
-Changes are made here first, tested locally, and then published/synchronized
-to deployment targets by an explicit release operation.
+Edit and test canonical Skill source here; installed copies and bootstrap artifacts are distribution targets, not independent authorities.
