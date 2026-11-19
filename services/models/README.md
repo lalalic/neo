@@ -80,6 +80,17 @@ CLI remains as a compatibility path for already-submitted older requests;
 new model turns use the MCP tool instead. Neither the input nor the output
 of a new text request is size-routed through gateway-generated files.
 
+### Reply events (staging only)
+
+The generic Events Bus `publish` tool can deliver model replies as
+`reply.text`, `reply.heartbeat`, `reply.completed` and `reply.failed`, with source
+`reply/models/<response_id>`. The Models listener is implemented in
+`reply-events.mjs`; it validates request identity and text sequence before
+updating the existing response store and SSE delivery. Enable only in an
+isolated test with `NEO_MODEL_REPLY_EVENTS=1` while the required three genuine
+Codex CLI MVPs are not yet green. A working MCP tool and NATS publish receipt
+are not sufficient evidence of an autonomous model completion.
+
 ## Inline top instructions (no ChatGPT Project required)
 
 Every Turn passes the reporting contract from `TOP_INSTRUCTIONS.md` as an

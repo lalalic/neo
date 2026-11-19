@@ -4,6 +4,7 @@ import crypto from 'node:crypto';
 import { connect } from '@nats-io/transport-node';
 import { safeJobId, safeTaskId } from '../mcp/validation.mjs';
 import { resolveRuntimeConfig } from './config.mjs';
+import {replySubject,validateReplyEvent} from './reply-contract.mjs';
 
 export const MAX_MEMORY_EVENTS = 20_000;
 export const MAX_WAIT_MS = 30_000;
@@ -127,6 +128,14 @@ export class EventsBusCore {
     return { ok: true, server: nc.getServer(), buffered_events: this.events.length, next_cursor: this.nextCursor, config: { natsUrl: this.config.natsUrl, apiUrl: this.config.apiUrl, dataDir: this.config.dataDir, subjectPrefix: this.config.subjectPrefix } };
   }
   async publish(input, source) {
+    if(input?.kind==='reply'){
+      const validated=validateReplyEvent({type:input.type,source:input.source?.id,data:input.data});
+      const event={...validated,version:1,event_id:crypto.randomUUID(),timestamp:new Date().toISOString()};
+      const subject=replySubject(this.config,event.channel,event.request_id);
+      const nc=await this.connection();
+      nc.publish(subject,new TextEncoder().encode(JSON.stringify(event)));
+      await nc.flush();return {published:true,subject,event};
+    }
     const normalized = normalizePublishEvent(input, source); if (normalized.error) throw new Error(normalized.error);
     const event = normalized.event; const subject = `${this.config.subjectPrefix}.${event.job_id}.${event.type}`; const nc = await this.connection();
     nc.publish(subject, new TextEncoder().encode(JSON.stringify(event))); await nc.flush(); return { published: true, subject, event };

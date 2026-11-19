@@ -1,5 +1,7 @@
+import {expandReplyEvent} from './reply-contract.mjs';
 // One caller-facing event shape for MCP and CLI. Expand only at the transport boundary.
 export function expandPublishEvent({ type, source, data = {} }) {
+  if(typeof source==='string'&&source.startsWith('reply/'))return expandReplyEvent({type,source,data});
   const match = /^job\/([^/]+)\/task\/(.+)\/execution\/([^/]+)$/.exec(source ?? '');
   if (!match) throw new Error('source must be job/<job-id>/task/<task-id>/execution/<execution-id>');
   if (typeof type !== 'string' || !/^[A-Za-z0-9_.-]+$/.test(type)) throw new Error('invalid event type');

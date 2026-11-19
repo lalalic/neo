@@ -37,6 +37,28 @@ No caller-facing `status`, `visibility`, `message`, or `progress`. The shared `c
 Publish from CLI: `events-bus publish --file event.json` (or one quoted JSON argument).
 Local worker helper: `node scripts/emit.mjs task.completed '{"verdict":"approved","head_sha":"abc"}'` with `EVENTS_BUS_EVENT_SOURCE` exported.
 
+## Generic reply events
+
+The existing MCP `publish` tool also accepts generic reply events. No separate
+reporting or reply tool is required. Give a **source** of
+`reply/<channel>/<request_id>` (e.g. `reply/models/resp_<id>`), where
+`channel` is a lowercase routing label and `request_id` is an opaque identifier.
+
+- `reply.text`: `data: {"seq":1,"text":"first report"}`; increment `seq` for each fragment
+- `reply.heartbeat`: `data: {}` (optional liveness)
+- `reply.completed`: `data: {}`; **must be published separately** after all text
+- `reply.failed`: `data: {"error":"actual reason"}` instead of completion
+
+Each channel owner establishes a dedicated listener before dispatching a
+request and handles its own delivery, deduplication, timeout and terminal
+state. The Event Bus publishes these replies on the separate
+`relay.events.reply.<channel>.<request_id>` NATS subjects (prefix derived from
+the configured job subject prefix). Job lifecycle subjects and existing
+job/task/execution producer contracts are unchanged. Do not use a real name,
+phone number, or other personal data as `request_id`. Reply event contents
+are **not** added to the job history recorder; each channel owner must persist
+what it needs. Live NATS subscriptions do not replay missed messages.
+
 ## Transport and consumers
 
 The MCP tool is **publish-only**. Observation is independent: native NATS subscriptions, CLI `watch`/`wait`/`history`/`status`, and HTTP endpoints remain available to authorized consumers; `health`, `config`, and `setup` are CLI operations. Do not call MCP `watch`, `wait`, `history`, `status`, or `health`: they do not exist.

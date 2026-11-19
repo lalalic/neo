@@ -35,6 +35,28 @@ The public `source` is always a **string**, not `{ "id": "..." }`. Do not omit `
 
 The CLI accepts `events-bus publish --file event.json` or `events-bus publish '<json>'`. Direct local workers can use `scripts/emit.mjs <type> [data-json]` with `EVENTS_BUS_EVENT_SOURCE` set. Sandboxed workers use MCP `publish`.
 
+## Channel reply contract (same publish tool)
+
+For user-facing reply channels such as Models, Voice, Chat Gateway and Family
+Tutor, publish using the **same** `publish` tool with a `reply/<channel>/<request_id>`
+source instead of a Job source:
+
+```json
+{"type":"reply.text","source":"reply/models/resp_0123456789abcdef0123456789abcdef01234567","data":{"seq":1,"text":"First response segment"}}
+```
+
+Follow with another `reply.text` (next sequence number) or a final
+`reply.completed` with `data:{}`. Use `reply.heartbeat` during long-running
+work and `reply.failed` with `data.error` for terminal failures. `reply.text`
+does **not** close the request. The listener for each channel validates its
+correlation ID and persists or delivers the result. Do not use Job IDs or a
+Job event to report a reply.
+
+Reply NATS subjects use a sibling namespace to the configured Job prefix:
+`relay.events.reply.<channel>.<request_id>`. The existing job namespace, job
+recorder and Relay job lifecycle contract are unchanged. Do not treat the bus
+`published:true` receipt as proof the channel listener delivered the reply.
+
 ## Internal transport compatibility
 
 The adapter `core/publish-envelope.mjs` expands those fields to the legacy internal NATS envelope:

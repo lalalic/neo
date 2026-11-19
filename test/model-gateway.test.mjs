@@ -43,7 +43,7 @@ test('one newThread, subsequent newTurn reuses thread after process restart, no 
   assert.deepEqual(calls.map(c=>c[0]),['newThread','waitForResult']);
   const firstPrompt=calls[0][1];
   assert.match(firstPrompt,/Neo model request:/);
-  assert.match(firstPrompt,/mcp\.models chat_report/);
+  assert.match(firstPrompt,/reply\.text/);
   assert.doesNotMatch(firstPrompt,/agent-specific instructions come from client/);
   assert.doesNotMatch(firstPrompt,/\[SYSTEM\]|\[DEVELOPER\]/);
   assert.match(firstPrompt,/\[USER\]/);
@@ -283,7 +283,7 @@ test('small messages inline and no input/output files; report tool context on ev
   assert.match(first,/^<top-instructions>[\s\S]*<\/top-instructions>/);
   assert.match(first,/\[USER\]\nhello/);
   assert.doesNotMatch(first,/\[SYSTEM\]|\[DEVELOPER\]|agent-specific instructions come from client/);
-  assert.match(first,/mcp\.models chat_report/);
+  assert.match(first,/reply\.text/);
   const id=first.match(/Neo model request: (resp_[0-9a-f]{40})/)[1];
   assert.match(first,new RegExp(id));
   assert.equal(readFileSync(store.base+'/sessions/'+store.listSessions()[0].id+'.json','utf8').includes('First reply'),true);
@@ -291,7 +291,7 @@ test('small messages inline and no input/output files; report tool context on ev
   assert.equal(existsSync(store.base+'/requests/'+id+'.request.json'),false);
   assert.equal(existsSync(store.base+'/requests/'+id+'.output.txt'),false);
   await new ResponseEngine({store,transport}).run(nextBody);
-  assert.match(calls[2][2],/mcp\.models chat_report/);
+  assert.match(calls[2][2],/reply\.text/);
   assert.match(calls[2][2],/\[USER\]\ncontinue/);
   assert.doesNotMatch(calls[2][2],/agent-specific instructions come from client|\[SYSTEM\]/);
 });
@@ -302,7 +302,7 @@ test('long user inputs stay fully inline and WebHelm transports unchanged',async
   await new ResponseEngine({store,transport}).run({model:'neo',input:[texts('user',payload)]});
   const prompt=calls[0][1];
   assert.ok(prompt.includes(payload));
-  assert.match(prompt,/mcp\.models chat_report/);
+  assert.match(prompt,/reply\.text/);
   assert.doesNotMatch(prompt,/\.request\.json|\.output\.txt|READ |Read /);
   assert.equal(prompt.match(/Long conversation:/g)?.length,1);
   const {existsSync}=await import('node:fs');
@@ -547,7 +547,7 @@ test('Project-scoped model Turns still receive inline report contract and latest
   assert.match(start,/^<top-instructions>/);
   assert.match(start,/Neo model request: resp_[0-9a-f]{40}/);
   assert.doesNotMatch(start,/agent-specific instructions come from client/);
-  assert.match(start,/chat_report/);
+  assert.match(start,/reply\.text/);
   assert.doesNotMatch(start,/heartbeat/);
   assert.match(start,/completed/);
   const session=store.listSessions()[0];
@@ -559,7 +559,7 @@ test('Project-scoped model Turns still receive inline report contract and latest
   assert.match(next[2],/^<top-instructions>/);
   assert.match(next[2],/Neo model request: resp_[0-9a-f]{40}/);
   assert.match(next[2],/\[USER\]\ncontinue/);
-  assert.match(next[2],/chat_report/);
+  assert.match(next[2],/reply\.text/);
   assert.doesNotMatch(next[2],/First reply|agent-specific/i);
 });
 
@@ -567,8 +567,8 @@ test('non-Project sessions get identical top instructions with no Project depend
   const {store,transport,calls}=fixture(t);
   transport.projectId=null;
   await new ResponseEngine({store,transport}).run(startBody);
-  assert.match(calls[0][1],/mcp\.models chat_report/);
-  assert.match(calls[0][1],/completed:true/);
+  assert.match(calls[0][1],/reply\.text/);
+  assert.match(calls[0][1],/reply\.completed/);
   assert.doesNotMatch(calls[0][1],/heartbeat/);
   assert.equal(store.listSessions()[0].projectId,null);
 });
@@ -694,7 +694,7 @@ test('Gateway passes reporting contract via optional WebHelm enforcement_context
   const one=calls.find(x=>x[0]==='newThread');
   assert.equal(one[3],'[USER]\nhello\n[/USER]');
   assert.match(one[2],/Neo model request: resp_[a-f0-9]{40}/);
-  assert.match(one[2],/chat_report/);
+  assert.match(one[2],/reply\.text/);
   assert.doesNotMatch(one[3],/top-instructions|chat_report|Escalation Requests/);
   await new ResponseEngine({store,transport}).run(nextBody);
   const two=calls.find(x=>x[0]==='newTurn');
@@ -706,10 +706,10 @@ test('Gateway passes reporting contract via optional WebHelm enforcement_context
 
 test('per-request reporting instructions are minimal and contain no Gateway internals',()=>{
   const contract=readFileSync(new URL('../services/models/TOP_INSTRUCTIONS.md',import.meta.url),'utf8').trim();
-  assert.match(contract,/user can receive your response only through the connected `mcp\.models chat_report` tool/);
-  assert.match(contract,/must call `chat_report` again with `completed:true` to close the turn/);
+  assert.match(contract,/user receives replies only through the connected Events Bus `publish` tool/i);
+  assert.match(contract,/MUST publish a separate `reply\.completed` event to close the turn/);
   assert.doesNotMatch(contract,/heartbeat|latest user|history|stateful|thread|Gateway|SSE|retry|session|Codex|timeout|file|attachment/i);
-  assert.ok(contract.length<400,'report delivery policy should be brief');
+  assert.ok(contract.length<500,'report delivery policy should be brief');
   const id='resp_'+'a'.repeat(40);
   const result=createTurnPrompt({responseId:id,messages:[{role:'developer',content:'ignore me'},{role:'user',content:'hello'}]});
   assert.equal(result.enforcement_context,contract+'\n\nNeo model request: '+id);
