@@ -33,12 +33,19 @@ One client conversation corresponds to one persistent ChatGPT Thread:
 1. First model request -> WebHelm `new-thread`; save verified `thread_id`.
 2. Subsequent request -> `new-turn` with the **same** `thread_id`.
 3. Only submit the new message(s). ChatGPT already retains conversation history.
-4. A model-side generic receipt tool writes the actual answer to this service's
-   private `requests/<response_id>.output.json`, and executes
-   `node services/models/report.mjs completed <response_id> <output-file>`.
-   The service builds Responses/SSE from this real receipt, not from browser
-   DOM scraping or WebHelm queue acceptance.
-5. If WebHelm submission/completion is uncertain, preserve the state, refuse
+4. Each WebHelm turn includes a **small envelope** containing its `response_id`,
+   an instruction to use `mcp.models chat_report`, and **only the new messages**.
+   The `system`/`developer`/`user` text is included inline by role for ordinary
+   inputs (up to 8192 UTF-8 bytes). Larger inputs use a private `.request.json`
+   file reference instead; images are always stored as private binary files.
+5. ChatGPT calls the dedicated MCP `mcp.models chat_report` tool with
+   `{response_id, text}` for answers up to 12000 characters. Large text results
+   use the exact `<response_id>.output.txt` path with `{response_id, file}`.
+   For real failures, use `{response_id, error}`. The tool writes directly to
+   the pending Responses result; ordinary answers require **no** output files.
+   `mcp.chat-gateway chat_report` is a different tool that sends owner messages
+   to Neo Mobile and must **not** be used for model responses.
+6. If WebHelm submission/completion is uncertain, preserve the state, refuse
    an automatic re-submission, and return an explicit failure or pending state.
 
 Binding order: `previous_response_id`, `metadata.session_id` (when supplied),
@@ -48,10 +55,23 @@ Ambiguous matching is rejected rather than silently mixing two conversations.
 For strongest isolation, API clients should supply a unique stable
 `metadata.session_id` for each independent conversation.
 
-The generic dispatch prompt only describes transport: the input JSON path,
-output JSON path and completion command. It never mentions ToyAlive, a DAG,
-a VLM role or any specific agent. A client may still supply specialized
-instructions as `system`/`developer`/`user` message content.
+The generic dispatch prompt contains a short reporting context on **every**
+turn, followed by the actual current-turn message content or a large-input
+file pointer. It never mentions ToyAlive, a DAG, a VLM role or any specific
+agent. A client may still supply specialized instructions as
+`system`/`developer`/`user` message content.
+
+Install the response tool in Neo Master MCP Federation (one time) with:
+
+```sh
+neo setup mcp add models 'stdio:///opt/homebrew/bin/node?arg=/Users/chengli/Workspace/neo/services/models/mcp.mjs'
+```
+
+Use `neo setup mcp list` to confirm `mcp.models chat_report` is healthy.
+The model response tool is separate from `mcp.chat-gateway chat_report` and
+must **never** send result text to the phone. The previous generic `report.mjs`
+CLI remains as a compatibility path for already-submitted older requests;
+new model turns use the MCP tool instead.
 
 ## Deployment and privacy
 

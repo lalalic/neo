@@ -25,7 +25,12 @@ export function reportCompleted(store,id,outputFile){
   const data=JSON.parse(contents.toString('utf8'));
   if(!data||!Object.prototype.hasOwnProperty.call(data,'output')||data.output===null)throw Error('output field required');
   const text=typeof data.output==='string'?data.output:JSON.stringify(data.output);
-  if(!text.trim())throw Error('empty output');
+  return reportText(store,id,text);
+}
+export function reportText(store,id,text){
+  const response=mustResponse(store,id);
+  if(typeof text!=='string'||!text.trim())throw Error('non-empty text result required');
+  if(Buffer.byteLength(text,'utf8')>4*1024*1024)throw Error('result exceeds 4MiB');
   if(response.status==='completed'){
     if(response.output?.[0]?.content?.[0]?.text!==text)throw Error('conflicting completed output');
     return response;
@@ -42,6 +47,16 @@ export function reportCompleted(store,id,outputFile){
     session.status='idle';store.putSession(session);
   }
   return response;
+}
+export function reportLargeFile(store,id,file){
+  mustResponse(store,id);
+  const expected=join(store.base,'requests',id+'.output.txt');
+  if(resolve(file)!==expected||!lstatSync(expected).isFile()||realpathSync(file)!==realpathSync(expected))
+    throw Error('output must be the exact request output text file');
+  const content=readFileSync(expected);
+  if(content.length<12001||content.length>4*1024*1024)throw Error('large text result outside size range');
+  const text=new TextDecoder('utf-8',{fatal:true}).decode(content);
+  return reportText(store,id,text);
 }
 export function reportFailed(store,id,reason){
   const response=mustResponse(store,id);

@@ -6,7 +6,9 @@ import {join} from 'node:path';
 import {ModelStore} from '../services/models/store.mjs';
 import {ResponseEngine,streamResponse} from '../services/models/responses.mjs';
 import {createModelServer} from '../services/models/server.mjs';
-import {reportCompleted} from '../services/models/report.mjs';
+import {reportCompleted,reportText,reportLargeFile} from '../services/models/report.mjs';
+import {handleMcp,invokeReport,TOOL} from '../services/models/mcp.mjs';
+import {INLINE_INPUT_BYTES,createTurnPrompt} from '../services/models/prompt.mjs';
 
 const token='development-model-test-token-0123456789abcdef';
 function fixture(t){
@@ -21,9 +23,7 @@ function fixture(t){
     async waitForResult(id,writeStore){
       calls.push(['waitForResult',id]);
       const output=n++===0?'First reply':'Second reply';
-      const file=join(writeStore.base,'requests',id+'.output.json');
-      writeFileSync(file,JSON.stringify({output}),{flag:'wx',mode:0o600});
-      const completed=reportCompleted(writeStore,id,file);
+      const completed=reportText(writeStore,id,output);
       return completed.output[0].content[0].text;
     },
   };
@@ -40,17 +40,19 @@ test('one newThread, subsequent newTurn reuses thread after process restart, no 
   assert.equal(one.output[0].content[0].text,'First reply');
   assert.deepEqual(calls.map(c=>c[0]),['newThread','waitForResult']);
   const firstPrompt=calls[0][1];
-  assert.match(firstPrompt,/Neo model API request/);
-  assert.doesNotMatch(firstPrompt,/agent-specific instructions come from client/);
-  const firstInputPath=firstPrompt.match(/Read (.*?\.request\.json) with/)[1];
-  assert.deepEqual(JSON.parse(readFileSync(firstInputPath,'utf8')).messages.map(x=>x.content),['agent-specific instructions come from client','hello']);
-  assert.doesNotMatch(calls[0][1],/ToyAlive|VLM|toy3d-vlm-report|qili2 PRIVATE/);
+  assert.match(firstPrompt,/Neo model request:/);
+  assert.match(firstPrompt,/mcp\.models chat_report/);
+  assert.match(firstPrompt,/agent-specific instructions come from client/);
+  assert.match(firstPrompt,/\[SYSTEM\]/);
+  assert.match(firstPrompt,/\[USER\]/);
+  assert.doesNotMatch(firstPrompt,/Read .*\.request\.json/);
+  assert.doesNotMatch(firstPrompt,/ToyAlive|VLM|toy3d-vlm-report|qili2 PRIVATE/);
   const two=await new ResponseEngine({store:new ModelStore(store.base),transport}).run(nextBody);
   assert.equal(two.output[0].content[0].text,'Second reply');
   assert.deepEqual(calls.map(c=>c[0]),['newThread','waitForResult','newTurn','waitForResult']);
   assert.equal(calls[2][1],'thread-1');
-  const nextInputPath=calls[2][2].match(/Read (.*?\.request\.json) with/)[1];
-  assert.deepEqual(JSON.parse(readFileSync(nextInputPath,'utf8')).messages.map(x=>x.content),['continue']);
+  assert.match(calls[2][2],/\[USER\]\ncontinue/);
+  assert.doesNotMatch(calls[2][2],/agent-specific instructions come from client|hello|First reply/);
   const repeat=await new ResponseEngine({store,transport}).run(nextBody);
   assert.deepEqual(repeat,two,'exact history retry reuses prior completed response');
   assert.equal(calls.length,4);
@@ -66,7 +68,7 @@ test('explicit previous_response_id routes one-turn input to same thread',async 
   const second=await new ResponseEngine({store,transport}).run({model:'neo',previous_response_id:first.id,input:[texts('user','one more')]});
   assert.equal(second.status,'completed');
   assert.equal(calls.at(-2)[1],'thread-1');
-  assert.match(calls.at(-2)[2],/Neo model API request/);
+  assert.match(calls.at(-2)[2],/Neo model request:/);
 });
 
 test('explicit metadata.session_id binds even when only newest user message is submitted',async t=>{
@@ -142,11 +144,9 @@ test('image input is materialized privately for generic Neo model request',async
   assert.equal(result.status,'completed');
   assert.equal(calls[0][0],'newThread');
   assert.equal(calls[1][0],'waitForResult');
-  const requestFile=calls[0][1].match(/Read (.*?\.request\.json) with/)[1];
-  const stored=JSON.parse(readFileSync(requestFile,'utf8'));
-  assert.equal(stored.messages[0].images.length,1);
-  assert.match(stored.messages[0].images[0].file,/image-[a-f0-9]+.png$/);
-  assert.equal(readFileSync(stored.messages[0].images[0].file).subarray(0,4).toString('hex'),'89504e47');
+  const imageRef=calls[0][1].match(/\[image 1\] (.*image-[a-f0-9]+\.png)/)[1];
+  assert.equal(readFileSync(imageRef).subarray(0,4).toString('hex'),'89504e47');
+  assert.doesNotMatch(calls[0][1],/Read .*\.request\.json/);
   assert.ok(!JSON.stringify(store.listSessions()).includes(png),'base64 photos are never persisted in session journal');
 });
 
@@ -224,9 +224,8 @@ test('previous_response_id with full history still submits only the new suffix',
   const full={...nextBody,previous_response_id:first.id};
   await new ResponseEngine({store,transport}).run(full);
   const prompt=calls.find(x=>x[0]==='newTurn')[2];
-  const requestFile=prompt.match(/Read (.*?\.request\.json) with/)[1];
-  const request=JSON.parse(readFileSync(requestFile,'utf8'));
-  assert.deepEqual(request.messages.map(x=>x.content),['continue']);
+  assert.match(prompt,/\[USER\]\ncontinue/);
+  assert.doesNotMatch(prompt,/Read .*\.request\.json/);
 });
 
 test('replaying an identical completed POST does not create another Thread',async t=>{
@@ -267,4 +266,78 @@ test('Codex client_version receives model metadata; public list keeps OpenAI sha
   assert.ok(Array.isArray(codex.models[0].supported_reasoning_levels));
   assert.equal(codex.data,undefined);
   assert.equal((await fetch(url+'?client_version=0.165.0')).status,401);
+});
+
+test('small messages inline and no input/output files; report tool context on every turn',async t=>{
+  const {store,transport,calls}=fixture(t);
+  await new ResponseEngine({store,transport}).run(startBody);
+  const first=calls[0][1];
+  assert.match(first,/\[SYSTEM\][\s\S]*\[USER\]/);
+  assert.match(first,/mcp\.models chat_report/);
+  const id=first.match(/Neo model request: (resp_[0-9a-f]{40})/)[1];
+  assert.match(first,new RegExp(id));
+  assert.equal(readFileSync(store.base+'/sessions/'+store.listSessions()[0].id+'.json','utf8').includes('First reply'),true);
+  const {existsSync}=await import('node:fs');
+  assert.equal(existsSync(store.base+'/requests/'+id+'.request.json'),false);
+  assert.equal(existsSync(store.base+'/requests/'+id+'.output.txt'),false);
+  await new ResponseEngine({store,transport}).run(nextBody);
+  assert.match(calls[2][2],/mcp\.models chat_report/);
+  assert.match(calls[2][2],/\[USER\]\ncontinue/);
+  assert.doesNotMatch(calls[2][2],/agent-specific instructions come from client|\[SYSTEM\]/);
+});
+
+test('oversized inputs use private file, short results still use chat_report text',async t=>{
+  const {store,transport,calls}=fixture(t);
+  const payload='A'.repeat(INLINE_INPUT_BYTES+200);
+  await new ResponseEngine({store,transport}).run({model:'neo',input:[texts('user',payload)]});
+  const prompt=calls[0][1];
+  assert.doesNotMatch(prompt,new RegExp('A{500}'));
+  const file=prompt.match(/INPUT: Read (.*?\.request\.json) \(large message or attachments\)/)[1];
+  const item=JSON.parse(readFileSync(file,'utf8'));
+  assert.equal(item.messages[0].content,payload);
+  assert.equal(item.messages[0].role,'user');
+});
+
+test('mcp.models chat_report: short text receipt, idempotency, errors, and large file',async t=>{
+  const {store}=fixture(t);
+  const make=id=>store.putResponse({id,sessionId:'sess_'+('a'.repeat(40)),object:'response',model:'neo',status:'in_progress',created_at:0,output:[]});
+  const id='resp_'+'a'.repeat(40);make(id);
+  const report=handleMcp({id:1,method:'tools/call',params:{name:'chat_report',arguments:{response_id:id,text:'HELLO'}}},store);
+  assert.equal(report.result.isError,false);
+  assert.equal(store.response(id).output[0].content[0].text,'HELLO');
+  const replay=handleMcp({id:2,method:'tools/call',params:{name:'chat_report',arguments:{response_id:id,text:'HELLO'}}},store);
+  assert.equal(replay.result.isError,false);
+  const conflicting=handleMcp({id:3,method:'tools/call',params:{name:'chat_report',arguments:{response_id:id,text:'OTHER'}}},store);
+  assert.equal(conflicting.result.isError,true);
+  const hugeId='resp_'+'b'.repeat(40);make(hugeId);
+  const {mkdirSync}=await import('node:fs');mkdirSync(join(store.base,'requests'),{recursive:true});
+  const largeFile=join(store.base,'requests',hugeId+'.output.txt');
+  writeFileSync(largeFile,'Z'.repeat(12020));
+  const large=handleMcp({id:4,method:'tools/call',params:{name:'chat_report',arguments:{response_id:hugeId,file:largeFile}}},store);
+  assert.equal(large.result.isError,false);
+  assert.equal(store.response(hugeId).output[0].content[0].text.length,12020);
+  const wrongFile=handleMcp({id:5,method:'tools/call',params:{name:'chat_report',arguments:{response_id:hugeId,file:'/etc/hosts'}}},store);
+  assert.equal(wrongFile.result.isError,true);
+  const failId='resp_'+'c'.repeat(40);make(failId);
+  const fail=handleMcp({id:6,method:'tools/call',params:{name:'chat_report',arguments:{response_id:failId,error:'Actual model failure'}}},store);
+  assert.equal(fail.result.isError,false);
+  assert.equal(store.response(failId).status,'failed');
+  assert.equal(store.response(failId).error.message,'Actual model failure');
+  assert.equal(handleMcp({id:7,method:'tools/list'},store).result.tools[0].name,'chat_report');
+});
+
+test('MCP stdio lifecycle advertises exactly one model response tool',async t=>{
+  const {spawn}=await import('node:child_process');
+  const child=spawn(process.execPath,[new URL('../services/models/mcp.mjs',import.meta.url).pathname],{
+    env:{...process.env,NEO_MODELS_STATE_DIR:mkdtempSync(join(tmpdir(),'neo-model-mcp-'))},stdio:['pipe','pipe','pipe']});
+  const answers=[];
+  child.stdout.on('data',chunk=>{for(const line of chunk.toString().split('\n'))if(line.trim())try{answers.push(JSON.parse(line))}catch{}});
+  child.stdin.write(JSON.stringify({jsonrpc:'2.0',id:1,method:'initialize',params:{clientInfo:{name:'test',version:'1'},capabilities:{}}})+'\n');
+  child.stdin.write(JSON.stringify({jsonrpc:'2.0',id:2,method:'tools/list'})+'\n');
+  const end=Date.now()+3000;
+  while(Date.now()<end&&answers.length<2)await new Promise(r=>setTimeout(r,20));
+  child.kill('SIGTERM');
+  assert.deepEqual(answers.map(x=>x.id),[1,2]);
+  assert.equal(answers[1].result.tools[0].name,'chat_report');
+  assert.equal(answers[1].result.tools.length,1);
 });

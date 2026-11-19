@@ -1,6 +1,7 @@
 import {key,assertInput,isPrefix,materializeImages,compact,signature} from './input.mjs';
-import {mkdirSync,writeFileSync} from 'node:fs';
-import {join,resolve} from 'node:path';
+import {mkdirSync} from 'node:fs';
+import {join} from 'node:path';
+import {createTurnPrompt} from './prompt.mjs';
 const event=(type,obj)=>`event: ${type}\ndata: ${JSON.stringify({type,...obj})}\n\n`;
 export function streamResponse(response){
   let sequence_number=0;
@@ -61,21 +62,10 @@ export class ResponseEngine {
       const requestsDir=join(this.store.base,'requests');
       mkdirSync(requestsDir,{recursive:true,mode:0o700});
       const requestFile=join(requestsDir,responseId+'.request.json');
-      const resultFile=join(requestsDir,responseId+'.output.json');
+      const resultFile=join(requestsDir,responseId+'.output.txt');
       let imageIndex=0;
       const input=requestMessages.map(m=>({role:m.role,content:m.text,images:m.images.map(()=>({file:files[imageIndex++]}))}));
-      writeFileSync(requestFile,JSON.stringify({model:'neo',response_id:responseId,messages:input,metadata:body.metadata??{}},null,2)+'\n',{flag:'wx',mode:0o600});
-      const reportCli=resolve(new URL('./report.mjs',import.meta.url).pathname);
-      const prompt=[
-        'Neo model API request '+responseId+'.',
-        'Read '+requestFile+' with your connected Neo Master tools. The messages inside are the actual model instructions and user input.',
-        'This is a generic model request. Follow the provided system/developer/user messages and use your available tools as needed.',
-        'The ChatGPT Thread is stateful. For a continued conversation, use its existing context and only the new request messages.',
-        'After completing the task, write the actual result to '+resultFile+' as JSON {"output": <your actual response text or JSON>}.',
-        'Then execute: node '+reportCli+' completed '+responseId+' '+resultFile,
-        'If you cannot complete the task, execute: node '+reportCli+' failed '+responseId+' "actual reason"',
-        'Never claim unexecuted actions or fabricate a result. Do not publish any user files without authorization.'
-      ].join('\n');
+      const {prompt}=createTurnPrompt({responseId,messages:input,requestFile,outputFile:resultFile});
       let text;
       if(!session.threadId){
         const receipt=await this.transport.newThread(prompt);
