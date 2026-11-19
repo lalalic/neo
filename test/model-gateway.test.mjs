@@ -796,6 +796,36 @@ test('chat_report MCP description and schema explain reporting and explicit clos
   assert.match(TOOL.inputSchema.properties.heartbeat.description,/Does not deliver an answer or close the turn/);
 });
 
+test('default Neo Gateway uses URL prompt without structured app composer manipulation',async t=>{
+  const {WebHelmTransport}=await import('../services/models/webhelm.mjs');
+  if(process.env.NEO_MODEL_APP_MENTION!==undefined){
+    t.skip('explicit NEO_MODEL_APP_MENTION is configured; default selection not testable');
+    return;
+  }
+  const dir=mkdtempSync(join(tmpdir(),'neo-url-only-model-'));
+  t.after(()=>rmSync(dir,{recursive:true,force:true}));
+  const configs=[];
+  const fake=async(_,args)=>{
+    assert.deepEqual(args.slice(0,4),['platform','run','chatgpt',args[3]]);
+    const config=JSON.parse(readFileSync(args[args.indexOf('--config')+1],'utf8'));
+    configs.push({action:args[3],config});
+    return args[3]==='new-thread' ?
+      {result:{ok:true,value:{status:'submitted',thread_id:'thread-01',thread_url:'https://chatgpt.com/c/thread-01'}}}:
+      {result:{ok:true,value:{status:'submitted',thread_id:'thread-01',queue_id:'queued'}}};
+  };
+  const transport=new WebHelmTransport({exec:fake,tempDir:dir,projectId:null,
+    holdSession:false,serializeNewThread:false});
+  assert.equal(transport.appName,'');
+  await transport.newThread('hello','report with events','resp_'+'a'.repeat(40));
+  await transport.newTurn('thread-01','continue',[],'resp_'+'b'.repeat(40));
+  assert.deepEqual(configs.map(x=>x.action),['new-thread','new-turn']);
+  assert.ok(configs.every(x=>!('app' in x.config)&&!('model_choice' in x.config)&&
+    !('thinking_effort' in x.config)));
+  assert.equal(configs[0].config.message,'hello');
+  assert.equal(configs[1].config.message,'continue');
+  assert.equal(configs[0].config.enforcement_context,'report with events');
+});
+
 test('newThread serializes concurrent Codex main and title creation and leaves model at ChatGPT default',async t=>{
   const {WebHelmTransport}=await import('../services/models/webhelm.mjs');
   const root=mkdtempSync(join(tmpdir(),'neo-model-serial-'));t.after(()=>rmSync(root,{recursive:true,force:true}));

@@ -21,7 +21,9 @@ export class WebHelmTransport {
     exec=runCLI,projectId=configuredProjectId(),
     holdSession=process.env.NEO_MODEL_HOLD_CHATGPT_SESSION!=='0',
     platform=process.env.NEO_MODEL_WEBHELM_PLATFORM||'chatgpt',
-    appName=process.env.NEO_MODEL_APP_MENTION??'Neo',
+    // The URL-prefilled newThread/newTurn path does not require or edit the
+    // composer. Structured @App selection remains an explicit opt-in.
+    appName=process.env.NEO_MODEL_APP_MENTION??'',
     serializeNewThread=process.env.NEO_MODEL_SERIAL_NEW_THREAD!=='0',
   }={}){
     this.binary=binary;this.tempDir=tempDir;this.exec=exec;this.projectId=projectId;this.holdSession=holdSession;this.held=new Map();
