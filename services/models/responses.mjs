@@ -98,13 +98,11 @@ export class ResponseEngine {
     if(onStarted)onStarted({...response});
     try{
       const requestMessages=delta.length?delta:messages;
-      const files=materializeImages(requestMessages,join(this.store.base,'attachments',session.id));
-      let imageIndex=0;
-      const input=requestMessages.map(m=>({role:m.role,content:m.text,images:m.images.map(()=>({file:files[imageIndex++]}))}));
-      const {prompt}=createTurnPrompt({
-        responseId,messages:input,
-        projectBound:Boolean(session.projectId||(!session.threadId&&this.transport.projectId)),
-      });
+      const latestUser=requestMessages.findLast(message=>message.role==='user');
+      if(!latestUser)throw Error('a new user message is required for ChatGPT delivery');
+      const files=materializeImages([latestUser],join(this.store.base,'attachments',session.id));
+      const input=[{role:'user',content:latestUser.text,images:files.map(file=>({file}))}];
+      const {prompt}=createTurnPrompt({responseId,messages:input});
       if(!this.transport.waitForResult)throw Error('model transport requires explicit chat_report completion');
       if(!session.threadId){
         const receipt=await this.transport.newThread(prompt);

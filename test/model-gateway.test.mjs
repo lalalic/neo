@@ -43,8 +43,8 @@ test('one newThread, subsequent newTurn reuses thread after process restart, no 
   const firstPrompt=calls[0][1];
   assert.match(firstPrompt,/Neo model request:/);
   assert.match(firstPrompt,/mcp\.models chat_report/);
-  assert.match(firstPrompt,/agent-specific instructions come from client/);
-  assert.match(firstPrompt,/\[SYSTEM\]/);
+  assert.doesNotMatch(firstPrompt,/agent-specific instructions come from client/);
+  assert.doesNotMatch(firstPrompt,/\[SYSTEM\]|\[DEVELOPER\]/);
   assert.match(firstPrompt,/\[USER\]/);
   assert.doesNotMatch(firstPrompt,/Read .*\.request\.json/);
   assert.doesNotMatch(firstPrompt,/ToyAlive|VLM|toy3d-vlm-report|qili2 PRIVATE/);
@@ -273,7 +273,9 @@ test('small messages inline and no input/output files; report tool context on ev
   const {store,transport,calls}=fixture(t);
   await new ResponseEngine({store,transport}).run(startBody);
   const first=calls[0][1];
-  assert.match(first,/\[SYSTEM\][\s\S]*\[USER\]/);
+  assert.match(first,/^<top-instructions>[\s\S]*<\/top-instructions>/);
+  assert.match(first,/\[USER\]\nhello/);
+  assert.doesNotMatch(first,/\[SYSTEM\]|\[DEVELOPER\]|agent-specific instructions come from client/);
   assert.match(first,/mcp\.models chat_report/);
   const id=first.match(/Neo model request: (resp_[0-9a-f]{40})/)[1];
   assert.match(first,new RegExp(id));
@@ -520,7 +522,7 @@ test('multi-report completion keeps exactly one assistant history item for subse
   assert.equal(calls.find(x=>x[0]==='newTurn')[1],'thread-1');
 });
 
-test('Project-scoped model Turns send only response_id + actual input, including continued Turns',async t=>{
+test('Project-scoped model Turns still receive inline report contract and latest user only',async t=>{
   const {store,transport,calls}=fixture(t);
   const projectId='g-p-'+'a'.repeat(32);
   transport.projectId=projectId;
@@ -535,21 +537,26 @@ test('Project-scoped model Turns send only response_id + actual input, including
   };
   await new ResponseEngine({store,transport}).run(startBody);
   const start=calls.find(c=>c[0]==='newThread')[1];
-  assert.match(start,/^Neo model request: resp_[0-9a-f]{40}/);
-  assert.match(start,/agent-specific instructions come from client/);
-  assert.doesNotMatch(start,/chat_report|heartbeat|completed:true|COMPLETION REQUIRED/i);
+  assert.match(start,/^<top-instructions>/);
+  assert.match(start,/Neo model request: resp_[0-9a-f]{40}/);
+  assert.doesNotMatch(start,/agent-specific instructions come from client/);
+  assert.match(start,/chat_report/);
+  assert.match(start,/heartbeat/);
+  assert.match(start,/completed/);
   const session=store.listSessions()[0];
   assert.equal(session.projectId,projectId);
   await new ResponseEngine({store,transport}).run(nextBody);
   const next=calls.find(c=>c[0]==='newTurn');
   assert.equal(next[1],'project-thread');
   assert.equal(next[5],projectId);
-  assert.match(next[2],/^Neo model request: resp_[0-9a-f]{40}/);
+  assert.match(next[2],/^<top-instructions>/);
+  assert.match(next[2],/Neo model request: resp_[0-9a-f]{40}/);
   assert.match(next[2],/\[USER\]\ncontinue/);
-  assert.doesNotMatch(next[2],/chat_report|heartbeat|completed:true|First reply|agent-specific/i);
+  assert.match(next[2],/chat_report/);
+  assert.doesNotMatch(next[2],/First reply|agent-specific/i);
 });
 
-test('non-Project legacy sessions preserve reporting instructions after Project migration',async t=>{
+test('non-Project sessions get identical top instructions with no Project dependency',async t=>{
   const {store,transport,calls}=fixture(t);
   transport.projectId=null;
   await new ResponseEngine({store,transport}).run(startBody);
@@ -625,4 +632,50 @@ test('configured project ID is validated; Project new-thread and new-turn carry 
   assert.deepEqual(calls.map(x=>x.config.project_id),[projectId,projectId]);
   const invalid=new WebHelmTransport({tempDir:dir,projectId,exec:async()=>({result:{ok:true,value:{status:'submitted',thread_id:'other',thread_url:'https://chatgpt.com/c/other'}}})});
   await assert.rejects(()=>invalid.newThread('hi'),/did not verify the configured ChatGPT Project/);
+});
+
+test('only the LAST user message survives Codex system, developer, Escalation Requests, assistant and past user messages',async t=>{
+  const {store,transport,calls}=fixture(t);
+  const task='LATEST_USER_UNIQUE_TEXT';
+  const input=[
+    texts('system','CODEX_SYSTEM_SECRET'),
+    texts('developer','<permissions instructions>Escalation Requests CODEX_DEVELOPER_UNIQUE</permissions instructions>'),
+    texts('user','OLD_USER_SHOULD_NOT_FORWARD'),
+    texts('assistant','OLD_ASSISTANT_SHOULD_NOT_FORWARD'),
+    texts('developer','<skills_instructions>Codex tools ignored</skills_instructions>'),
+    texts('user',task),
+  ];
+  await new ResponseEngine({store,transport}).run({model:'neo',input});
+  const prompt=calls[0][1];
+  assert.match(prompt,/^<top-instructions>[\s\S]*<\/top-instructions>/);
+  assert.match(prompt,/Neo model request: resp_[0-9a-f]{40}/);
+  assert.match(prompt,/\[USER\]\nLATEST_USER_UNIQUE_TEXT\n\[\/USER\]/);
+  for(const excluded of ['CODEX_SYSTEM_SECRET','Escalation Requests','CODEX_DEVELOPER_UNIQUE',
+    'OLD_USER_SHOULD_NOT_FORWARD','OLD_ASSISTANT_SHOULD_NOT_FORWARD','Codex tools ignored',
+    '[SYSTEM]','[DEVELOPER]','[ASSISTANT]'])assert.ok(!prompt.includes(excluded),`leaked ${excluded}`);
+  assert.equal((prompt.match(/\[USER\]/g)||[]).length,1);
+  assert.equal(store.listSessions()[0].history.length,input.length+1,'Gateway history remains available for stateful matching');
+});
+
+test('only latest user attachments are materialized; developer and earlier user images do not travel',async t=>{
+  const {store,transport,calls}=fixture(t);
+  const png=Buffer.concat([Buffer.from([137,80,78,71,13,10,26,10]),Buffer.alloc(32)]).toString('base64');
+  const image={type:'input_image',image_url:'data:image/png;base64,'+png};
+  const input=[
+    {role:'developer',content:[{type:'input_text',text:'DO_NOT_FORWARD_DEVELOPER_IMAGE'},image]},
+    {role:'user',content:[{type:'input_text',text:'DO_NOT_FORWARD_OLD_IMAGE'},image]},
+    {role:'user',content:[{type:'input_text',text:'LAST_USER_IMAGE'},image]},
+  ];
+  await new ResponseEngine({store,transport}).run({model:'neo',input});
+  const prompt=calls[0][1];
+  assert.match(prompt,/LAST_USER_IMAGE/);
+  assert.doesNotMatch(prompt,/DO_NOT_FORWARD_DEVELOPER_IMAGE|DO_NOT_FORWARD_OLD_IMAGE/);
+  assert.equal((prompt.match(/\[image \d+\]/g)||[]).length,1);
+  assert.equal(store.listSessions()[0].history.length,4);
+});
+
+test('a request without a user message does not accidentally forward Codex internal developer instructions',async t=>{
+  const {store,transport,calls}=fixture(t);
+  await assert.rejects(()=>new ResponseEngine({store,transport}).run({model:'neo',input:[texts('developer','Escalation Requests only')]}),/new user message is required/);
+  assert.equal(calls.length,0);
 });
