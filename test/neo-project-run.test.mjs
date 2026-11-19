@@ -84,7 +84,7 @@ test('URL input supports both flag forms, keeps token private, and delegates exa
     assert.deepEqual(relay.calls.map(x => x.slice(0, 2)), [['job', 'create'], ['job', 'show'], ['task', 'list'], ['job', 'run']]);
     assert.equal(relay.calls.some(args=>args.includes('--project-path')),false,'Relay no longer accepts Job projectPath');
     const job = relay.calls[0], task = relay.calls[0];
-    assert.deepEqual(job.slice(2), ['--repo', 'content-distribution', '--project-root', realpathSync(f.content), '--title', `Content Distribution · ${result.runPath.split('/').at(-1).replace(/[-_]+/g, ' ')}`, '--objective-file', join(result.runPath, 'neo-project-run.objective.md'), '--coordinator-graph-file',realpathSync(join(f.content,'graph.mmd')),'--coordinator-input-file',join(result.runPath,'neo-project-run.input.md'),'--coordinator-output-path',join(result.runPath,'neo-project-run.result.json'),'--coordinator-project-root',realpathSync(f.content),'--coordinator-workspace-root',realpathSync(f.workspace.neoRoot),'--coordinator-shared-root',f.workspace.harnessRoot]);
+    assert.deepEqual(job.slice(2), ['--repo', 'content-distribution', '--project-root', realpathSync(f.content), '--title', `Content Distribution · ${result.runPath.split('/').at(-1).replace(/[-_]+/g, ' ')}`, '--objective-file', join(result.runPath, 'neo-project-run.objective.md'), '--coordinator-graph-file',realpathSync(join(f.content,'graph.mmd')),'--coordinator-input-file',join(result.runPath,'neo-project-run.input.md'),'--coordinator-output-path',join(result.runPath,'neo-project-run.result.json'),'--coordinator-project-root',realpathSync(f.content),'--coordinator-workspace-root',realpathSync(f.workspace.neoRoot)]);
     assert.equal(job[job.indexOf('--title') + 1].includes('rsroot.com'), false);
     assert.equal(task[task.indexOf('--coordinator-graph-file') + 1], realpathSync(join(f.content, 'graph.mmd')));
     assert.equal(task[task.indexOf('--coordinator-output-path') + 1], join(result.runPath, 'neo-project-run.result.json'));
@@ -432,7 +432,7 @@ test('independent local-only project binds Relay to its own Git root without Git
     const runCall = relay.calls.find(argv => argv[0] === 'job' && argv[1] === 'run');
     assert.equal(runCall.includes('--project-path'), false);
     assert.equal(runCall.includes('--no-github'), false);
-    assert.equal(runCall[runCall.indexOf('--shared-root') + 1], f.workspace.harnessRoot);
+    assert.equal(runCall.includes('--shared-root'),false);
     assert.equal(runCall[runCall.indexOf('--workspace-root') + 1], realpathSync(f.workspace.neoRoot));
     assert.equal(relay.jobs.get('101').state, 'ACTIVE');
   } finally { rmSync(f.base, { recursive: true, force: true }); }

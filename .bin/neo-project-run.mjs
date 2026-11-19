@@ -295,7 +295,7 @@ export function relayCommand(options = {}) {
 function relayInvocation(options, args) {
   if (options.runRelay) return options.runRelay(args);
   const { executable, prefix } = relayCommand(options);
-  const result = (options.spawnSyncImpl ?? spawnSync)(executable, [...prefix, ...args], { encoding: 'utf8', timeout: 120000, maxBuffer: 4 *  1024 * 1024, env: { ...process.env, ...(options.sharedRoot ? { AGENTS_RELAY_SHARED_ROOT: options.sharedRoot } : {}) } });
+  const result = (options.spawnSyncImpl ?? spawnSync)(executable, [...prefix, ...args], { encoding: 'utf8', timeout: 120000, maxBuffer: 4 *  1024 * 1024, env: { ...process.env } });
   if (result.error || result.status !== 0) fail(`Agents Relay command failed (${result.status ?? 'spawn error'}); run artifacts and recovery binding are preserved`);
   try { return JSON.parse(result.stdout); } catch { fail('Agents Relay returned invalid JSON; run artifacts and recovery binding are preserved'); }
 }
@@ -335,7 +335,7 @@ export function runProject(args, options = {}) {
   // Relay inspects an optional origin only after SQLite marks the Job COMPLETED.
   // Neo never requests GitHub/PR effects or changes the remote-delivery policy.
   const repoCheckout = selected.project;
-  const relayOptions = { ...options, sharedRoot: workspace.harnessRoot };
+  const relayOptions = { ...options };
   const runGit = loadRunGitConfig(selected.project, selected.declaration);
   const isUrl = parsed.url !== undefined;
   const isPath = parsed.path !== undefined;
@@ -420,12 +420,11 @@ export function runProject(args, options = {}) {
   const invoke = args => relayInvocation(relayOptions,args);
   const foreground = (jobId, taskId) => {
     const args=['job','run','--repo',repoId,'--id',jobId,'--task-id',taskId,
-      '--shared-root',workspace.harnessRoot,
       '--workspace-root',selected.root,'--foreground'];
     if(options.runRelay){options.runRelay(args);return;}
     const {executable,prefix}=relayCommand(relayOptions);
     const execution=(options.spawnSyncImpl??spawnSync)(executable,[...prefix,...args],{
-      stdio:'inherit',env:{...process.env,AGENTS_RELAY_SHARED_ROOT:workspace.harnessRoot},
+      stdio:'inherit',env:{...process.env},
     });
     if(execution.error||execution.status!==0)fail(`Agents Relay foreground execution exited (${execution.status??'spawn error'}); durable Job and Run binding are preserved`);
   };
@@ -444,8 +443,7 @@ export function runProject(args, options = {}) {
     }
     if(state==='DRAFT'){
       const activated=invoke(['job','run','--repo',repo,'--id',jobId,'--task-id',taskId,
-        '--shared-root',workspace.harnessRoot,
-        '--workspace-root',selected.root]);
+          '--workspace-root',selected.root]);
       if(activated?.scheduled!==true||activated?.state!=='ACTIVE')fail('Relay Coordinator activation not acknowledged');
       state='ACTIVE';
     }
@@ -467,7 +465,6 @@ export function runProject(args, options = {}) {
     '--objective-file',files.objective,'--coordinator-graph-file',selected.graph,
     '--coordinator-input-file',files.taskInput,'--coordinator-output-path',files.output,
     '--coordinator-project-root',repoCheckout,'--coordinator-workspace-root',selected.root,
-    '--coordinator-shared-root',workspace.harnessRoot,
     ...(parsed.noReview?['--no-review']:[])]);
   jobId=responseId(created,'Job create');
   if(typeof created.taskId!=='string'||! /^[1-9][0-9]*$/.test(created.taskId)||created.state!=='DRAFT')fail('Relay did not atomically create a DRAFT Coordinator Job with a numeric Task ID');

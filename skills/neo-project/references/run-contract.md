@@ -69,8 +69,7 @@ after `COMPLETED`, never as Job identity; an explicit repository override must
 match the local project name.
 It makes one `job create` call with `--coordinator-graph-file`,
 `--coordinator-input-file`, `--coordinator-output-path`,
-`--coordinator-project-root`, `--coordinator-workspace-root` and
-`--coordinator-shared-root`; Relay persists the Job and Coordinator Task in a
+`--coordinator-project-root` and `--coordinator-workspace-root`; Relay persists the Job and Coordinator Task in a
 single SQLite transaction in DRAFT state. Neo saves the private Run binding,
 verifies the Task, saves its numeric ID in the private run binding, then calls ordinary `job run --id JOB --task-id TASK_ID`
 to activate it and publish a wake event. In `--foreground` mode it instead invokes the same Relay `job run --foreground` CLI directly, without a background scheduler wait; Job binding and resumption remain unchanged. The private Run input and result

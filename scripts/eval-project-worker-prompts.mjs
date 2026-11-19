@@ -105,7 +105,6 @@ const relayCli=resolveRelayCli(root);
 function builderPrompt(c,scenarioFile,builderOutput){
  const args=[relayCli,'prompt','--eval-file',scenarioFile,'--adapter',adapter,'--output',builderOutput];
  const run=spawnSync(process.execPath,args,{cwd:projectRoot,encoding:'utf8',timeout:30000,maxBuffer:4*1024*1024,env:{...process.env,
-     AGENTS_RELAY_SHARED_ROOT:process.env.AGENTS_RELAY_SHARED_ROOT ?? workspace.harnessRoot,
      AGENTS_RELAY_WORKSPACE_ROOT:process.env.AGENTS_RELAY_WORKSPACE_ROOT ?? workspace.neoRoot,
      AGENTS_RELAY_PROMPT_REFERENCE_DIR:join(reportDir,'snapshots')}});
  if(run.status!==0||run.error)throw Error('Relay PromptBuilder failed for '+c.id+': '+(run.error?.message||run.stderr||run.stdout));

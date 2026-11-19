@@ -97,9 +97,9 @@ project/
 ```
 
 A local Agent without explicit inheritance must not execute an unrelated
-same-named shared Shortcut. `extends: shared/visioner` may intentionally
-inherit a differently named installed shared base Agent. Shared Agents and
-Skills ship with the managed Harness package, not via a sibling Git checkout.
+same-named workspace Shortcut. `extends: visioner` resolves the named General
+Agent from the configured workspace, including in an isolated Job worktree.
+An absolute Markdown path is also supported. No additional root is required.
 
 ## Escalation and optional Review integration
 
