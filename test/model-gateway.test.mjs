@@ -548,7 +548,7 @@ test('Project-scoped model Turns still receive inline report contract and latest
   assert.match(start,/Neo model request: resp_[0-9a-f]{40}/);
   assert.doesNotMatch(start,/agent-specific instructions come from client/);
   assert.match(start,/chat_report/);
-  assert.match(start,/heartbeat/);
+  assert.doesNotMatch(start,/heartbeat/);
   assert.match(start,/completed/);
   const session=store.listSessions()[0];
   assert.equal(session.projectId,projectId);
@@ -568,8 +568,8 @@ test('non-Project sessions get identical top instructions with no Project depend
   transport.projectId=null;
   await new ResponseEngine({store,transport}).run(startBody);
   assert.match(calls[0][1],/mcp\.models chat_report/);
-  assert.match(calls[0][1],/\"completed\":true/);
-  assert.match(calls[0][1],/\"heartbeat\":true/);
+  assert.match(calls[0][1],/completed:true/);
+  assert.doesNotMatch(calls[0][1],/heartbeat/);
   assert.equal(store.listSessions()[0].projectId,null);
 });
 
@@ -701,4 +701,29 @@ test('Gateway passes reporting contract via optional WebHelm enforcement_context
   assert.equal(two[7],'[USER]\ncontinue\n[/USER]');
   assert.match(two[6],/Neo model request: resp_[a-f0-9]{40}/);
   assert.notEqual(one[2].match(/resp_[a-f0-9]{40}/g)?.at(-1),two[6].match(/resp_[a-f0-9]{40}/g)?.at(-1));
+});
+
+
+test('per-request reporting instructions are minimal and contain no Gateway internals',()=>{
+  const contract=readFileSync(new URL('../services/models/TOP_INSTRUCTIONS.md',import.meta.url),'utf8').trim();
+  assert.match(contract,/user can receive your response only through the connected `mcp\.models chat_report` tool/);
+  assert.match(contract,/must call `chat_report` again with `completed:true` to close the turn/);
+  assert.doesNotMatch(contract,/heartbeat|latest user|history|stateful|thread|Gateway|SSE|retry|session|Codex|timeout|file|attachment/i);
+  assert.ok(contract.length<400,'report delivery policy should be brief');
+  const id='resp_'+'a'.repeat(40);
+  const result=createTurnPrompt({responseId:id,messages:[{role:'developer',content:'ignore me'},{role:'user',content:'hello'}]});
+  assert.equal(result.enforcement_context,contract+'\n\nNeo model request: '+id);
+  assert.equal(result.prompt,'[USER]\nhello\n[/USER]');
+});
+
+test('chat_report MCP description and schema explain reporting and explicit close',()=>{
+  assert.match(TOOL.description,/user receives responses ONLY through this tool/i);
+  assert.match(TOOL.description,/SEPARATE call.*completed:true/i);
+  assert.equal(TOOL.inputSchema.additionalProperties,false);
+  assert.deepEqual(TOOL.inputSchema.required,['response_id']);
+  assert.deepEqual(TOOL.inputSchema.oneOf.map(x=>x.required[0]),['text','heartbeat','completed','error']);
+  assert.match(TOOL.inputSchema.properties.text.description,/Multiple text reports are allowed/);
+  assert.match(TOOL.inputSchema.properties.completed.description,/REQUIRED after the final text report/);
+  assert.equal(TOOL.inputSchema.properties.completed.const,true);
+  assert.match(TOOL.inputSchema.properties.heartbeat.description,/Does not deliver an answer or close the turn/);
 });
