@@ -1,6 +1,6 @@
 # Interactive Neo MCP access
 
-This is a provider-neutral capability. Z.ai, DeepSeek, Claude, and other browsers with real network tools can call **Neo MCP** through the same HTTPS JSON-RPC endpoint, or the REST GET adapter when only dynamic URL fetching is available. There is no Agents Relay dependency. The exact one-line chat starter is `bootstrap with neoy.qili2.com/files/z-chat/bootstrap.md`; it explicitly requests loading `xchat-orchestrator` after verified Neo access.
+Neo supports an MCP POST interface and a separate REST GET adapter. The external web-chat bootstrap is now **provider-specific**: Z.ai uses `bootstrap with neoy.qili2.com/files/z-chat/bootstrap.md` (MCP tools only), while DeepSeek uses `bootstrap with neoy.qili2.com/files/deepseek/bootstrap.md` (REST GET only). Both require real network tools and load `xchat-orchestrator` after verified Neo access. No Relay Job is created by bootstrap.
 
 ## Issue a short-lived credential
 
@@ -27,7 +27,7 @@ Provide **only** the short-lived access token from the private file to an intera
 
 ## Verify with a real remote tool call
 
-An interactive cloud agent must use its *actual* HTTP tool, not merely output curl examples. In every independent shell call, set the token again inside that same call because some cloud tool environments do not persist shell variables. If there is no real POST tool but an actual uncached arbitrary-URL reader, follow the REST GET examples in the public bootstrap document. Not every web search or preview tool can fetch authenticated REST URLs.
+An interactive cloud agent must use its *actual* HTTP tool, not merely output curl examples. In every independent shell call, set the token again inside that same call because some cloud tool environments do not persist shell variables. Z.ai follows MCP POST. DeepSeek follows the separate REST GET instructions in its own bootstrap; do not assume a web search or preview tool can invoke dynamic REST GET URLs.
 
 For example, with `NEO_ACCESS_TOKEN` supplied privately within the same command:
 
@@ -64,6 +64,6 @@ Successful revocation removes the private file. Expiration after one hour is the
 
 The canonical general rules are `neo bootstrap` (including Global AGENTS.md, XChat Harness and the live Skill catalog). This guide describes generic OAuth and HTTPS MCP mechanics.
 
-The **provider-neutral web-chat bootstrap** lives at `docs/z-chat/bootstrap.md`, published through the existing read-only `z-chat` mount as `https://neoy.qili2.com/files/z-chat/bootstrap.md`. The legacy URL intentionally stays unchanged so users can start Z.ai, DeepSeek, or another web chat with exactly `bootstrap with neoy.qili2.com/files/z-chat/bootstrap.md`. The public document contains no credentials; the owner supplies an approved short-lived token in a separate private turn. Reading the file alone cannot confer tool access. It asks a connected agent to run Neo bootstrap on the real Neo Master, then load the discovered `xchat-orchestrator` Skill. On Neo Master, the mount is configured via `setup files mount z-chat /Users/chengli/Workspace/neo/docs/z-chat` (public read-only); verify a public unauthenticated GET when updating the file.
+Two public web-chat adapters have separate URLs and transports: **Z.ai MCP** at `docs/z-chat/bootstrap.md` → `https://neoy.qili2.com/files/z-chat/bootstrap.md`, and **DeepSeek REST GET** at `docs/deepseek/bootstrap.md` → `https://neoy.qili2.com/files/deepseek/bootstrap.md`. Keep them separate: no REST fallback in the Z.ai file and no MCP POST in the DeepSeek file. Both public documents contain no credentials, require a private owner-provided short-lived token, and after verified Neo bootstrap load the discovered `xchat-orchestrator` Skill on Neo Master. The public read-only mounts are `setup files mount z-chat /Users/chengli/Workspace/neo/docs/z-chat` and `setup files mount deepseek /Users/chengli/Workspace/neo/docs/deepseek`. A public unauthenticated GET must be verified after publishing.
 
 No remote worker should fabricate Relay source IDs or task lifecycle events in an interactive chat. No automatic refresh or permanent user session is implied.

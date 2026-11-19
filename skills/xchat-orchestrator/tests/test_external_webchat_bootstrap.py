@@ -1,59 +1,79 @@
-"""Capability checks for one-line Neo bootstrap across external web chats."""
+"""Capability contracts for separate Z.ai MCP and DeepSeek REST web chat bootstrap."""
 from pathlib import Path
-from urllib.parse import parse_qs, unquote, urlparse
+from urllib.parse import parse_qs, urlparse
 import json
 import re
 import unittest
 
 ROOT = Path(__file__).resolve().parents[3]
-DOC = (ROOT / "docs/z-chat/bootstrap.md").read_text(encoding="utf-8")
+Z = (ROOT / "docs/z-chat/bootstrap.md").read_text(encoding="utf-8")
+DEEPSEEK = (ROOT / "docs/deepseek/bootstrap.md").read_text(encoding="utf-8")
 PARENT = (ROOT / "skills/xchat-orchestrator/references/external-child-bootstrap.md").read_text(encoding="utf-8")
 OPERATOR = (ROOT / "docs/interactive-mcp-access.md").read_text(encoding="utf-8")
-START = "bootstrap with neoy.qili2.com/files/z-chat/bootstrap.md"
+Z_START = "bootstrap with neoy.qili2.com/files/z-chat/bootstrap.md"
+DEEPSEEK_START = "bootstrap with neoy.qili2.com/files/deepseek/bootstrap.md"
 
 
 class ExternalWebchatBootstrapTests(unittest.TestCase):
-    def test_single_public_bootstrap_for_z_and_deepseek(self):
-        for content in (DOC, PARENT, OPERATOR):
-            self.assertIn(START, content)
-        self.assertIn("https://chat.z.ai", DOC)
-        self.assertIn("https://chat.deepseek.com", DOC)
-        self.assertIn("https://neoy.qili2.com/files/z-chat/bootstrap.md", DOC)
-        self.assertNotIn("Z.ai \u2192 Neo Interactive Bootstrap", DOC)
+    def test_two_provider_specific_starters(self):
+        self.assertIn(Z_START, Z)
+        self.assertIn(DEEPSEEK_START, DEEPSEEK)
+        for text in (PARENT, OPERATOR):
+            self.assertIn(Z_START, text)
+            self.assertIn(DEEPSEEK_START, text)
+        self.assertIn("https://neoy.qili2.com/files/z-chat/bootstrap.md", Z)
+        self.assertIn("https://neoy.qili2.com/mcp/rest/<TOKEN>", DEEPSEEK)
 
-    def test_real_transport_fallback_not_assumed(self):
-        self.assertIn("tools/list", DOC)
-        self.assertIn("tools/call", DOC)
-        self.assertIn("https://neoy.qili2.com/mcp", DOC)
-        self.assertIn("GET https://neoy.qili2.com/mcp/rest/<TOKEN>", DOC)
-        self.assertIn("NEO_TOOL_UNAVAILABLE", DOC)
-        self.assertIn("do not support arbitrary URLs", DOC)
+    def test_z_uses_mcp_tools_only_no_rest(self):
+        self.assertIn('"method":"tools/list"', Z)
+        self.assertIn('"method":"tools/call"', Z)
+        self.assertIn("https://neoy.qili2.com/mcp", Z)
+        self.assertIn("Authorization: Bearer <TOKEN>", Z)
+        self.assertNotIn("/mcp/rest/", Z)
+        self.assertNotIn("/files/deepseek/", Z)
+        self.assertNotIn("GET-only", Z)
 
-    def test_get_url_example_encodes_real_json_tool_args(self):
-        url = re.search(r"GET (https://neoy\.qili2\.com/mcp/rest/<TOKEN>/shell\?args=\S+)", DOC)
+    def test_deepseek_uses_rest_get_only_no_mcp_post(self):
+        self.assertIn("REST GET only", DEEPSEEK)
+        self.assertIn("GET-only", DEEPSEEK)
+        self.assertIn("https://neoy.qili2.com/mcp/rest/<TOKEN>", DEEPSEEK)
+        self.assertIn("/mcp/rest/<TOKEN>/status", DEEPSEEK)
+        self.assertIn("NEO_TOOL_UNAVAILABLE", DEEPSEEK)
+        self.assertNotIn('"method":"tools/list"', DEEPSEEK)
+        self.assertNotIn('"method":"tools/call"', DEEPSEEK)
+        self.assertNotIn("Authorization: Bearer", DEEPSEEK)
+        self.assertNotIn("fallback to POST", DEEPSEEK)
+        self.assertNotRegex(DEEPSEEK, r"https://neoy\.qili2\.com/mcp(?!/rest)")
+
+    def test_deepseek_url_example_encodes_valid_shell_arguments(self):
+        url = re.search(r"https://neoy\.qili2\.com/mcp/rest/<TOKEN>/shell\?args=\S+", DEEPSEEK)
         self.assertIsNotNone(url)
-        parsed = urlparse(url.group(1))
+        parsed = urlparse(url.group(0))
         self.assertEqual(parsed.path, "/mcp/rest/<TOKEN>/shell")
-        args = json.loads(parse_qs(parsed.query)["args"][0])
-        self.assertEqual(args, {"command": "exec", "args": {"command": "neo bootstrap"}})
+        arguments = json.loads(parse_qs(parsed.query)["args"][0])
+        self.assertEqual(arguments, {"command": "exec", "args": {"command": "neo bootstrap"}})
+        self.assertIn('"command":"read"', DEEPSEEK)
+        self.assertIn('"encoding":"utf8"', DEEPSEEK)
 
-    def test_four_real_evidence_steps_and_load_skill(self):
-        self.assertIn("all four results", DOC)
-        self.assertIn("xchat-orchestrator/SKILL.md", DOC)
-        self.assertIn("discovered-absolutePath", DOC)
-        self.assertIn("NEO_BOOTSTRAP_PASS", DOC)
-        self.assertIn("NEO_BOOTSTRAP_BLOCKED", DOC)
-        self.assertIn("NEO_AUTH_REQUIRED", DOC)
+    def test_four_evidence_gates_and_discovered_skill_loading(self):
+        for text in (Z, DEEPSEEK):
+            self.assertIn("neo bootstrap", text)
+            self.assertIn("xchat-orchestrator", text)
+            self.assertIn("absolutePath", text)
+            self.assertIn("NEO_BOOTSTRAP_PASS", text)
+            self.assertIn("NEO_BOOTSTRAP_BLOCKED", text)
+            self.assertIn("NEO_AUTH_REQUIRED", text)
+            self.assertIn("Relay Job", text)
         self.assertIn("same verified child thread", PARENT)
-        self.assertIn("no Relay Job, repository binding", DOC)
-        self.assertIn("no Relay Job", DOC)
+        self.assertIn("Only after verification", PARENT)
 
-    def test_credentials_are_not_in_public_bootstrap(self):
-        self.assertIn("one-hour", DOC)
-        self.assertIn("URL-path tokens are sensitive", DOC)
+    def test_no_live_credentials_in_public_docs(self):
+        for text in (Z, DEEPSEEK):
+            self.assertIn("one-hour", text)
+            self.assertNotRegex(text, r"(?i)(?:api_key|bearer)\s*[:=]\s*sk-[a-z0-9]{16,}")
+            self.assertNotRegex(text, r"sk-[A-Za-z0-9_-]{25,}")
         self.assertIn("short-lived", PARENT)
-        self.assertIn("follow-up turn", PARENT)
-        self.assertNotRegex(DOC, r"(?i)(?:api_key|bearer)\s*[:=]\s*sk-[a-z0-9]{16,}")
+        self.assertIn("second private turn", PARENT)
 
 
 if __name__ == "__main__":
