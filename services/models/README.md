@@ -123,3 +123,19 @@ node --test test/model-gateway.test.mjs
 
 The local Codex profile remains `~/.codex/neo.config.toml`, with `model=neo`
 and `base_url=http://127.0.0.1:8769/v1` on Neo Master.
+
+### URL-prefilled ChatGPT submission
+
+The Neo Models Gateway uses WebHelm's `new-thread` and `new-turn` Actions to
+open `https://chatgpt.com/?prompt=...` or `/c/<thread_id>?prompt=...`. The
+Actions observe navigation and the Send/Stop controls, click Send **once** when
+needed, and require verified delivery. No rich-editor manipulation, injected
+structured `@Neo` mention, explicit model selection, or Thinking override is
+part of the default route. `NEO_MODEL_APP_MENTION` is an explicit opt-in to
+structured App selection; the WebHelm Action handles this separately.
+
+**Release gate:** verify in a real Codex/ChatGPT thread that the connected
+Events Bus publish tool remains accessible when no structured App mention is
+provided. Do not assume a passing URL navigation test alone proves model
+completion; every model turn still requires independent `reply.completed`.
+Do not use a dedicated Neo Models browser Tab Group.
