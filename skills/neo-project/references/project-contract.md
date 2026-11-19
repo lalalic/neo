@@ -72,6 +72,10 @@ Name the same responsibility consistently across Projects: `director` owns creat
 
 Use the **unprefixed role name** when it has one prompt/contract in a Project. **Only when two named DAGs in the same Project use the same base role with different prompts or contracts**, qualify each local Agent as `<dag>-<role>` (for example, `growth-director` and `promotion-director`). Do not add prefixes to unrelated roles or to distinguish Projects; DAG labels are local implementation scope, not different professions. Keep `graph.mmd`, `agents/<name>.agent.md` frontmatter, Script/Shortcut resolution, review-stage keys and evals aligned. Preserve old Agent identities only for pre-existing pinned Jobs and review history during a rename; do not change artifact names or ownership merely to rename a role.
 
+### Project-owned source presets
+
+A `neo project run --source NAME` flag is a reusable selector, **not** an XHS or any platform-specific core feature. Project `project.run.json` owns `sources.<name> = {dag, config, runFile}` and chooses its discovery-enabled DAG; the config JSON is staged privately under the Run using the project-declared `runFile`. The first Agent owns actual source research and evidence, and cannot infer rights or publishing approval. Validate the chosen config/path before any Run creation or Relay dispatch. Never add project-specific names to Neo's CLI parser; never change an existing bound Run's source. See [Run contract](run-contract.md).
+
 ### Reusable media roles and Editor Decisions
 
 Neo's shared `agents/visioner.agent.md`, `agents/editor.agent.md` and `agents/publisher.agent.md` define the three media roles. Project-local variants **extend the corresponding shared Agent** (`extends: shared/visioner`, `extends: shared/editor`, `extends: shared/publisher`), preserving their local name, domain-specific artifacts, rights and permissions. Do not copy the base prompt into each Project, or confuse software `release` with video/content `publisher`. A project may select other Agency Agents expertise for its own domain, but the shared Neo Editor owns universal film-editing duties.

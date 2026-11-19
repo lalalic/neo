@@ -136,3 +136,21 @@ Legacy watchers and project-local Planner Jobs continue to follow their existing
 ### Creative variant revisions
 
 Creative variants follow the same Run `.gitignore` boundary: text and QA files under `creatives/` are committed unless ignored; media and private data should be ignored in the project-owned Run template. There is no special `trackedArtifacts` pattern list. Existing Runs retain their own immutable `.gitignore` and local Git history; template changes never silently overwrite them.
+
+## Project-owned source selection (`--source`)
+
+`neo project run --project NAME --source SOURCE` is a **generic Neo CLI selector**, not a Neo-integrated XHS/TikTok provider. The independent project's `project.run.json` declares each supported named source and its chosen discovery DAG, JSON config and Run-local brief filename:
+
+```json
+{
+  "sources": {
+    "example-collection": {
+      "dag": "growth",
+      "config": "config/example-collection.json",
+      "runFile": "growth-source-brief.json"
+    }
+  }
+}
+```
+
+The selected DAG must declare `dagInputs.<dag>.type=discovery`. Neo validates the source name, project-relative config path and JSON *before* creating a Run. It stages the configured JSON as the declared private, 0600 Run file and records the source name/brief in `source-reference.json`; the first Agent follows the brief, rather than generic discovery. No source-provider specifics belong in the CLI. `--source` is for **new** Runs and cannot combine with `--url` or `--path`; a bound Run remains source-immutable. A previously unbound, partially staged Run can resume via `--path` only if its recorded source and private brief exactly match the current declared config. `--dry-run` validates selection without creating files, jobs or platform side effects. Missing source declaration, mismatched DAG, unsafe config or disabled discovery fail closed. Source selection does not grant license, upload permission or publishing authorization.

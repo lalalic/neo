@@ -20,7 +20,7 @@ function parseOptions(args) {
     if (raw === '--dry-run') { if (result.dryRun) fail('--dry-run may be specified only once'); result.dryRun = true; continue; }
     if (raw === '--foreground') { if (result.foreground) fail('--foreground may be specified only once'); result.foreground = true; continue; }
     if (raw === '--no-review') { if (result.noReview) fail('--no-review may be specified only once'); result.noReview = true; continue; }
-    const match = /^(--(?:url|path|project|title|dag))(?:=(.*))?$/.exec(raw);
+    const match = /^(--(?:url|path|project|title|dag|source))(?:=(.*))?$/.exec(raw);
     if (!match) fail(`unknown project run option: ${raw}`);
     const key = match[1].slice(2);
     const value = match[2] ?? args[++i];
@@ -31,6 +31,7 @@ function parseOptions(args) {
   if (result.help) return result;
   if (!result.project) fail('project run requires --project NAME');
   if (result.url !== undefined && result.path !== undefined) fail('project run accepts only one of --url URL or --path PATH');
+  if (result.source !== undefined && (result.url !== undefined || result.path !== undefined)) fail('--source selects a new discovery Run and cannot be combined with --url or --path');
   if (result.foreground && result.dryRun) fail('--foreground cannot be combined with --dry-run');
   if (result.noReview && (result.project !== 'vlog' || result.path === undefined)) fail('--no-review is only supported for a private canonical Vlog run');
   if (result.title !== undefined && (!result.title.trim() || result.title.trim().length > 120 || /[\x00-\x1f\x7f]/.test(result.title))) fail('--title requires 1–120 printable characters');
@@ -80,6 +81,51 @@ export function selectProjectGraph(selected, requestedDag, runDir) {
   try { graph = realpathSync(join(selected.project, file)); } catch { fail('project DAG file does not exist: ' + file); }
   if (!isWithin(selected.project, graph) || !statSync(graph).isFile()) fail('project DAG escapes project directory');
   return { dag, graph };
+}
+
+/** A source is a project-declared preset, not a Neo-owned provider integration.
+ * The project decides the DAG, source brief location and Run-local filename.
+ * Resolve and validate before creating a Run or contacting Relay. */
+export function resolveProjectSource(selected, name) {
+  if (typeof name !== 'string' || !/^[a-z][a-z0-9-]*$/.test(name)) fail('invalid --source identifier');
+  const sources = selected.declaration.sources;
+  if (!sources || typeof sources !== 'object' || Array.isArray(sources) || !Object.hasOwn(sources, name))
+    fail('unknown or unconfigured project source: ' + name);
+  const entry = sources[name];
+  if (!entry || typeof entry !== 'object' || Array.isArray(entry) ||
+      typeof entry.dag !== 'string' || !/^[a-z][a-z0-9-]*$/.test(entry.dag) ||
+      typeof entry.config !== 'string' || !/^config\/[a-zA-Z0-9][a-zA-Z0-9._/-]*\.json$/.test(entry.config) ||
+      entry.config.split('/').includes('..') || entry.config.split('/').includes('.') ||
+      typeof entry.runFile !== 'string' || !/^[a-z][a-z0-9-]*\.json$/.test(entry.runFile) ||
+      ['source-reference.json','review-stages.json','review-mode.json','source-manifest.json','fixture-policy.json','campaign.json','neo-project-run.result.json'].includes(entry.runFile))
+    fail('invalid project source declaration: ' + name);
+  let actual;
+  try { actual = realpathSync(join(selected.project, entry.config)); }
+  catch { fail('project source config not found: ' + entry.config); }
+  if (!isWithin(selected.project, actual) || !statSync(actual).isFile()) fail('project source config escapes project: ' + entry.config);
+  let brief;
+  try { const raw = readFileSync(actual, 'utf8'); if (Buffer.byteLength(raw) > 128*1024) fail('project source config is too large'); brief = JSON.parse(raw); }
+  catch (error) { fail('invalid project source config: ' + error.message); }
+  if (!brief || typeof brief !== 'object' || Array.isArray(brief) || brief.schemaVersion !== 1)
+    fail('project source config must be a JSON object with schemaVersion 1');
+  return { id:name, dag:entry.dag, config:entry.config, runFile:entry.runFile, brief };
+}
+
+/** An unbound Run may recover the exact chosen source after a failed Relay create.
+ * A bound Run is immutable and does not reselect its source. */
+function recoverUnboundSource(selected, runDir) {
+  if (!runDir || existsSync(join(runDir, bindingName))) return null;
+  const path = join(runDir, 'source-reference.json');
+  if (!existsSync(path)) return null;
+  let recorded;
+  try { recorded = JSON.parse(readFileSync(path, 'utf8')); }
+  catch { fail('unbound run has unreadable source-reference.json'); }
+  if (!recorded || typeof recorded !== 'object' || Array.isArray(recorded)) fail('invalid unbound source-reference.json');
+  if (!Object.hasOwn(recorded, 'source')) return null;
+  const chosen = resolveProjectSource(selected, recorded.source);
+  if (recorded.kind !== 'discovery' || recorded.sourceBrief !== chosen.runFile)
+    fail('unbound source Run evidence disagrees with project source declaration');
+  return chosen;
 }
 
 /** A readable, non-sensitive title. In URL mode use only the generated Run
@@ -138,7 +184,7 @@ function writePrivate(file, content) {
   chmodSync(file, 0o600);
 }
 
-function initializeRun(runDir, projectName, input, sourceUrl, publicationReview = null, noReview = false, discovery = false, stageReviewAgents = null) {
+function initializeRun(runDir, projectName, input, sourceUrl, publicationReview = null, noReview = false, discovery = false, stageReviewAgents = null, chosenSource = null) {
   const evidence = join(runDir, 'source-reference.json');
   const objective = join(runDir, 'neo-project-run.objective.md');
   const taskInput = join(runDir, 'neo-project-run.input.md');
@@ -176,9 +222,7 @@ function initializeRun(runDir, projectName, input, sourceUrl, publicationReview 
       Object.entries(expected).some(([key, value]) => saved[key] !== value)) fail('existing run binding does not match this request');
     return { ...expected, binding, saved };
   }
-  for (const file of [evidence, objective, taskInput, output]) if (existsSync(file)) fail(`run already contains ${basename(file)}; refusing to overwrite`);
-  const data = { schemaVersion: 1, project: projectName, kind: discovery ? 'discovery' : sourceUrl ? 'url-reference' : 'canonical-run', ...(discovery ? {} : sourceUrl ? { sourceUrl } : { sourceRunPath: input }) };
-  writePrivate(evidence, `${JSON.stringify(data, null, 2)}\n`);
+  const data = { schemaVersion: 1, project: projectName, kind: discovery ? 'discovery' : sourceUrl ? 'url-reference' : 'canonical-run', ...(discovery ? {} : sourceUrl ? { sourceUrl } : { sourceRunPath: input }), ...(chosenSource ? {source: chosenSource.id, sourceBrief: chosenSource.runFile} : {}) };
   const creativeOnly = publicationReview === 'separate';
   const vlogPublisher = projectName === 'vlog' && publicationReview === 'publisher-explicit-authorization';
   const reviewStagesFile = (projectName === 'vlog' || Array.isArray(stageReviewAgents)) ? join(runDir, 'review-stages.json') : null;
@@ -202,13 +246,35 @@ function initializeRun(runDir, projectName, input, sourceUrl, publicationReview 
   const publishingPolicy = vlogPublisher
     ? `${requestedReviews.length ? 'Requested stages must perform the interactive review in review-stages.json.' : 'Default: no human interactive review.'} No specialist Final Review or separate Final QA Task. Editor must run Markcut verify and noninteractive source/asset checks (no real viewer required); Producer verifies and renders, with human Preview only on explicit request. Publisher uses WeChat Channels/XHS only with explicit per-video, per-platform and signed-in account authorization; otherwise SKIPPED, and Publisher itself has no review.`
     : null;
-  const discoveryDirective = discovery ? 'Discovery input: no source URL was supplied. First Agent must independently search public trending videos using the project research brief. A reference video is NOT licensed source media. Do not infer permission to reupload or publish.' : '';
+  const discoveryDirective = chosenSource
+    ? `Selected project source: ${chosenSource.id}. The Run-local ${chosenSource.runFile} is the authoritative source brief. The first Agent must follow that brief instead of the default discovery strategy; it must validate genuine source evidence and HOLD when unavailable. A source reference is not a license or permission to publish.`
+    : discovery ? 'Discovery input: no source URL was supplied. First Agent must independently search public trending videos using the project research brief. A reference video is NOT licensed source media. Do not infer permission to reupload or publish.' : '';
   const objectiveText = `Run the ${projectName} project workflow for the selected private canonical run.\n\nRead the run input at ${taskInput} and its source evidence at ${evidence}. ${discoveryDirective} ${publishingPolicy || (creativeOnly ? 'Perform Stage contract validation/self-heal; a separate workflow owns all publication/license/use audits. Do not publish.' : 'Apply project source-use, review and publication gates. Do not infer permission or publish.')}\n`;
   const taskText = `Process this selected Neo Project run.\n\n- Project: ${projectName}\n- Canonical run: ${runDir}\n- Private input evidence: ${evidence}\n\nUse the project contract and existing Agent Graph. Preserve existing run files. ${discoveryDirective} ${publishingPolicy || (creativeOnly ? 'Do not perform licensing or rights checks in creative Stages; publication review is separate.' : 'Source references do not establish rights or publication permission.')}\n`;
   const instruction = noReview ? '\nPRIVATE RENDER TEST ONLY: honor review-mode.json. SKIP human Preview and specialist review entirely, never call review/notify, render a real MP4, check playback, mark review UNREVIEWED/NOT_RUN, force Publisher SKIPPED, prohibit publication.\n' :
     requestedReviewPolicy ? `\n${requestedReviewPolicy}\n` : '';
-  writePrivate(objective, objectiveText + instruction);
-  writePrivate(taskInput, taskText + instruction);
+  if (chosenSource) {
+    // The selected preset and its private source evidence must remain identical on
+    // an unbound Run retry; never replace a changed brief after Relay create fails.
+    const staged = [
+      [join(runDir, chosenSource.runFile), `${JSON.stringify(chosenSource.brief, null, 2)}\n`],
+      [evidence, `${JSON.stringify(data, null, 2)}\n`],
+      [objective, objectiveText + instruction], [taskInput, taskText + instruction]
+    ];
+    if (existsSync(output)) fail('source Run already has an unbound Coordinator result');
+    for (const [file, expected] of staged) if (existsSync(file)) {
+      const stat = lstatSync(file);
+      if (!stat.isFile() || stat.isSymbolicLink() || (stat.mode & 0o077) !== 0 ||
+          readFileSync(file, 'utf8') !== expected)
+        fail(`run already contains different or insecure ${basename(file)}; refusing to overwrite`);
+    }
+    for (const [file, expected] of staged) if (!existsSync(file)) writePrivate(file, expected);
+  } else {
+    for (const file of [evidence, objective, taskInput, output]) if (existsSync(file)) fail(`run already contains ${basename(file)}; refusing to overwrite`);
+    writePrivate(evidence, `${JSON.stringify(data, null, 2)}\n`);
+    writePrivate(objective, objectiveText + instruction);
+    writePrivate(taskInput, taskText + instruction);
+  }
   return { evidence, objective, taskInput, output, binding, saved: null };
 }
 
@@ -276,7 +342,12 @@ export function runProject(args, options = {}) {
   let url, runDir;
   if (isUrl) url = validateUrl(parsed.url, selected.declaration);
   if (isPath) runDir = validateRunPath(parsed.path, selected);
-  const graphChoice = selectProjectGraph(selected, parsed.dag, runDir);
+  const chosenSource = parsed.source !== undefined
+    ? resolveProjectSource(selected, parsed.source)
+    : isPath ? recoverUnboundSource(selected, runDir) : null;
+  const graphChoice = selectProjectGraph(selected, parsed.dag ?? chosenSource?.dag, runDir);
+  if (chosenSource && graphChoice.dag !== chosenSource.dag)
+    fail(`source ${chosenSource.id} is declared for DAG ${chosenSource.dag}, not ${graphChoice.dag}`);
   selected.graph = graphChoice.graph;
   const reviewable = selected.declaration.reviewableDags?.[graphChoice.dag];
   if (reviewable !== undefined && (!Array.isArray(reviewable) ||
@@ -291,6 +362,7 @@ export function runProject(args, options = {}) {
   const isDiscovery = !isUrl && !isPath;
   if (isDiscovery && !discoveryAllowed)
     fail('project run requires --url URL or --path PATH unless the selected DAG declares discovery input');
+  if (chosenSource && !discoveryAllowed) fail('project source requires a discovery-enabled DAG');
   if (isPath && selected.declaration.input.type === 'url' && !existsSync(join(runDir, bindingName))) {
     // Prepared promotion runs must have original evidence; a prepared discovery run
     // may be source-free but still requires an explicit project opt-in.
@@ -312,7 +384,7 @@ export function runProject(args, options = {}) {
   if (parsed.dryRun) {
     const date = (options.now ?? new Date()).toISOString().slice(0, 10);
     const preview = runDir ?? join(selected.project, 'runs', `${date}-${isDiscovery ? 'discovery' : 'source'}-<unique>`);
-    (options.emit ?? (text => process.stdout.write(text)))(`${JSON.stringify({ project: parsed.project, ...(graphChoice.dag ? { dag: graphChoice.dag } : {}), runPath: preview, inputType: isDiscovery ? 'discovery' : isUrl ? 'url' : 'path', dryRun: true })}\n`);
+    (options.emit ?? (text => process.stdout.write(text)))(`${JSON.stringify({ project: parsed.project, ...(graphChoice.dag ? { dag: graphChoice.dag } : {}), runPath: preview, inputType: isDiscovery ? 'discovery' : isUrl ? 'url' : 'path', ...(chosenSource ? {source:chosenSource.id, sourceBrief:chosenSource.runFile} : {}), dryRun: true })}\n`);
     return 0;
   }
   if (isUrl || isDiscovery) {
@@ -329,8 +401,21 @@ export function runProject(args, options = {}) {
   const preparedDiscovery = isPath && discoveryAllowed && !existsSync(join(runDir, bindingName)) &&
     !existsSync(join(runDir, 'campaign.json'));
   const files = initializeRun(runDir, parsed.project, isPath ? runDir : undefined, isUrl ? parsed.url : undefined,
-    selected.declaration.publicationReview, parsed.noReview === true, isDiscovery || preparedDiscovery, reviewable);
+    selected.declaration.publicationReview, parsed.noReview === true, isDiscovery || preparedDiscovery, reviewable, chosenSource);
   ensureRunGit(runDir, runGit);
+  const activeSourceId = chosenSource?.id ?? files.saved?.source;
+  if (files.saved?.source) {
+    let evidence;
+    try { evidence = JSON.parse(readFileSync(files.evidence, 'utf8')); }
+    catch { fail('bound Run has unreadable source evidence'); }
+    if (evidence?.source !== files.saved.source || typeof evidence.sourceBrief !== 'string' ||
+        !/^[a-z][a-z0-9-]*\.json$/.test(evidence.sourceBrief))
+      fail('bound Run source evidence does not match source binding');
+    const brief = join(runDir,evidence.sourceBrief);
+    if (!existsSync(brief) || lstatSync(brief).isSymbolicLink() || !statSync(brief).isFile() ||
+        (statSync(brief).mode & 0o077) !== 0)
+      fail('bound Run source brief is missing or insecure');
+  }
   const repo = repoId;
   const invoke = args => relayInvocation(relayOptions,args);
   const foreground = (jobId, taskId) => {
@@ -353,7 +438,7 @@ export function runProject(args, options = {}) {
     verifyBoundTask(task,files,selected.graph);
     let state=job.state;
     if(parsed.foreground && (state==='DRAFT'||state==='ACTIVE')){
-      (options.emit??(value=>process.stdout.write(value)))(JSON.stringify({project:parsed.project,...(graphChoice.dag ? { dag: graphChoice.dag } : {}),runPath:runDir,jobId,taskId,status:state,foreground:true})+'\n');
+      (options.emit??(value=>process.stdout.write(value)))(JSON.stringify({project:parsed.project,...(graphChoice.dag ? { dag: graphChoice.dag } : {}),...(activeSourceId ? { source:activeSourceId } : {}),runPath:runDir,jobId,taskId,status:state,foreground:true})+'\n');
       foreground(jobId,taskId);
       return 0;
     }
@@ -365,7 +450,7 @@ export function runProject(args, options = {}) {
       state='ACTIVE';
     }
     if(!['ACTIVE','COMPLETED'].includes(state))fail('Bound Job is not active or completed: '+state);
-    (options.emit??(value=>process.stdout.write(value)))(JSON.stringify({project:parsed.project,...(graphChoice.dag ? { dag: graphChoice.dag } : {}),
+    (options.emit??(value=>process.stdout.write(value)))(JSON.stringify({project:parsed.project,...(graphChoice.dag ? { dag: graphChoice.dag } : {}),...(activeSourceId ? { source:activeSourceId } : {}),
       runPath:runDir,jobId,taskId,status:state,...(state==='COMPLETED'?{reused:true}:{})})+'\n');
     return 0;
   };
@@ -387,13 +472,13 @@ export function runProject(args, options = {}) {
   jobId=responseId(created,'Job create');
   if(typeof created.taskId!=='string'||! /^[1-9][0-9]*$/.test(created.taskId)||created.state!=='DRAFT')fail('Relay did not atomically create a DRAFT Coordinator Job with a numeric Task ID');
   const taskId=created.taskId;
-  const binding={schemaVersion:1,project:parsed.project,...(graphChoice.dag ? { dag: graphChoice.dag } : {}),runPath:runDir,jobId,taskId,
+  const binding={schemaVersion:1,project:parsed.project,...(graphChoice.dag ? { dag: graphChoice.dag } : {}),...(activeSourceId ? { source:activeSourceId } : {}),runPath:runDir,jobId,taskId,
     repository:repo,evidence:files.evidence,objective:files.objective,taskInput:files.taskInput,output:files.output};
   writePrivate(files.binding,JSON.stringify(binding,null,2)+'\n');
   return startBound(jobId,taskId);
 }
 
-export const projectRunHelp=`Usage: neo project run [--url HTTPS_URL | --path ABSOLUTE_RUN_DIR] --project NAME [--dag NAME] [--title TEXT] [--dry-run] [--foreground] [--no-review]
+export const projectRunHelp=`Usage: neo project run [--url HTTPS_URL | --path ABSOLUTE_RUN_DIR] --project NAME [--dag NAME] [--source NAME] [--title TEXT] [--dry-run] [--foreground] [--no-review]
 
 Creates one ordinary DRAFT Relay Job and its durable Coordinator DAG Task in
 a single SQLite transaction, binds this private Run, then activates the Job
@@ -411,6 +496,8 @@ Options accept --name value or --name=value in any order.
 --title     Human Job title (creation only, 1–120 printable characters)
 --dag       Named DAG from project.run.json graphs (defaultDag used when omitted)
             A DAG declaring dagInputs.<name>.type=discovery may start without a URL.
+--source    Project-declared source preset for a new discovery Run (sources in project.run.json).
+            Project selects the DAG, private brief filename and config. Cannot combine with --url or --path.
 --dry-run   Validate and preview without writes or Relay calls
 --foreground Run the Coordinator DAG immediately in this terminal, streaming Task events until completion
 --no-review Private Vlog render test only: approved source-use required,
