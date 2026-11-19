@@ -48,6 +48,8 @@ def validate_response(state, marker, started_ms, answer, expected_reports):
         raise RuntimeError(f'{marker} output text did not match expected answer')
     if not session.get('threadId'):
         raise RuntimeError(f'{marker} did not produce a durable ChatGPT Thread')
+    if not session.get('codexThreadId'):
+        raise RuntimeError(f'{marker} did not persist a Codex Thread ID mapping')
     return session, response
 
 
@@ -65,6 +67,9 @@ def codex_exec(label, prompt, expected, config, state, cwd, folder, started_ms, 
     if not any(x.get('type') == 'turn.completed' for x in events) or expected not in answer_events:
         raise RuntimeError(f'{label} Codex did not report final exact answer and turn.completed')
     session, response = validate_response(state, label, started_ms, expected, expected_reports)
+    codex_ids = [x.get('thread_id') for x in events if x.get('type') == 'thread.started']
+    if len(codex_ids) != 1 or codex_ids[0] != session['codexThreadId']:
+        raise RuntimeError(f'{label} Codex CLI Thread ID does not match persisted Gateway mapping')
     return {'codex_completed': True, 'model_status': response['status'],
             'reports': len(expected_reports), 'session': session['id'], 'thread': session['threadId']}
 
@@ -115,8 +120,8 @@ def native_two_turns(config, state, cwd, folder, started_ms, nonce):
                     s2, r2 = second
                     if r1.get('reports') != [a1] or r2.get('reports') != [a2]:
                         raise RuntimeError('Native Codex TUI reports did not match the expected autonomous responses')
-                    if s1['id'] != s2['id'] or s1.get('threadId') != s2.get('threadId'):
-                        raise RuntimeError('Native Codex TUI did not reuse Gateway session / ChatGPT Thread')
+                    if s1['id'] != s2['id'] or s1.get('threadId') != s2.get('threadId') or s1.get('codexThreadId') != s2.get('codexThreadId'):
+                        raise RuntimeError('Native Codex TUI did not reuse Gateway session / Codex Thread / ChatGPT Thread')
                     return {'codex_completed': True, 'same_session': True, 'same_thread': True,
                             'session':s1['id'], 'thread':s1['threadId']}
             raise RuntimeError('Native TUI did not finish two turns: '+str({

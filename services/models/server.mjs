@@ -63,14 +63,24 @@ export function createModelServer({token,store=new ModelStore(),transport=new We
     try{body=await bodyJSON(req)}catch(e){return json(res,400,{error:{message:e.message,type:'invalid_request_error'}})}
     if(chatPath)body={...body,input:body.messages};
     if(body.model!=='neo')return json(res,400,{error:{message:'unsupported model (use neo)'}});
+    // Codex sends a stable conversation identity on Responses HTTP requests.
+    // Thread ID (not cache/session ID, and never transcript text) owns routing.
+    const headerIds=[req.headers['thread-id'],req.headers.thread_id].filter(Boolean);
+    if(headerIds.length>1&&headerIds.some(id=>id!==headerIds[0]))
+      return json(res,400,{error:{message:'conflicting Codex Thread headers',type:'invalid_request_error'}});
+    const codexThreadId=headerIds[0]??null;
+    if(codexThreadId&&!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(codexThreadId))
+      return json(res,400,{error:{message:'invalid Codex Thread header',type:'invalid_request_error'}});
+    if(!codexThreadId&&(req.headers['session-id']||req.headers.session_id))
+      return json(res,400,{error:{message:'Codex Thread ID required; session-id is not a Thread identity',type:'invalid_request_error'}});
     if(responsesPath&&!body.stream){
       let started=false;
-      void engine.run(body,{onStarted:response=>{started=true;json(res,response.status==='completed'?200:202,toPublic(response));}})
+      void engine.run(body,{codexThreadId,onStarted:response=>{started=true;json(res,response.status==='completed'?200:202,toPublic(response));}})
         .catch(e=>{if(!started&&!res.headersSent)json(res,400,{error:{message:e.message,type:'model_error'}})});
       return;
     }
     if(chatPath&&!body.stream){
-      try{return json(res,200,chatCompletion(await engine.run(body)))}
+      try{return json(res,200,chatCompletion(await engine.run(body,{codexThreadId})))}
       catch(e){return json(res,502,{error:{message:e.message,type:'model_error'}})}
     }
     sse(res);
@@ -103,7 +113,7 @@ export function createModelServer({token,store=new ModelStore(),transport=new We
     };
     const keepalive=setInterval(()=>send(': keepalive\n\n'),12000);
     try{
-      const result=await engine.run(body,{onStarted:r=>{
+      const result=await engine.run(body,{codexThreadId,onStarted:r=>{
         startedResponseId=r.id;
         if(responsesPath)responsesWriter.start(toPublic(r));
         watcher=setInterval(pump,100);
