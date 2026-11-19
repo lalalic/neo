@@ -2,19 +2,60 @@ import {key,assertInput,isPrefix,materializeImages,compact,signature} from './in
 import {join} from 'node:path';
 import {createTurnPrompt} from './prompt.mjs';
 const event=(type,obj)=>`event: ${type}\ndata: ${JSON.stringify({type,...obj})}\n\n`;
-export function streamResponse(response){
-  let sequence_number=0;
-  const evt=(type,data)=>event(type,{sequence_number:sequence_number++,...data});
-  const start={...response,status:'in_progress',output:[]};let s=evt('response.created',{response:start})+evt('response.in_progress',{response:start});
-  for(const [i,item] of response.output.entries()){
-    s+=evt('response.output_item.added',{output_index:i,item:{id:item.id,type:'message',status:'in_progress',role:'assistant',content:[]}});
-    s+=evt('response.content_part.added',{output_index:i,content_index:0,item_id:item.id,part:{type:'output_text',text:'',annotations:[]}});
-    s+=evt('response.output_text.delta',{output_index:i,content_index:0,item_id:item.id,delta:item.content[0].text});
-    s+=evt('response.output_text.done',{output_index:i,content_index:0,item_id:item.id,text:item.content[0].text});
-    s+=evt('response.content_part.done',{output_index:i,content_index:0,item_id:item.id,part:item.content[0]});
-    s+=evt('response.output_item.done',{output_index:i,item});
+
+// Reports are independent output_text deltas of one assistant message.
+// SSE sequence numbers remain continuous across live reports and completion.
+export class ResponseSseWriter {
+  constructor(write){this.write=write;this.sequence=0;this.sentReports=0;this.itemStarted=false;this.started=false;this.terminal=false;}
+  emit(type,fields){this.write(event(type,{sequence_number:this.sequence++,...fields}));}
+  start(response){
+    if(this.started)return;
+    this.started=true;
+    const {sessionId,reports,...publicResponse}=response;
+    const start={...publicResponse,status:'in_progress',output:[]};
+    this.emit('response.created',{response:start});
+    this.emit('response.in_progress',{response:start});
   }
-  return s+evt('response.completed',{response});
+  update(response){
+    if(this.terminal)return true;
+    this.start(response);
+    const {sessionId,reports,...publicResponse}=response;
+    const item=publicResponse.output?.[0];
+    if(item&&!this.itemStarted){
+      this.emit('response.output_item.added',{output_index:0,item:{id:item.id,type:'message',status:'in_progress',role:'assistant',content:[]}});
+      this.emit('response.content_part.added',{output_index:0,content_index:0,item_id:item.id,part:{type:'output_text',text:'',annotations:[]}});
+      this.itemStarted=true;
+    }
+    // Every MCP text call is an independently reported SSE delta, even when
+    // more than one report arrives between two Gateway polling intervals.
+    const chunks=Array.isArray(reports)?reports:(item?[item.content[0].text]:[]);
+    for(let i=this.sentReports;i<chunks.length;i++){
+      this.emit('response.output_text.delta',{output_index:0,content_index:0,item_id:item.id,
+        delta:(i?'\n':'')+chunks[i]});
+      this.sentReports=i+1;
+    }
+    if(response.status==='completed'){
+      if(item){
+        this.emit('response.output_text.done',{output_index:0,content_index:0,item_id:item.id,text:item.content[0].text});
+        this.emit('response.content_part.done',{output_index:0,content_index:0,item_id:item.id,part:item.content[0]});
+        this.emit('response.output_item.done',{output_index:0,item});
+      }
+      this.emit('response.completed',{response:publicResponse});this.terminal=true;
+    }else if(response.status==='failed'){
+      this.emit('response.failed',{response:publicResponse});this.terminal=true;
+    }
+    return this.terminal;
+  }
+  fail(error,id){
+    if(this.terminal)return;
+    this.emit('response.failed',{response:{id,object:'response',status:'failed',error:{type:'transport_error',message:error.message}}});
+    this.terminal=true;
+  }
+}
+export function streamResponse(response){
+  let data='';const writer=new ResponseSseWriter(chunk=>data+=chunk);
+  writer.update(response);
+  return data;
 }
 export function failureStream(error,id){return event('response.failed',{sequence_number:1,response:{id,object:'response',status:'failed',error:{type:'transport_error',message:error.message}}});}
 export class ResponseEngine {
@@ -61,31 +102,38 @@ export class ResponseEngine {
       let imageIndex=0;
       const input=requestMessages.map(m=>({role:m.role,content:m.text,images:m.images.map(()=>({file:files[imageIndex++]}))}));
       const {prompt}=createTurnPrompt({responseId,messages:input});
-      let text;
+      if(!this.transport.waitForResult)throw Error('model transport requires explicit chat_report completion');
       if(!session.threadId){
         const receipt=await this.transport.newThread(prompt);
         if(!receipt?.thread_id)throw Error('new-thread did not return a verified thread ID');
-        session.threadId=receipt.thread_id;session.threadUrl=receipt.thread_url;
-        session.status='awaiting';this.store.putSession(session);
-        text=this.transport.waitForResult?await this.transport.waitForResult(responseId,this.store):
-          await this.transport.readAnswer(session.threadUrl);
+        const live=this.store.session(session.id);
+        live.threadId=receipt.thread_id;live.threadUrl=receipt.thread_url;
+        live.status=this.store.response(responseId)?.status==='completed'?'idle':'awaiting';
+        this.store.putSession(live);
       }else{
-        session.status='awaiting';this.store.putSession(session);
-        const receipt=await this.transport.newTurn(session.threadId,prompt,[],responseId);
-        text=this.transport.waitForResult?await this.transport.waitForResult(responseId,this.store):receipt;
+        const live=this.store.session(session.id);
+        live.status='awaiting';this.store.putSession(live);
+        await this.transport.newTurn(session.threadId,prompt,[],responseId);
       }
-      if(typeof text!=='string'||!text.trim())throw Error('empty assistant answer');
-      const item={id:'msg_'+key(),type:'message',status:'completed',role:'assistant',content:[{type:'output_text',text,annotations:[]}]};
-      response.status='completed';response.output=[item];this.store.putResponse(response);
-      session.status='idle';
-      const prior=(!isPrefix(condensed,session.history)&&(body.previous_response_id||hint))?session.history:[];
-      session.history=[...prior,...condensed,{role:'assistant',text,images:[]}];this.store.putSession(session);
-      return response;
+      // Text reports leave status=in_progress. Only a distinct completed:true
+      // report makes the waiter settle and allows this Turn to end.
+      await this.transport.waitForResult(responseId,this.store);
+      const completed=this.store.response(responseId);
+      if(completed?.status!=='completed')throw Error('Turn is missing explicit completion');
+      return completed;
     }catch(e){
-      response.status='failed';response.error={type:'transport_error',message:e.message};this.store.putResponse(response);
+      // Preserve every previously reported item; an error after partial output
+      // must not overwrite the journal with the original empty response.
+      const latest=this.store.response(responseId);
+      if(latest?.status==='completed')return latest;
+      if(latest?.status==='in_progress'){
+        latest.status='failed';latest.error={type:'transport_error',message:e.message};
+        this.store.putResponse(latest);
+      }
       // Browser delivery may have succeeded despite a receipt failure.
       // Never retry a submitted turn automatically, even after process restart.
-      session.status='uncertain';this.store.putSession(session);
+      const live=this.store.session(session.id);
+      if(live?.lastResponseId===responseId){live.status='uncertain';this.store.putSession(live)}
       throw e;
     }finally{this.busy.delete(session.id);}
   }

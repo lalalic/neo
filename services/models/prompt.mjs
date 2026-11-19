@@ -8,7 +8,9 @@ export function createTurnPrompt({responseId,messages}){
   const lines=[
     `Neo model request: ${responseId}`,
     'The API caller receives your answer ONLY via mcp.models chat_report; a regular ChatGPT reply is not delivered.',
-    `Send the actual answer using mcp.models chat_report({"response_id":"${responseId}","text":"<actual answer>"}).`,
+    `Send one or more reports using mcp.models chat_report({"response_id":"${responseId}","text":"<one report>"}).`,
+    `After the FINAL report, you MUST call mcp.models chat_report({"response_id":"${responseId}","completed":true}) to finish the API Turn.`,
+    'A text report never completes the Turn. On failure use chat_report with {response_id, error}.',
     '',
   ];
   for(const m of messages){

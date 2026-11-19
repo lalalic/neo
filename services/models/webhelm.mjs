@@ -40,7 +40,7 @@ export class WebHelmTransport {
     const end=Date.now()+timeoutMs;
     while(Date.now()<end){
       const r=store.response(id);
-      if(r?.status==='completed')return r.output?.[0]?.content?.[0]?.text??'';
+      if(r?.status==='completed')return (r.output??[]).map(item=>item.content?.[0]?.text??'').join('\n');
       if(r?.status==='failed')throw Error(r.error?.message??'model request failed');
       await sleep(pollMs);
     }

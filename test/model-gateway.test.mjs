@@ -6,7 +6,7 @@ import {join} from 'node:path';
 import {ModelStore} from '../services/models/store.mjs';
 import {ResponseEngine,streamResponse} from '../services/models/responses.mjs';
 import {createModelServer} from '../services/models/server.mjs';
-import {reportCompleted,reportText,reportLargeFile} from '../services/models/report.mjs';
+import {reportCompleted,reportText,reportComplete,reportFailed,reportLargeFile} from '../services/models/report.mjs';
 import {handleMcp,invokeReport,TOOL} from '../services/models/mcp.mjs';
 import {createTurnPrompt} from '../services/models/prompt.mjs';
 
@@ -23,7 +23,8 @@ function fixture(t){
     async waitForResult(id,writeStore){
       calls.push(['waitForResult',id]);
       const output=n++===0?'First reply':'Second reply';
-      const completed=reportText(writeStore,id,output);
+      reportText(writeStore,id,output);
+      const completed=reportComplete(writeStore,id);
       return completed.output[0].content[0].text;
     },
   };
@@ -299,28 +300,36 @@ test('long user inputs stay fully inline and WebHelm transports unchanged',async
   assert.equal(existsSync(join(store.base,'requests')),false);
 });
 
-test('mcp.models chat_report delivers arbitrary-size text directly; retries and errors are safe',async t=>{
+test('mcp.models chat_report supports multiple reports and requires an explicit completed message',async t=>{
   const {store}=fixture(t);
   const make=id=>store.putResponse({id,sessionId:'sess_'+('a'.repeat(40)),object:'response',model:'neo',status:'in_progress',created_at:0,output:[]});
   const id='resp_'+'a'.repeat(40);make(id);
-  const report=handleMcp({id:1,method:'tools/call',params:{name:'chat_report',arguments:{response_id:id,text:'HELLO'}}},store);
-  assert.equal(report.result.isError,false);
-  assert.equal(store.response(id).output[0].content[0].text,'HELLO');
-  assert.equal(handleMcp({id:2,method:'tools/call',params:{name:'chat_report',arguments:{response_id:id,text:'HELLO'}}},store).result.isError,false);
-  assert.equal(handleMcp({id:3,method:'tools/call',params:{name:'chat_report',arguments:{response_id:id,text:'OTHER'}}},store).result.isError,true);
+  const call=(n,args)=>handleMcp({id:n,method:'tools/call',params:{name:'chat_report',arguments:{response_id:id,...args}}},store);
+  assert.equal(call(0,{completed:true}).result.isError,true,'cannot complete with no reports');
+  assert.equal(call(1,{text:'HELLO'}).result.isError,false);
+  assert.equal(store.response(id).status,'in_progress','one report does not end the turn');
+  assert.equal(call(2,{text:'WORLD'}).result.isError,false);
+  assert.equal(store.response(id).status,'in_progress','two reports do not end the turn');
+  assert.deepEqual(store.response(id).reports,['HELLO','WORLD']);
+  assert.equal(store.response(id).output[0].content[0].text,'HELLO\nWORLD');
+  assert.equal(call(3,{completed:false}).result.isError,true);
+  assert.equal(call(4,{completed:true}).result.isError,false);
+  assert.equal(store.response(id).status,'completed');
+  assert.equal(call(5,{completed:true}).result.isError,false,'terminal acknowledgement can be retried');
+  assert.equal(call(6,{text:'AFTER'}).result.isError,true,'reports after completion are forbidden');
   const hugeId='resp_'+'b'.repeat(40);make(hugeId);
   const largeText='中文'.repeat(35000);
-  const large=handleMcp({id:4,method:'tools/call',params:{name:'chat_report',arguments:{response_id:hugeId,text:largeText}}},store);
+  const large=handleMcp({id:7,method:'tools/call',params:{name:'chat_report',arguments:{response_id:hugeId,text:largeText}}},store);
   assert.equal(large.result.isError,false);
   assert.equal(store.response(hugeId).output[0].content[0].text,largeText);
+  assert.equal(store.response(hugeId).status,'in_progress');
   assert.equal(TOOL.inputSchema.properties.text.maxLength,undefined);
   assert.equal(TOOL.inputSchema.properties.file,undefined);
-  const unexpectedFile=handleMcp({id:5,method:'tools/call',params:{name:'chat_report',arguments:{response_id:hugeId,file:'/tmp/file'}}},store);
-  assert.equal(unexpectedFile.result.isError,true);
+  assert.equal(handleMcp({id:8,method:'tools/call',params:{name:'chat_report',arguments:{response_id:hugeId,file:'/tmp/file'}}},store).result.isError,true);
   const failId='resp_'+'c'.repeat(40);make(failId);
-  assert.equal(handleMcp({id:6,method:'tools/call',params:{name:'chat_report',arguments:{response_id:failId,error:'Actual model failure'}}},store).result.isError,false);
+  assert.equal(handleMcp({id:9,method:'tools/call',params:{name:'chat_report',arguments:{response_id:failId,error:'Actual model failure'}}},store).result.isError,false);
   assert.equal(store.response(failId).status,'failed');
-  assert.equal(handleMcp({id:7,method:'tools/list'},store).result.tools[0].name,'chat_report');
+  assert.equal(handleMcp({id:10,method:'tools/list'},store).result.tools[0].name,'chat_report');
 });
 
 test('MCP stdio lifecycle advertises exactly one model response tool',async t=>{
@@ -345,4 +354,168 @@ test('input text preserves exact leading and trailing whitespace',async t=>{
   const prompt='  preserve leading and trailing spaces  \n  code snippet: x = 1;  ';
   await new ResponseEngine({store,transport}).run({model:'neo',input:[texts('user',prompt)]});
   assert.ok(calls[0][1].includes('[USER]\n'+prompt+'\n[/USER]'));
+});
+
+test('live Responses SSE forwards multiple text reports before explicit completion and closes exactly once',async t=>{
+  const {store}=fixture(t);
+  const transport={
+    async newThread(){return {status:'submitted',thread_id:'test-thread',thread_url:'https://chatgpt.com/c/test-thread'}},
+    async waitForResult(id){
+      for(let i=0;i<300;i++){
+        const state=store.response(id);
+        if(state.status==='completed')return state.output.map(x=>x.content[0].text).join('\n');
+        if(state.status==='failed')throw Error(state.error.message);
+        await new Promise(r=>setTimeout(r,10));
+      }
+      throw Error('model completion timeout');
+    },
+  };
+  const {server}=createModelServer({token,store,transport});
+  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+  t.after(()=>new Promise(resolve=>server.close(resolve)));
+  const base=`http://127.0.0.1:${server.address().port}`;
+  const headers={'Content-Type':'application/json',Authorization:'Bearer '+token};
+  const resp=await fetch(base+'/v1/responses',{method:'POST',headers,body:JSON.stringify({model:'neo',input:'hello',stream:true})});
+  assert.equal(resp.status,200);
+  const reader=resp.body.getReader();
+  const events=[];let input='',ended=false;
+  const collecting=(async()=>{
+    for(;;){
+      const {done,value}=await reader.read();
+      if(done){ended=true;break;}
+      input+=new TextDecoder().decode(value);
+      let pos;
+      while((pos=input.indexOf('\n\n'))!==-1){
+        const chunk=input.slice(0,pos);input=input.slice(pos+2);
+        const data=chunk.split('\n').find(x=>x.startsWith('data: '));
+        if(data)events.push(JSON.parse(data.slice(6)));
+      }
+    }
+  })();
+  const until=async predicate=>{
+    for(let i=0;i<150;i++){
+      const value=predicate();if(value)return value;
+      await new Promise(r=>setTimeout(r,20));
+    }
+    throw Error('SSE event was not delivered before timeout');
+  };
+  const started=await until(()=>events.find(x=>x.type==='response.created'));
+  const id=started.response.id;
+  assert.equal(store.response(id).status,'in_progress');
+  reportText(store,id,'First report');
+  await until(()=>events.find(x=>x.type==='response.output_text.delta'&&x.delta==='First report'));
+  assert.equal(store.response(id).status,'in_progress');
+  assert.equal(ended,false);
+  assert.equal(events.some(x=>x.type==='response.completed'),false);
+  reportText(store,id,'Second report');
+  await until(()=>events.find(x=>x.type==='response.output_text.delta'&&x.delta==='\nSecond report'));
+  assert.equal(store.response(id).status,'in_progress');
+  assert.equal(ended,false);
+  assert.equal(events.some(x=>x.type==='response.completed'),false);
+  const partial=await (await fetch(base+'/v1/responses/'+id,{headers})).json();
+  assert.equal(partial.status,'in_progress');
+  assert.deepEqual(partial.output.map(x=>x.content[0].text),['First report\nSecond report']);
+  assert.equal(partial.reports,undefined,'internal report chunks stay private');
+  reportComplete(store,id);
+  await until(()=>events.find(x=>x.type==='response.completed'));
+  await collecting;
+  assert.equal(ended,true);
+  assert.equal(events.filter(x=>x.type==='response.completed').length,1);
+  assert.deepEqual(events.filter(x=>x.type==='response.output_text.delta').map(x=>x.delta),['First report','\nSecond report']);
+  assert.equal(events.at(-1).type,'response.completed');
+  assert.deepEqual(events.at(-1).response.output.map(x=>x.content[0].text),['First report\nSecond report']);
+  const state=store.listSessions()[0];
+  assert.equal(state.history.at(-1).text,'First report\nSecond report',
+    'multi-report Turn must remain one assistant message for the next Codex Turn');
+  assert.deepEqual(events.map(x=>x.sequence_number),events.map((_,i)=>i));
+});
+
+test('a text report followed by terminal failure emits response.failed instead of completed',async t=>{
+  const {store}=fixture(t);
+  const transport={
+    async newThread(){return {status:'submitted',thread_id:'test-thread',thread_url:'https://chatgpt.com/c/test-thread'}},
+    async waitForResult(id){
+      for(let i=0;i<300;i++){
+        const current=store.response(id);
+        if(current.status==='failed')throw Error(current.error.message);
+        if(current.status==='completed')return 'done';
+        await new Promise(resolve=>setTimeout(resolve,10));
+      }
+      throw Error('timeout');
+    },
+  };
+  const {server}=createModelServer({token,store,transport});
+  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+  t.after(()=>new Promise(resolve=>server.close(resolve)));
+  const headers={'Content-Type':'application/json',Authorization:'Bearer '+token};
+  const url=`http://127.0.0.1:${server.address().port}`;
+  const response=await fetch(url+'/v1/responses',{method:'POST',headers,body:JSON.stringify({model:'neo',input:'failure test',stream:true})});
+  let eventStream='';
+  const id=store.listSessions()[0].lastResponseId;
+  reportText(store,id,'Partial report');
+  reportFailed(store,id,'actual failed turn');
+  eventStream=await response.text();
+  assert.match(eventStream,/response.output_text.delta/);
+  assert.match(eventStream,/Partial report/);
+  assert.match(eventStream,/response.failed/);
+  assert.doesNotMatch(eventStream,/event: response.completed/);
+  assert.equal(store.response(id).status,'failed');
+});
+
+
+test('MCP stdio subprocess accepts multiple chat_report calls and a separate explicit completion',async t=>{
+  const {spawn}=await import('node:child_process');
+  const {dir,store}=fixture(t),id='resp_'+'d'.repeat(40);
+  store.putResponse({id,sessionId:'sess_'+'f'.repeat(40),object:'response',model:'neo',status:'in_progress',created_at:0,output:[]});
+  const child=spawn(process.execPath,[new URL('../services/models/mcp.mjs',import.meta.url).pathname],{
+    env:{...process.env,NEO_MODELS_STATE_DIR:dir},stdio:['pipe','pipe','pipe']});
+  t.after(()=>child.kill('SIGTERM'));
+  const replies=[];let partial='';
+  child.stdout.on('data',chunk=>{
+    partial+=chunk.toString();let index;
+    while((index=partial.indexOf('\n'))>=0){
+      const line=partial.slice(0,index);partial=partial.slice(index+1);
+      if(line.trim())replies.push(JSON.parse(line));
+    }
+  });
+  const call=(n,args)=>child.stdin.write(JSON.stringify({jsonrpc:'2.0',id:n,method:'tools/call',params:{name:'chat_report',arguments:{response_id:id,...args}}})+'\n');
+  const until=async count=>{
+    for(let i=0;i<150&&replies.length<count;i++)await new Promise(r=>setTimeout(r,10));
+    if(replies.length<count)throw Error('MCP subprocess did not reply');
+  };
+  call(1,{text:'first'});await until(1);
+  assert.equal(store.response(id).status,'in_progress');
+  call(2,{text:'second'});await until(2);
+  assert.deepEqual(store.response(id).reports,['first','second']);
+  assert.equal(store.response(id).status,'in_progress');
+  call(3,{completed:true});await until(3);
+  assert.equal(store.response(id).status,'completed');
+  assert.equal(store.response(id).output[0].content[0].text,'first\nsecond');
+  assert.deepEqual(replies.map(x=>JSON.parse(x.result.content[0].text).report_count),[1,2,2]);
+});
+
+test('multi-report completion keeps exactly one assistant history item for subsequent Codex Turn',async t=>{
+  const {store,transport,calls}=fixture(t);
+  let count=0;
+  transport.waitForResult=async(id,writeStore)=>{
+    if(count++===0){
+      reportText(writeStore,id,'section one');
+      reportText(writeStore,id,'section two');
+    }else reportText(writeStore,id,'continued');
+    reportComplete(writeStore,id);
+    return writeStore.response(id).output[0].content[0].text;
+  };
+  const engine=new ResponseEngine({store,transport});
+  const first=await engine.run({model:'neo',input:[texts('user','question')],stream:true});
+  assert.equal(first.output.length,1);
+  assert.equal(first.output[0].content[0].text,'section one\nsection two');
+  assert.equal(store.listSessions()[0].history.at(-1).text,'section one\nsection two');
+  const second=await engine.run({model:'neo',stream:true,input:[
+    texts('user','question'),texts('assistant','section one\nsection two'),texts('user','next')
+  ]});
+  assert.equal(second.status,'completed');
+  assert.equal(second.output[0].content[0].text,'continued');
+  assert.equal(calls.filter(x=>x[0]==='newThread').length,1);
+  assert.equal(calls.filter(x=>x[0]==='newTurn').length,1);
+  assert.equal(calls.find(x=>x[0]==='newTurn')[1],'thread-1');
 });

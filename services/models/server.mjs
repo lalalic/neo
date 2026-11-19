@@ -1,12 +1,12 @@
 import {createServer} from 'node:http';
 import {timingSafeEqual} from 'node:crypto';
 import {ModelStore} from './store.mjs';
-import {ResponseEngine,streamResponse,failureStream} from './responses.mjs';
+import {ResponseEngine,ResponseSseWriter} from './responses.mjs';
 import {WebHelmTransport} from './webhelm.mjs';
 import {listModelCatalog} from './catalog.mjs';
 
 const MAX_BODY=48*1024*1024;
-const toPublic=r=>{if(!r)return null;const {sessionId,...rest}=r;return rest;};
+const toPublic=r=>{if(!r)return null;const {sessionId,reports,...rest}=r;return rest;};
 const json=(res,status,value)=>{
   if(res.headersSent)return;
   res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});
@@ -23,8 +23,9 @@ async function bodyJSON(req){
   return JSON.parse(Buffer.concat(chunks).toString('utf8'));
 }
 function sse(res){res.writeHead(200,{'Content-Type':'text/event-stream; charset=utf-8','Cache-Control':'no-cache, no-transform','X-Accel-Buffering':'no'});}
+const fullText=r=>(r.output??[]).map(x=>x.content?.[0]?.text??'').join('\n');
 const chatCompletion=r=>({id:'chatcmpl_'+r.id.slice(5),object:'chat.completion',created:r.created_at,model:r.model,
-  choices:[{index:0,message:{role:'assistant',content:r.output[0]?.content?.[0]?.text??''},finish_reason:'stop'}],usage:null});
+  choices:[{index:0,message:{role:'assistant',content:fullText(r)},finish_reason:'stop'}],usage:null});
 const chatChunk=(r,delta,finish_reason=null)=>({id:'chatcmpl_'+r.id.slice(5),object:'chat.completion.chunk',created:r.created_at,model:r.model,
   choices:[{index:0,delta,finish_reason}]});
 export function createModelServer({token,store=new ModelStore(),transport=new WebHelmTransport(),legacyOrigin=null}={}){
@@ -73,33 +74,57 @@ export function createModelServer({token,store=new ModelStore(),transport=new We
       catch(e){return json(res,502,{error:{message:e.message,type:'model_error'}})}
     }
     sse(res);
-    let startedResponseId=null;
-    const keepalive=setInterval(()=>{if(!res.writableEnded&&!res.destroyed)res.write(': keepalive\n\n');},12000);
+    let startedResponseId=null,watcher=null,chatSeen=0,chatStarted=false,chatFinished=false;
+    const send=chunk=>{if(!res.writableEnded&&!res.destroyed)res.write(chunk)};
+    const responsesWriter=responsesPath?new ResponseSseWriter(send):null;
+    const chatPacket=(chunk)=>send('data: '+JSON.stringify(chunk)+'\n\n');
+    const pump=()=>{
+      if(!startedResponseId||res.writableEnded||res.destroyed)return;
+      const snapshot=store.response(startedResponseId);
+      if(!snapshot)return;
+      const value=toPublic(snapshot);
+      if(responsesPath){
+        if(responsesWriter.update(snapshot))res.end();
+        return;
+      }
+      if(!chatStarted){chatPacket(chatChunk(value,{role:'assistant'}));chatStarted=true;}
+      const content=fullText(value);
+      if(content.length>chatSeen){
+        chatPacket(chatChunk(value,{content:content.slice(chatSeen)}));
+        chatSeen=content.length;
+      }
+      if(value.status==='completed'&&!chatFinished){
+        chatPacket(chatChunk(value,{},'stop'));
+        send('data: [DONE]\n\n');chatFinished=true;res.end();
+      }else if(value.status==='failed'&&!chatFinished){
+        chatPacket({error:{message:value.error?.message??'model failed',type:'model_error'}});
+        chatFinished=true;res.end();
+      }
+    };
+    const keepalive=setInterval(()=>send(': keepalive\n\n'),12000);
     try{
       const result=await engine.run(body,{onStarted:r=>{
         startedResponseId=r.id;
-        if(responsesPath&&!res.writableEnded)res.write(`event: response.created\ndata: ${JSON.stringify({type:'response.created',sequence_number:0,response:toPublic(r)})}\n\n`);
+        if(responsesPath)responsesWriter.start(toPublic(r));
+        watcher=setInterval(pump,100);
+        pump();
       }});
+      pump();
       if(!res.writableEnded&&!res.destroyed){
-        if(responsesPath){
-          const events=streamResponse(toPublic(result));
-          // The create event was sent while submission began; avoid duplicating it.
-          res.write(events.replace(/^event: response.created\ndata: .*?\n\n/s,''));
-        }else{
-          res.write('data: '+JSON.stringify(chatChunk(result,{role:'assistant'}))+'\n\n');
-          res.write('data: '+JSON.stringify(chatChunk(result,{content:result.output[0]?.content?.[0]?.text??''}))+'\n\n');
-          res.write('data: '+JSON.stringify(chatChunk(result,{},'stop'))+'\n\n');
-          res.write('data: [DONE]\n\n');
-        }
+        // Older transports can return after an unexpected state transition;
+        // they must not turn a partial report into an implicit success.
+        if(responsesPath&&!responsesWriter.terminal)responsesWriter.fail(Error('missing explicit completion'),result.id);
+        if(!responsesPath&&!chatFinished)chatPacket({error:{message:'missing explicit completion',type:'model_error'}});
         res.end();
       }
     }catch(e){
       if(!res.writableEnded&&!res.destroyed){
-        if(responsesPath)res.write(failureStream(e,startedResponseId??'unknown'));
-        else res.write('data: '+JSON.stringify({error:{message:e.message,type:'model_error'}})+'\n\n');
+        pump();
+        if(responsesPath&&!responsesWriter.terminal)responsesWriter.fail(e,startedResponseId??'unknown');
+        if(!responsesPath&&!chatFinished)chatPacket({error:{message:e.message,type:'model_error'}});
         res.end();
       }
-    }finally{clearInterval(keepalive)}
+    }finally{clearInterval(keepalive);if(watcher)clearInterval(watcher)}
   };
   const server=createServer((req,res)=>{handler(req,res).catch(e=>{
     if(!res.headersSent)json(res,500,{error:{message:e.message,type:'internal_error'}});

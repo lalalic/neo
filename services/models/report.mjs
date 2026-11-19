@@ -25,17 +25,39 @@ export function reportCompleted(store,id,outputFile){
   const data=JSON.parse(contents.toString('utf8'));
   if(!data||!Object.prototype.hasOwnProperty.call(data,'output')||data.output===null)throw Error('output field required');
   const text=typeof data.output==='string'?data.output:JSON.stringify(data.output);
-  return reportText(store,id,text);
-}
-export function reportText(store,id,text){
-  const response=mustResponse(store,id);
-  if(typeof text!=='string'||!text.trim())throw Error('non-empty text result required');
   if(response.status==='completed'){
     if(response.output?.[0]?.content?.[0]?.text!==text)throw Error('conflicting completed output');
     return response;
   }
-  if(response.status!=='in_progress')throw Error('response is already terminal');
-  response.output=[{id:'msg_'+key(),type:'message',status:'completed',role:'assistant',content:[{type:'output_text',text,annotations:[]}]}];
+  reportText(store,id,text);
+  return reportComplete(store,id);
+}
+// Every report appends text to one assistant output item. Reports are NOT
+// terminal; each is sent as its own SSE delta while the Turn is open.
+export function reportText(store,id,text){
+  const response=mustResponse(store,id);
+  if(typeof text!=='string'||!text.trim())throw Error('non-empty text report required');
+  if(response.status!=='in_progress')throw Error('cannot report to a terminal response');
+  response.reports??=[];
+  response.reports.push(text);
+  const combined=response.reports.join('\n');
+  if(!response.output.length){
+    response.output=[{id:'msg_'+key(),type:'message',status:'in_progress',role:'assistant',
+      content:[{type:'output_text',text:combined,annotations:[]}]}];
+  }else response.output[0].content[0].text=combined;
+  store.putResponse(response);
+  return response;
+}
+
+// Explicit completion is the ONLY successful terminal signal. Reporting zero,
+// one or many times never implies that the Turn has finished.
+export function reportComplete(store,id){
+  const response=mustResponse(store,id);
+  if(response.status==='completed')return response; // completion replay
+  if(response.status!=='in_progress')throw Error('cannot complete a terminal response');
+  if(!response.output.length)throw Error('at least one chat_report text required before completion');
+  const text=response.output[0].content[0].text;
+  response.output[0].status='completed';
   response.status='completed';
   store.putResponse(response);
   const session=store.session(response.sessionId);
@@ -47,6 +69,7 @@ export function reportText(store,id,text){
   }
   return response;
 }
+
 export function reportLargeFile(store,id,file){
   mustResponse(store,id);
   const expected=join(store.base,'requests',id+'.output.txt');
@@ -55,7 +78,8 @@ export function reportLargeFile(store,id,file){
   const content=readFileSync(expected);
   if(content.length<12001||content.length>4*1024*1024)throw Error('large text result outside size range');
   const text=new TextDecoder('utf-8',{fatal:true}).decode(content);
-  return reportText(store,id,text);
+  reportText(store,id,text);
+  return reportComplete(store,id);
 }
 export function reportFailed(store,id,reason){
   const response=mustResponse(store,id);
