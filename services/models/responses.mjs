@@ -1,4 +1,4 @@
-import {key,assertInput,isPrefix,materializeImages,compact,signature} from './input.mjs';
+import {key,assertInput,materializeImages,compact} from './input.mjs';
 import {join} from 'node:path';
 import {createTurnPrompt} from './prompt.mjs';
 const event=(type,obj)=>`event: ${type}\ndata: ${JSON.stringify({type,...obj})}\n\n`;
@@ -60,45 +60,42 @@ export function streamResponse(response){
 export function failureStream(error,id){return event('response.failed',{sequence_number:1,response:{id,object:'response',status:'failed',error:{type:'transport_error',message:error.message}}});}
 export class ResponseEngine {
   constructor({store,transport}){this.store=store;this.transport=transport;this.busy=new Set();}
-  async run(body,{onStarted}={}){
+  async run(body,{onStarted,codexThreadId=null}={}){
     const messages=assertInput(body);
     const condensed=compact(messages);
     const hint=body.metadata?.session_id??null;
-    let session=this.store.resolve(condensed,body.previous_response_id,hint);
-    if(!session)session=this.store.create(condensed,hint);
-    if(this.busy.has(session.id)||['submitting','awaiting','uncertain'].includes(session.status)){
-      // A duplicate nonstream POST gets the same pending response ID, never a
-      // second ChatGPT submission. Streaming retries cannot safely replay SSE.
-      if(!body.stream && ['submitting','awaiting'].includes(session.status)&&
-         signature(condensed)===signature(session.lastInput)&&session.lastResponseId){
-        const pending=this.store.response(session.lastResponseId);
-        if(pending){onStarted?.({...pending});return pending;}
-      }
-      throw Error('session has an unconfirmed submission; manual reconciliation required');
-    }
-    let delta;
-    if(body.previous_response_id){
-      delta=isPrefix(condensed,session.history)?messages.slice(session.history.length):messages;
-    }
-    else if(isPrefix(condensed,session.history))delta=messages.slice(session.history.length);
-    else if(isPrefix(session.history,condensed))delta=[]; // replay of earlier history
-    else if(hint&&session.clientSessionId===hint)delta=messages; // explicit session binding
-    else throw Error('request does not extend the prior conversation history');
-    if(!delta.length && session.lastResponseId){
+    const declaredThread=body.metadata?.codex_thread_id??null;
+    if(declaredThread&&codexThreadId&&declaredThread!==codexThreadId)
+      throw Error('Codex Thread ID conflicts with request metadata');
+    const owner=codexThreadId??declaredThread;
+    if(owner&&(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(owner)))
+      throw Error('invalid Codex Thread ID');
+    let session=this.store.resolve(body.previous_response_id,hint,owner);
+    if(!session)session=this.store.create(condensed,hint,owner);
+    // Codex message item IDs are stable across retries, unlike message text.
+    // A completed or pending exact-item replay must never re-submit the turn.
+    const rawLatest=Array.isArray(body.input)?body.input.findLast(x=>x?.role==='user'):null;
+    const latestUserId=typeof rawLatest?.id==='string'&&/^[A-Za-z0-9_-]{8,128}$/.test(rawLatest.id)?rawLatest.id:null;
+    const sameItem=latestUserId&&latestUserId===session.lastUserItemId;
+    if(sameItem&&session.lastResponseId){
       const previous=this.store.response(session.lastResponseId);
-      if(previous?.status==='completed'){onStarted?.({...previous});return previous;}
-      throw Error('previous response still pending');
+      if(previous?.status==='completed'){
+        onStarted?.({...previous});return previous;
+      }
+      if(!body.stream&&previous&&['submitting','awaiting'].includes(session.status)){
+        onStarted?.({...previous});return previous;
+      }
     }
-    if(!delta.length && session.status!=='new')throw Error('empty subsequent turn');
+    if(this.busy.has(session.id)||['submitting','awaiting','uncertain'].includes(session.status))
+      throw Error('session has an unconfirmed submission; manual reconciliation required');
     const responseId='resp_'+key();
     const response={id:responseId,object:'response',model:'neo',created_at:Math.floor(Date.now()/1000),status:'in_progress',output:[],sessionId:session.id,usage:null,metadata:body.metadata??null};
     this.store.putResponse(response);
     this.busy.add(session.id);
-    session.status='submitting';session.lastInput=condensed;session.lastResponseId=responseId;this.store.putSession(session);
+    session.status='submitting';session.lastInput=condensed;session.lastResponseId=responseId;session.lastUserItemId=latestUserId;this.store.putSession(session);
     if(onStarted)onStarted({...response});
     try{
-      const requestMessages=delta.length?delta:messages;
-      const latestUser=requestMessages.findLast(message=>message.role==='user');
+      const latestUser=messages.findLast(message=>message.role==='user');
       if(!latestUser)throw Error('a new user message is required for ChatGPT delivery');
       const files=materializeImages([latestUser],join(this.store.base,'attachments',session.id));
       const input=[{role:'user',content:latestUser.text,images:files.map(file=>({file}))}];

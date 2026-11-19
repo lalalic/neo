@@ -35,8 +35,6 @@ export const assertInput = body => {
   return result;
 };
 export const compact = messages => messages.map(m=>({...m,images:m.images.map(i=>({type:i.type,sha256:i.sha256??createHash('sha256').update(i.base64,'utf8').digest('hex')}))}));
-export const signature = messages => JSON.stringify(messages);
-export const isPrefix = (long,short) => short.length<=long.length&&short.every((m,i)=>signature([m])===signature([long[i]]));
 export const render = messages => messages.map(m=>`[${m.role}]\n${m.text}\n[/${m.role}]`).join('\n\n');
 export function materializeImages(messages,dir){
   const paths=[];

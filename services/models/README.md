@@ -40,8 +40,8 @@ One client conversation corresponds to one persistent ChatGPT Thread:
    transport wraps enforcement_context in `<top-instructions>...</top-instructions>`
    and presents it before the task.
    No other Codex messages, history or tools are forwarded. The Gateway still
-   stores caller input for session matching, and ChatGPT retains its own history
-   in the persistent browser Thread. Only the latest user message's images
+   stores the latest caller request as a diagnostic snapshot, while ChatGPT
+   retains its history in the persistent browser Thread. Only the latest user message's images
    are materialized as attachments. WebHelm handles long prompt transport.
 5. ChatGPT calls the **existing Events Bus** MCP `publish` tool with source
    `reply/models/<response_id>`. `reply.text` carries `{seq,text}` and streams
@@ -55,17 +55,28 @@ One client conversation corresponds to one persistent ChatGPT Thread:
 6. If WebHelm submission/completion is uncertain, preserve the state, refuse
    an automatic re-submission, and return an explicit failure or pending state.
 
-Binding order: `previous_response_id`, `metadata.session_id` (when supplied),
-or the **unique longest** saved message-history prefix. This supports Codex
-`store:false` full-history submissions without resending history to ChatGPT.
-Ambiguous matching is rejected rather than silently mixing two conversations.
-For strongest isolation, API clients should supply a unique stable
-`metadata.session_id` for each independent conversation.
+**Codex Thread identity and resume.** The Codex HTTP Responses client sends its
+stable UUID as `thread-id` (or legacy `thread_id`). This ID is the primary,
+exact match to the persisted Gateway Session `codexThreadId`, whose `threadId`
+contains the verified ChatGPT Thread ID. The full mapping is kept on disk in
+`~/.local/share/neo/model-gateway/sessions/` and survives Gateway restarts.
+`codex resume <UUID>` sends the same Codex identity and continues the same
+ChatGPT Thread, including when the request contains only the latest user turn.
+Codex's `session-id`/`session_id` header can represent cache affinity rather
+than stable conversation identity; never use it for routing without `thread-id`.
 
-The latest user message is authoritative for the current Turn. The Gateway
-uses the other incoming messages only for identifying the correct stateful
-conversation. It does not pass Codex developer/system, Escalation Requests,
-Skills or previous assistant/user messages to ChatGPT, even for a first Turn.
+Binding order: `previous_response_id` (with owner ID validation), exact Codex
+`thread-id`, then explicit `metadata.session_id` for non-Codex clients.
+`metadata.codex_thread_id` is an explicit alternative for callers not using
+Codex headers. If none are supplied, **each** POST starts a new conversation.
+There is **no message content matching or history-prefix fallback**, even for
+identical `hello` messages. A Codex item `id`, when available, distinguishes an
+exact retried user item for safe idempotency without comparing its text.
+Unconfirmed submissions remain blocked within their owning Codex Thread.
+
+Only the latest user message is forwarded to ChatGPT. Other incoming roles,
+history and tool results are not used for routing or forwarding. The latest
+incoming transcript is stored for diagnostics, not identity resolution.
 
 The Events Bus MCP `publish` tool is shared with Job lifecycle events; no
 model-specific MCP response tool is needed. The older `mcp.models chat_report`

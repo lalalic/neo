@@ -1,7 +1,7 @@
 import {readFileSync,writeFileSync,renameSync,mkdirSync,readdirSync,existsSync} from 'node:fs';
 import {join} from 'node:path';
 import {homedir} from 'node:os';
-import {key,isPrefix} from './input.mjs';
+import {key} from './input.mjs';
 
 export class ModelStore {
   constructor(base=process.env.NEO_MODELS_STATE_DIR??join(homedir(),'.local','share','neo','model-gateway')){
@@ -16,22 +16,39 @@ export class ModelStore {
   putSession(item){this.#write(this.#file('session',item.id),item);return item;}
   putResponse(item){this.#write(this.#file('response',item.id),item);return item;}
   listSessions(){return readdirSync(this.sessions).filter(x=>x.endsWith('.json')).map(x=>this.#read(join(this.sessions,x))).filter(Boolean);}
-  resolve(messages,previous,sessionHint){
-    if(previous){const p=this.response(previous);if(!p)throw Error('unknown previous_response_id');const session=this.session(p.sessionId);if(!session)throw Error('missing previous session');return session;}
-    if(sessionHint){if(!/^[A-Za-z0-9_-]{8,80}$/.test(sessionHint))throw Error('invalid metadata.session_id');
-      const matches=this.listSessions().filter(s=>s.clientSessionId===sessionHint);
-      if(matches.length>1)throw Error('duplicate session ID');return matches[0]??null;
+  resolve(previous,sessionHint,codexThreadId){
+    if(sessionHint&&(!/^[A-Za-z0-9_-]{8,80}$/.test(sessionHint)))throw Error('invalid metadata.session_id');
+    if(previous){
+      const p=this.response(previous);
+      if(!p)throw Error('unknown previous_response_id');
+      const byPrevious=this.session(p.sessionId);
+      if(!byPrevious)throw Error('missing previous session');
+      if(byPrevious.codexThreadId&&byPrevious.codexThreadId!==codexThreadId)
+        throw Error('previous_response_id belongs to a different Codex Thread');
+      if(sessionHint&&byPrevious.clientSessionId!==sessionHint)
+        throw Error('previous_response_id belongs to a different client session');
+      return byPrevious;
     }
-    // Codex store:false replays message history; find its unique longest prefix.
-    const candidates=this.listSessions().filter(s=>Array.isArray(s.history)&&(isPrefix(messages,s.history)||isPrefix(s.history,messages)));
-    if(!candidates.length)return null;
-    const longest=Math.max(...candidates.map(s=>s.history.length));
-    const winners=candidates.filter(s=>s.history.length===longest);
-    if(winners.length!==1)throw Error('ambiguous conversation history; specify metadata.session_id');
-    return winners[0];
+    if(codexThreadId){
+      const matches=this.listSessions().filter(s=>s.codexThreadId===codexThreadId);
+      if(matches.length>1)throw Error('duplicate Codex Thread mapping');
+      const mapped=matches[0]??null;
+      if(mapped&&sessionHint&&mapped.clientSessionId&&mapped.clientSessionId!==sessionHint)
+        throw Error('Codex Thread maps to a different client session');
+      return mapped;
+    }
+    if(sessionHint){
+      const matches=this.listSessions().filter(s=>s.clientSessionId===sessionHint);
+      if(matches.length>1)throw Error('duplicate client session ID');
+      return matches[0]??null;
+    }
+    // No identity: each request starts a distinct conversation. Never match
+    // transcript content (including a repeated hello) to an old session.
+    return null;
   }
-  create(messages,hint){
-    const s={id:'sess_'+key(),clientSessionId:hint??null,threadId:null,threadUrl:null,status:'new',history:messages,lastResponseId:null,lastInput:messages,createdAt:Date.now()};
+
+  create(messages,hint,codexThreadId=null){
+    const s={id:'sess_'+key(),clientSessionId:hint??null,codexThreadId:codexThreadId??null,threadId:null,threadUrl:null,status:'new',history:messages,lastResponseId:null,lastInput:messages,createdAt:Date.now()};
     return this.putSession(s);
   }
 }

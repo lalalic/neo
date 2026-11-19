@@ -32,8 +32,8 @@ function fixture(t){
   return {dir,store,transport,calls};
 }
 const texts=(role,text)=>({role,content:[{type:'input_text',text}]});
-const startBody={model:'neo',store:false,stream:true,input:[texts('system','agent-specific instructions come from client'),texts('user','hello')]};
-const nextBody={...startBody,input:[...startBody.input,texts('assistant','First reply'),texts('user','continue')]};
+const startBody={model:'neo',store:false,stream:true,metadata:{codex_thread_id:'11111111-1111-4111-8111-111111111111'},input:[texts('system','agent-specific instructions come from client'),texts('user','hello')]};
+const nextBody={...startBody,input:[...startBody.input,texts('assistant','First reply'),{id:'msg_codex_continue_123',...texts('user','continue')}]};
 
 test('one newThread, subsequent newTurn reuses thread after process restart, no history replay',async t=>{
   const {store,transport,calls}=fixture(t);
@@ -67,7 +67,7 @@ test('one newThread, subsequent newTurn reuses thread after process restart, no 
 test('explicit previous_response_id routes one-turn input to same thread',async t=>{
   const {store,transport,calls}=fixture(t);
   const first=await new ResponseEngine({store,transport}).run(startBody);
-  const second=await new ResponseEngine({store,transport}).run({model:'neo',previous_response_id:first.id,input:[texts('user','one more')]});
+  const second=await new ResponseEngine({store,transport}).run({model:'neo',previous_response_id:first.id,metadata:startBody.metadata,input:[texts('user','one more')]});
   assert.equal(second.status,'completed');
   assert.equal(calls.at(-2)[1],'thread-1');
   assert.match(calls.at(-2)[2],/Neo model request:/);
@@ -81,12 +81,77 @@ test('explicit metadata.session_id binds even when only newest user message is s
   assert.equal(calls.at(-2)[1],'thread-1');
 });
 
-test('no ambiguous Thread rebind when histories collide',async t=>{
-  const {store,transport}=fixture(t);
+test('identical messages without a Codex Thread ID never bind to an existing session',async t=>{
+  const {store,transport,calls}=fixture(t);
   const existing=store.create([{role:'user',text:'hello',images:[]}]);
   store.putSession({...existing,id:'sess_'+'a'.repeat(40),status:'idle'});
   store.putSession({...existing,id:'sess_'+'b'.repeat(40),status:'idle'});
-  await assert.rejects(()=>new ResponseEngine({store,transport}).run({model:'neo',input:'hello'}),/ambiguous/);
+  const response=await new ResponseEngine({store,transport}).run({model:'neo',input:'hello'});
+  assert.equal(response.status,'completed');
+  assert.equal(store.listSessions().length,4);
+  assert.equal(calls.filter(x=>x[0]==='newThread').length,1);
+});
+
+test('Codex HTTP thread-id is an exact, persistent Codex-to-ChatGPT mapping through resume',async t=>{
+  const {store,transport,calls}=fixture(t);
+  const {server}=createModelServer({token,store,transport});
+  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+  t.after(()=>new Promise(resolve=>server.close(resolve)));
+  const base=`http://127.0.0.1:${server.address().port}`;
+  const one='33333333-3333-4333-8333-333333333333';
+  const two='44444444-4444-4444-8444-444444444444';
+  const send=async (baseUrl,id,text,extraHeaders={})=>{
+    const r=await fetch(baseUrl+'/v1/responses',{method:'POST',headers:{
+      Authorization:'Bearer '+token,'Content-Type':'application/json',...(id?{'thread-id':id}:{}),...extraHeaders
+    },body:JSON.stringify({model:'neo',stream:true,input:[texts('user',text)]})});
+    return {status:r.status,events:await r.text()};
+  };
+  assert.match((await send(base,one,'hello',{'session-id':'cache-affinity-a'})).events,/response.completed/);
+  assert.match((await send(base,two,'hello',{'session-id':'cache-affinity-a'})).events,/response.completed/);
+  const saved=store.listSessions();
+  assert.equal(saved.length,2);
+  assert.deepEqual(saved.map(x=>x.codexThreadId).sort(),[one,two]);
+  assert.notEqual(saved[0].threadId,saved[1].threadId);
+  assert.equal(calls.filter(x=>x[0]==='newThread').length,2);
+  const mapped=saved.find(x=>x.codexThreadId===one);
+  // Simulate restart: a fresh server/engine and ModelStore share only persisted files.
+  const restored=new ModelStore(store.base);
+  const {server:serverAfterRestart}=createModelServer({token,store:restored,transport});
+  await new Promise(resolve=>serverAfterRestart.listen(0,'127.0.0.1',resolve));
+  t.after(()=>new Promise(resolve=>serverAfterRestart.close(resolve)));
+  const resumedUrl=`http://127.0.0.1:${serverAfterRestart.address().port}`;
+  const continued=await send(resumedUrl,one,'continued after codex resume');
+  assert.equal(continued.status,200);assert.match(continued.events,/response.completed/);
+  assert.equal(calls.filter(x=>x[0]==='newThread').length,2);
+  assert.equal(calls.filter(x=>x[0]==='newTurn').length,1);
+  assert.equal(calls.find(x=>x[0]==='newTurn')[1],mapped.threadId);
+  assert.equal(restored.listSessions().length,2);
+  assert.equal(restored.session(mapped.id).threadId,mapped.threadId);
+  // Header spellings must not silently override or downgrade identity.
+  const conflicting=await send(resumedUrl,one,'bad',{'thread_id':two});
+  assert.equal(conflicting.status,400);assert.match(conflicting.events,/conflicting Codex Thread headers/);
+  const noThread=await send(resumedUrl,null,'bad',{'session-id':one});
+  assert.equal(noThread.status,400);assert.match(noThread.events,/Thread ID required/);
+});
+
+test('Codex Thread identity prevents cross-thread response rebind and history-content fallback',async t=>{
+  const {store,transport,calls}=fixture(t);
+  const one='55555555-5555-4555-8555-555555555555';
+  const two='66666666-6666-4666-8666-666666666666';
+  const engine=new ResponseEngine({store,transport});
+  const start={model:'neo',input:[texts('user','hello')]};
+  const first=await engine.run(start,{codexThreadId:one});
+  await assert.rejects(()=>engine.run({...start,previous_response_id:first.id},{codexThreadId:two}),/different Codex Thread/);
+  await assert.rejects(()=>engine.run({...start,previous_response_id:first.id}),/different Codex Thread/);
+  const duplicateTextDifferentThread=await engine.run(start,{codexThreadId:two});
+  assert.equal(duplicateTextDifferentThread.status,'completed');
+  assert.equal(calls.filter(x=>x[0]==='newThread').length,2);
+  assert.notEqual(first.sessionId,duplicateTextDifferentThread.sessionId);
+  const old=store.session(first.sessionId);old.status='uncertain';store.putSession(old);
+  await assert.rejects(()=>engine.run(start,{codexThreadId:one}),/unconfirmed submission/);
+  const safeNew=await engine.run(start,{codexThreadId:'77777777-7777-4777-8777-777777777777'});
+  assert.equal(safeNew.status,'completed');
+  assert.equal(calls.filter(x=>x[0]==='newThread').length,3);
 });
 
 test('uncertain browser outcome never retries the same submitted turn automatically',async t=>{
@@ -239,9 +304,11 @@ test('previous_response_id with full history still submits only the new suffix',
 test('replaying an identical completed POST does not create another Thread',async t=>{
   const {store,transport,calls}=fixture(t);
   const engine=new ResponseEngine({store,transport});
-  const original=await engine.run({...startBody,stream:false});
+  const body={...startBody,stream:false,input:[texts('system','agent-specific instructions come from client'),
+    {id:'msg_codex_hello_123',...texts('user','hello')}]};
+  const original=await engine.run(body);
   let started=null;
-  const replay=await engine.run({...startBody,stream:false},{onStarted:r=>{started=r}});
+  const replay=await engine.run(body,{onStarted:r=>{started=r}});
   assert.equal(replay.id,original.id);
   assert.equal(started.id,original.id);
   assert.equal(calls.filter(x=>x[0]==='newThread').length,1);
@@ -515,11 +582,12 @@ test('multi-report completion keeps exactly one assistant history item for subse
     return writeStore.response(id).output[0].content[0].text;
   };
   const engine=new ResponseEngine({store,transport});
-  const first=await engine.run({model:'neo',input:[texts('user','question')],stream:true});
+  const owner={metadata:{codex_thread_id:'22222222-2222-4222-8222-222222222222'}};
+  const first=await engine.run({model:'neo',...owner,input:[texts('user','question')],stream:true});
   assert.equal(first.output.length,1);
   assert.equal(first.output[0].content[0].text,'section one\nsection two');
   assert.equal(store.listSessions()[0].history.at(-1).text,'section one\nsection two');
-  const second=await engine.run({model:'neo',stream:true,input:[
+  const second=await engine.run({model:'neo',...owner,stream:true,input:[
     texts('user','question'),texts('assistant','section one\nsection two'),texts('user','next')
   ]});
   assert.equal(second.status,'completed');

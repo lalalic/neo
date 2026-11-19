@@ -6,7 +6,7 @@ import {readFileSync,realpathSync,lstatSync} from 'node:fs';
 import {resolve,join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {ModelStore} from './store.mjs';
-import {key,isPrefix} from './input.mjs';
+import {key} from './input.mjs';
 
 const validId=id=>typeof id==='string'&&/^resp_[0-9a-f]{40}$/.test(id);
 function mustResponse(store,id){
@@ -72,9 +72,9 @@ export function reportComplete(store,id){
   store.putResponse(response);
   const session=store.session(response.sessionId);
   if(session?.lastResponseId===id){
-    const incoming=session.lastInput;
-    const prior=isPrefix(incoming,session.history)?[]:session.history;
-    session.history=[...prior,...incoming,{role:'assistant',text,images:[]}];
+    // Keep the latest request snapshot for diagnostics only; routing always
+    // uses Codex Thread ID, never message contents or history prefixes.
+    session.history=[...session.lastInput,{role:'assistant',text,images:[]}];
     session.status='idle';store.putSession(session);
   }
   return response;
