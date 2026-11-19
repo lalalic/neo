@@ -1,16 +1,16 @@
 # Interactive Neo MCP access
 
-This is a provider-neutral capability. Z.ai, Claude, other browsers with Bash/HTTP tools, and local scripts can call **Neo MCP** through the same HTTPS JSON-RPC endpoint. There is no Agents Relay dependency.
+This is a provider-neutral capability. Z.ai, DeepSeek, Claude, and other browsers with real network tools can call **Neo MCP** through the same HTTPS JSON-RPC endpoint, or the REST GET adapter when only dynamic URL fetching is available. There is no Agents Relay dependency. The exact one-line chat starter is `bootstrap with neoy.qili2.com/files/z-chat/bootstrap.md`; it explicitly requests loading `xchat-orchestrator` after verified Neo access.
 
 ## Issue a short-lived credential
 
-For an interactive Z.ai chat, issue the access token **directly** on the trusted Neo Master terminal, without creating or finding a token file:
+For an authorized interactive web chat, issue the access token **directly** on the trusted Neo Master terminal, without creating or finding a token file:
 
 ```sh
-neo mcp token issue --stdout --client-name "Z.ai interactive"
+neo mcp token issue --stdout --client-name "Web chat interactive"
 ```
 
-`--stdout` intentionally displays the **one-hour access token** as a single line for the user to copy into a private chat. Do not run this command in a logging or shared terminal. The operator/master credential stays on Neo Master and the unused refresh token is revoked. There is no automatic renewal. The existing `--output` option remains available for unattended local scripts that require a private file.
+`--stdout` intentionally displays the **one-hour access token** as a single line for the user to copy into a private chat. Do not run this command in a logging or shared terminal. The operator/master credential stays on Neo Master and the unused refresh token is revoked. There is no unattended renewal. An eligible interactive access token can be renewed during a live turn via the POST renewal endpoint. The existing `--output` option remains available for unattended local scripts that require a private file.
 
 Run locally on the trusted Neo Master Mac (never inside a third-party AI's cloud sandbox):
 
@@ -27,7 +27,7 @@ Provide **only** the short-lived access token from the private file to an intera
 
 ## Verify with a real remote tool call
 
-An interactive cloud agent must use its *actual* Bash/HTTP tool, not merely output curl examples. In every independent Bash tool call, set the token again inside that same call because some cloud tool environments do not persist shell variables.
+An interactive cloud agent must use its *actual* HTTP tool, not merely output curl examples. In every independent shell call, set the token again inside that same call because some cloud tool environments do not persist shell variables. If there is no real POST tool but an actual uncached arbitrary-URL reader, follow the REST GET examples in the public bootstrap document. Not every web search or preview tool can fetch authenticated REST URLs.
 
 For example, with `NEO_ACCESS_TOKEN` supplied privately within the same command:
 
@@ -35,13 +35,13 @@ For example, with `NEO_ACCESS_TOKEN` supplied privately within the same command:
 curl -sS --max-time 20 https://neoy.qili2.com/mcp   -H 'Content-Type: application/json'   -H 'Accept: application/json, text/event-stream'   -H "Authorization: Bearer $NEO_ACCESS_TOKEN"   --data-binary '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
 ```
 
-Next use `tools/call` `status`, then `tools/call` `shell` with `command=exec` and `args.command=neo bootstrap` **on Neo Master**, and follow the returned default rules and discovered Skills. Distinguish the cloud Bash filesystem from the Neo Master filesystem.
+Next use `tools/call` `status`, then `tools/call` `shell` with `command=exec` and `args.command=neo bootstrap` **on Neo Master**. Discover `xchat-orchestrator` in the returned Skill catalog and read its actual `SKILL.md` using Neo `fs` or `shell`. Loading the Skill is required for this **explicit web-chat starter**; it does not itself authorize a Relay Job or source changes. Distinguish the cloud tool filesystem from the Neo Master filesystem.
 
 Inspect the JSON-RPC result and later verify real side effects. A text-only claim of having run commands is not proof.
 
 ## Renew interactively with the current Access Token
 
-For an authorized `Z.ai interactive` client, while the current token is **still valid** and before the original **eight-hour** session deadline, the agent can invoke:
+For an authorized interactive web chat that can make a real POST request, while the current token is **still valid** and before the original **eight-hour** session deadline, the agent can invoke:
 
 ```sh
 # Supply the current short-lived token within this SAME Bash invocation.
@@ -64,6 +64,6 @@ Successful revocation removes the private file. Expiration after one hour is the
 
 The canonical general rules are `neo bootstrap` (including Global AGENTS.md, XChat Harness and the live Skill catalog). This guide describes generic OAuth and HTTPS MCP mechanics.
 
-The public Z.ai adapter lives at `docs/z-chat/bootstrap.md`, published as `https://neoy.qili2.com/files/z-chat/bootstrap.md` through a read-only `z-chat` file mount. New Z.ai Full-Stack conversations can read it directly by URL instead of attaching a file. This URL contains no credentials. Uploading a file to Z.ai Cloud alone does not make it available in a new chat. The adapter does not duplicate the canonical Global AGENTS.md; it instructs Z to run `neo bootstrap` on the real Neo Master after authentication. On Neo Master, provision the mount through the existing `setup files mount z-chat /Users/chengli/Workspace/neo/docs/z-chat` command (public read-only), then verify an unauthenticated GET from the public HTTPS hostname.
+The **provider-neutral web-chat bootstrap** lives at `docs/z-chat/bootstrap.md`, published through the existing read-only `z-chat` mount as `https://neoy.qili2.com/files/z-chat/bootstrap.md`. The legacy URL intentionally stays unchanged so users can start Z.ai, DeepSeek, or another web chat with exactly `bootstrap with neoy.qili2.com/files/z-chat/bootstrap.md`. The public document contains no credentials; the owner supplies an approved short-lived token in a separate private turn. Reading the file alone cannot confer tool access. It asks a connected agent to run Neo bootstrap on the real Neo Master, then load the discovered `xchat-orchestrator` Skill. On Neo Master, the mount is configured via `setup files mount z-chat /Users/chengli/Workspace/neo/docs/z-chat` (public read-only); verify a public unauthenticated GET when updating the file.
 
 No remote worker should fabricate Relay source IDs or task lifecycle events in an interactive chat. No automatic refresh or permanent user session is implied.
