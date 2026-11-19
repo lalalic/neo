@@ -45,6 +45,12 @@ export class WebHelmTransport {
   async #openSession(url){
     const receipt=await this.#run(['session','start','--url',url]);
     if(!/^[a-f0-9]{16}$/.test(receipt?.session_id??''))throw Error('WebHelm session start returned invalid session ID');
+    // Model requests use only the shared WebHelm workspace, never a dedicated
+    // Neo Models browser Tab Group. Fail closed if the daemon routes elsewhere.
+    if(receipt.workspace!=='WebHelm'){
+      await this.#closeSession(receipt.session_id);
+      throw Error('Model transport requires the default WebHelm workspace');
+    }
     return receipt.session_id;
   }
   async #closeSession(id){

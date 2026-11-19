@@ -5,6 +5,10 @@ three actual Codex CLI MVPs to pass before merging or activating the change.**
 Unit/integration tests, manual `publish`/`chat_report` calls, synthetic reports,
 and MCP-injected completion events DO NOT count as MVPs.
 
+Do not create, select, or test through a dedicated **Neo Models** Tab Group.
+The Gateway only accepts WebHelm Sessions from the shared `WebHelm` workspace;
+leave user browser groups untouched. The gate itself does not configure workspaces.
+
 Run on Neo Master against the exact built/restarted candidate. Prerequisites:
 Codex CLI, the connected `events.publish` tool, a logged-in ChatGPT WebHelm
 Session, and Python `pexpect`. Verify the chosen target has its own state dir.

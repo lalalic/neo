@@ -759,7 +759,7 @@ test('held WebHelm Session is kept until explicit model completion, then release
   const fake=async(_,args)=>{
     if(args[0]==='session'){
       stages.push(args[1]);
-      if(args[1]==='start')return {session_id:sessionId};
+      if(args[1]==='start')return {session_id:sessionId,workspace:'WebHelm'};
       assert.equal(args[2],sessionId);
       return {ok:true};
     }
@@ -796,13 +796,29 @@ test('held WebHelm Session is kept until explicit model completion, then release
   assert.deepEqual(stages,['start','stop','start','stop']);
 });
 
+test('model transport refuses non-WebHelm tab groups and releases the session',async t=>{
+  const {WebHelmTransport}=await import('../services/models/webhelm.mjs');
+  const dir=mkdtempSync(join(tmpdir(),'neo-model-workspace-'));t.after(()=>rmSync(dir,{recursive:true,force:true}));
+  const actions=[],sessionId='a'.repeat(16);
+  const transport=new WebHelmTransport({tempDir:dir,holdSession:true,exec:async(_,args)=>{
+    actions.push(args.slice(0,3));
+    if(args[0]!=='session')throw Error('must not submit a model turn outside WebHelm workspace');
+    if(args[1]==='start')return {session_id:sessionId,workspace:'Neo Models'};
+    assert.equal(args[1],'stop');assert.equal(args[2],sessionId);
+    return {ok:true};
+  }});
+  await assert.rejects(()=>transport.newThread('task','contract','resp_'+'b'.repeat(40)),/requires the default WebHelm workspace/);
+  assert.deepEqual(actions.map(x=>x[1]),['start','stop']);
+  assert.equal(transport.held.size,0);
+});
+
 test('unverified newThread receipt releases held WebHelm session without leaving state',async t=>{
   const {WebHelmTransport}=await import('../services/models/webhelm.mjs');
   const dir=mkdtempSync(join(tmpdir(),'neo-model-bad-receipt-'));t.after(()=>rmSync(dir,{recursive:true,force:true}));
   const stages=[];const sessionId='f'.repeat(16);
   const transport=new WebHelmTransport({tempDir:dir,holdSession:true,exec:async(_,args)=>{
     if(args[0]==='session'){
-      stages.push(args[1]);return args[1]==='start'?{session_id:sessionId}:{ok:true};
+      stages.push(args[1]);return args[1]==='start'?{session_id:sessionId,workspace:'WebHelm'}:{ok:true};
     }
     return {result:{ok:true,value:{status:'submitted',thread_id:'abc'}}};
   }});
