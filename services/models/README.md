@@ -35,14 +35,14 @@ One client conversation corresponds to one persistent ChatGPT Thread:
 3. Only submit the new message(s). ChatGPT already retains conversation history.
 4. Each WebHelm turn includes a **small envelope** containing its `response_id`,
    an instruction to use `mcp.models chat_report`, and **only the new messages**.
-   The `system`/`developer`/`user` text is included inline by role for ordinary
-   inputs (up to 8192 UTF-8 bytes). Larger inputs use a private `.request.json`
-   file reference instead; images are always stored as private binary files.
+   The full current-turn `system`/`developer`/`user` text is always sent inline
+   (no gateway-specific length threshold or request file). WebHelm's
+   `new-thread` and `new-turn` handle large prompt transport themselves.
+   Image payloads are materialized as binary attachments only when needed.
 5. ChatGPT calls the dedicated MCP `mcp.models chat_report` tool with
-   `{response_id, text}` for answers up to 12000 characters. Large text results
-   use the exact `<response_id>.output.txt` path with `{response_id, file}`.
-   For real failures, use `{response_id, error}`. The tool writes directly to
-   the pending Responses result; ordinary answers require **no** output files.
+   `{response_id, text}` for the **complete** answer without output-size
+   routing or a result file. For real failures use `{response_id, error}`.
+   The tool delivers the answer directly to the pending Responses result.
    `mcp.chat-gateway chat_report` is a different tool that sends owner messages
    to Neo Mobile and must **not** be used for model responses.
 6. If WebHelm submission/completion is uncertain, preserve the state, refuse
@@ -56,8 +56,7 @@ For strongest isolation, API clients should supply a unique stable
 `metadata.session_id` for each independent conversation.
 
 The generic dispatch prompt contains a short reporting context on **every**
-turn, followed by the actual current-turn message content or a large-input
-file pointer. It never mentions ToyAlive, a DAG, a VLM role or any specific
+turn, followed by the full current-turn message content. It never mentions ToyAlive, a DAG, a VLM role or any specific
 agent. A client may still supply specialized instructions as
 `system`/`developer`/`user` message content.
 
@@ -71,7 +70,8 @@ Use `neo setup mcp list` to confirm `mcp.models chat_report` is healthy.
 The model response tool is separate from `mcp.chat-gateway chat_report` and
 must **never** send result text to the phone. The previous generic `report.mjs`
 CLI remains as a compatibility path for already-submitted older requests;
-new model turns use the MCP tool instead.
+new model turns use the MCP tool instead. Neither the input nor the output
+of a new text request is size-routed through gateway-generated files.
 
 ## Deployment and privacy
 

@@ -55,7 +55,17 @@ export async function runCLI(binary,args){
     child.stdout.on('data',b=>{stdout+=b;if(stdout.length>2*1024*1024)child.kill('SIGTERM')});
     child.stderr.on('data',b=>{stderr=(stderr+b).slice(-4096)});
     child.once('error',error=>{clearTimeout(timeout);reject(error)});
-    child.once('exit',code=>{clearTimeout(timeout);if(code!==0)return reject(Error('WebHelm exited '+code+': '+stderr.slice(-300)));
+    child.once('exit',code=>{
+      clearTimeout(timeout);
+      if(code!==0){
+        let detail=stderr.slice(-500);
+        try{
+          const parsed=JSON.parse(stdout);
+          const error=parsed.result?.error??parsed.error??parsed.message;
+          if(error)detail=typeof error==='string'?error:JSON.stringify(error);
+        }catch{}
+        return reject(Error('WebHelm exited '+code+': '+detail.slice(0,600)));
+      }
       try{resolve(JSON.parse(stdout))}catch{reject(Error('WebHelm returned invalid JSON'))}
     });
   });

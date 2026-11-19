@@ -4,30 +4,28 @@
  */
 import readline from 'node:readline';
 import {ModelStore} from './store.mjs';
-import {reportText,reportLargeFile,reportFailed} from './report.mjs';
+import {reportText,reportFailed} from './report.mjs';
 
 export const TOOL={
   name:'chat_report',
-  description:'Send the completed answer for a Neo models.qili2.com API request back to the waiting caller. This is NOT a Neo Mobile chat notification. Supply exactly one of text (normal answers), file (large UTF-8 results), or error (actual failure), with the exact response_id from the current turn.',
+  description:'Deliver the actual answer for the specified Neo model API request directly to its waiting caller. The user does not receive ordinary ChatGPT web replies. This is NOT the Neo Mobile chat gateway. Supply text for a successful answer, or error for an actual failure.',
   inputSchema:{
     type:'object',additionalProperties:false,required:['response_id'],
     properties:{
       response_id:{type:'string',pattern:'^resp_[0-9a-f]{40}$',description:'The response_id in the current Neo model request.'},
-      text:{type:'string',minLength:1,maxLength:12000,description:'The actual answer, used for ordinary-sized responses.'},
-      file:{type:'string',description:'Exact absolute *.output.txt path specified by the current model request; only for large text output.'},
+      text:{type:'string',minLength:1,description:'The complete answer for this request.'},
       error:{type:'string',minLength:1,maxLength:500,description:'An actual reason this request cannot be completed.'},
     },
   },
 };
 export function invokeReport(store,args){
   if(!args||typeof args!=='object'||Array.isArray(args))throw Error('tool arguments must be an object');
-  const {response_id,text,file,error}=args;
-  if(Object.keys(args).some(k=>!['response_id','text','file','error'].includes(k)))throw Error('unsupported tool argument');
+  const {response_id,text,error}=args;
+  if(Object.keys(args).some(k=>!['response_id','text','error'].includes(k)))throw Error('unsupported tool argument');
   if(typeof response_id!=='string'||!/^resp_[a-f0-9]{40}$/.test(response_id))throw Error('invalid response_id');
-  if([text,file,error].filter(x=>x!==undefined).length!==1)throw Error('provide exactly one of text, file or error');
-  if(text!==undefined&&(typeof text!=='string'||!text.trim()||text.length>12000))throw Error('text must be 1–12000 characters');
-  const result=text!==undefined?reportText(store,response_id,text):
-    file!==undefined?reportLargeFile(store,response_id,file):reportFailed(store,response_id,error);
+  if([text,error].filter(x=>x!==undefined).length!==1)throw Error('provide exactly one of text or error');
+  if(text!==undefined&&(typeof text!=='string'||!text.trim()))throw Error('text must be non-empty');
+  const result=text!==undefined?reportText(store,response_id,text):reportFailed(store,response_id,error);
   return {response_id,status:result.status,ok:result.status==='completed'||result.status==='failed'};
 }
 const send=(id,payload)=>process.stdout.write(JSON.stringify({jsonrpc:'2.0',id,...payload})+'\n');

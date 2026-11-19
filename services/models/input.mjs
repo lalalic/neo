@@ -12,10 +12,10 @@ export const assertInput = body => {
     if(!item||!['system','developer','user','assistant'].includes(item.role))continue;
     const parts=typeof item.content==='string'?[{type:'input_text',text:item.content}]:item.content;
     if(!Array.isArray(parts)||parts.length>40)throw Error('unsupported content');
-    let text='',images=[];
+    const texts=[],images=[];
     for(const part of parts){
       if(['input_text','output_text','text'].includes(part?.type) && typeof part.text==='string'){
-        text+=part.text+'\n';
+        texts.push(part.text);
       }else if(['input_image','image_url'].includes(part?.type)){
         const url=typeof part.image_url==='string'?part.image_url:part.image_url?.url;
         const match=typeof url==='string'&&/^data:image\/(png|jpeg|webp);base64,([a-zA-Z0-9+/=]+)$/.exec(url);
@@ -29,11 +29,9 @@ export const assertInput = body => {
         images.push({type:match[1],base64:match[2]});
       }else throw Error('unsupported message part: '+String(part?.type));
     }
-    result.push({role:item.role,text:text.trimEnd(),images});
+    result.push({role:item.role,text:texts.join('\n'),images});
   }
   if(!result.length)throw Error('no textual message roles');
-  const total=result.reduce((s,m)=>s+m.text.length+m.images.reduce((a,i)=>a+i.base64.length,0),0);
-  if(total>20*1024*1024)throw Error('request exceeds maximum size');
   return result;
 };
 export const compact = messages => messages.map(m=>({...m,images:m.images.map(i=>({type:i.type,sha256:i.sha256??createHash('sha256').update(i.base64,'utf8').digest('hex')}))}));

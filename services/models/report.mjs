@@ -30,7 +30,6 @@ export function reportCompleted(store,id,outputFile){
 export function reportText(store,id,text){
   const response=mustResponse(store,id);
   if(typeof text!=='string'||!text.trim())throw Error('non-empty text result required');
-  if(Buffer.byteLength(text,'utf8')>4*1024*1024)throw Error('result exceeds 4MiB');
   if(response.status==='completed'){
     if(response.output?.[0]?.content?.[0]?.text!==text)throw Error('conflicting completed output');
     return response;

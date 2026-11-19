@@ -8,7 +8,7 @@ import {ResponseEngine,streamResponse} from '../services/models/responses.mjs';
 import {createModelServer} from '../services/models/server.mjs';
 import {reportCompleted,reportText,reportLargeFile} from '../services/models/report.mjs';
 import {handleMcp,invokeReport,TOOL} from '../services/models/mcp.mjs';
-import {INLINE_INPUT_BYTES,createTurnPrompt} from '../services/models/prompt.mjs';
+import {createTurnPrompt} from '../services/models/prompt.mjs';
 
 const token='development-model-test-token-0123456789abcdef';
 function fixture(t){
@@ -286,43 +286,40 @@ test('small messages inline and no input/output files; report tool context on ev
   assert.doesNotMatch(calls[2][2],/agent-specific instructions come from client|\[SYSTEM\]/);
 });
 
-test('oversized inputs use private file, short results still use chat_report text',async t=>{
+test('long user inputs stay fully inline and WebHelm transports unchanged',async t=>{
   const {store,transport,calls}=fixture(t);
-  const payload='A'.repeat(INLINE_INPUT_BYTES+200);
+  const payload='Long conversation: '+('中文内容 and code const x = 1; '.repeat(4000));
   await new ResponseEngine({store,transport}).run({model:'neo',input:[texts('user',payload)]});
   const prompt=calls[0][1];
-  assert.doesNotMatch(prompt,new RegExp('A{500}'));
-  const file=prompt.match(/INPUT: Read (.*?\.request\.json) \(large message or attachments\)/)[1];
-  const item=JSON.parse(readFileSync(file,'utf8'));
-  assert.equal(item.messages[0].content,payload);
-  assert.equal(item.messages[0].role,'user');
+  assert.ok(prompt.includes(payload));
+  assert.match(prompt,/mcp\.models chat_report/);
+  assert.doesNotMatch(prompt,/\.request\.json|\.output\.txt|READ |Read /);
+  assert.equal(prompt.match(/Long conversation:/g)?.length,1);
+  const {existsSync}=await import('node:fs');
+  assert.equal(existsSync(join(store.base,'requests')),false);
 });
 
-test('mcp.models chat_report: short text receipt, idempotency, errors, and large file',async t=>{
+test('mcp.models chat_report delivers arbitrary-size text directly; retries and errors are safe',async t=>{
   const {store}=fixture(t);
   const make=id=>store.putResponse({id,sessionId:'sess_'+('a'.repeat(40)),object:'response',model:'neo',status:'in_progress',created_at:0,output:[]});
   const id='resp_'+'a'.repeat(40);make(id);
   const report=handleMcp({id:1,method:'tools/call',params:{name:'chat_report',arguments:{response_id:id,text:'HELLO'}}},store);
   assert.equal(report.result.isError,false);
   assert.equal(store.response(id).output[0].content[0].text,'HELLO');
-  const replay=handleMcp({id:2,method:'tools/call',params:{name:'chat_report',arguments:{response_id:id,text:'HELLO'}}},store);
-  assert.equal(replay.result.isError,false);
-  const conflicting=handleMcp({id:3,method:'tools/call',params:{name:'chat_report',arguments:{response_id:id,text:'OTHER'}}},store);
-  assert.equal(conflicting.result.isError,true);
+  assert.equal(handleMcp({id:2,method:'tools/call',params:{name:'chat_report',arguments:{response_id:id,text:'HELLO'}}},store).result.isError,false);
+  assert.equal(handleMcp({id:3,method:'tools/call',params:{name:'chat_report',arguments:{response_id:id,text:'OTHER'}}},store).result.isError,true);
   const hugeId='resp_'+'b'.repeat(40);make(hugeId);
-  const {mkdirSync}=await import('node:fs');mkdirSync(join(store.base,'requests'),{recursive:true});
-  const largeFile=join(store.base,'requests',hugeId+'.output.txt');
-  writeFileSync(largeFile,'Z'.repeat(12020));
-  const large=handleMcp({id:4,method:'tools/call',params:{name:'chat_report',arguments:{response_id:hugeId,file:largeFile}}},store);
+  const largeText='中文'.repeat(35000);
+  const large=handleMcp({id:4,method:'tools/call',params:{name:'chat_report',arguments:{response_id:hugeId,text:largeText}}},store);
   assert.equal(large.result.isError,false);
-  assert.equal(store.response(hugeId).output[0].content[0].text.length,12020);
-  const wrongFile=handleMcp({id:5,method:'tools/call',params:{name:'chat_report',arguments:{response_id:hugeId,file:'/etc/hosts'}}},store);
-  assert.equal(wrongFile.result.isError,true);
+  assert.equal(store.response(hugeId).output[0].content[0].text,largeText);
+  assert.equal(TOOL.inputSchema.properties.text.maxLength,undefined);
+  assert.equal(TOOL.inputSchema.properties.file,undefined);
+  const unexpectedFile=handleMcp({id:5,method:'tools/call',params:{name:'chat_report',arguments:{response_id:hugeId,file:'/tmp/file'}}},store);
+  assert.equal(unexpectedFile.result.isError,true);
   const failId='resp_'+'c'.repeat(40);make(failId);
-  const fail=handleMcp({id:6,method:'tools/call',params:{name:'chat_report',arguments:{response_id:failId,error:'Actual model failure'}}},store);
-  assert.equal(fail.result.isError,false);
+  assert.equal(handleMcp({id:6,method:'tools/call',params:{name:'chat_report',arguments:{response_id:failId,error:'Actual model failure'}}},store).result.isError,false);
   assert.equal(store.response(failId).status,'failed');
-  assert.equal(store.response(failId).error.message,'Actual model failure');
   assert.equal(handleMcp({id:7,method:'tools/list'},store).result.tools[0].name,'chat_report');
 });
 
@@ -340,4 +337,12 @@ test('MCP stdio lifecycle advertises exactly one model response tool',async t=>{
   assert.deepEqual(answers.map(x=>x.id),[1,2]);
   assert.equal(answers[1].result.tools[0].name,'chat_report');
   assert.equal(answers[1].result.tools.length,1);
+});
+
+
+test('input text preserves exact leading and trailing whitespace',async t=>{
+  const {store,transport,calls}=fixture(t);
+  const prompt='  preserve leading and trailing spaces  \n  code snippet: x = 1;  ';
+  await new ResponseEngine({store,transport}).run({model:'neo',input:[texts('user',prompt)]});
+  assert.ok(calls[0][1].includes('[USER]\n'+prompt+'\n[/USER]'));
 });

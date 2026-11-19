@@ -1,5 +1,4 @@
 import {key,assertInput,isPrefix,materializeImages,compact,signature} from './input.mjs';
-import {mkdirSync} from 'node:fs';
 import {join} from 'node:path';
 import {createTurnPrompt} from './prompt.mjs';
 const event=(type,obj)=>`event: ${type}\ndata: ${JSON.stringify({type,...obj})}\n\n`;
@@ -59,13 +58,9 @@ export class ResponseEngine {
     try{
       const requestMessages=delta.length?delta:messages;
       const files=materializeImages(requestMessages,join(this.store.base,'attachments',session.id));
-      const requestsDir=join(this.store.base,'requests');
-      mkdirSync(requestsDir,{recursive:true,mode:0o700});
-      const requestFile=join(requestsDir,responseId+'.request.json');
-      const resultFile=join(requestsDir,responseId+'.output.txt');
       let imageIndex=0;
       const input=requestMessages.map(m=>({role:m.role,content:m.text,images:m.images.map(()=>({file:files[imageIndex++]}))}));
-      const {prompt}=createTurnPrompt({responseId,messages:input,requestFile,outputFile:resultFile});
+      const {prompt}=createTurnPrompt({responseId,messages:input});
       let text;
       if(!session.threadId){
         const receipt=await this.transport.newThread(prompt);
