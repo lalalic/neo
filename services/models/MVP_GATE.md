@@ -44,10 +44,10 @@ no speculative extra Enter while waiting for a model response.
 
 Test outcomes:
 
-1. **MVP1** `codex exec -p neo`: one text and separate `reply.completed`.
-2. **MVP2** native interactive `codex -p neo`: two distinct Turns in one TUI,
+1. **MVP1** `codex exec -p neo -c 'model="chatgpt"'`: one text and separate `reply.completed`.
+2. **MVP2** native interactive `codex -p neo -c 'model="chatgpt"'`: two distinct Turns in one TUI,
    same Gateway Session, exact persisted Codex Thread ID mapping, and ChatGPT Thread, each completed.
-3. **MVP3** `codex exec -p neo`: two distinct `reply.text` segments in one Turn
+3. **MVP3** `codex exec -p neo -c 'model="chatgpt"'`: two distinct `reply.text` segments in one Turn
    with increasing sequence and a separate `reply.completed`; Codex must reach
    `turn.completed`.
 
@@ -66,3 +66,9 @@ against the saved mapping and verifies the native TUI Turn retains both IDs.
 For a separate-process `codex resume <UUID>` check, verify that the second
 process retains the same Codex UUID and reuses the mapped ChatGPT Thread.
 Do not use the `Neo Models` Tab Group.
+
+The gate intentionally **pins the ChatGPT model** rather than reading the
+`neo` Codex Profile default (which may be `z`). This preserves the mandatory
+Events Bus verification after adding additional browser-backed models.
+Each new backend also requires its own real provider E2E acceptance tests;
+three ChatGPT MVP passes alone cannot certify Z.ai.

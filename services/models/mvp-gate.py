@@ -55,7 +55,7 @@ def validate_response(state, marker, started_ms, answer, expected_reports):
 
 
 def codex_exec(label, prompt, expected, config, state, cwd, folder, started_ms, expected_reports):
-    cmd = ['codex', 'exec', '-p', 'neo', '-c', config, '--json',
+    cmd = ['codex', 'exec', '-p', 'neo', '-c', 'model="chatgpt"', '-c', config, '--json',
            '--sandbox', 'read-only', '--skip-git-repo-check', '-C', str(cwd), prompt]
     result = subprocess.run(cmd, stdin=subprocess.DEVNULL, text=True, capture_output=True, cwd=str(cwd), timeout=210)
     (folder / (label + '.jsonl')).write_text(result.stdout)
@@ -119,7 +119,7 @@ def native_two_turns(config, state, cwd, folder, started_ms, nonce):
           'Use the connected Events Bus publish tool with reply.text seq 1 then separate reply.completed. No chat_report.')
     p2 = (m2 + f'. Second turn in the SAME Codex session. Answer exactly the words EVENT, NATIVE, SECOND, PASS, {nonce} joined by underscores. '
           'Publish reply.text and separate reply.completed. Do not edit files.')
-    argv = ['-p', 'neo', '-c', config, '-s', 'read-only', '-C', str(cwd), p1]
+    argv = ['-p', 'neo', '-c', 'model="chatgpt"', '-c', config, '-s', 'read-only', '-C', str(cwd), p1]
     child = pexpect.spawn('codex', argv, cwd=str(cwd), env={**os.environ,
         'TERM':'xterm-256color', 'COLUMNS':'120', 'LINES':'38'},
         encoding='utf-8', timeout=0.5, dimensions=(38, 120))

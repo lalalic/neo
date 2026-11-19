@@ -47,3 +47,9 @@ test('MVP2 gate contains no speculative repeat Enter on pending second Turn',()=
 function requireSource(){
   return spawnSync('cat',[script],{encoding:'utf8'}).stdout;
 }
+
+test('ChatGPT MVP gate pins model explicitly when the neo Profile defaults to z',()=>{
+  const source=requireSource();
+  assert.match(source, /'-c', 'model=\"chatgpt\"', '-c', config/);
+  assert.equal((source.match(/'model=\"chatgpt\"'/g)??[]).length,2);
+});
