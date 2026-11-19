@@ -11,7 +11,7 @@ export class ResponseSseWriter {
   start(response){
     if(this.started)return;
     this.started=true;
-    const {sessionId,reports,...publicResponse}=response;
+    const {sessionId,reports,last_activity_at,heartbeat_count,...publicResponse}=response;
     const start={...publicResponse,status:'in_progress',output:[]};
     this.emit('response.created',{response:start});
     this.emit('response.in_progress',{response:start});
@@ -19,7 +19,7 @@ export class ResponseSseWriter {
   update(response){
     if(this.terminal)return true;
     this.start(response);
-    const {sessionId,reports,...publicResponse}=response;
+    const {sessionId,reports,last_activity_at,heartbeat_count,...publicResponse}=response;
     const item=publicResponse.output?.[0];
     if(item&&!this.itemStarted){
       this.emit('response.output_item.added',{output_index:0,item:{id:item.id,type:'message',status:'in_progress',role:'assistant',content:[]}});
@@ -101,19 +101,23 @@ export class ResponseEngine {
       const files=materializeImages(requestMessages,join(this.store.base,'attachments',session.id));
       let imageIndex=0;
       const input=requestMessages.map(m=>({role:m.role,content:m.text,images:m.images.map(()=>({file:files[imageIndex++]}))}));
-      const {prompt}=createTurnPrompt({responseId,messages:input});
+      const {prompt}=createTurnPrompt({
+        responseId,messages:input,
+        projectBound:Boolean(session.projectId||(!session.threadId&&this.transport.projectId)),
+      });
       if(!this.transport.waitForResult)throw Error('model transport requires explicit chat_report completion');
       if(!session.threadId){
         const receipt=await this.transport.newThread(prompt);
         if(!receipt?.thread_id)throw Error('new-thread did not return a verified thread ID');
         const live=this.store.session(session.id);
         live.threadId=receipt.thread_id;live.threadUrl=receipt.thread_url;
+        live.projectId=receipt.project_id??null;
         live.status=this.store.response(responseId)?.status==='completed'?'idle':'awaiting';
         this.store.putSession(live);
       }else{
         const live=this.store.session(session.id);
         live.status='awaiting';this.store.putSession(live);
-        await this.transport.newTurn(session.threadId,prompt,[],responseId);
+        await this.transport.newTurn(session.threadId,prompt,[],responseId,session.projectId??null);
       }
       // Text reports leave status=in_progress. Only a distinct completed:true
       // report makes the waiter settle and allows this Turn to end.

@@ -34,10 +34,20 @@ export function reportCompleted(store,id,outputFile){
 }
 // Every report appends text to one assistant output item. Reports are NOT
 // terminal; each is sent as its own SSE delta while the Turn is open.
+// A heartbeat is a liveness receipt, not an output item or terminal marker.
+export function reportHeartbeat(store,id){
+  const response=mustResponse(store,id);
+  if(response.status!=='in_progress')throw Error('cannot heartbeat a terminal response');
+  response.last_activity_at=Date.now();
+  response.heartbeat_count=(response.heartbeat_count??0)+1;
+  store.putResponse(response);
+  return response;
+}
 export function reportText(store,id,text){
   const response=mustResponse(store,id);
   if(typeof text!=='string'||!text.trim())throw Error('non-empty text report required');
   if(response.status!=='in_progress')throw Error('cannot report to a terminal response');
+  response.last_activity_at=Date.now();
   response.reports??=[];
   response.reports.push(text);
   const combined=response.reports.join('\n');

@@ -6,7 +6,7 @@ import {WebHelmTransport} from './webhelm.mjs';
 import {listModelCatalog} from './catalog.mjs';
 
 const MAX_BODY=48*1024*1024;
-const toPublic=r=>{if(!r)return null;const {sessionId,reports,...rest}=r;return rest;};
+const toPublic=r=>{if(!r)return null;const {sessionId,reports,last_activity_at,heartbeat_count,...rest}=r;return rest;};
 const json=(res,status,value)=>{
   if(res.headersSent)return;
   res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});

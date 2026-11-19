@@ -519,3 +519,110 @@ test('multi-report completion keeps exactly one assistant history item for subse
   assert.equal(calls.filter(x=>x[0]==='newTurn').length,1);
   assert.equal(calls.find(x=>x[0]==='newTurn')[1],'thread-1');
 });
+
+test('Project-scoped model Turns send only response_id + actual input, including continued Turns',async t=>{
+  const {store,transport,calls}=fixture(t);
+  const projectId='g-p-'+'a'.repeat(32);
+  transport.projectId=projectId;
+  transport.newTurn=async(threadId,prompt,files,responseId,project)=>{
+    calls.push(['newTurn',threadId,prompt,files,responseId,project]);
+    return {status:'submitted',thread_id:threadId,queue_id:'queued_'+responseId};
+  };
+  transport.newThread=async prompt=>{
+    calls.push(['newThread',prompt]);
+    return {status:'submitted',project_id:projectId,thread_id:'project-thread',
+      thread_url:`https://chatgpt.com/g/${projectId}/c/project-thread`};
+  };
+  await new ResponseEngine({store,transport}).run(startBody);
+  const start=calls.find(c=>c[0]==='newThread')[1];
+  assert.match(start,/^Neo model request: resp_[0-9a-f]{40}/);
+  assert.match(start,/agent-specific instructions come from client/);
+  assert.doesNotMatch(start,/chat_report|heartbeat|completed:true|COMPLETION REQUIRED/i);
+  const session=store.listSessions()[0];
+  assert.equal(session.projectId,projectId);
+  await new ResponseEngine({store,transport}).run(nextBody);
+  const next=calls.find(c=>c[0]==='newTurn');
+  assert.equal(next[1],'project-thread');
+  assert.equal(next[5],projectId);
+  assert.match(next[2],/^Neo model request: resp_[0-9a-f]{40}/);
+  assert.match(next[2],/\[USER\]\ncontinue/);
+  assert.doesNotMatch(next[2],/chat_report|heartbeat|completed:true|First reply|agent-specific/i);
+});
+
+test('non-Project legacy sessions preserve reporting instructions after Project migration',async t=>{
+  const {store,transport,calls}=fixture(t);
+  transport.projectId=null;
+  await new ResponseEngine({store,transport}).run(startBody);
+  assert.match(calls[0][1],/mcp\.models chat_report/);
+  assert.match(calls[0][1],/\"completed\":true/);
+  assert.match(calls[0][1],/\"heartbeat\":true/);
+  assert.equal(store.listSessions()[0].projectId,null);
+});
+
+test('MCP heartbeat is non-terminal, does not add output, and keeps explicit completion mandatory',async t=>{
+  const {store}=fixture(t);
+  const id='resp_'+'b'.repeat(40);
+  store.putResponse({id,sessionId:'sess_'+'c'.repeat(40),object:'response',model:'neo',status:'in_progress',created_at:0,output:[]});
+  const call=(n,args)=>handleMcp({id:n,method:'tools/call',params:{name:'chat_report',arguments:{response_id:id,...args}}},store);
+  assert.equal(TOOL.inputSchema.properties.heartbeat.const,true);
+  assert.equal(call(1,{heartbeat:true}).result.isError,false);
+  let state=store.response(id);
+  assert.equal(state.status,'in_progress');
+  assert.equal(state.heartbeat_count,1);
+  assert.ok(state.last_activity_at>0);
+  assert.deepEqual(state.output,[]);
+  assert.equal(call(2,{heartbeat:false}).result.isError,true);
+  assert.equal(call(3,{heartbeat:true,text:'bad'}).result.isError,true);
+  assert.equal(call(4,{completed:true}).result.isError,true,'heartbeats cannot substitute for answer text');
+  assert.equal(call(5,{text:'first'}).result.isError,false);
+  assert.equal(call(6,{heartbeat:true}).result.isError,false);
+  assert.equal(store.response(id).heartbeat_count,2);
+  assert.equal(store.response(id).status,'in_progress');
+  assert.equal(call(7,{completed:true}).result.isError,false);
+  assert.equal(store.response(id).status,'completed');
+  assert.equal(call(8,{heartbeat:true}).result.isError,true,'no heartbeats after completion');
+});
+
+test('heartbeat and text reports extend inactivity timeout but not absolute maximum',async t=>{
+  const {store}=fixture(t);
+  const {WebHelmTransport}=await import('../services/models/webhelm.mjs');
+  const transport=new WebHelmTransport({tempDir:join(store.base,'tmp'),projectId:null});
+  const id='resp_'+'d'.repeat(40);
+  store.putResponse({id,sessionId:'sess_'+'e'.repeat(40),object:'response',model:'neo',status:'in_progress',created_at:0,output:[]});
+  const sleeping=ms=>new Promise(r=>setTimeout(r,ms));
+  const pending=transport.waitForResult(id,store,{timeoutMs:130,maxMs:500,pollMs:7});
+  await sleeping(85);
+  const {reportHeartbeat}=await import('../services/models/report.mjs');
+  reportHeartbeat(store,id);
+  await sleeping(80);
+  reportText(store,id,'done');reportComplete(store,id);
+  assert.equal(await pending,'done');
+  const timeoutId='resp_'+'f'.repeat(40);
+  store.putResponse({id:timeoutId,sessionId:'sess_'+'e'.repeat(40),status:'in_progress',output:[]});
+  await assert.rejects(()=>transport.waitForResult(timeoutId,store,{timeoutMs:25,maxMs:85,pollMs:5}),/inactivity timeout/);
+});
+
+test('configured project ID is validated; Project new-thread and new-turn carry exact ID',async t=>{
+  const {WebHelmTransport,configuredProjectId}=await import('../services/models/webhelm.mjs');
+  const dir=mkdtempSync(join(tmpdir(),'neo-project-scoped-'));t.after(()=>rmSync(dir,{recursive:true,force:true}));
+  const file=join(dir,'project.json'),projectId='g-p-'+'b'.repeat(32);
+  assert.equal(configuredProjectId(file),null);
+  writeFileSync(file,JSON.stringify({project_id:'wrong'}));
+  assert.throws(()=>configuredProjectId(file),/Invalid Neo model ChatGPT Project ID/);
+  writeFileSync(file,JSON.stringify({project_id:projectId}));
+  assert.equal(configuredProjectId(file),projectId);
+  const calls=[];
+  const exec=async(_,args)=>{
+    const action=args[3],config=JSON.parse(readFileSync(args[args.indexOf('--config')+1],'utf8'));
+    calls.push({action,config});
+    if(action==='new-thread')return {result:{ok:true,value:{status:'submitted',project_id:projectId,thread_id:'same-id',thread_url:`https://chatgpt.com/g/${projectId}/c/same-id`}}};
+    return {result:{ok:true,status:'submitted',thread_id:'same-id',queue_id:'queued'}};
+  };
+  const transport=new WebHelmTransport({tempDir:dir,projectId,exec});
+  const receipt=await transport.newThread('hi');
+  assert.equal(receipt.project_id,projectId);
+  await transport.newTurn('same-id','hello',[],'resp_'+'a'.repeat(40),projectId);
+  assert.deepEqual(calls.map(x=>x.config.project_id),[projectId,projectId]);
+  const invalid=new WebHelmTransport({tempDir:dir,projectId,exec:async()=>({result:{ok:true,value:{status:'submitted',thread_id:'other',thread_url:'https://chatgpt.com/c/other'}}})});
+  await assert.rejects(()=>invalid.newThread('hi'),/did not verify the configured ChatGPT Project/);
+});
