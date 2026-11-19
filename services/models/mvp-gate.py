@@ -6,6 +6,7 @@ sends user prompts through Codex CLI and reads the Gateway's recorded receipts.
 Pass requires actual model tool calls and Codex turn completion.
 """
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -74,6 +75,41 @@ def codex_exec(label, prompt, expected, config, state, cwd, folder, started_ms, 
             'reports': len(expected_reports), 'session': session['id'], 'thread': session['threadId']}
 
 
+def validate_native_turn_count(state, session_id, started_ms):
+    # A native two-turn CLI run must issue exactly two Gateway Responses.
+    # Matching is by the explicit Session ID, never message contents.
+    responses = []
+    for file in (state / 'responses').glob('*.json'):
+        try:
+            r = json.loads(file.read_text())
+        except (OSError, ValueError):
+            continue
+        if (r.get('sessionId') == session_id and r.get('created_at', 0) * 1000 >= started_ms - 1000):
+            responses.append(r['id'])
+    if len(responses) != 2:
+        raise RuntimeError(f'Native two-turn CLI submitted {len(responses)} requests; expected exactly 2')
+
+
+def source_fingerprint():
+    folder = Path(__file__).parent
+    files = sorted(p for p in folder.iterdir() if p.is_file() and p.suffix in ('.mjs', '.md', '.py'))
+    h = hashlib.sha256()
+    for file in files:
+        h.update(file.name.encode() + b'\0')
+        h.update(file.read_bytes())
+    # The WebHelm ChatGPT Actions are independently installed and directly
+    # control the Send/Stop UI. Their bytes are part of this release contract.
+    actions = Path.home() / '.local' / 'webhelm' / 'platforms' / 'chatgpt'
+    for name in ('actions/_action-common.mjs', 'actions/_new_thread.mjs',
+                 'actions/_new_turn.mjs', 'runtime/lifecycle-common.mjs'):
+        path = actions / name
+        if not path.is_file():
+            raise RuntimeError('Missing installed WebHelm action: ' + str(path))
+        h.update(name.encode() + b'\0')
+        h.update(path.read_bytes())
+    return h.hexdigest()
+
+
 def native_two_turns(config, state, cwd, folder, started_ms, nonce):
     m1 = f'MVP2_NATIVE_{nonce}_T1'
     m2 = f'MVP2_NATIVE_{nonce}_T2'
@@ -87,7 +123,7 @@ def native_two_turns(config, state, cwd, folder, started_ms, nonce):
     child = pexpect.spawn('codex', argv, cwd=str(cwd), env={**os.environ,
         'TERM':'xterm-256color', 'COLUMNS':'120', 'LINES':'38'},
         encoding='utf-8', timeout=0.5, dimensions=(38, 120))
-    output = ''; sent = False; title_done = False; sent_at = 0; retries = 0
+    output = ''; sent = False; title_done = False; second_prefilled_at = None
     first = None; second = None
     try:
         with (folder / 'mvp2-tui.log').open('w', buffering=1) as log:
@@ -106,18 +142,31 @@ def native_two_turns(config, state, cwd, folder, started_ms, nonce):
                                      and s.get('createdAt', 0) >= started_ms
                                      and r.get('status') in ('completed', 'failed')
                                      for text, s, r in sessions(state))
-                if first and first[1].get('status') == 'completed' and title_done and a1 in output and not sent:
+                if (first and first[1].get('status') == 'completed' and title_done
+                        and a1 in output and second_prefilled_at is None):
+                    # Wait for the completed first Turn to leave the TUI idle,
+                    # then type the second request without pressing Enter yet.
                     time.sleep(2)
                     child.send(p2)
-                    time.sleep(0.8)
-                    child.send('\r')
-                    sent = True; sent_at = time.monotonic()
-                if sent and second is None and retries < 2 and time.monotonic() - sent_at > 4 + retries * 3:
-                    child.send('\r')
-                    retries += 1
+                    second_prefilled_at = time.monotonic()
+                if second_prefilled_at is not None and not sent:
+                    # Terminal writes are asynchronous. Pressing Enter before
+                    # the entire request is rendered can be silently ignored.
+                    # Match the fixed final words (not the request history) to
+                    # confirm the Codex input field received all characters.
+                    # Codex redraws spaces via ANSI cursor positioning, so
+                    # the entire human sentence is not contiguous in TUI logs.
+                    echo = 'files.' in output[output.find(a1):]
+                    if echo and time.monotonic() - second_prefilled_at >= 1.5:
+                        child.send('\r')
+                        # Exactly one Enter per Turn. Never speculative retries.
+                        sent = True
+                    elif time.monotonic() - second_prefilled_at > 20:
+                        raise RuntimeError('Native TUI did not echo complete Turn 2 before the only Enter')
                 if sent and second and second[1].get('status') == 'completed' and a2 in output:
                     s1, r1 = first  # Cached before the Session's lastInput becomes Turn 2.
                     s2, r2 = second
+                    validate_native_turn_count(state, s1['id'], started_ms)
                     if r1.get('reports') != [a1] or r2.get('reports') != [a2]:
                         raise RuntimeError('Native Codex TUI reports did not match the expected autonomous responses')
                     if s1['id'] != s2['id'] or s1.get('threadId') != s2.get('threadId') or s1.get('codexThreadId') != s2.get('codexThreadId'):
@@ -141,16 +190,35 @@ def main():
     parser.add_argument('--base-url', required=True, help='Staged or live Neo responses API, e.g. http://127.0.0.1:8786/v1')
     parser.add_argument('--state-dir', required=True, type=Path, help='Read-only ModelStore path used by target Gateway')
     parser.add_argument('--output-dir', required=True, type=Path)
+    parser.add_argument('--phase', choices=['candidate', 'live'], required=True,
+                        help='Candidate must pass before merge; live must pass after activation')
+    parser.add_argument('--candidate-evidence', type=Path,
+                        help='Required for live: the verified candidate result file')
     args = parser.parse_args()
     if not args.state_dir.joinpath('sessions').is_dir():
         raise RuntimeError('state-dir has no Gateway sessions directory')
+    fingerprint = source_fingerprint()
+    if args.phase == 'live':
+        if not args.candidate_evidence or not args.candidate_evidence.is_file():
+            raise RuntimeError('live gate requires a prior ALL_3_MVPS_PASS candidate evidence file')
+        candidate = json.loads(args.candidate_evidence.read_text())
+        if candidate.get('phase') != 'candidate' or candidate.get('gate') != 'ALL_3_MVPS_PASS':
+            raise RuntimeError('candidate evidence does not contain all three MVP passes')
+        if candidate.get('source_fingerprint') != fingerprint:
+            raise RuntimeError('candidate source differs from live source; rerun candidate gate')
+    elif args.candidate_evidence:
+        raise RuntimeError('candidate-evidence applies only to live gate')
     folder = args.output_dir.resolve()
     folder.mkdir(parents=True, exist_ok=True, mode=0o700)
+    if args.phase == 'live' and args.candidate_evidence.resolve() == (folder / 'all-3-mvps-pass.json'):
+        raise RuntimeError('candidate evidence must not be overwritten by live gate')
+    # A failed retry must not leave an earlier success as false current proof.
+    (folder / 'all-3-mvps-pass.json').unlink(missing_ok=True)
     cwd = folder / 'codex'
     cwd.mkdir(parents=True, exist_ok=True)
     nonce = uuid.uuid4().hex[:8].upper()
     config = 'model_providers.neo-local.base_url="' + args.base_url + '"'
-    print(json.dumps({'gate':'start','nonce':nonce,'api':args.base_url}), flush=True)
+    print(json.dumps({'gate':'start','nonce':nonce,'phase':args.phase,'api':args.base_url}), flush=True)
 
     m1=f'MVP1_SINGLE_{nonce}'
     a1=f'EVENT_SINGLE_PASS_{nonce}'
@@ -173,7 +241,11 @@ def main():
     started=int(time.time()*1000)
     r3=codex_exec(m3,p3,a3,config,args.state_dir,cwd,folder,started,[x1,x2])
     print(json.dumps({'gate':'MVP3_PASS',**r3}),flush=True)
-    print(json.dumps({'gate':'ALL_3_MVPS_PASS','nonce':nonce}),flush=True)
+    evidence = {'gate':'ALL_3_MVPS_PASS', 'phase':args.phase,
+                'nonce':nonce, 'source_fingerprint':fingerprint,
+                'api':args.base_url, 'mvp1':r1, 'mvp2':r2, 'mvp3':r3}
+    (folder / 'all-3-mvps-pass.json').write_text(json.dumps(evidence, indent=2))
+    print(json.dumps(evidence),flush=True)
 
 
 if __name__=='__main__':

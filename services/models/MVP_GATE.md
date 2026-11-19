@@ -1,6 +1,6 @@
 # Mandatory Codex CLI model release gate
 
-**Every change to the Neo Model Gateway or its ChatGPT transport requires all
+**Every change to the Neo Model Gateway, its release gate, or WebHelm ChatGPT transport requires all
 three actual Codex CLI MVPs to pass before merging or activating the change.**
 Unit/integration tests, manual `publish`/`chat_report` calls, synthetic reports,
 and MCP-injected completion events DO NOT count as MVPs.
@@ -15,12 +15,34 @@ Session, and Python `pexpect`. Verify the chosen target has its own state dir.
 
 ```sh
 python3 services/models/mvp-gate.py \
+  --phase candidate \
   --base-url http://127.0.0.1:8786/v1 \
   --state-dir /tmp/neo-model-candidate/state \
   --output-dir /tmp/neo-model-candidate/mvp-evidence
 ```
 
-For deployment use the production base URL and state directory. Test outcomes:
+**Fail-closed release contract:** after `candidate` outputs
+`all-3-mvps-pass.json`, merge/push/reload the exact matching source. Then run:
+
+```sh
+python3 services/models/mvp-gate.py \
+  --phase live \
+  --base-url http://127.0.0.1:8769/v1 \
+  --state-dir "$HOME/.local/share/neo/model-gateway" \
+  --output-dir /tmp/neo-model-release/live-evidence \
+  --candidate-evidence /tmp/neo-model-candidate/mvp-evidence/all-3-mvps-pass.json
+```
+
+**Both** gate invocations must exit 0 and print `ALL_3_MVPS_PASS`.
+An unfinished or failed live gate is a **failed release**, even if production
+is responding to health checks. Roll back or fix/retest it; never mark the
+change delivered. Both gates verify the source fingerprint (Gateway and
+installed ChatGPT Actions) so candidate evidence cannot be reused for a
+different build. Gate output is cleared before any retry, and failed runs
+never leave a new pass certificate. MVP 2 is strictly one Send per Turn;
+no speculative extra Enter while waiting for a model response.
+
+Test outcomes:
 
 1. **MVP1** `codex exec -p neo`: one text and separate `reply.completed`.
 2. **MVP2** native interactive `codex -p neo`: two distinct Turns in one TUI,
