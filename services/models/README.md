@@ -1,15 +1,17 @@
 # Neo common model API (`models.qili2.com`)
 
 This is a **generic model transport**, not a Neo Project or a ToyAlive service.
-Model `neo` receives the caller's complete API input but forwards **only its latest
-user message** to a stateful ChatGPT Thread through WebHelm. Codex system,
+Models `chatgpt` and `z` receive the caller's API input but forward **only the latest
+user message** to the corresponding browser Thread through WebHelm. Codex system,
 developer, permissions, Skills, escalation text and previous messages are not
-resent to ChatGPT. The latest user message supplies the task; connected Neo
-MCP tools remain available to ChatGPT. Codex tool calls are not forwarded.
+resent to either site. ChatGPT retains its connected Neo MCP tools and uses
+the Events Bus for response delivery. Z.ai completes via verified webpage SSE
+(`chat:completion`, `done=true`) and does not have those MCP tools. Codex
+tool calls are not forwarded.
 
 ## Endpoints
 
-- `GET /v1/models` lists `neo` using the standard OpenAI `data` format.
+- `GET /v1/models` lists `chatgpt` and `z` using the standard OpenAI `data` format.
   `GET /v1/models?client_version=0.165.0` serves the Codex Models catalog
   (`models: [{slug, display_name, ...}]`) with neutral base instructions.
   Codex expects that richer schema for its model picker and configuration;
@@ -29,7 +31,15 @@ MCP tools remain available to ChatGPT. Codex tool calls are not forwarded.
 
 ## Stateful ChatGPT Thread contract
 
-One client conversation corresponds to one persistent ChatGPT Thread:
+One Codex conversation has **one independent persistent Web Thread per model**.
+The exact key is `(Codex Thread UUID, model)`; switching from `chatgpt` to `z`
+starts or resumes the Z.ai Thread, and switching back resumes the previous
+ChatGPT Thread. `neo` remains a hidden compatibility alias for `chatgpt` and
+is accepted by the API without appearing in model discovery. For a request
+without a Codex UUID, explicit `metadata.session_id` has the same per-model
+isolation. Never identify a conversation by comparing message text.
+
+ChatGPT transport:
 
 1. First model request -> WebHelm `new-thread`; save verified `thread_id`.
 2. Subsequent request -> `new-turn` with the **same** `thread_id`.
@@ -55,13 +65,56 @@ One client conversation corresponds to one persistent ChatGPT Thread:
 6. If WebHelm submission/completion is uncertain, preserve the state, refuse
    an automatic re-submission, and return an explicit failure or pending state.
 
+Z.ai transport uses WebHelm `platform run z new-thread` and `new-turn` in
+owned, default `WebHelm` Sessions. It **automatically issues a fresh one-hour
+Neo MCP interactive access token on Neo Master** (`neo mcp token issue
+--output ...`, using the installed `/opt/homebrew/bin/neo` by default).
+The initial Z.ai message is the exact bootstrap instruction, with the fresh
+token included in that private Z.ai chat Prompt:
+
+```text
+bootstrap the chat with https://neoy.qili2.com/files/z-chat/bootstrap.md with token <one-hour-access-token>.
+```
+
+The Gateway waits for a verified site SSE completion containing
+`NEO_BOOTSTRAP_PASS`, persists the verified Z.ai thread URL, and **only then**
+submits the caller's latest user text as `new-turn` on that thread. If bootstrap
+fails (`NEO_AUTH_REQUIRED`, `NEO_TOOL_UNAVAILABLE`, `NEO_BOOTSTRAP_BLOCKED`,
+missing verification, or uncertain submission), the user task is never sent
+and no automatic resubmission occurs. On Codex resume or subsequent Turns,
+the same Z.ai Thread is reused without reissuing a token or rebootstrapping.
+The token handoff file is mode `0600` inside a private temporary directory and
+is removed after submission; no secret enters the Gateway response, persisted
+state, Git, or normal logs. The short-lived credential is disclosed only to
+the **private Z.ai thread** and the Z.ai model may use it for Neo MCP POST.
+It is not the Model Gateway Bearer token or Neo's master/operator credential.
+The short-lived token expires after one hour; automatic renewal for older
+threads is **not yet implemented** and an expired Z.ai session must not be
+silently treated as authenticated.
+
+After verified Z bootstrap, each Z.ai `new-turn` Action submits only plain
+latest user text, with `wait:true`. A verified final answer requires a
+nonempty completion from the website's own SSE (`chat:completion`, `done=true`),
+then the Gateway records it and completes the OpenAI Responses SSE. Z.ai
+receives neither ChatGPT's `enforcement_context`, `@Neo`, Events Bus
+instructions nor ChatGPT Project IDs. A pending/ambiguous submission is not
+retried; its WebHelm Session is retained for manual reconciliation. Z.ai is
+text-only and image requests fail explicitly. No site-specific model or
+thinking effort is imposed, so the site uses its own current/default model.
+
+The Z.ai Action detects the known "A fresh new interface" onboarding overlay
+and fails before typing to avoid false submissions. Close that overlay in the
+Z.ai browser before first use. The transport's 90-second completion deadline
+is shorter than WebHelm's outer 180-second limit; a missing site completion
+is always reported rather than fabricated.
+
 **Codex Thread identity and resume.** The Codex HTTP Responses client sends its
 stable UUID as `thread-id` (or legacy `thread_id`). This ID is the primary,
-exact match to the persisted Gateway Session `codexThreadId`, whose `threadId`
-contains the verified ChatGPT Thread ID. The full mapping is kept on disk in
+exact match to the persisted Gateway Session `codexThreadId` **and model**,
+whose `threadId` contains the verified site Thread ID. The full mapping is kept on disk in
 `~/.local/share/neo/model-gateway/sessions/` and survives Gateway restarts.
 `codex resume <UUID>` sends the same Codex identity and continues the same
-ChatGPT Thread, including when the request contains only the latest user turn.
+site-specific Thread, including when the request contains only the latest user turn.
 Codex's `session-id`/`session_id` header can represent cache affinity rather
 than stable conversation identity; never use it for routing without `thread-id`.
 
@@ -139,3 +192,26 @@ Events Bus publish tool remains accessible when no structured App mention is
 provided. Do not assume a passing URL navigation test alone proves model
 completion; every model turn still requires independent `reply.completed`.
 Do not use a dedicated Neo Models browser Tab Group.
+
+## Selecting a backend
+
+Both names use the same authenticated `/v1/responses` and
+`/v1/chat/completions` endpoints:
+
+```json
+{"model":"chatgpt","input":"hello","stream":true}
+```
+
+```json
+{"model":"z","input":"hello","stream":true}
+```
+
+To select in Codex, configure the existing Neo provider with `model = "chatgpt"`
+or `model = "z"` (or choose the model from Codex's model picker). The provider
+URL and Bearer token remain unchanged. The old `model = "neo"` continues to
+route to ChatGPT for existing clients but is hidden from `/v1/models`.
+
+The standard Codex 3-MVP release gate exercises the ChatGPT Events Bus. Z.ai
+requires a separate **real WebHelm browser** new-thread/new-turn test because
+it completes by site SSE rather than Neo MCP. A unit test or fabricated receipt
+cannot establish Z.ai live availability.

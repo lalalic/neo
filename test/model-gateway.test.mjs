@@ -182,7 +182,7 @@ test('HTTP generic /v1/models, streaming, async polling and chat completion',asy
   const post=(path,body,auth=true)=>fetch(base+path,{method:'POST',headers:auth?headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
   assert.equal((await post('/v1/responses',startBody,false)).status,401);
   const catalog=await fetch(base+'/v1/models',{headers});
-  assert.equal(catalog.status,200);assert.deepEqual((await catalog.json()).data.map(x=>x.id),['neo']);
+  assert.equal(catalog.status,200);assert.deepEqual((await catalog.json()).data.map(x=>x.id),['chatgpt','z']);
   const streaming=await post('/v1/responses',startBody);
   assert.equal(streaming.status,200);
   const stream=await streaming.text();
@@ -331,11 +331,13 @@ test('Codex client_version receives model metadata; public list keeps OpenAI sha
   const headers={Authorization:'Bearer '+token};
   const publicModels=await (await fetch(url,{headers})).json();
   assert.equal(publicModels.object,'list');
-  assert.deepEqual(publicModels.data.map(m=>m.id),['neo']);
+  assert.deepEqual(publicModels.data.map(m=>m.id),['chatgpt','z']);
   assert.equal(publicModels.models,undefined);
   const codex=await (await fetch(url+'?client_version=0.165.0',{headers})).json();
-  assert.deepEqual(codex.models.map(m=>m.slug),['neo']);
-  assert.equal(codex.models[0].display_name,'Neo');
+  assert.deepEqual(codex.models.map(m=>m.slug),['chatgpt','z']);
+  assert.equal(codex.models[0].display_name,'ChatGPT');
+  assert.equal(codex.models[1].display_name,'Z.ai');
+  assert.deepEqual(codex.models[1].input_modalities,['text']);
   assert.equal(codex.models[0].shell_type,'disabled');
   assert.match(codex.models[0].base_instructions,/system, developer and user/);
   assert.ok(Array.isArray(codex.models[0].supported_reasoning_levels));

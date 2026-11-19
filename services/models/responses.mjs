@@ -1,6 +1,7 @@
 import {key,assertInput,materializeImages,compact} from './input.mjs';
 import {join} from 'node:path';
 import {createTurnPrompt} from './prompt.mjs';
+import {canonicalModel} from './catalog.mjs';
 const event=(type,obj)=>`event: ${type}\ndata: ${JSON.stringify({type,...obj})}\n\n`;
 
 // Reports are independent output_text deltas of one assistant message.
@@ -59,9 +60,13 @@ export function streamResponse(response){
 }
 export function failureStream(error,id){return event('response.failed',{sequence_number:1,response:{id,object:'response',status:'failed',error:{type:'transport_error',message:error.message}}});}
 export class ResponseEngine {
-  constructor({store,transport}){this.store=store;this.transport=transport;this.busy=new Set();}
+  constructor({store,transport,transports=null}){this.store=store;this.transports=transports??{chatgpt:transport};this.busy=new Set();}
   async run(body,{onStarted,codexThreadId=null}={}){
     const messages=assertInput(body);
+    const model=canonicalModel(body.model);
+    if(model==='z'&&messages.some(m=>m.images.length))throw Error('z supports text only; image attachments are unsupported');
+    const transport=this.transports[model];
+    if(!transport)throw Error('model transport unavailable: '+model);
     const condensed=compact(messages);
     const hint=body.metadata?.session_id??null;
     const declaredThread=body.metadata?.codex_thread_id??null;
@@ -70,8 +75,8 @@ export class ResponseEngine {
     const owner=codexThreadId??declaredThread;
     if(owner&&(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(owner)))
       throw Error('invalid Codex Thread ID');
-    let session=this.store.resolve(body.previous_response_id,hint,owner);
-    if(!session)session=this.store.create(condensed,hint,owner);
+    let session=this.store.resolve(body.previous_response_id,hint,owner,model);
+    if(!session)session=this.store.create(condensed,hint,owner,model);
     // Codex message item IDs are stable across retries, unlike message text.
     // A completed or pending exact-item replay must never re-submit the turn.
     const rawLatest=Array.isArray(body.input)?body.input.findLast(x=>x?.role==='user'):null;
@@ -89,34 +94,48 @@ export class ResponseEngine {
     if(this.busy.has(session.id)||['submitting','awaiting','uncertain'].includes(session.status))
       throw Error('session has an unconfirmed submission; manual reconciliation required');
     const responseId='resp_'+key();
-    const response={id:responseId,object:'response',model:'neo',created_at:Math.floor(Date.now()/1000),status:'in_progress',output:[],sessionId:session.id,usage:null,metadata:body.metadata??null};
+    const response={id:responseId,object:'response',model:body.model,created_at:Math.floor(Date.now()/1000),status:'in_progress',output:[],sessionId:session.id,usage:null,metadata:body.metadata??null};
     this.store.putResponse(response);
     this.busy.add(session.id);
     session.status='submitting';session.lastInput=condensed;session.lastResponseId=responseId;session.lastUserItemId=latestUserId;this.store.putSession(session);
     if(onStarted)onStarted({...response});
     try{
       const latestUser=messages.findLast(message=>message.role==='user');
-      if(!latestUser)throw Error('a new user message is required for ChatGPT delivery');
-      const files=materializeImages([latestUser],join(this.store.base,'attachments',session.id));
+      if(!latestUser)throw Error('a new user message is required for model delivery');
+      const files=model==='chatgpt'?materializeImages([latestUser],join(this.store.base,'attachments',session.id)):[];
       const input=[{role:'user',content:latestUser.text,images:files.map(file=>({file}))}];
-      const {prompt,enforcement_context}=createTurnPrompt({responseId,messages:input});
-      if(!this.transport.waitForResult)throw Error('model transport requires explicit reply completion');
+      // Z.ai does not have Neo MCP/Events Bus; its Action verifies webpage SSE done.
+      const {prompt,enforcement_context}=model==='z'?{prompt:latestUser.text,enforcement_context:''}:
+        createTurnPrompt({responseId,messages:input});
+      if(!transport.waitForResult)throw Error('model transport requires verified completion');
       if(!session.threadId){
-        const receipt=await this.transport.newThread(prompt,enforcement_context,responseId);
+        // Z.ai must first receive the provider-specific Neo MCP bootstrap,
+        // with a newly issued one-hour access token, in a private first turn.
+        // Persist its verified thread ID BEFORE sending the actual user task.
+        // This protects against duplicate bootstrap after uncertain delivery.
+        const receipt=model==='z'?await transport.bootstrapThread(responseId):
+          await transport.newThread(prompt,enforcement_context,responseId);
         if(!receipt?.thread_id)throw Error('new-thread did not return a verified thread ID');
+        if(model==='z'&&receipt.bootstrap_verified!==true)throw Error('Z.ai bootstrap was not verified');
         const live=this.store.session(session.id);
         live.threadId=receipt.thread_id;live.threadUrl=receipt.thread_url;
         live.projectId=receipt.project_id??null;
-        live.status=this.store.response(responseId)?.status==='completed'?'idle':'awaiting';
+        if(model==='z')live.bootstrapVerifiedAt=Date.now();
+        live.status=model==='z'?'submitting':
+          (this.store.response(responseId)?.status==='completed'?'idle':'awaiting');
         this.store.putSession(live);
+        if(model==='z'){
+          await transport.newTurn(receipt.thread_id,prompt,[],responseId);
+          live.status='awaiting';this.store.putSession(live);
+        }
       }else{
         const live=this.store.session(session.id);
         live.status='awaiting';this.store.putSession(live);
-        await this.transport.newTurn(session.threadId,prompt,[],responseId,session.projectId??null,enforcement_context);
+        await transport.newTurn(session.threadId,prompt,[],responseId,session.projectId??null,enforcement_context);
       }
       // Text reports leave status=in_progress. Only an explicit reply.completed
       // event makes the waiter settle and allows this Turn to end.
-      await this.transport.waitForResult(responseId,this.store);
+      await transport.waitForResult(responseId,this.store);
       const completed=this.store.response(responseId);
       if(completed?.status!=='completed')throw Error('Turn is missing explicit completion');
       return completed;

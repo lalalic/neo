@@ -4,7 +4,7 @@ import {join} from 'node:path';
 
 export const key = () => randomBytes(20).toString('hex');
 export const assertInput = body => {
-  if(body?.model!=='neo')throw Error('unsupported model (expected neo)');
+  if(!['neo','chatgpt','z'].includes(body?.model))throw Error('unsupported model (expected chatgpt or z)');
   if(typeof body.input==='string')return [{role:'user',text:body.input,images:[]}];
   if(!Array.isArray(body.input)||body.input.length<1||body.input.length>128)throw Error('input must be a string or 1–128 message items');
   const result=[];

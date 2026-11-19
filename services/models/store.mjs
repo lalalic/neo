@@ -2,6 +2,7 @@ import {readFileSync,writeFileSync,renameSync,mkdirSync,readdirSync,existsSync} 
 import {join} from 'node:path';
 import {homedir} from 'node:os';
 import {key} from './input.mjs';
+import {canonicalModel} from './catalog.mjs';
 
 export class ModelStore {
   constructor(base=process.env.NEO_MODELS_STATE_DIR??join(homedir(),'.local','share','neo','model-gateway')){
@@ -16,7 +17,7 @@ export class ModelStore {
   putSession(item){this.#write(this.#file('session',item.id),item);return item;}
   putResponse(item){this.#write(this.#file('response',item.id),item);return item;}
   listSessions(){return readdirSync(this.sessions).filter(x=>x.endsWith('.json')).map(x=>this.#read(join(this.sessions,x))).filter(Boolean);}
-  resolve(previous,sessionHint,codexThreadId){
+  resolve(previous,sessionHint,codexThreadId,model='chatgpt'){
     if(sessionHint&&(!/^[A-Za-z0-9_-]{8,80}$/.test(sessionHint)))throw Error('invalid metadata.session_id');
     if(previous){
       const p=this.response(previous);
@@ -27,10 +28,12 @@ export class ModelStore {
         throw Error('previous_response_id belongs to a different Codex Thread');
       if(sessionHint&&byPrevious.clientSessionId!==sessionHint)
         throw Error('previous_response_id belongs to a different client session');
-      return byPrevious;
+      if(canonicalModel(byPrevious.model??'chatgpt')===model)return byPrevious;
+      if(!codexThreadId&&!sessionHint)throw Error('previous_response_id belongs to a different model');
+      // Switching models in one Codex Thread selects that model's own session.
     }
     if(codexThreadId){
-      const matches=this.listSessions().filter(s=>s.codexThreadId===codexThreadId);
+      const matches=this.listSessions().filter(s=>s.codexThreadId===codexThreadId&&canonicalModel(s.model??'chatgpt')===model);
       if(matches.length>1)throw Error('duplicate Codex Thread mapping');
       const mapped=matches[0]??null;
       if(mapped&&sessionHint&&mapped.clientSessionId&&mapped.clientSessionId!==sessionHint)
@@ -38,7 +41,7 @@ export class ModelStore {
       return mapped;
     }
     if(sessionHint){
-      const matches=this.listSessions().filter(s=>s.clientSessionId===sessionHint);
+      const matches=this.listSessions().filter(s=>s.clientSessionId===sessionHint&&canonicalModel(s.model??'chatgpt')===model);
       if(matches.length>1)throw Error('duplicate client session ID');
       return matches[0]??null;
     }
@@ -47,8 +50,8 @@ export class ModelStore {
     return null;
   }
 
-  create(messages,hint,codexThreadId=null){
-    const s={id:'sess_'+key(),clientSessionId:hint??null,codexThreadId:codexThreadId??null,threadId:null,threadUrl:null,status:'new',history:messages,lastResponseId:null,lastInput:messages,createdAt:Date.now()};
+  create(messages,hint,codexThreadId=null,model='chatgpt'){
+    const s={id:'sess_'+key(),model,clientSessionId:hint??null,codexThreadId:codexThreadId??null,threadId:null,threadUrl:null,status:'new',history:messages,lastResponseId:null,lastInput:messages,createdAt:Date.now()};
     return this.putSession(s);
   }
 }
