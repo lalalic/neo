@@ -34,9 +34,11 @@ One client conversation corresponds to one persistent ChatGPT Thread:
 1. First model request -> WebHelm `new-thread`; save verified `thread_id`.
 2. Subsequent request -> `new-turn` with the **same** `thread_id`.
 3. Only submit the new message(s). ChatGPT already retains conversation history.
-4. Each WebHelm turn begins with `<top-instructions>...</top-instructions>`
-   containing the exact `chat_report` contract from `TOP_INSTRUCTIONS.md`,
-   followed by the current `response_id` and the **latest user message only**.
+4. Each WebHelm turn has a **task** (`message`: only the latest user message)
+   and an optional **enforcement_context** (the `chat_report` contract from
+   `TOP_INSTRUCTIONS.md` plus the current `response_id`). The generic WebHelm
+   transport wraps enforcement_context in `<top-instructions>...</top-instructions>`
+   and presents it before the task.
    No other Codex messages, history or tools are forwarded. The Gateway still
    stores caller input for session matching, and ChatGPT retains its own history
    in the persistent browser Thread. Only the latest user message's images
@@ -80,13 +82,14 @@ of a new text request is size-routed through gateway-generated files.
 
 ## Inline top instructions (no ChatGPT Project required)
 
-Every Turn includes the reporting contract from `TOP_INSTRUCTIONS.md` inside
-`<top-instructions>` at the beginning of the ChatGPT user message. The contract
-is the same for the first and all subsequent Turns. A ChatGPT Project is not
+Every Turn passes the reporting contract from `TOP_INSTRUCTIONS.md` as an
+optional `enforcement_context` field to the WebHelm transport. WebHelm wraps
+it in `<top-instructions>` at the beginning of the ChatGPT message. The
+contract is the same for the first and all subsequent Turns. A ChatGPT Project is not
 required; an existing Project-bound Thread can still be used if configured.
 
 If the message exceeds WebHelm's 2,000-character direct-send threshold, the
-full exact message is uploaded as `prompt.md`. The visible composer retains
+full exact **task** is uploaded as `prompt.md`. The visible composer retains
 `<top-instructions>`, the `response_id`, and the instruction to read `prompt.md`
 within that size limit, so the model sees the reporting requirements before
 opening the attachment. These are WebHelm transport details, not additional

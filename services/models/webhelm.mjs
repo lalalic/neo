@@ -30,9 +30,9 @@ export class WebHelmTransport {
     try{return await this.#run(['platform','run','chatgpt',action,...(autoSession?['--auto-session']:[]),'--config',file]);}
     finally{rmSync(file,{force:true});}
   }
-  async newThread(text){
+  async newThread(text,enforcement_context=''){
     const response=await this.#config('new-thread',{
-      ...(this.projectId?{project_id:this.projectId}:{}),message:text,mode:'chat',temporary:false,
+      ...(this.projectId?{project_id:this.projectId}:{}),message:text,enforcement_context,mode:'chat',temporary:false,
     });
     if(response.status!=='submitted'||typeof response.thread_id!=='string'||!/^https:\/\/chatgpt\.com\//.test(response.thread_url??''))
       throw Error('new-thread returned no verified submission receipt');
@@ -41,10 +41,10 @@ export class WebHelmTransport {
       throw Error('new-thread did not verify the configured ChatGPT Project');
     return response;
   }
-  async newTurn(threadId,text,_files=[],idempotencyKey,projectId=null){
+  async newTurn(threadId,text,_files=[],idempotencyKey,projectId=null,enforcement_context=''){
     const response=await this.#config('new-turn',{
       ...(projectId?{project_id:projectId}:{}),
-      thread_id:threadId,message:text,mode:'async',mergeable:false,
+      thread_id:threadId,message:text,enforcement_context,mode:'async',mergeable:false,
       idempotency_key:idempotencyKey
     },{autoSession:false});
     if(response.status!=='submitted'||response.thread_id!==threadId||!response.queue_id)

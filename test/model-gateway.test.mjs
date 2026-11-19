@@ -17,9 +17,10 @@ function fixture(t){
   const calls=[];
   let n=0;
   const store=new ModelStore(dir);
+  const compose=(prompt,context)=>context?`<top-instructions>\n${context}\n</top-instructions>\n\n${prompt}`:prompt;
   const transport={
-    async newThread(prompt){calls.push(['newThread',prompt]);return {thread_id:'thread-'+calls.filter(x=>x[0]==='newThread').length,thread_url:'https://chatgpt.com/c/thread-'+calls.filter(x=>x[0]==='newThread').length,status:'submitted'};},
-    async newTurn(threadId,prompt,files,responseId){calls.push(['newTurn',threadId,prompt,files,responseId]);return {status:'submitted',thread_id:threadId,queue_id:'queued_'+responseId};},
+    async newThread(prompt,context){calls.push(['newThread',compose(prompt,context),context,prompt]);return {thread_id:'thread-'+calls.filter(x=>x[0]==='newThread').length,thread_url:'https://chatgpt.com/c/thread-'+calls.filter(x=>x[0]==='newThread').length,status:'submitted'};},
+    async newTurn(threadId,prompt,files,responseId,project,context){calls.push(['newTurn',threadId,compose(prompt,context),files,responseId,project,context,prompt]);return {status:'submitted',thread_id:threadId,queue_id:'queued_'+responseId};},
     async waitForResult(id,writeStore){
       calls.push(['waitForResult',id]);
       const output=n++===0?'First reply':'Second reply';
@@ -193,6 +194,12 @@ test('model WebHelm transport invokes newThread once, newTurn with same thread I
   assert.equal(calls[1].auto,false,'durable new-turn queue has no browser Session');
   assert.equal(calls[1].config.thread_id,'thread-xyz');
   assert.equal(calls[1].config.idempotency_key,'resp_'+'f'.repeat(40));
+  assert.equal(calls[0].config.enforcement_context,'');
+  assert.equal(calls[1].config.enforcement_context,'');
+  calls.length=0;
+  await transport.newThread('latest user','Always report completion');
+  await transport.newTurn('thread-xyz','follow up',[],'resp_'+'e'.repeat(40),null,'Always report completion');
+  assert.deepEqual(calls.map(x=>x.config.enforcement_context),['Always report completion','Always report completion']);
 });
 
 test('legacy Rodin route and old response GET pass through generic model API',async t=>{
@@ -526,12 +533,12 @@ test('Project-scoped model Turns still receive inline report contract and latest
   const {store,transport,calls}=fixture(t);
   const projectId='g-p-'+'a'.repeat(32);
   transport.projectId=projectId;
-  transport.newTurn=async(threadId,prompt,files,responseId,project)=>{
-    calls.push(['newTurn',threadId,prompt,files,responseId,project]);
+  transport.newTurn=async(threadId,prompt,files,responseId,project,context)=>{
+    calls.push(['newTurn',threadId,`<top-instructions>\n${context}\n</top-instructions>\n\n${prompt}`,files,responseId,project,context]);
     return {status:'submitted',thread_id:threadId,queue_id:'queued_'+responseId};
   };
-  transport.newThread=async prompt=>{
-    calls.push(['newThread',prompt]);
+  transport.newThread=async (prompt,context)=>{
+    calls.push(['newThread',`<top-instructions>\n${context}\n</top-instructions>\n\n${prompt}`]);
     return {status:'submitted',project_id:projectId,thread_id:'project-thread',
       thread_url:`https://chatgpt.com/g/${projectId}/c/project-thread`};
   };
@@ -678,4 +685,20 @@ test('a request without a user message does not accidentally forward Codex inter
   const {store,transport,calls}=fixture(t);
   await assert.rejects(()=>new ResponseEngine({store,transport}).run({model:'neo',input:[texts('developer','Escalation Requests only')]}),/new user message is required/);
   assert.equal(calls.length,0);
+});
+
+
+test('Gateway passes reporting contract via optional WebHelm enforcement_context instead of embedding it in actual user message',async t=>{
+  const {store,transport,calls}=fixture(t);
+  await new ResponseEngine({store,transport}).run(startBody);
+  const one=calls.find(x=>x[0]==='newThread');
+  assert.equal(one[3],'[USER]\nhello\n[/USER]');
+  assert.match(one[2],/Neo model request: resp_[a-f0-9]{40}/);
+  assert.match(one[2],/chat_report/);
+  assert.doesNotMatch(one[3],/top-instructions|chat_report|Escalation Requests/);
+  await new ResponseEngine({store,transport}).run(nextBody);
+  const two=calls.find(x=>x[0]==='newTurn');
+  assert.equal(two[7],'[USER]\ncontinue\n[/USER]');
+  assert.match(two[6],/Neo model request: resp_[a-f0-9]{40}/);
+  assert.notEqual(one[2].match(/resp_[a-f0-9]{40}/g)?.at(-1),two[6].match(/resp_[a-f0-9]{40}/g)?.at(-1));
 });

@@ -102,10 +102,10 @@ export class ResponseEngine {
       if(!latestUser)throw Error('a new user message is required for ChatGPT delivery');
       const files=materializeImages([latestUser],join(this.store.base,'attachments',session.id));
       const input=[{role:'user',content:latestUser.text,images:files.map(file=>({file}))}];
-      const {prompt}=createTurnPrompt({responseId,messages:input});
+      const {prompt,enforcement_context}=createTurnPrompt({responseId,messages:input});
       if(!this.transport.waitForResult)throw Error('model transport requires explicit chat_report completion');
       if(!session.threadId){
-        const receipt=await this.transport.newThread(prompt);
+        const receipt=await this.transport.newThread(prompt,enforcement_context);
         if(!receipt?.thread_id)throw Error('new-thread did not return a verified thread ID');
         const live=this.store.session(session.id);
         live.threadId=receipt.thread_id;live.threadUrl=receipt.thread_url;
@@ -115,7 +115,7 @@ export class ResponseEngine {
       }else{
         const live=this.store.session(session.id);
         live.status='awaiting';this.store.putSession(live);
-        await this.transport.newTurn(session.threadId,prompt,[],responseId,session.projectId??null);
+        await this.transport.newTurn(session.threadId,prompt,[],responseId,session.projectId??null,enforcement_context);
       }
       // Text reports leave status=in_progress. Only a distinct completed:true
       // report makes the waiter settle and allows this Turn to end.

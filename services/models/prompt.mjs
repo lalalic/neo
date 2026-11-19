@@ -1,7 +1,7 @@
 import {readFileSync} from 'node:fs';
 
-// This is the only source of truth for the ChatGPT reporting instructions.
-// It is injected into EVERY API Turn, including existing Codex conversations.
+// This is the authoritative per-request enforcement context, passed separately
+// from the latest user message to WebHelm's generic ChatGPT transport.
 const TOP_INSTRUCTIONS=readFileSync(new URL('./TOP_INSTRUCTIONS.md',import.meta.url),'utf8').trim();
 if(!TOP_INSTRUCTIONS||TOP_INSTRUCTIONS.includes('</top-instructions>'))
   throw Error('Invalid Neo model top instructions');
@@ -15,13 +15,9 @@ export function createTurnPrompt({responseId,messages}){
   if(!Array.isArray(messages)||!messages.length)throw Error('messages required');
   const latestUser=messages.findLast(message=>message.role==='user');
   if(!latestUser)throw Error('a user message is required for ChatGPT delivery');
-  const lines=[
-    `<top-instructions>\n${TOP_INSTRUCTIONS}\n</top-instructions>`,
-    `Neo model request: ${responseId}`,
-  ];
+  const enforcement_context=TOP_INSTRUCTIONS+'\n\nNeo model request: '+responseId;
   const images=latestUser.images?.length
     ?'\n'+latestUser.images.map((image,i)=>`[image ${i+1}] ${image.file}`).join('\n')
     :'';
-  lines.push(`[USER]\n${latestUser.content}${images}\n[/USER]`);
-  return {prompt:lines.join('\n\n')};
+  return {prompt:`[USER]\n${latestUser.content}${images}\n[/USER]`,enforcement_context};
 }
