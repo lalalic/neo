@@ -8,15 +8,16 @@ import {reportText,reportHeartbeat,reportComplete,reportFailed} from './report.m
 
 export const TOOL={
   name:'chat_report',
-  description:'Neo API reporting tool. heartbeat:true acknowledges liveness without output or completion. text sends one segment and never completes. After all text segments, a separate completed:true is required to finish the Turn and SSE. error is terminal. Ordinary ChatGPT replies are not delivered. This is NOT the Neo Mobile gateway.',
+  description:'The user receives responses ONLY through this tool, not through ordinary ChatGPT replies. Call with response_id and text to send a report; you may send multiple reports. Reports do not end the turn. AFTER your final text report, make a SEPARATE call with response_id and completed:true to close the turn. You can also send heartbeat:true to acknowledge liveness without completing, or error to close with a failure.',
   inputSchema:{
     type:'object',additionalProperties:false,required:['response_id'],
+    oneOf:[{required:['text']},{required:['heartbeat']},{required:['completed']},{required:['error']}],
     properties:{
-      response_id:{type:'string',pattern:'^resp_[0-9a-f]{40}$',description:'The response_id in the current Neo model request.'},
-      text:{type:'string',minLength:1,description:'One report; may be called multiple times per response_id. Does not complete the Turn.'},
-      heartbeat:{type:'boolean',const:true,description:'Liveness acknowledgment. Refreshes the request inactivity deadline; not answer text and never completes the Turn.'},
-      completed:{type:'boolean',const:true,description:'Explicit final completion message, after all text reports. Causes response.completed and closes SSE.'},
-      error:{type:'string',minLength:1,maxLength:500,description:'An actual reason this request cannot be completed.'},
+      response_id:{type:'string',pattern:'^resp_[0-9a-f]{40}$',description:'Exact response_id provided in the current request; required for every call.'},
+      text:{type:'string',minLength:1,description:'Send one response report to the user. Multiple text reports are allowed. This does NOT close the turn; call completed:true separately when finished.'},
+      heartbeat:{type:'boolean',const:true,description:'Optional liveness acknowledgment while working. Does not deliver an answer or close the turn.'},
+      completed:{type:'boolean',const:true,description:'REQUIRED after the final text report: send as a separate tool call to mark the turn closed. Without this the request stays open.'},
+      error:{type:'string',minLength:1,maxLength:500,description:'If the request fails, report the actual reason and close the turn with failure instead of completed:true.'},
     },
   },
 };
