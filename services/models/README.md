@@ -8,7 +8,12 @@ Codex tools are not forwarded as function calls.
 
 ## Endpoints
 
-- `GET /v1/models` lists `neo`.
+- `GET /v1/models` lists `neo` using the standard OpenAI `data` format.
+  `GET /v1/models?client_version=0.165.0` serves the Codex Models catalog
+  (`models: [{slug, display_name, ...}]`) with neutral base instructions.
+  Codex expects that richer schema for its model picker and configuration;
+  it is distinct from the public OpenAI model-list format. No separate
+  `/models` route is required with a provider base URL ending in `/v1`.
 - `POST /v1/responses` supports Responses text and bounded base64 PNG/JPEG/WebP images.
   With `stream:true` it returns Responses SSE; otherwise it returns a 202
   `in_progress` response ID. `GET /v1/responses/<id>` returns durable status

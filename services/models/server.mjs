@@ -3,6 +3,7 @@ import {timingSafeEqual} from 'node:crypto';
 import {ModelStore} from './store.mjs';
 import {ResponseEngine,streamResponse,failureStream} from './responses.mjs';
 import {WebHelmTransport} from './webhelm.mjs';
+import {listModelCatalog} from './catalog.mjs';
 
 const MAX_BODY=48*1024*1024;
 const toPublic=r=>{if(!r)return null;const {sessionId,...rest}=r;return rest;};
@@ -32,7 +33,7 @@ export function createModelServer({token,store=new ModelStore(),transport=new We
   const handler=async(req,res)=>{
     if(!authorized(req.headers.authorization,token))return json(res,401,{error:{message:'unauthorized',type:'authentication_error'}});
     const url=new URL(req.url,'http://127.0.0.1');
-    if(req.method==='GET'&&url.pathname==='/v1/models')return json(res,200,{object:'list',data:[{id:'neo',object:'model',owned_by:'neo'}]});
+    if(req.method==='GET'&&url.pathname==='/v1/models')return json(res,200,listModelCatalog(url.searchParams));
     // Keep independently implemented 3D provider routes reachable through the
     // generic service without importing project-specific modules or prompts.
     const legacyRoute=url.pathname.startsWith('/api/v2/rodin')||['/api/v2/status','/api/v2/download'].includes(url.pathname);

@@ -246,3 +246,25 @@ test('Responses SSE sequence numbers are monotonic',async t=>{
   const nums=streamResponse(result).split('\n').filter(x=>x.startsWith('data: ')).map(x=>JSON.parse(x.slice(6)).sequence_number);
   assert.deepEqual(nums,[...nums.keys()]);
 });
+
+
+test('Codex client_version receives model metadata; public list keeps OpenAI shape',async t=>{
+  const {store,transport}=fixture(t);
+  const {server}=createModelServer({token,store,transport});
+  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+  t.after(()=>new Promise(resolve=>server.close(resolve)));
+  const url=`http://127.0.0.1:${server.address().port}/v1/models`;
+  const headers={Authorization:'Bearer '+token};
+  const publicModels=await (await fetch(url,{headers})).json();
+  assert.equal(publicModels.object,'list');
+  assert.deepEqual(publicModels.data.map(m=>m.id),['neo']);
+  assert.equal(publicModels.models,undefined);
+  const codex=await (await fetch(url+'?client_version=0.165.0',{headers})).json();
+  assert.deepEqual(codex.models.map(m=>m.slug),['neo']);
+  assert.equal(codex.models[0].display_name,'Neo');
+  assert.equal(codex.models[0].shell_type,'disabled');
+  assert.match(codex.models[0].base_instructions,/system, developer and user/);
+  assert.ok(Array.isArray(codex.models[0].supported_reasoning_levels));
+  assert.equal(codex.data,undefined);
+  assert.equal((await fetch(url+'?client_version=0.165.0')).status,401);
+});
