@@ -185,7 +185,7 @@ test('model WebHelm transport invokes newThread once, newTurn with same thread I
     if(action==='new-turn')return {result:{ok:true,status:'submitted',thread_id:'thread-xyz',queue_id:'queue-abc'}};
     throw Error('unexpected CLI action');
   };
-  const transport=new WebHelmTransport({tempDir:dir,binary:'/example/webhelm',exec:fake,holdSession:false,appName:'',modelChoice:'',serializeNewThread:false});
+  const transport=new WebHelmTransport({tempDir:dir,binary:'/example/webhelm',exec:fake,holdSession:false,appName:'',serializeNewThread:false});
   const start=await transport.newThread('generic prompt');
   assert.equal(start.thread_id,'thread-xyz');
   await transport.newTurn(start.thread_id,'follow up',[],'resp_'+'f'.repeat(40));
@@ -632,12 +632,12 @@ test('configured project ID is validated; Project new-thread and new-turn carry 
     if(action==='new-thread')return {result:{ok:true,value:{status:'submitted',project_id:projectId,thread_id:'same-id',thread_url:`https://chatgpt.com/g/${projectId}/c/same-id`}}};
     return {result:{ok:true,status:'submitted',thread_id:'same-id',queue_id:'queued'}};
   };
-  const transport=new WebHelmTransport({tempDir:dir,projectId,exec,holdSession:false,appName:'',modelChoice:'',serializeNewThread:false});
+  const transport=new WebHelmTransport({tempDir:dir,projectId,exec,holdSession:false,appName:'',serializeNewThread:false});
   const receipt=await transport.newThread('hi');
   assert.equal(receipt.project_id,projectId);
   await transport.newTurn('same-id','hello',[],'resp_'+'a'.repeat(40),projectId);
   assert.deepEqual(calls.map(x=>x.config.project_id),[projectId,projectId]);
-  const invalid=new WebHelmTransport({tempDir:dir,projectId,exec:async()=>({result:{ok:true,value:{status:'submitted',thread_id:'other',thread_url:'https://chatgpt.com/c/other'}}}),holdSession:false,appName:'',modelChoice:'',serializeNewThread:false});
+  const invalid=new WebHelmTransport({tempDir:dir,projectId,exec:async()=>({result:{ok:true,value:{status:'submitted',thread_id:'other',thread_url:'https://chatgpt.com/c/other'}}}),holdSession:false,appName:'',serializeNewThread:false});
   await assert.rejects(()=>invalid.newThread('hi'),/did not verify the configured ChatGPT Project/);
 });
 
@@ -728,7 +728,7 @@ test('chat_report MCP description and schema explain reporting and explicit clos
   assert.match(TOOL.inputSchema.properties.heartbeat.description,/Does not deliver an answer or close the turn/);
 });
 
-test('newThread serializes concurrent Codex main and title creation and preserves app/model choices',async t=>{
+test('newThread serializes concurrent Codex main and title creation and leaves model at ChatGPT default',async t=>{
   const {WebHelmTransport}=await import('../services/models/webhelm.mjs');
   const root=mkdtempSync(join(tmpdir(),'neo-model-serial-'));t.after(()=>rmSync(root,{recursive:true,force:true}));
   const calls=[];let active=0,maxActive=0;
@@ -741,7 +741,7 @@ test('newThread serializes concurrent Codex main and title creation and preserve
     return {result:{ok:true,value:{status:'submitted',thread_id:'thread'+calls.length,thread_url:'https://chatgpt.com/c/thread'+calls.length}}};
   };
   const transport=new WebHelmTransport({tempDir:root,exec,holdSession:false,
-    appName:'Neo',modelChoice:'GPT-5.6 Sol',serializeNewThread:true});
+    appName:'Neo',serializeNewThread:true});
   await Promise.all([
     transport.newThread('main message','contract1','resp_'+'a'.repeat(40)),
     transport.newThread('title message','contract2','resp_'+'b'.repeat(40)),
@@ -749,7 +749,7 @@ test('newThread serializes concurrent Codex main and title creation and preserve
   assert.equal(maxActive,1,'browser submissions must be serialized');
   assert.deepEqual(calls.map(x=>x.message),['main message','title message']);
   assert.deepEqual(calls.map(x=>x.app),['Neo','Neo']);
-  assert.deepEqual(calls.map(x=>x.model_choice),['GPT-5.6 Sol','GPT-5.6 Sol']);
+  assert.ok(calls.every(x=>!('model_choice' in x)&&!('thinking_effort' in x)), 'model and thinking remain ChatGPT defaults');
 });
 
 test('held WebHelm Session is kept until explicit model completion, then released',async t=>{
@@ -771,20 +771,22 @@ test('held WebHelm Session is kept until explicit model completion, then release
     return {result:{ok:true,value}};
   };
   const transport=new WebHelmTransport({tempDir:dir,exec:fake,holdSession:true,
-    serializeNewThread:true,appName:'Neo',modelChoice:'GPT-5.6 Sol'});
+    serializeNewThread:true,appName:'Neo'});
   const id1='resp_'+'c'.repeat(40),id2='resp_'+'d'.repeat(40);
   const first=await transport.newThread('task1','context1',id1);
   assert.equal(first.thread_id,'new-thread-id');
   assert.deepEqual(stages,['start'],'no stop before result');
   assert.equal(configs[0].session,sessionId);
   assert.equal(configs[0].config.app,'Neo');
-  assert.equal(configs[0].config.model_choice,'GPT-5.6 Sol');
+  assert.equal('model_choice' in configs[0].config,false);
   assert.equal(configs[0].config.enforcement_context,'context1');
   const completed={status:'completed',output:[{content:[{text:'answer1'}]}]};
   assert.equal(await transport.waitForResult(id1,{response:()=>completed}), 'answer1');
   assert.deepEqual(stages,['start','stop']);
   assert.equal(transport.held.size,0);
   await transport.newTurn(first.thread_id,'task2',[],id2,null,'context2');
+  assert.equal('model_choice' in configs[1].config,false);
+  assert.equal('thinking_effort' in configs[1].config,false);
   assert.equal(configs[1].config.mode,'sync');
   assert.equal(configs[1].config.thread_id,first.thread_id);
   assert.equal(configs[1].config.idempotency_key,id2);

@@ -22,13 +22,11 @@ export class WebHelmTransport {
     holdSession=process.env.NEO_MODEL_HOLD_CHATGPT_SESSION!=='0',
     platform=process.env.NEO_MODEL_WEBHELM_PLATFORM||'chatgpt',
     appName=process.env.NEO_MODEL_APP_MENTION??'Neo',
-    modelChoice=process.env.NEO_MODEL_CHATGPT_MODEL??'GPT-5.6 Sol',
     serializeNewThread=process.env.NEO_MODEL_SERIAL_NEW_THREAD!=='0',
   }={}){
     this.binary=binary;this.tempDir=tempDir;this.exec=exec;this.projectId=projectId;this.holdSession=holdSession;this.held=new Map();
     this.platform=platform;
     this.appName=appName;
-    this.modelChoice=modelChoice;
     this.serializeNewThread=serializeNewThread;
     this.newThreadTail=Promise.resolve();
     mkdirSync(tempDir,{recursive:true,mode:0o700});
@@ -68,7 +66,7 @@ export class WebHelmTransport {
     let response;
     try{
       response=await this.#config('new-thread',{
-        ...(this.projectId?{project_id:this.projectId}:{}),...(this.appName?{app:this.appName}:{}),...(this.modelChoice?{model_choice:this.modelChoice}:{}),message:text,enforcement_context,mode:'chat',temporary:false,
+        ...(this.projectId?{project_id:this.projectId}:{}),...(this.appName?{app:this.appName}:{}),message:text,enforcement_context,mode:'chat',temporary:false,
       },{autoSession:!sessionId,sessionId});
     }catch(error){await this.#closeSession(sessionId);throw error}
     try{
@@ -87,7 +85,7 @@ export class WebHelmTransport {
     let response;
     try{
       response=await this.#config('new-turn',{
-        ...(projectId?{project_id:projectId}:{}),...(this.appName?{app:this.appName}:{}),...(this.modelChoice?{model_choice:this.modelChoice}:{}),
+        ...(projectId?{project_id:projectId}:{}),...(this.appName?{app:this.appName}:{}),
         thread_id:threadId,message:text,enforcement_context,
         mode:sessionId?'sync':'async',mergeable:false,idempotency_key:idempotencyKey,
       },{autoSession:false,sessionId});
