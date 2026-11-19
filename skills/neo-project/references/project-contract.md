@@ -66,6 +66,12 @@ The local Agent is the Relay-visible identity. Relay reads and merges the explic
 
 Load only the selected specialist definition per task. Project artifact contracts, approvals, safety requirements and Relay scheduling/events override generic persona advice. Agency Agents provides expertise, not a new scheduler or permission source. Eval cases should cover matching, domain separation, missing-profile fallback, compatibility and prompt size.
 
+### Stable Agent role identity across Neo Projects
+
+Name the same responsibility consistently across Projects: `director` owns creative direction, audience promise, story angle and Hook; `editor` owns actual editing; `publisher` owns permission-gated release; `analyst` owns measurement; and `market` owns independent market/audience assessment, not creative direction. Select existing Agency Agents expertise with `extends` rather than inventing a new generic persona or renaming the same role `strategist` in another Project.
+
+Use the **unprefixed role name** when it has one prompt/contract in a Project. **Only when two named DAGs in the same Project use the same base role with different prompts or contracts**, qualify each local Agent as `<dag>-<role>` (for example, `growth-director` and `promotion-director`). Do not add prefixes to unrelated roles or to distinguish Projects; DAG labels are local implementation scope, not different professions. Keep `graph.mmd`, `agents/<name>.agent.md` frontmatter, Script/Shortcut resolution, review-stage keys and evals aligned. Preserve old Agent identities only for pre-existing pinned Jobs and review history during a rename; do not change artifact names or ownership merely to rename a role.
+
 ## Agent manifest
 
 Create `agents/<name>.agent.md` only for project-specific behavior. Shared Agents are discovered from Neo/global layers. Frontmatter contract:
