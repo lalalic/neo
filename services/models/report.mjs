@@ -65,7 +65,7 @@ export function reportComplete(store,id){
   const response=mustResponse(store,id);
   if(response.status==='completed')return response; // completion replay
   if(response.status!=='in_progress')throw Error('cannot complete a terminal response');
-  if(!response.output.length)throw Error('at least one chat_report text required before completion');
+  if(!response.output.length)throw Error('at least one text report required before completion');
   const text=response.output[0].content[0].text;
   response.output[0].status='completed';
   response.status='completed';

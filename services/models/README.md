@@ -35,7 +35,7 @@ One client conversation corresponds to one persistent ChatGPT Thread:
 2. Subsequent request -> `new-turn` with the **same** `thread_id`.
 3. Only submit the new message(s). ChatGPT already retains conversation history.
 4. Each WebHelm turn has a **task** (`message`: only the latest user message)
-   and an optional **enforcement_context** (the `chat_report` contract from
+   and an optional **enforcement_context** (the reply-event contract from
    `TOP_INSTRUCTIONS.md` plus the current `response_id`). The generic WebHelm
    transport wraps enforcement_context in `<top-instructions>...</top-instructions>`
    and presents it before the task.
@@ -43,15 +43,15 @@ One client conversation corresponds to one persistent ChatGPT Thread:
    stores caller input for session matching, and ChatGPT retains its own history
    in the persistent browser Thread. Only the latest user message's images
    are materialized as attachments. WebHelm handles long prompt transport.
-5. ChatGPT calls the dedicated MCP `mcp.models chat_report` tool one or more
-   times with `{response_id, text}`. Each call appends to one assistant output
-   item and streams a `response.output_text.delta`; a text report never ends
-   the Turn. ChatGPT must explicitly send `{response_id, completed:true}` after
-   the final report for `response.completed` and SSE closure. A `heartbeat:true`
-   updates liveness without an output item and extends the 9-minute inactivity
-   timeout (30-minute maximum). A terminal `{response_id, error}` signals
-   `response.failed`. No gateway request/output files are generated based on
-   message size. Do not confuse this tool with Neo Mobile's chat-gateway tool.
+5. ChatGPT calls the **existing Events Bus** MCP `publish` tool with source
+   `reply/models/<response_id>`. `reply.text` carries `{seq,text}` and streams
+   a `response.output_text.delta`; it never ends the Turn. A **separate**
+   `reply.completed` closes the request with `response.completed` and SSE closure.
+   `reply.heartbeat` extends the 9-minute inactivity timeout (30-minute maximum);
+   `reply.failed` with `{error}` ends in `response.failed`. The Models listener
+   validates the ID and sequence and writes to the existing response store.
+   No model reply routes to Neo Mobile. See the canonical
+   [channel developer contract](../../skills/events-bus/references/channel-development.md).
 6. If WebHelm submission/completion is uncertain, preserve the state, refuse
    an automatic re-submission, and return an explicit failure or pending state.
 
@@ -67,29 +67,13 @@ uses the other incoming messages only for identifying the correct stateful
 conversation. It does not pass Codex developer/system, Escalation Requests,
 Skills or previous assistant/user messages to ChatGPT, even for a first Turn.
 
-Install the response tool in Neo Master MCP Federation (one time) with:
-
-```sh
-neo setup mcp add models 'stdio:///opt/homebrew/bin/node?arg=/Users/chengli/Workspace/neo/services/models/mcp.mjs'
-```
-
-Use `neo setup mcp list` to confirm `mcp.models chat_report` is healthy.
-The model response tool is separate from `mcp.chat-gateway chat_report` and
-must **never** send result text to the phone. The previous generic `report.mjs`
-CLI remains as a compatibility path for already-submitted older requests;
-new model turns use the MCP tool instead. Neither the input nor the output
-of a new text request is size-routed through gateway-generated files.
-
-### Reply events (staging only)
-
-The generic Events Bus `publish` tool can deliver model replies as
-`reply.text`, `reply.heartbeat`, `reply.completed` and `reply.failed`, with source
-`reply/models/<response_id>`. The Models listener is implemented in
-`reply-events.mjs`; it validates request identity and text sequence before
-updating the existing response store and SSE delivery. Enable only in an
-isolated test with `NEO_MODEL_REPLY_EVENTS=1` while the required three genuine
-Codex CLI MVPs are not yet green. A working MCP tool and NATS publish receipt
-are not sufficient evidence of an autonomous model completion.
+The Events Bus MCP `publish` tool is shared with Job lifecycle events; no
+model-specific MCP response tool is needed. The older `mcp.models chat_report`
+and `report.mjs` remain available for existing clients/requests during migration,
+but the new model turn instructions use reply events. Event transport is enabled
+by default; `NEO_MODEL_REPLY_EVENTS=0` is a diagnostic opt-out, not a supported
+production fallback. A publish receipt alone is never model-completion proof.
+Neither the input nor the output is size-routed through Gateway-generated files.
 
 ## Inline top instructions (no ChatGPT Project required)
 

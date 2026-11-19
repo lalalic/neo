@@ -103,9 +103,9 @@ export class ResponseEngine {
       const files=materializeImages([latestUser],join(this.store.base,'attachments',session.id));
       const input=[{role:'user',content:latestUser.text,images:files.map(file=>({file}))}];
       const {prompt,enforcement_context}=createTurnPrompt({responseId,messages:input});
-      if(!this.transport.waitForResult)throw Error('model transport requires explicit chat_report completion');
+      if(!this.transport.waitForResult)throw Error('model transport requires explicit reply completion');
       if(!session.threadId){
-        const receipt=await this.transport.newThread(prompt,enforcement_context);
+        const receipt=await this.transport.newThread(prompt,enforcement_context,responseId);
         if(!receipt?.thread_id)throw Error('new-thread did not return a verified thread ID');
         const live=this.store.session(session.id);
         live.threadId=receipt.thread_id;live.threadUrl=receipt.thread_url;
@@ -117,8 +117,8 @@ export class ResponseEngine {
         live.status='awaiting';this.store.putSession(live);
         await this.transport.newTurn(session.threadId,prompt,[],responseId,session.projectId??null,enforcement_context);
       }
-      // Text reports leave status=in_progress. Only a distinct completed:true
-      // report makes the waiter settle and allows this Turn to end.
+      // Text reports leave status=in_progress. Only an explicit reply.completed
+      // event makes the waiter settle and allows this Turn to end.
       await this.transport.waitForResult(responseId,this.store);
       const completed=this.store.response(responseId);
       if(completed?.status!=='completed')throw Error('Turn is missing explicit completion');

@@ -185,7 +185,7 @@ test('model WebHelm transport invokes newThread once, newTurn with same thread I
     if(action==='new-turn')return {result:{ok:true,status:'submitted',thread_id:'thread-xyz',queue_id:'queue-abc'}};
     throw Error('unexpected CLI action');
   };
-  const transport=new WebHelmTransport({tempDir:dir,binary:'/example/webhelm',exec:fake});
+  const transport=new WebHelmTransport({tempDir:dir,binary:'/example/webhelm',exec:fake,holdSession:false,appName:'',modelChoice:'',serializeNewThread:false});
   const start=await transport.newThread('generic prompt');
   assert.equal(start.thread_id,'thread-xyz');
   await transport.newTurn(start.thread_id,'follow up',[],'resp_'+'f'.repeat(40));
@@ -632,12 +632,12 @@ test('configured project ID is validated; Project new-thread and new-turn carry 
     if(action==='new-thread')return {result:{ok:true,value:{status:'submitted',project_id:projectId,thread_id:'same-id',thread_url:`https://chatgpt.com/g/${projectId}/c/same-id`}}};
     return {result:{ok:true,status:'submitted',thread_id:'same-id',queue_id:'queued'}};
   };
-  const transport=new WebHelmTransport({tempDir:dir,projectId,exec});
+  const transport=new WebHelmTransport({tempDir:dir,projectId,exec,holdSession:false,appName:'',modelChoice:'',serializeNewThread:false});
   const receipt=await transport.newThread('hi');
   assert.equal(receipt.project_id,projectId);
   await transport.newTurn('same-id','hello',[],'resp_'+'a'.repeat(40),projectId);
   assert.deepEqual(calls.map(x=>x.config.project_id),[projectId,projectId]);
-  const invalid=new WebHelmTransport({tempDir:dir,projectId,exec:async()=>({result:{ok:true,value:{status:'submitted',thread_id:'other',thread_url:'https://chatgpt.com/c/other'}}})});
+  const invalid=new WebHelmTransport({tempDir:dir,projectId,exec:async()=>({result:{ok:true,value:{status:'submitted',thread_id:'other',thread_url:'https://chatgpt.com/c/other'}}}),holdSession:false,appName:'',modelChoice:'',serializeNewThread:false});
   await assert.rejects(()=>invalid.newThread('hi'),/did not verify the configured ChatGPT Project/);
 });
 
@@ -726,4 +726,85 @@ test('chat_report MCP description and schema explain reporting and explicit clos
   assert.match(TOOL.inputSchema.properties.completed.description,/REQUIRED after the final text report/);
   assert.equal(TOOL.inputSchema.properties.completed.const,true);
   assert.match(TOOL.inputSchema.properties.heartbeat.description,/Does not deliver an answer or close the turn/);
+});
+
+test('newThread serializes concurrent Codex main and title creation and preserves app/model choices',async t=>{
+  const {WebHelmTransport}=await import('../services/models/webhelm.mjs');
+  const root=mkdtempSync(join(tmpdir(),'neo-model-serial-'));t.after(()=>rmSync(root,{recursive:true,force:true}));
+  const calls=[];let active=0,maxActive=0;
+  const exec=async(_,args)=>{
+    assert.equal(args[0],'platform');assert.equal(args[1],'run');
+    assert.equal(args[2],'chatgpt');assert.equal(args[3],'new-thread');
+    const config=JSON.parse(readFileSync(args[args.indexOf('--config')+1],'utf8'));
+    calls.push(config);active++;maxActive=Math.max(active,maxActive);
+    await new Promise(resolve=>setTimeout(resolve,20));active--;
+    return {result:{ok:true,value:{status:'submitted',thread_id:'thread'+calls.length,thread_url:'https://chatgpt.com/c/thread'+calls.length}}};
+  };
+  const transport=new WebHelmTransport({tempDir:root,exec,holdSession:false,
+    appName:'Neo',modelChoice:'GPT-5.6 Sol',serializeNewThread:true});
+  await Promise.all([
+    transport.newThread('main message','contract1','resp_'+'a'.repeat(40)),
+    transport.newThread('title message','contract2','resp_'+'b'.repeat(40)),
+  ]);
+  assert.equal(maxActive,1,'browser submissions must be serialized');
+  assert.deepEqual(calls.map(x=>x.message),['main message','title message']);
+  assert.deepEqual(calls.map(x=>x.app),['Neo','Neo']);
+  assert.deepEqual(calls.map(x=>x.model_choice),['GPT-5.6 Sol','GPT-5.6 Sol']);
+});
+
+test('held WebHelm Session is kept until explicit model completion, then released',async t=>{
+  const {WebHelmTransport}=await import('../services/models/webhelm.mjs');
+  const dir=mkdtempSync(join(tmpdir(),'neo-model-held-'));t.after(()=>rmSync(dir,{recursive:true,force:true}));
+  const stages=[],configs=[];const sessionId='a'.repeat(16);
+  const fake=async(_,args)=>{
+    if(args[0]==='session'){
+      stages.push(args[1]);
+      if(args[1]==='start')return {session_id:sessionId};
+      assert.equal(args[2],sessionId);
+      return {ok:true};
+    }
+    const config=JSON.parse(readFileSync(args[args.indexOf('--config')+1],'utf8'));
+    configs.push({action:args[3],config,session:args[args.indexOf('--session-id')+1]});
+    const value=args[3]==='new-thread'
+      ? {status:'submitted',thread_id:'new-thread-id',thread_url:'https://chatgpt.com/c/new-thread-id'}
+      : {status:'submitted',thread_id:'new-thread-id',verified_by:'user-turn'};
+    return {result:{ok:true,value}};
+  };
+  const transport=new WebHelmTransport({tempDir:dir,exec:fake,holdSession:true,
+    serializeNewThread:true,appName:'Neo',modelChoice:'GPT-5.6 Sol'});
+  const id1='resp_'+'c'.repeat(40),id2='resp_'+'d'.repeat(40);
+  const first=await transport.newThread('task1','context1',id1);
+  assert.equal(first.thread_id,'new-thread-id');
+  assert.deepEqual(stages,['start'],'no stop before result');
+  assert.equal(configs[0].session,sessionId);
+  assert.equal(configs[0].config.app,'Neo');
+  assert.equal(configs[0].config.model_choice,'GPT-5.6 Sol');
+  assert.equal(configs[0].config.enforcement_context,'context1');
+  const completed={status:'completed',output:[{content:[{text:'answer1'}]}]};
+  assert.equal(await transport.waitForResult(id1,{response:()=>completed}), 'answer1');
+  assert.deepEqual(stages,['start','stop']);
+  assert.equal(transport.held.size,0);
+  await transport.newTurn(first.thread_id,'task2',[],id2,null,'context2');
+  assert.equal(configs[1].config.mode,'sync');
+  assert.equal(configs[1].config.thread_id,first.thread_id);
+  assert.equal(configs[1].config.idempotency_key,id2);
+  assert.equal(configs[1].session,sessionId);
+  assert.deepEqual(stages,['start','stop','start']);
+  assert.equal(await transport.waitForResult(id2,{response:()=>completed}),'answer1');
+  assert.deepEqual(stages,['start','stop','start','stop']);
+});
+
+test('unverified newThread receipt releases held WebHelm session without leaving state',async t=>{
+  const {WebHelmTransport}=await import('../services/models/webhelm.mjs');
+  const dir=mkdtempSync(join(tmpdir(),'neo-model-bad-receipt-'));t.after(()=>rmSync(dir,{recursive:true,force:true}));
+  const stages=[];const sessionId='f'.repeat(16);
+  const transport=new WebHelmTransport({tempDir:dir,holdSession:true,exec:async(_,args)=>{
+    if(args[0]==='session'){
+      stages.push(args[1]);return args[1]==='start'?{session_id:sessionId}:{ok:true};
+    }
+    return {result:{ok:true,value:{status:'submitted',thread_id:'abc'}}};
+  }});
+  await assert.rejects(()=>transport.newThread('task','contract','resp_'+'e'.repeat(40)),/no verified submission receipt/);
+  assert.deepEqual(stages,['start','stop']);
+  assert.equal(transport.held.size,0);
 });

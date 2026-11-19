@@ -57,6 +57,8 @@ Reply NATS subjects use a sibling namespace to the configured Job prefix:
 recorder and Relay job lifecycle contract are unchanged. Do not treat the bus
 `published:true` receipt as proof the channel listener delivered the reply.
 
+For channel owners extending this behavior, see the [reply-channel developer contract](channel-development.md) for subscriber lifecycle, sequencing, failure and test requirements.
+
 ## Internal transport compatibility
 
 The adapter `core/publish-envelope.mjs` expands those fields to the legacy internal NATS envelope:

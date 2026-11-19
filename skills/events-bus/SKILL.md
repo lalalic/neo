@@ -59,6 +59,10 @@ phone number, or other personal data as `request_id`. Reply event contents
 are **not** added to the job history recorder; each channel owner must persist
 what it needs. Live NATS subscriptions do not replay missed messages.
 
+To add a channel listener or extend reply behavior, follow the canonical
+[reply-channel developer contract](references/channel-development.md); this Skill
+contains only the publishing decision rules.
+
 ## Transport and consumers
 
 The MCP tool is **publish-only**. Observation is independent: native NATS subscriptions, CLI `watch`/`wait`/`history`/`status`, and HTTP endpoints remain available to authorized consumers; `health`, `config`, and `setup` are CLI operations. Do not call MCP `watch`, `wait`, `history`, `status`, or `health`: they do not exist.

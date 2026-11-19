@@ -13,8 +13,9 @@ if(!Number.isInteger(port)||port<1024||port>65535)throw Error('invalid model gat
 const legacyOrigin=process.env.NEO_MODELS_LEGACY_ORIGIN??null;
 if(legacyOrigin&&!/^http:\/\/127\.0\.0\.1:\d+$/.test(legacyOrigin))throw Error('legacy origin must be loopback');
 const {server,store}=createModelServer({token,legacyOrigin});
-// Opt-in until the real Codex CLI MVP gate passes for the event transport.
-const replyListener=process.env.NEO_MODEL_REPLY_EVENTS==='1'?createModelReplyListener(store):null;
+// The reply event listener is part of the model delivery contract; fail closed
+// if Events Bus is unavailable rather than silently leaving requests pending.
+const replyListener=process.env.NEO_MODEL_REPLY_EVENTS!=='0'?createModelReplyListener(store):null;
 await replyListener?.start();
 server.listen(port,'127.0.0.1',()=>console.log('Neo model API on loopback port '+port));
 process.on('SIGTERM',()=>server.close(async()=>{await replyListener?.close();process.exit(0)}));
