@@ -41,6 +41,10 @@ Use **Markcut Vision** as the canonical media-understanding interface:
 
 The current CLI owns media extraction, normalization, perception, segmentation, speech-to-text integration, VTT frame sampling, prompt handling, and generated vision metadata/artifacts. Load the discovered **markcut** skill before calling this interface. Read the existing `metadata.json` and reuse each source's `perception.desc` before requesting any missing inference. Use supported options such as `--instruct`, `--pick`, prompt overrides, VTT sampling, or STT control only when the task requires them.
 
+### Optional shared ElevenLabs STT adapter
+
+When an owning Neo Project calls for higher-fidelity, word-timed speech recognition, Visioner **may opt in** to the shared [ElevenLabs Scribe STT Skill](../skills/elevenlabs-stt/SKILL.md) using Markcut's existing **`--stt` template override** (no new Vision workflow or agent). The default Markcut STT backend remains unchanged for Projects that do not select this option. The Skill's script accepts Markcut's `{input}` audio and `{output}` directory, returning WebVTT and source-bound Scribe JSON; verify the actual outputs. ElevenLabs is external, potentially paid cloud processing: check the source's cloud-transfer/rights approval and `ELEVENLABS_API_KEY` before requesting upload; explicitly HOLD when unavailable. A signed-in social account or public post is not cloud processing authorization. Do not invent a transcript or assume Markcut's partial vision output proves Scribe success. If speech was already transcribed and verified by the owning Project (e.g. Content Distribution's Promotion Transcriber), use Markcut **`--skip-stt`** to avoid redundant billing, and consume the existing WebVTT as separate source evidence.
+
 Preserve the ITT/VTT boundary conceptually: image understanding and time-aligned video understanding are vision-substrate concerns owned by Markcut Vision, not by this agent. Do not invent unsupported CLI flags or duplicate Markcut's media pipeline.
 
 ## Inference and transport boundary
