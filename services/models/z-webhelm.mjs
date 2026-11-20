@@ -38,10 +38,13 @@ async function revokeZAccessToken(outputPath){
 export class ZWebHelmTransport {
   constructor({binary=join(homedir(),'.local','bin','webhelm'),
     tempDir=join(homedir(),'.local','share','neo','model-gateway','tmp'),
-    exec=runCLI,issueToken=issueZAccessToken,revokeToken=revokeZAccessToken,timeoutSeconds=90}={}){
+    exec=runCLI,issueToken=issueZAccessToken,revokeToken=revokeZAccessToken,timeoutSeconds=90,overallTimeoutSeconds=540}={}){
     if(!Number.isInteger(timeoutSeconds)||timeoutSeconds<1||timeoutSeconds>120)
       throw Error('Z.ai completion timeout must be 1–120 seconds');
     this.binary=binary;this.tempDir=tempDir;this.exec=exec;this.issueToken=issueToken;this.revokeToken=revokeToken;this.timeoutSeconds=timeoutSeconds;
+    if(!Number.isInteger(overallTimeoutSeconds)||overallTimeoutSeconds<timeoutSeconds||overallTimeoutSeconds>1800)
+      throw Error('Z.ai total completion deadline must be between single poll timeout and 1800 seconds');
+    this.overallTimeoutSeconds=overallTimeoutSeconds;
     this.answers=new Map();this.pendingSessions=new Map();
     mkdirSync(tempDir,{recursive:true,mode:0o700});
   }
@@ -62,21 +65,44 @@ export class ZWebHelmTransport {
       throw Error('Z.ai model transport requires the default WebHelm workspace');
     }
     const path=join(this.tempDir,'z-config-'+key()+'.json');
-    const config={message:text,mode:'chat',wait:true,timeout_seconds:this.timeoutSeconds,
+    const config={message:text,mode:'chat',wait:false,timeout_seconds:this.timeoutSeconds,
       ...(threadId?{thread_id:threadId}:{})};
     let success=false;
     try{
       writeFileSync(path,JSON.stringify(config),{mode:0o600,flag:'wx'});
-      const receipt=await this.#run(['platform','run','z',action,'--session-id',sid,'--config',path]);
-      const url=typeof receipt?.thread_url==='string'?receipt.thread_url:null;
+      const submitted=await this.#run(['platform','run','z',action,'--session-id',sid,'--config',path]);
+      const url=typeof submitted?.thread_url==='string'?submitted.thread_url:null;
       let parsed=null;
       try{parsed=url?new URL(url):null}catch{}
-      if(receipt?.status!=='completed'||typeof receipt?.answer!=='string'||!receipt.answer.trim()||
-        receipt?.verified_by!=='Z.ai webpage SSE chat:completion done=true'||
+      if(submitted?.status!=='submitted'||
+        submitted?.verified_by!=='matching user message + cleared composer + durable thread URL'||
         parsed?.origin!==Z_HOME.slice(0,-1)||
-        parsed?.pathname!=='/c/'+receipt.thread_id||
-        (threadId&&threadId!==receipt.thread_id))
-        throw Error('Z.ai has no verified final answer; submission uncertain and browser Session retained: '+sid);
+        parsed?.pathname!=='/c/'+submitted.thread_id||
+        (threadId&&threadId!==submitted.thread_id))
+        throw Error('Z.ai has no verified submission; browser Session retained: '+sid);
+      // From here, the user's message is already accepted by the real site.
+      // Never replay it. Continue to read the ORIGINAL WebHelm Session via
+      // resume=true (no submit) for potentially long Neo MCP bootstrap calls.
+      // Keep the temporary one-hour token valid while Z is still using it.
+      const deadline=Date.now()+this.overallTimeoutSeconds*1000;
+      const resume={resume:true,thread_id:submitted.thread_id,mode:'chat',wait:true,
+        timeout_seconds:this.timeoutSeconds};
+      writeFileSync(path,JSON.stringify(resume),{mode:0o600});
+      let receipt=null;
+      while(Date.now()<deadline){
+        const remaining=Math.ceil((deadline-Date.now())/1000);
+        resume.timeout_seconds=Math.max(1,Math.min(this.timeoutSeconds,remaining));
+        writeFileSync(path,JSON.stringify(resume),{mode:0o600});
+        receipt=await this.#run(['platform','run','z',action,'--session-id',sid,'--config',path]);
+        if(receipt?.status==='completed')break;
+        if(receipt?.status!=='pending')
+          throw Error('Z.ai resume returned an unexpected receipt; browser Session retained: '+sid);
+        await new Promise(resolve=>setTimeout(resolve,1000));
+      }
+      if(receipt?.status!=='completed'||typeof receipt.answer!=='string'||!receipt.answer.trim()||
+        receipt.verified_by!=='Z.ai webpage SSE chat:completion done=true'||
+        receipt.thread_id!==submitted.thread_id||receipt.thread_url!==submitted.thread_url)
+        throw Error('Z.ai completion not verified before deadline; original browser Session retained: '+sid);
       if(storeAnswer)this.answers.set(responseId,receipt.answer);
       success=true;
       return receipt;
@@ -119,7 +145,7 @@ export class ZWebHelmTransport {
       throw Error(safe);
     }finally{
       token='';
-      if(!verified&&existsSync(tokenFile)){
+      if(!verified&&existsSync(tokenFile)&&!this.pendingSessions.has(responseId)){
         // If bootstrap is blocked or uncertain, revoke the short-lived token
         // rather than leaving an unused credential authorized for one hour.
         try{await this.revokeToken(tokenFile)}

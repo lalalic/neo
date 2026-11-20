@@ -72,3 +72,26 @@ The gate intentionally **pins the ChatGPT model** rather than reading the
 Events Bus verification after adding additional browser-backed models.
 Each new backend also requires its own real provider E2E acceptance tests;
 three ChatGPT MVP passes alone cannot certify Z.ai.
+
+## Additional mandatory Z.ai acceptance gate
+
+The three ChatGPT MVP passes do **not** certify the `z` backend. Before
+merging or activating a Z.ai Gateway change, run and preserve separate
+**real Codex** Z.ai acceptance evidence from the candidate and again from
+live production:
+
+1. **Z MVP1:** `codex exec -p neo -c 'model="z"'` returns an exact reply
+   after automatic one-hour Token issuance, Z.ai bootstrap in a real Thread,
+   observed `NEO_BOOTSTRAP_PASS`, actual Z.ai `chat:completion done=true`,
+   and OpenAI `response.completed`.
+2. **Z MVP2:** two native Codex TUI Turns in the **same** Codex UUID resume
+   the exact same persisted Z.ai Thread. Both actually complete. A browser
+   user-message match cannot replace the explicit Codex ID map.
+3. **Z MVP3:** the Z.ai webpage's genuine SSE stream yields separate
+   observable output deltas and a terminal completion, without manufactured
+   Z replies, a single lump falsely labeled streaming, or re-submission.
+
+Tests, synthetic WebHelm receipts, a mere accepted user message, an HTTP 200
+without the site's `done=true`, and ChatGPT's own three-MVP gate cannot be
+reported as Z acceptance. If any Z gate is blocked by Z.ai tooling or site
+latency, fail closed and leave the production `neo` profile unchanged.

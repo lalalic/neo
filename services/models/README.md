@@ -110,9 +110,16 @@ thinking effort is imposed, so the site uses its own current/default model.
 
 The Z.ai Action detects the known "A fresh new interface" onboarding overlay
 and fails before typing to avoid false submissions. Close that overlay in the
-Z.ai browser before first use. The transport's 90-second completion deadline
-is shorter than WebHelm's outer 180-second limit; a missing site completion
-is always reported rather than fabricated.
+Z.ai browser before first use. Z.ai's site may spend several minutes executing its tools. The Gateway now
+submits the prompt **exactly once** with `wait:false`, verifies the durable
+Thread and accepted user message, then uses the original WebHelm Session's
+`resume:true` (read-only, no submission) to await verified `done=true`.
+Each WebHelm action poll has a 90-second deadline and the overall site
+completion budget is 540 seconds by default. If the budget expires, the
+original browser Session is retained for manual reconciliation; never
+resubmit the prompt or fake completion. In-flight bootstrap one-hour tokens
+remain valid until expiry, whereas definitively rejected bootstrap tokens
+are revoked. No submission text or access token appears in a URL.
 
 **Codex Thread identity and resume.** The Codex HTTP Responses client sends its
 stable UUID as `thread-id` (or legacy `thread_id`). This ID is the primary,
