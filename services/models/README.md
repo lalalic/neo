@@ -66,7 +66,13 @@ ChatGPT transport:
    an automatic re-submission, and return an explicit failure or pending state.
 
 Z.ai transport uses WebHelm `platform run z new-thread` and `new-turn` in
-owned, default `WebHelm` Sessions. It **automatically issues a fresh one-hour
+owned, default `WebHelm` Sessions. Each Session starts on `about:blank`, so the
+Z Action can install hidden-tab initialization support and its SSE verifier
+**before** navigating to Z.ai. A short-lived token is supplied only in the
+private chat Prompt, never in a URL or query string. The Z Action's native
+in-page submit bridge and same-Thread navigation guard must be deployed with
+this Gateway; see the separate `webhelm-actions` Z hotfix branch.
+It **automatically issues a fresh one-hour
 Neo MCP interactive access token on Neo Master** (`neo mcp token issue
 --output ...`, using the installed `/opt/homebrew/bin/neo` by default).
 The initial Z.ai message is the exact bootstrap instruction, with the fresh

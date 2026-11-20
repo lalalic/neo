@@ -52,8 +52,9 @@ export class ZWebHelmTransport {
   }
   async #submit(action,text,threadId,responseId,{storeAnswer=true}={}){
     if(typeof text!=='string'||!text.trim())throw Error('Z.ai requires a non-empty message');
-    const requestedUrl=threadId?Z_HOME+'c/'+encodeURIComponent(threadId):Z_HOME;
-    const session=await this.#run(['session','start','--url',requestedUrl]);
+    // Begin on a blank owned tab: Z's hidden-page rAF shim must install
+    // BEFORE chat.z.ai loads, including when resuming an existing thread.
+    const session=await this.#run(['session','start','--url','about:blank']);
     if(!/^[a-f0-9]{16}$/.test(session.session_id??''))throw Error('Z.ai WebHelm Session has invalid ID');
     const sid=session.session_id;
     if(session.workspace!=='WebHelm'){

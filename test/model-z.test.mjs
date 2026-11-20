@@ -17,7 +17,7 @@ function fixture(t){
   const calls=[];let starts=0;
   const exec=async (_,args)=>{
     if(args[0]==='session'){
-      if(args[1]==='start')return {session_id:'abcdef0123456789',workspace:'WebHelm'};
+      if(args[1]==='start'){assert.deepEqual(args.slice(0,4),['session','start','--url','about:blank']);return {session_id:'abcdef0123456789',workspace:'WebHelm'};}
       assert.equal(args[1],'stop');return {ok:true};
     }
     assert.deepEqual(args.slice(0,3),['platform','run','z']);
