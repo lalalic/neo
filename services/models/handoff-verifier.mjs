@@ -54,7 +54,27 @@ export function createOrchestratorHandoffVerifier({run=webhelm,verifyThread=crea
         return marks.every(mark => text.includes(mark));
       });
     })()`;
-    const script=`return await (async()=>{let receiptMatches=false;for(let i=0;i<80;i++){receiptMatches=await js(${JSON.stringify(js)});if(receiptMatches)break;await sleep(250);}return {receiptMatches,url:(await page_info()).url};})()`;
+    // ChatGPT can render a user bubble before upgrading the generic /c URL
+    // to its canonical Project path. Require both observations in one session.
+    const script=`return await (async()=>{
+      const expectedProject=${JSON.stringify(projectId)};
+      const expectedThread=${JSON.stringify(nextThreadId)};
+      let latest={receiptMatches:false,url:''};
+      for(let i=0;i<80;i++){
+        const receiptMatches=await js(${JSON.stringify(js)});
+        const url=(await page_info()).url;
+        latest={receiptMatches,url};
+        const segments=String(url||'').split(/[?#]/,1)[0].split('/').filter(Boolean);
+        const project=segments[3]||'';
+        const canonical=segments.length===6&&segments[0]==='https:'&&segments[1]==='chatgpt.com'&&
+          segments[2]==='g'&&segments[4]==='c'&&
+          (project===expectedProject||project.startsWith(expectedProject+'-'))&&
+          segments[5]===expectedThread;
+        if(receiptMatches&&canonical)break;
+        await sleep(250);
+      }
+      return latest;
+    })()`;
     const temp=await mkdtemp(join(tmpdir(),'neo-orchestrator-handoff-'));
     let sessionId=null;
     try{

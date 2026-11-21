@@ -67,3 +67,23 @@ test('bad control metadata and failed predecessor Project verification never ope
   await assert.rejects(createOrchestratorHandoffVerifier(rejected)(candidate),/foreign Project/);
   assert.equal(rejected.seen.length,0);
 });
+
+test('receipt waits for same-session canonical Project redirect before accepting handoff',async()=>{
+  let samples=0;
+  const run=async args=>{
+    if(args[1]==='start')return {session_id:'mock-browser-session-123'};
+    if(args[1]==='stop')return {closed:true};
+    if(args[1]==='exec'){
+      const source=readFileSync(args[4],'utf8');
+      const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
+      const execute=new AsyncFunction('js','page_info','sleep',source);
+      const value=await execute(async()=>true,async()=>({
+        url:++samples<3?`https://chatgpt.com/c/${candidate.nextThreadId}`:url,
+      }),async()=>{});
+      return {ok:true,value};
+    }
+    throw Error('Unexpected browser verb');
+  };
+  assert.equal(await createOrchestratorHandoffVerifier({run,verifyThread:async()=>true})(candidate),true);
+  assert.equal(samples,3,'receipt alone cannot complete before Project URL is canonical');
+});
