@@ -21,9 +21,11 @@ events. It persists a deduplicated Orchestrator request to the existing Chat
 Gateway ledger and dispatches immediately, not at a scheduled interval.
 
 The Orchestrator **must** inspect the authoritative Relay CLI state before
-reporting; it uses `chat_report` through the existing Neo Mobile path, with
-`attention` for failures, blocked reviews and human decisions, and `info` for
-routine milestones. NATS is never approval or completion evidence. The user's
+reporting. The legacy watch dispatcher still documents `chat_report` as a
+compatibility mechanism; this is **not** the current phone Chat delivery
+contract (which is Models REST/SSE and Events Bus reply envelopes). It uses
+attention reports for failures, blocked reviews and human decisions, and `info`
+for routine milestones. NATS is never approval or completion evidence. The user's
 Review decisions are not synthesized; no publishing, cancellation or repeat
 Job creation occurs as a result of a notification.
 

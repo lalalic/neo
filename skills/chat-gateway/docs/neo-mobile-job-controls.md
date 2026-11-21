@@ -1,6 +1,18 @@
 # Neo Mobile Job controls
 
-## Source and authorization
+## Current mobile transport (2026-11-21)
+
+On current Neo Mobile, the first choice is the saved Master's authenticated
+same-origin REST API: `GET /relay/api/mobile/jobs`,
+`GET /relay/api/mobile/job-tasks`, `GET /relay/api/mobile/job-activity`,
+and `POST /relay/api/mobile/job-cancel`. These project only owner-safe Relay records.
+The existing `chat_jobs`, `chat_job_tasks`, `chat_job_activity`, and
+`chat_job_cancel` MCP commands below are **legacy fallbacks** when the direct
+route is genuinely absent (404). Never downgrade after authentication errors,
+ambiguous mutation outcomes, or an uncertain cancellation receipt. This
+Jobs path is separate from Models-owned `/orchestrator-chat/*` messages.
+
+## Legacy MCP source and authorization
 
 The tools use the existing loopback chat-gateway behind the authenticated Neo.app remote MCP federation. Relay data comes from two public interfaces:
 

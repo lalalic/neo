@@ -27,6 +27,40 @@ MCP tools remain available to ChatGPT. Codex tool calls are not forwarded.
   ownership without importing ToyAlive Agent logic. Older response IDs are
   also forwarded to that provider for in-flight request compatibility.
 
+## Neo Mobile Orchestrator adapter (separate from generic `/v1`)
+
+The same running Models service also exposes authenticated
+`/orchestrator-chat/*` REST/SSE routes to the existing Neo.app/Core HTTPS
+facade. The phone uses its **already paired Master bearer**; it does not need
+an independent Chat Gateway provider, new public listener, or a second
+credential. Models imports the existing verified Orchestrator Project/head
+mapping once rather than creating a competing ChatGPT Thread.
+
+- `POST /orchestrator-chat/messages`: durable 202 receipt only; client supplies
+  stable `requestId` and matching `Idempotency-Key`. Duplicate acceptance
+  does not resend an uncertain ChatGPT turn.
+- `POST /orchestrator-chat/attachments`: bounded staged chunks before message
+  acceptance; never continue uploading after a request is durably accepted.
+- `GET /orchestrator-chat/pending[?requestId=...]`: reconcile accepted requests,
+  completed/un-ACKed responses and the event cursor, including lost 202s.
+- `GET /orchestrator-chat/events?cursor=N`: status SSE with monotonic IDs;
+  cursor expiration returns 409, which requires `/pending` reconciliation.
+- `POST /orchestrator-chat/ack`: after the phone persists a terminal reply,
+  ACK the stable delivery ID and scrub retained operational text/files.
+- `GET /orchestrator-chat/health`: redacted readiness and queue counters.
+
+The Orchestrator adapter requires **one complete**
+`neo.orchestrator.reply.v1` JSON envelope in an Events Bus `reply.text`
+`seq=1`, plus a separate `reply.completed`. Do not confuse this with the
+multi-fragment generic `/v1` reply protocol. Routine completed chat uses
+in-app delivery; APNs is reserved for attention, failures and owner actions.
+The permanent display transcript belongs to Neo Mobile, not Models.
+
+See [the current Orchestrator contract](../../docs/chat-gateway-orchestrator.md)
+and [the generic Model CLI release gate](MVP_GATE.md). Verified phone
+Send/receive and relaunch recovery do not substitute for a separate real
+A→B→C browser handoff or this generic model gate.
+
 ## Stateful ChatGPT Thread contract
 
 One client conversation corresponds to one persistent ChatGPT Thread:

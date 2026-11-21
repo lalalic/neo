@@ -68,6 +68,23 @@ another task, do not force reinstall/uninstall. Report iOS's actual error.
 No QA Bridge tools are guaranteed until ToyAlive implements the public
 NeoUse QA Bridge v1 contract.
 
+## Real-device Chat input verification
+
+For Neo Mobile Orchestrator E2E, the physical iPhone and the real installed
+App are authoritative. `agent.pilot type` or `tap` reporting an executed XCTest
+action does **not** guarantee that SwiftUI received the text or that Send was
+enabled. After input, take a **fresh snapshot** and confirm the actual draft
+is visible before tapping Send. Check for a new owner bubble and complete
+assistant bubble, not just a successful tool receipt. If text injection did
+not reach the composer, use fresh element refs and verified physical keyboard
+interaction rather than blindly repeating Send (which could duplicate a turn).
+When diagnosing persistence, the app-owned history/outbox is more authoritative
+than a stale accessibility snapshot. The sender's Keychain credential remains
+bound to the existing App bundle identity; a staging App with a different
+Bundle ID does not automatically inherit a paired Master's token. Never
+extract credentials to work around staging pairing. Always release the
+NeoUse session in `finally` and verify app-relaunch history separately.
+
 ## Security / teardown
 
 WDA's native /mcp requires a bearer, but the upstream WebDriver HTTP endpoints
