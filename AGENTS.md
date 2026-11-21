@@ -6,6 +6,10 @@ Neo is the installable agent Harness and CLI source, with reusable Agents and Sk
 
 The [Neo Project Skill](skills/neo-project/SKILL.md) is the single authority for independent Project discovery, Git/Run boundaries, Agent/Graph/Artifact contracts, approval, project lifecycle and worker quality. Load its specific `references/` file only when the task requires it. Read this Harness policy, the selected Project's `AGENTS.md` and README, and only relevant role files; project-only rules belong to the selected Project. Do not duplicate Project contracts in this Harness AGENTS.md.
 
+For Neo Master public hostname additions, updates, or retirement, the source of
+truth and procedure are the [Neo.app shared-tunnel runbook](../neox/mac/NeoY/docs/shared-cloudflare-tunnel.md).
+Use the existing app-owned connector, not a Project-owned or PM2 tunnel.
+
 ## Canonical execution and Git boundary
 
 Follow the [Neo Project Run Contract](skills/neo-project/references/run-contract.md) for canonical private Runs, nested local Git and source-worktree separation. Keep private media, source inputs, credentials, artifacts and receipts out of published Harness Git. Preserve original private Runs and unrelated worktrees.
