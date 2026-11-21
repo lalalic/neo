@@ -471,6 +471,45 @@ test('GitHub origin never changes the local Relay repository identity', async ()
   } finally { rmSync(f.base, { recursive: true, force: true }); }
 });
 
+test('nonnumeric Coordinator Task ID is rejected for a new Run, without a false binding',async()=>{
+ const f=fixture(),relay=relayStub();try{
+  const orig=relay.runRelay;
+  relay.runRelay=args=>{
+   const result=orig(args);
+   return args[0]==='job'&&args[1]==='create'?{...result,taskId:'coordinator'}:result;
+  };
+  await assert.rejects(()=>run(['--path',f.runDir,'--project','vlog'],f,relay),/numeric Task ID/);
+  assert.equal(existsSync(join(f.runDir,'.neo-project-run.json')),false);
+  assert.equal(relay.calls.filter(c=>c[0]==='job'&&c[1]==='run').length,0);
+ }finally{rmSync(f.base,{recursive:true,force:true})}
+});
+test('unbound Run retries an exact staged objective after Relay create failure, never replaces changed evidence',async()=>{
+ const f=fixture(),relay=relayStub();try{
+  relay.failures.add('job:create');
+  await assert.rejects(()=>run(['--path',f.runDir,'--project','vlog'],f,relay),/stub job:create failure/);
+  assert.ok(existsSync(join(f.runDir,'source-reference.json')));
+  assert.equal(existsSync(join(f.runDir,'.neo-project-run.json')),false);
+  relay.failures.clear();
+  const recovered=JSON.parse(await run(['--path',f.runDir,'--project','vlog'],f,relay));
+  assert.equal(recovered.jobId,'101');
+  assert.ok(existsSync(join(f.runDir,'.neo-project-run.json')));
+  const f2=fixture(),relay2=relayStub();try{
+   relay2.failures.add('job:create');
+   await assert.rejects(()=>run(['--path',f2.runDir,'--project','vlog'],f2,relay2));
+   writeFileSync(join(f2.runDir,'neo-project-run.input.md'),'untrusted changed input');
+   relay2.failures.clear();
+   await assert.rejects(()=>run(['--path',f2.runDir,'--project','vlog'],f2,relay2),/different or insecure/);
+   assert.equal(relay2.calls.filter(c=>c[0]==='job'&&c[1]==='create').length,1);
+  }finally{rmSync(f2.base,{recursive:true,force:true})}
+ }finally{rmSync(f.base,{recursive:true,force:true})}
+});
+test('new Neo Project Jobs reject remote-style repository aliases before Relay calls',async()=>{
+ const f=fixture(),relay=relayStub();try{
+  await assert.rejects(()=>run(['--path',f.runDir,'--project','vlog'],f,relay,{repository:'neo/vlog'}),/must match local Git project name/);
+  await assert.rejects(()=>run(['--path',f.runDir,'--project','vlog'],f,relay,{repository:'bad/vlog'}),/must match local Git project name/);
+  assert.equal(relay.calls.length,0);
+ }finally{rmSync(f.base,{recursive:true,force:true})}
+});
 test('foreground creates one bound Job, forwards immediate Relay run and can reattach ACTIVE Job',async()=>{
  const f=fixture(),relay=relayStub();try{
   const first=JSON.parse(await run(['--project','vlog','--path',f.runDir,'--foreground'],f,relay));
@@ -624,17 +663,12 @@ test('growth review policy fails closed on unknown stage flag', async()=>{
  }finally{rmSync(f.base,{recursive:true,force:true});}
 });
 
-// Contract regression: Relay owns global numeric Job identities, even when the
-// caller's legacy Run binding reader still accepts historical opaque IDs.
-test('new Run rejects legacy nonnumeric Relay Job IDs without creating a bound Run', async () => {
-  const f = fixture(), relay = relayStub();
-  try {
-    const original = relay.runRelay;
-    relay.runRelay = args => {
-      const response = original(args);
-      return args[0] === 'job' && args[1] === 'create' ? { ...response, job: 'old-id' } : response;
-    };
-    await assert.rejects(run(['--path', f.runDir, '--project', 'vlog'], f, relay), /valid id/);
-    assert.equal(existsSync(join(f.runDir, '.neo-project-run.json')), false);
-  } finally { rmSync(f.base, { recursive: true, force: true }); }
+// Relay requires numeric IDs for newly created Jobs; historical bound Runs
+// are a separate verified compatibility path.
+test('new Run rejects legacy nonnumeric Relay Job IDs without creating a bound Run',async()=>{
+ const f=fixture(), relay=relayStub();try{
+  const orig=relay.runRelay;relay.runRelay=args=>{const result=orig(args);return args[0]==='job'&&args[1]==='create'?{...result,job:'old-id'}:result;};
+  await assert.rejects(run(['--path',f.runDir,'--project','vlog'],f,relay),/valid id/);
+  assert.equal(existsSync(join(f.runDir,'.neo-project-run.json')),false);
+ }finally{rmSync(f.base,{recursive:true,force:true});}
 });

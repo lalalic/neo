@@ -218,10 +218,14 @@ function initializeRun(runDir, projectName, input, sourceUrl, publicationReview 
     try { saved = JSON.parse(readFileSync(binding, 'utf8')); } catch { fail('existing run binding is unreadable; preserving run for review'); }
     const expected = { evidence, objective, taskInput, output };
     const validJobId = (typeof saved.jobId === 'string' || typeof saved.jobId === 'number') && /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(String(saved.jobId));
-    if (saved.schemaVersion !== 1 || saved.project !== projectName || saved.runPath !== runDir || !/^[1-9][0-9]*$/.test(saved.taskId) || !validJobId ||
+    if (saved.schemaVersion !== 1 || saved.project !== projectName || saved.runPath !== runDir || !/^(?:[1-9][0-9]*|coordinator)$/.test(saved.taskId) || !validJobId ||
       Object.entries(expected).some(([key, value]) => saved[key] !== value)) fail('existing run binding does not match this request');
     return { ...expected, binding, saved };
   }
+  // A preceding CLI attempt may have written the three immutable Run inputs
+  // before Relay rejected Job creation. Verify exact bytes and private modes,
+  // then resume; never overwrite an existing value or fake a Job binding.
+  if (existsSync(output)) fail('run already has an unbound Coordinator result; refusing to overwrite');
   const data = { schemaVersion: 1, project: projectName, kind: discovery ? 'discovery' : sourceUrl ? 'url-reference' : 'canonical-run', ...(discovery ? {} : sourceUrl ? { sourceUrl } : { sourceRunPath: input }), ...(chosenSource ? {source: chosenSource.id, sourceBrief: chosenSource.runFile} : {}) };
   const creativeOnly = publicationReview === 'separate';
   const vlogPublisher = projectName === 'vlog' && publicationReview === 'publisher-explicit-authorization';
@@ -253,28 +257,20 @@ function initializeRun(runDir, projectName, input, sourceUrl, publicationReview 
   const taskText = `Process this selected Neo Project run.\n\n- Project: ${projectName}\n- Canonical run: ${runDir}\n- Private input evidence: ${evidence}\n\nUse the project contract and existing Agent Graph. Preserve existing run files. ${discoveryDirective} ${publishingPolicy || (creativeOnly ? 'Do not perform licensing or rights checks in creative Stages; publication review is separate.' : 'Source references do not establish rights or publication permission.')}\n`;
   const instruction = noReview ? '\nPRIVATE RENDER TEST ONLY: honor review-mode.json. SKIP human Preview and specialist review entirely, never call review/notify, render a real MP4, check playback, mark review UNREVIEWED/NOT_RUN, force Publisher SKIPPED, prohibit publication.\n' :
     requestedReviewPolicy ? `\n${requestedReviewPolicy}\n` : '';
-  if (chosenSource) {
-    // The selected preset and its private source evidence must remain identical on
-    // an unbound Run retry; never replace a changed brief after Relay create fails.
-    const staged = [
-      [join(runDir, chosenSource.runFile), `${JSON.stringify(chosenSource.brief, null, 2)}\n`],
-      [evidence, `${JSON.stringify(data, null, 2)}\n`],
-      [objective, objectiveText + instruction], [taskInput, taskText + instruction]
-    ];
-    if (existsSync(output)) fail('source Run already has an unbound Coordinator result');
-    for (const [file, expected] of staged) if (existsSync(file)) {
-      const stat = lstatSync(file);
-      if (!stat.isFile() || stat.isSymbolicLink() || (stat.mode & 0o077) !== 0 ||
-          readFileSync(file, 'utf8') !== expected)
-        fail(`run already contains different or insecure ${basename(file)}; refusing to overwrite`);
-    }
-    for (const [file, expected] of staged) if (!existsSync(file)) writePrivate(file, expected);
-  } else {
-    for (const file of [evidence, objective, taskInput, output]) if (existsSync(file)) fail(`run already contains ${basename(file)}; refusing to overwrite`);
-    writePrivate(evidence, `${JSON.stringify(data, null, 2)}\n`);
-    writePrivate(objective, objectiveText + instruction);
-    writePrivate(taskInput, taskText + instruction);
+  const staged = [
+    ...(chosenSource ? [[join(runDir, chosenSource.runFile), `${JSON.stringify(chosenSource.brief, null, 2)}\n`]] : []),
+    [evidence, `${JSON.stringify(data, null, 2)}\n`],
+    [objective, objectiveText + instruction], [taskInput, taskText + instruction]
+  ];
+  // Check all existing files before creating any missing file, so a malicious
+  // or stale staged input cannot be silently reused or partially rewritten.
+  for (const [file, expected] of staged) if (existsSync(file)) {
+    const stat = lstatSync(file);
+    if (!stat.isFile() || stat.isSymbolicLink() || (stat.mode & 0o077) !== 0 ||
+        readFileSync(file, 'utf8') !== expected)
+      fail(`run already contains different or insecure ${basename(file)}; refusing to overwrite`);
   }
+  for (const [file, expected] of staged) if (!existsSync(file)) writePrivate(file, expected);
   return { evidence, objective, taskInput, output, binding, saved: null };
 }
 
