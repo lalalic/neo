@@ -97,7 +97,7 @@ export function createLiveRegistry({ dir, io = files, now = () => Date.now() }) 
 /** Persist before dispatch; on restart the existing dispatcher retries pending
  * records with stable idempotency keys. Dashboard only validates Job identity;
  * the Orchestrator must verify Task details from the authoritative Relay CLI. */
-export function createLiveWatch({ registry, ledger, dashboard, history=null, io=files, now = () => Date.now() }) {
+export function createLiveWatch({ registry, ledger, dashboard, history=null, io=files, now = () => Date.now(), renderTurn=liveTurn }) {
   const cursorFile = join(dirname(registry.path), 'live-watch-cursors.json');
   const cursors = async () => io.readJson(cursorFile, {});
   const advance = async (jobId, value) => {
@@ -119,7 +119,7 @@ export function createLiveWatch({ registry, ledger, dashboard, history=null, io=
       const record = {kind:'watch',key,jobId:watch.jobId,repository:watch.repository,
         taskId:event.taskId,to:event.type,eventAt:event.timestamp,title:job.title || null,
         createdAt:new Date(now()).toISOString(),status:'pending',attempts:0,nextAttemptAt:0};
-      record.turnText = liveTurn(record);
+      record.turnText = renderTurn(record);
       await ledger.put(record);
       return true;
   }

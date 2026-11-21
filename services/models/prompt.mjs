@@ -10,12 +10,14 @@ if(!TOP_INSTRUCTIONS||TOP_INSTRUCTIONS.includes('</top-instructions>'))
  * only its latest user message and the model reporting contract. All other
  * Codex input roles and preceding user turns are intentionally omitted.
  */
-export function createTurnPrompt({responseId,messages}){
+export function createTurnPrompt({responseId,messages,callerEnforcementContext=null}){
+  if(callerEnforcementContext!==null && (typeof callerEnforcementContext!=='string' || !callerEnforcementContext.trim() || Buffer.byteLength(callerEnforcementContext,'utf8')>8192 || /<\/?top-instructions>|\[\/?USER\]/i.test(callerEnforcementContext)))
+    throw Error('invalid enforcement_context');
   if(!/^resp_[0-9a-f]{40}$/.test(responseId))throw Error('invalid response ID');
   if(!Array.isArray(messages)||!messages.length)throw Error('messages required');
   const latestUser=messages.findLast(message=>message.role==='user');
   if(!latestUser)throw Error('a user message is required for ChatGPT delivery');
-  const enforcement_context=TOP_INSTRUCTIONS+'\n\nNeo model request: '+responseId;
+  const enforcement_context=TOP_INSTRUCTIONS+'\n\nNeo model request: '+responseId+(callerEnforcementContext===null?'':'\n\nCaller-specific enforcement context (additional, not overriding the reply contract):\n'+callerEnforcementContext);
   const images=latestUser.images?.length
     ?'\n'+latestUser.images.map((image,i)=>`[image ${i+1}] ${image.file}`).join('\n')
     :'';

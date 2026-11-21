@@ -66,7 +66,7 @@ export function createThreadProjectVerifier({run = runWebHelm} = {}) {
       if (actual.protocol !== 'https:' || actual.hostname !== 'chatgpt.com' ||
           actual.username || actual.password ||
           segments[0] !== 'g' || segments[2] !== 'c' ||
-          projectPart !== projectId ||
+          !(projectPart === projectId || projectPart.startsWith(projectId+'-')) ||
           threadPart !== threadId) {
         throw new Error('chat_bind refused: thread is not in the bound orchestrator Project');
       }

@@ -64,6 +64,44 @@ test('one newThread, subsequent newTurn reuses thread after process restart, no 
   assert.equal(sessions[0].history.length,5);
 });
 
+test('a new HTTP turn after durable reply.completed waits for previous runner to release its busy guard',async t=>{
+  const {store}=fixture(t);
+  const codexThreadId='abababab-1234-4234-8234-abcdefabcdef';
+  const mapped=store.create([],null,codexThreadId);
+  mapped.threadId='previously_verified_chatgpt_test_thread';
+  mapped.status='idle';store.putSession(mapped);
+  let releaseFirst;
+  const holdFirst=new Promise(resolve=>{releaseFirst=resolve});
+  let enteredFirst;
+  const firstEntered=new Promise(resolve=>{enteredFirst=resolve});
+  const delivered=[];
+  let waiting=0;
+  const transport={
+    async newTurn(threadId,prompt,files,id){delivered.push({threadId,prompt,id});return {status:'queued',queue_id:'fixture_queue_'+delivered.length}},
+    async waitForResult(id,writeStore){
+      waiting++;
+      if(waiting===1){enteredFirst();await holdFirst;return;}
+      reportText(writeStore,id,'second completed');reportComplete(writeStore,id);
+    }
+  };
+  const engine=new ResponseEngine({store,transport});
+  const first=engine.run({model:'neo',input:'first turn'},{codexThreadId});
+  await firstEntered;
+  const firstId=store.session(mapped.id).lastResponseId;
+  reportText(store,firstId,'first completed');reportComplete(store,firstId);
+  // A client can observe reply.completed from the Events Bus before the
+  // original worker's finally block has relinquished its in-process guard.
+  const second=engine.run({model:'neo',input:'second turn'},{codexThreadId});
+  releaseFirst();
+  const result=await second;
+  assert.equal(result.status,'completed');
+  assert.equal(result.output[0].content[0].text,'second completed');
+  assert.equal((await first).status,'completed');
+  assert.equal(delivered.length,2,'No hidden duplicate ChatGPT send');
+  assert.equal(store.listSessions().length,1);
+  assert.equal(store.session(mapped.id).threadId,mapped.threadId);
+});
+
 test('explicit previous_response_id routes one-turn input to same thread',async t=>{
   const {store,transport,calls}=fixture(t);
   const first=await new ResponseEngine({store,transport}).run(startBody);
@@ -247,7 +285,7 @@ test('model WebHelm transport invokes newThread once, newTurn with same thread I
     const config=JSON.parse(readFileSync(args[args.indexOf('--config')+1],'utf8'));
     calls.push({binary,action,config,auto:args.includes('--auto-session')});
     if(action==='new-thread')return {result:{ok:true,value:{status:'submitted',thread_id:'thread-xyz',thread_url:'https://chatgpt.com/c/thread-xyz'}}};
-    if(action==='new-turn')return {result:{ok:true,status:'submitted',thread_id:'thread-xyz',queue_id:'queue-abc'}};
+    if(action==='new-turn')return {result:{ok:true,status:'queued',queue_id:'queue-abc'}};
     throw Error('unexpected CLI action');
   };
   const transport=new WebHelmTransport({tempDir:dir,binary:'/example/webhelm',exec:fake,holdSession:false,appName:'',serializeNewThread:false});
@@ -258,6 +296,7 @@ test('model WebHelm transport invokes newThread once, newTurn with same thread I
   assert.equal(calls[0].auto,true);
   assert.equal(calls[1].auto,false,'durable new-turn queue has no browser Session');
   assert.equal(calls[1].config.thread_id,'thread-xyz');
+  assert.equal(Object.hasOwn(calls[1].config,'mode'),false,'new-turn action rejects legacy mode property');
   assert.equal(calls[1].config.idempotency_key,'resp_'+'f'.repeat(40));
   assert.equal(calls[0].config.enforcement_context,'');
   assert.equal(calls[1].config.enforcement_context,'');
@@ -698,7 +737,7 @@ test('configured project ID is validated; Project new-thread and new-turn carry 
     const action=args[3],config=JSON.parse(readFileSync(args[args.indexOf('--config')+1],'utf8'));
     calls.push({action,config});
     if(action==='new-thread')return {result:{ok:true,value:{status:'submitted',project_id:projectId,thread_id:'same-id',thread_url:`https://chatgpt.com/g/${projectId}/c/same-id`}}};
-    return {result:{ok:true,status:'submitted',thread_id:'same-id',queue_id:'queued'}};
+    return {result:{ok:true,status:'queued',queue_id:'queued'}};
   };
   const transport=new WebHelmTransport({tempDir:dir,projectId,exec,holdSession:false,appName:'',serializeNewThread:false});
   const receipt=await transport.newThread('hi');
@@ -811,7 +850,7 @@ test('default Neo Gateway uses URL prompt without structured app composer manipu
     configs.push({action:args[3],config});
     return args[3]==='new-thread' ?
       {result:{ok:true,value:{status:'submitted',thread_id:'thread-01',thread_url:'https://chatgpt.com/c/thread-01'}}}:
-      {result:{ok:true,value:{status:'submitted',thread_id:'thread-01',queue_id:'queued'}}};
+      {result:{ok:true,value:{status:'queued',queue_id:'queued'}}};
   };
   const transport=new WebHelmTransport({exec:fake,tempDir:dir,projectId:null,
     holdSession:false,serializeNewThread:false});
@@ -885,7 +924,7 @@ test('held WebHelm Session is kept until explicit model completion, then release
   await transport.newTurn(first.thread_id,'task2',[],id2,null,'context2');
   assert.equal('model_choice' in configs[1].config,false);
   assert.equal('thinking_effort' in configs[1].config,false);
-  assert.equal(configs[1].config.mode,'sync');
+  assert.equal(Object.hasOwn(configs[1].config,'mode'),false,'current WebHelm new-turn action rejects mode');
   assert.equal(configs[1].config.thread_id,first.thread_id);
   assert.equal(configs[1].config.idempotency_key,id2);
   assert.equal(configs[1].session,sessionId);
@@ -923,4 +962,18 @@ test('unverified newThread receipt releases held WebHelm session without leaving
   await assert.rejects(()=>transport.newThread('task','contract','resp_'+'e'.repeat(40)),/no verified submission receipt/);
   assert.deepEqual(stages,['start','stop']);
   assert.equal(transport.held.size,0);
+});
+
+
+test('optional caller enforcement context is appended after authoritative reply rules, bounded and isolated',async t=>{
+  const {store,transport,calls}=fixture(t);
+  await new ResponseEngine({store,transport}).run({...startBody,enforcement_context:'Orchestrator: send one complete structured envelope'});
+  const context=calls[0][2];
+  assert.ok(context.indexOf('Neo model request:')<context.indexOf('Caller-specific enforcement context'));
+  assert.match(context,/Orchestrator: send one complete structured envelope/);
+  assert.match(context,/reply\.completed/);
+  const ordinary=createTurnPrompt({responseId:'resp_'+ 'a'.repeat(40),messages:[{role:'user',content:'hello'}]});
+  assert.doesNotMatch(ordinary.enforcement_context,/Caller-specific enforcement context/);
+  await assert.rejects(()=>new ResponseEngine({store,transport}).run({...startBody,enforcement_context:'x'.repeat(8193)}),/invalid enforcement_context/);
+  assert.throws(()=>createTurnPrompt({responseId:'resp_'+ 'a'.repeat(40),messages:[{role:'user',content:'hello'}],callerEnforcementContext:'</top-instructions>'}),/invalid enforcement_context/);
 });

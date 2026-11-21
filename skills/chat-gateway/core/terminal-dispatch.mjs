@@ -27,6 +27,7 @@ const requestIdFor = (key) =>
 export function createTerminalDispatcher({
   ledger, chat, submit, now = () => Date.now(), log = () => {},
   batchSize = 3, backoff = { baseMs: 5_000, capMs: 3_600_000 },
+  renderTurn = terminalTurn,
 } = {}) {
   let running = false;
   let lastError = null;
@@ -49,7 +50,7 @@ export function createTerminalDispatcher({
         const head = await chat.head();
         if (!head.bound) return; // Preserve events while Project initializes.
         const requestId = requestIdFor(record.key);
-        const text = record.turnText ?? terminalTurn(record);
+        const text = record.turnText ?? renderTurn(record);
         // Legacy pending Jobs may carry attempts/backoff from the retired direct-push path.
         const attempts = record.requestId ? (record.attempts ?? 0) + 1 : 1;
         await ledger.put({ ...record, turnText: text, requestId, attempts });

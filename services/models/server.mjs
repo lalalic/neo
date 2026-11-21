@@ -1,6 +1,9 @@
 import {createServer} from 'node:http';
 import {timingSafeEqual} from 'node:crypto';
+import {createOrchestratorV1Client} from './orchestrator-v1-client.mjs';
 import {ModelStore} from './store.mjs';
+import {OrchestratorChat} from './orchestrator-chat.mjs';
+import {createOrchestratorHandoffVerifier} from './handoff-verifier.mjs';
 import {ResponseEngine,ResponseSseWriter} from './responses.mjs';
 import {WebHelmTransport} from './webhelm.mjs';
 import {listModelCatalog} from './catalog.mjs';
@@ -28,12 +31,87 @@ const chatCompletion=r=>({id:'chatcmpl_'+r.id.slice(5),object:'chat.completion',
   choices:[{index:0,message:{role:'assistant',content:fullText(r)},finish_reason:'stop'}],usage:null});
 const chatChunk=(r,delta,finish_reason=null)=>({id:'chatcmpl_'+r.id.slice(5),object:'chat.completion.chunk',created:r.created_at,model:r.model,
   choices:[{index:0,delta,finish_reason}]});
-export function createModelServer({token,store=new ModelStore(),transport=new WebHelmTransport(),legacyOrigin=null}={}){
+export function createModelServer({token,store=new ModelStore(),transport=new WebHelmTransport(),legacyOrigin=null,orchestratorLegacyHeadFile=undefined,orchestratorNotifier=null}={}){
   if(typeof token!=='string'||token.length<24)throw Error('private Bearer token required');
   const engine=new ResponseEngine({store,transport});
+  const internalGrants=new Map();
+  const v1Client=createOrchestratorV1Client({
+    getOrigin:()=>{
+      const address=server.address();
+      return address&&typeof address==='object'?'http://127.0.0.1:'+address.port:null;
+    },token,grants:internalGrants,
+  });
+  let orchestrator=null;
+  const getOrchestrator=()=>orchestrator??(orchestrator=new OrchestratorChat({store,engine:v1Client,
+    verifyHandoff:createOrchestratorHandoffVerifier(),notifier:orchestratorNotifier,
+    ...(orchestratorLegacyHeadFile?{legacyHeadFile:orchestratorLegacyHeadFile}:{})}));
   const handler=async(req,res)=>{
     if(!authorized(req.headers.authorization,token))return json(res,401,{error:{message:'unauthorized',type:'authentication_error'}});
     const url=new URL(req.url,'http://127.0.0.1');
+    if(url.pathname.startsWith('/orchestrator-chat/')){
+      try{
+        const orchestrator=getOrchestrator();
+        if(req.method==='POST'&&url.pathname==='/orchestrator-chat/messages'){
+          const input=await bodyJSON(req);
+          // Prevent proxy/header/body identity confusion. The same stable
+          // client identity must own both the HTTP receipt and durable outbox.
+          if(typeof req.headers['idempotency-key']!=='string'||
+             req.headers['idempotency-key']!==input?.requestId)
+            return json(res,400,{error:{message:'Idempotency-Key must match requestId'}});
+          return json(res,202,await orchestrator.submit(input));
+        }
+        if(req.method==='POST'&&url.pathname==='/orchestrator-chat/attachments'){
+          const input=await bodyJSON(req);
+          return json(res,200,await orchestrator.upload(input));
+        }
+        if(req.method==='GET'&&url.pathname==='/orchestrator-chat/health'){
+          const status=orchestrator.health();
+          return json(res,status.ready?200:503,{...status,modelApi:'available'});
+        }
+        if(req.method==='GET'&&url.pathname==='/orchestrator-chat/pending'){
+          // The optional read-only probe also detects already-ACKed requests.
+          // No message text or file path is exposed; equality remains enforced
+          // on the subsequent idempotent POST /messages.
+          const requestId=url.searchParams.get('requestId');
+          await orchestrator.reconcileUncertain();
+          return json(res,200,{pending:orchestrator.pending(),cursor:orchestrator.state?.sequence??0,
+            ...(requestId!==null?{accepted:orchestrator.accepted(requestId)}:{})});
+        }
+        if(req.method==='POST'&&url.pathname==='/orchestrator-chat/ack'){
+          const {deliveryId}=await bodyJSON(req);return json(res,200,orchestrator.ack(deliveryId));
+        }
+        if(req.method==='GET'&&url.pathname==='/orchestrator-chat/events'){
+          if(!orchestrator.state)return json(res,503,{error:{message:orchestrator.unavailable}});
+          const rawCursor=req.headers['last-event-id']??url.searchParams.get('cursor')??'0';
+          if(!/^(0|[1-9]\d{0,15})$/.test(String(rawCursor)))return json(res,400,{error:{message:'invalid event cursor'}});
+          const cursor=Number(rawCursor);
+          if(cursor>orchestrator.state.sequence)return json(res,400,{error:{message:'future event cursor'}});
+          const oldest=orchestrator.state.events[0]?.id??orchestrator.state.sequence;
+          if(cursor<oldest-1)return json(res,409,{error:{message:'event cursor expired; recover via pending'}});
+          sse(res);
+          // At the current cursor there are no replay bytes. Flush HTTP
+          // headers immediately; otherwise the phone waits for the 15s
+          // heartbeat before the SSE request resolves as connected.
+          res.flushHeaders();
+          const sendEvent=item=>{
+            if(res.destroyed||res.writableEnded)return;
+            const name=item.status==='queued'?'accepted':item.status;
+            res.write(`id: ${item.id}\nevent: message.${name}\ndata: ${JSON.stringify(item)}\n\n`);
+          };
+          orchestrator.listeners.add(sendEvent);
+          // Subscribe before replay; the JS event loop serializes writer registration and replay.
+          for(const item of orchestrator.eventsAfter(cursor))sendEvent(item);
+          const heartbeat=setInterval(()=>{if(!res.destroyed&&!res.writableEnded)res.write(': keepalive\n\n')},15000);
+          // IncomingMessage 'close' can fire when the GET request has been
+          // fully received, even though the SSE response remains open.
+          // Retain the live listener until the RESPONSE stream closes.
+          res.once('close',()=>{clearInterval(heartbeat);orchestrator.listeners.delete(sendEvent)});
+          return;
+        }
+        return json(res,404,{error:{message:'not found'}});
+      }catch(e){return json(res,e.message==='requestId conflict'?409:
+        /unavailable|not verified|retention capacity/.test(e.message)?503:400,{error:{message:e.message}})}
+    }
     if(req.method==='GET'&&url.pathname==='/v1/models')return json(res,200,listModelCatalog(url.searchParams));
     // Keep independently implemented 3D provider routes reachable through the
     // generic service without importing project-specific modules or prompts.
@@ -71,16 +149,27 @@ export function createModelServer({token,store=new ModelStore(),transport=new We
     const codexThreadId=headerIds[0]??null;
     if(codexThreadId&&!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(codexThreadId))
       return json(res,400,{error:{message:'invalid Codex Thread header',type:'invalid_request_error'}});
+    // One-shot, in-process grant: only the Orchestrator /v1 client can pass
+    // attachment paths to ResponseEngine. The generic API remains unchanged.
+    const privateGrant=req.headers['x-neo-orchestrator-grant'];
+    let attachmentFiles=[];
+    if(privateGrant!==undefined){
+      const grant=typeof privateGrant==='string'?internalGrants.get(privateGrant):null;
+      if(!grant||grant.codexThreadId!==codexThreadId)
+        return json(res,403,{error:{message:'unauthorized private /v1 request',type:'authentication_error'}});
+      internalGrants.delete(privateGrant);
+      attachmentFiles=grant.attachmentFiles;
+    }
     if(!codexThreadId&&(req.headers['session-id']||req.headers.session_id))
       return json(res,400,{error:{message:'Codex Thread ID required; session-id is not a Thread identity',type:'invalid_request_error'}});
     if(responsesPath&&!body.stream){
       let started=false;
-      void engine.run(body,{codexThreadId,onStarted:response=>{started=true;json(res,response.status==='completed'?200:202,toPublic(response));}})
+      void engine.run(body,{codexThreadId,attachmentFiles,onStarted:response=>{started=true;json(res,response.status==='completed'?200:202,toPublic(response));}})
         .catch(e=>{if(!started&&!res.headersSent)json(res,400,{error:{message:e.message,type:'model_error'}})});
       return;
     }
     if(chatPath&&!body.stream){
-      try{return json(res,200,chatCompletion(await engine.run(body,{codexThreadId})))}
+      try{return json(res,200,chatCompletion(await engine.run(body,{codexThreadId,attachmentFiles})))}
       catch(e){return json(res,502,{error:{message:e.message,type:'model_error'}})}
     }
     sse(res);
@@ -113,7 +202,7 @@ export function createModelServer({token,store=new ModelStore(),transport=new We
     };
     const keepalive=setInterval(()=>send(': keepalive\n\n'),12000);
     try{
-      const result=await engine.run(body,{codexThreadId,onStarted:r=>{
+      const result=await engine.run(body,{codexThreadId,attachmentFiles,onStarted:r=>{
         startedResponseId=r.id;
         if(responsesPath)responsesWriter.start(toPublic(r));
         watcher=setInterval(pump,100);
@@ -140,6 +229,6 @@ export function createModelServer({token,store=new ModelStore(),transport=new We
     if(!res.headersSent)json(res,500,{error:{message:e.message,type:'internal_error'}});
     else if(!res.writableEnded)res.end();
   });});
-  return {server,store,engine};
+  return {server,store,engine,getOrchestrator,get orchestrator(){return orchestrator;}};
 }
 async function collectRaw(req){let n=0,chunks=[];for await(const chunk of req){n+=chunk.length;if(n>MAX_BODY)throw Error('request too large');chunks.push(chunk)}return Buffer.concat(chunks)}

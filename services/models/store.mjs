@@ -3,6 +3,10 @@ import {join} from 'node:path';
 import {homedir} from 'node:os';
 import {key} from './input.mjs';
 
+const CODEX_UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const CHATGPT_THREAD=/^[A-Za-z0-9_-]{8,160}$/;
+const CHATGPT_PROJECT=/^g-p-[A-Za-z0-9_-]{8,128}$/;
+
 export class ModelStore {
   constructor(base=process.env.NEO_MODELS_STATE_DIR??join(homedir(),'.local','share','neo','model-gateway')){
     this.base=base;this.sessions=join(base,'sessions');this.responses=join(base,'responses');
@@ -16,6 +20,27 @@ export class ModelStore {
   putSession(item){this.#write(this.#file('session',item.id),item);return item;}
   putResponse(item){this.#write(this.#file('response',item.id),item);return item;}
   listSessions(){return readdirSync(this.sessions).filter(x=>x.endsWith('.json')).map(x=>this.#read(join(this.sessions,x))).filter(Boolean);}
+  /** Private one-owner CAS for verified Orchestrator self-handoffs.
+   * Does not expose an HTTP route and cannot change another Codex session.
+   * The durable session file is committed with atomic rename. */
+  compareAndSwapOrchestratorThread({codexThreadId,projectId,previousThreadId,
+    nextThreadId,expectedGeneration}){
+    if(!CODEX_UUID.test(codexThreadId??'')||!CHATGPT_PROJECT.test(projectId??'')||
+       !CHATGPT_THREAD.test(previousThreadId??'')||
+       !CHATGPT_THREAD.test(nextThreadId??'')||
+       !Number.isSafeInteger(expectedGeneration)||expectedGeneration<0||
+       previousThreadId===nextThreadId)throw Error('Invalid private Orchestrator CAS');
+    const matches=this.listSessions().filter(s=>s.codexThreadId===codexThreadId);
+    if(matches.length!==1)throw Error('Orchestrator CAS has no unique Codex owner');
+    const session=matches[0];
+    if(session.threadId!==previousThreadId||session.projectId!==projectId||
+       (session.orchestratorGeneration??0)!==expectedGeneration)
+      throw Error('Orchestrator CAS mapping or generation mismatch');
+    session.threadId=nextThreadId;
+    session.orchestratorGeneration=expectedGeneration+1;
+    this.putSession(session);
+    return session.orchestratorGeneration;
+  }
   resolve(previous,sessionHint,codexThreadId){
     if(sessionHint&&(!/^[A-Za-z0-9_-]{8,80}$/.test(sessionHint)))throw Error('invalid metadata.session_id');
     if(previous){
