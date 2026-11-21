@@ -124,7 +124,7 @@ iphone-helm app source wechat find-moments
 iphone-helm app run wechat inspect --input '{}'
 ```
 
-For an Agent-authored throwaway script, use the **installed version** supporting `execute` (check `iphone-helm --help`; update engine separately if missing):
+For an Agent-authored throwaway script, use `execute` (check `iphone-helm --help`; upgrade the engine separately if the installed version is older):
 
 ```sh
 iphone-helm execute --app com.tencent.xin \

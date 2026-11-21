@@ -38,6 +38,23 @@ sh "$SKILL_DIR/scripts/verify-readonly.sh"
 
 **Agent policy:** Before operating a supported App, prefer its installed `iphone-helm app run APP ACTION --input '{...}'`. If no matching verified Action exists, explore via a caller-owned native Session, document reliable UI behavior under the App's Experience file, then implement/test the corresponding MJS Action. Do not confuse an installed but unverified Action with a live-verified one. External writes always require explicit user authorization and the CLI `--approve-external-write` gate.
 
+## Agent execution interfaces: direct MCP or Execute + Helpers
+
+Use either interface; **both control the same native on-iPhone Runner**. `iphone-helm` does not provide a second Mac MCP server.
+
+- **Direct MCP** is best for interactive exploration, debugging and incremental QA. Run `iphone-helm ensure` if needed, use native `neouse.session.start` / `agent.pilot` / `neouse.qa.*` / `agent.demo`, and **always close your Session**. An authorized `neouse.session.close` now ends the Session and then **exits the iPhone Runner after the RPC reply**. The next operation can start it on demand. Do not assume the Runner stays up after close.
+- **One-shot Execute** runs an Agent-authored MJS file through injected `helpers` (no Actions installation required):
+
+  ```sh
+  iphone-helm execute --app com.tencent.xin --code-file /tmp/inspect.mjs \
+    --effect read --input '{}'
+  ```
+
+  The module exports `default async function run({helpers,input}) { ... }`, returns `{ok:true,...}` only after verifying the intended result, and never manages Session lifecycle itself. `execute` acquires the lock, starts Runner if needed, creates the App Session, invokes the MJS, closes Session, verifies Runner shutdown and releases the lock.
+- **Installed App Action:** `iphone-helm app run wechat inspect --input '{}'` uses the same Execute Helpers and Session lifecycle but loads source from the **separately upgraded** `iphone-helm-actions` checkout.
+
+**Concurrency rule:** single physical iPhone, one active Session. Both the Mac CLI global lock and native MCP Session reject overlapping requests with **`device_busy` immediately**. There is **no waiting queue, automatic retry or takeover**. `--effect read` is the default for ad hoc Execute; navigation/local writes must declare their effects, and external writes additionally require explicit user authorization and `--approve-external-write`. See [App Action development](references/app-action-development.md) for the exact Helpers API and Action writing contract.
+
 ## Choose the mode
 
 | User request | Agent objective | Outcome to deliver |
@@ -55,7 +72,7 @@ sh "$SKILL_DIR/scripts/verify-readonly.sh"
 3. **Observe:** Use `agent.pilot` with `command:"snapshot_fast"` where available (structured semantics, no tap refs), `snapshot_json` when an actual element ref is needed, or `screenshot` for visual proof. If a snapshot is `partial` or `unknown`, do not claim an element is absent.
 4. **Act + verify:** Choose a semantic locator (`identifier`, then exact label) whenever possible; coordinate taps are a fallback. For mutating actions use a stable `request_id` to prevent accidental duplicate execution. Always verify the **resulting UI or app state**, not just whether XCTest returned.
 5. **Recover safely:** On `not_sent`, inspect reason and correct the precondition. On `unknown`, **do not replay any possible side effect**; observe current UI and resolve uncertainty first. On wrong app/session, fail closed and obtain a fresh Session. Never switch apps behind another owner.
-6. **Clean up:** Call `neouse.session.close` in a `finally` path. Record only task-relevant, privacy-safe evidence. Stop only task-owned capture/Runner processes.
+6. **Clean up:** Call `neouse.session.close` in a `finally` path; this stops the on-phone Runner after the close response. Record only task-relevant, privacy-safe evidence. Stop only task-owned capture/Runner processes.
 
 Tool vocabulary:
 
