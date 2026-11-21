@@ -94,7 +94,11 @@ export function createNeoNotifier({
     async send({ kind, title, body, idempotencyKey }) {
       if (!NOTIFY_KINDS.includes(kind)) throw new Error('Unsupported notification kind');
       const enabled = await policy();
-      if (!enabled[kind]) throw new Error('Neo notification kind disabled by owner policy');
+      if (!enabled[kind]) {
+        const disabled=new Error('Neo notification kind disabled by owner policy');
+        disabled.code='NOTIFICATION_POLICY_DISABLED';
+        throw disabled;
+      }
       const targets = await targetIds();
       if (!targets.length) throw new Error('No registered Neo Mobile APNs target');
       const deliveryId = createHash('sha256').update(idempotencyKey || `${kind}:${title}:${body}`).digest('hex').slice(0, 16);

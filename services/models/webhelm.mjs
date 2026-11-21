@@ -88,21 +88,26 @@ export class WebHelmTransport {
     if(sessionId)this.held.set(responseId,{sessionId,lastHeartbeat:Date.now()});
     return response;
   }
-  async newTurn(threadId,text,_files=[],idempotencyKey,projectId=null,enforcement_context=''){
+  async newTurn(threadId,text,files=[],idempotencyKey,projectId=null,enforcement_context=''){
+    if(!Array.isArray(files)||files.length>4||files.some(file=>typeof file!=='string'||!file.startsWith('/')))throw Error('invalid ChatGPT attachment file paths');
     const sessionId=this.holdSession?await this.#openSession('https://chatgpt.com/c/'+encodeURIComponent(threadId)):null;
     let response;
     try{
       response=await this.#config('new-turn',{
         ...(projectId?{project_id:projectId}:{}),...(this.appName?{app:this.appName}:{}),
-        thread_id:threadId,message:text,enforcement_context,
-        mode:sessionId?'sync':'async',mergeable:false,idempotency_key:idempotencyKey,
+        thread_id:threadId,message:text,enforcement_context,...(files.length?{file:files}:{}),
+        mergeable:false,idempotency_key:idempotencyKey,
       },{autoSession:false,sessionId});
     }catch(error){await this.#closeSession(sessionId);throw error}
     if(sessionId)this.held.set(idempotencyKey,{sessionId,lastHeartbeat:Date.now()});
-    if(response.status!=='submitted'||response.thread_id!==threadId||
-       !(sessionId?response.verified_by:response.queue_id)){
+    // Direct actions return a verified Send receipt. Registered queues return
+    // durable acceptance only; they have not clicked Send at enqueue time.
+    const accepted=sessionId
+      ?response.status==='submitted'&&response.thread_id===threadId&&!!response.verified_by
+      :response.status==='queued'&&typeof response.queue_id==='string'&&response.queue_id.length>0;
+    if(!accepted){
       this.held.delete(idempotencyKey);await this.#closeSession(sessionId);
-      throw Error('new-turn returned no verified submission receipt');
+      throw Error('new-turn returned no verified direct or durable queue receipt');
     }
     return response;
   }

@@ -30,11 +30,14 @@ test('read-only head validation accepts only a loaded thread in the exact orches
   assert.equal(calls[1][1],'exec');
 });
 
+test('accepts real canonical Project URL with a provider name suffix',async()=>{
+  const {run}=fakeBrowser('https://chatgpt.com/g/'+projectId+'-project-name/c/'+threadId);
+  assert.equal(await createThreadProjectVerifier({run})({projectId,threadId}),true);
+});
 test('rejects wrong project, spoofed slug, missing conversation and foreign origin with cleanup',async()=>{
   for(const [url,opts] of [
     [`https://chatgpt.com/g/g-p-otherproject123/c/${threadId}`,{}],
     [`https://chatgpt.com/g/${projectId}imposter/c/${threadId}`,{}],
-    [`https://chatgpt.com/g/${projectId}-slug/c/${threadId}`,{}],
     [`https://other.example/g/${projectId}/c/${threadId}`,{}],
     [`https://chatgpt.com/g/${projectId}/c/wrong-thread-12345`,{}],
     [`https://chatgpt.com/g/${projectId}/c/${threadId}`,{conversation:false}],

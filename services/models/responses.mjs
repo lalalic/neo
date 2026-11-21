@@ -60,7 +60,8 @@ export function streamResponse(response){
 export function failureStream(error,id){return event('response.failed',{sequence_number:1,response:{id,object:'response',status:'failed',error:{type:'transport_error',message:error.message}}});}
 export class ResponseEngine {
   constructor({store,transport}){this.store=store;this.transport=transport;this.busy=new Set();}
-  async run(body,{onStarted,codexThreadId=null}={}){
+  async run(body,{onStarted,codexThreadId=null,attachmentFiles=[]}={}){
+    if(!Array.isArray(attachmentFiles)||attachmentFiles.length>4||attachmentFiles.some(file=>typeof file!=='string'||!file.startsWith('/')))throw Error('invalid verified attachment paths');
     const messages=assertInput(body);
     const condensed=compact(messages);
     const hint=body.metadata?.session_id??null;
@@ -86,6 +87,16 @@ export class ResponseEngine {
         onStarted?.({...previous});return previous;
       }
     }
+    // reply.completed can make the durable session idle before the previous
+    // worker has observed that terminal event and left its finally block.
+    // Serialize this narrow confirmed-completion window; it is NOT permission
+    // to retry an awaiting/uncertain browser submission.
+    if(this.busy.has(session.id)&&session.status==='idle'&&session.lastResponseId&&
+       this.store.response(session.lastResponseId)?.status==='completed'){
+      for(let wait=0;wait<80&&this.busy.has(session.id);wait++)
+        await new Promise(resolve=>setTimeout(resolve,25));
+      session=this.store.session(session.id)??session;
+    }
     if(this.busy.has(session.id)||['submitting','awaiting','uncertain'].includes(session.status))
       throw Error('session has an unconfirmed submission; manual reconciliation required');
     const responseId='resp_'+key();
@@ -99,9 +110,10 @@ export class ResponseEngine {
       if(!latestUser)throw Error('a new user message is required for ChatGPT delivery');
       const files=materializeImages([latestUser],join(this.store.base,'attachments',session.id));
       const input=[{role:'user',content:latestUser.text,images:files.map(file=>({file}))}];
-      const {prompt,enforcement_context}=createTurnPrompt({responseId,messages:input});
+      const {prompt,enforcement_context}=createTurnPrompt({responseId,messages:input,callerEnforcementContext:body.enforcement_context??null});
       if(!this.transport.waitForResult)throw Error('model transport requires explicit reply completion');
       if(!session.threadId){
+        if(attachmentFiles.length)throw Error('verified attachment delivery requires an existing ChatGPT thread');
         const receipt=await this.transport.newThread(prompt,enforcement_context,responseId);
         if(!receipt?.thread_id)throw Error('new-thread did not return a verified thread ID');
         const live=this.store.session(session.id);
@@ -112,7 +124,7 @@ export class ResponseEngine {
       }else{
         const live=this.store.session(session.id);
         live.status='awaiting';this.store.putSession(live);
-        await this.transport.newTurn(session.threadId,prompt,[],responseId,session.projectId??null,enforcement_context);
+        await this.transport.newTurn(session.threadId,prompt,[...files,...attachmentFiles],responseId,session.projectId??null,enforcement_context);
       }
       // Text reports leave status=in_progress. Only an explicit reply.completed
       // event makes the waiter settle and allows this Turn to end.
