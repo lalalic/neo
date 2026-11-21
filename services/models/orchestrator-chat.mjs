@@ -234,16 +234,16 @@ export class OrchestratorChat {
     rmSync(join(this.dir,'attachments',requestId),{recursive:true,force:true});
     return {deliveryId,acked:true};
   }
-  // Push is independent of Chat response completion and client ACK. Pending
-  // notifications survive restart and retry through the existing Neo.app APNs
-  // transport with a stable idempotency key, never a second public listener.
+  // Ordinary chat text is delivered only through the durable SSE/ACK path.
+  // APNs are reserved for failures and explicit owner attention/action.
+  // Important pushes remain durable across restarts and client ACKs.
   queueNotification(request){
     const message=request.message;
-    if(request.status!=='failed' && !message)return; // Control-only handoff is not a chat notification.
+    const needsOwner=!!message?.needs&&message.needs!=='none';
+    if(request.status!=='failed' && !needsOwner && message?.level!=='attention')return;
     // APNs retry may outlive the phone's chat ACK. Save only a bounded,
     // sanitized pending push payload, not the original full chat reply.
-    const needsOwner=message?.needs&&message.needs!=='none';
-    const kind=request.status==='failed'?'failure':needsOwner?'blocked':'completed';
+    const kind=request.status==='failed'?'failure':'blocked';
     if(!request.notification)request.notification={status:'pending',attempts:0,nextAttemptAt:0,
       payload:{kind,title:request.status==='failed'?'Orchestrator error':'Orchestrator report',
         body:sanitizeText(message?.text??'Orchestrator needs attention',170)}};
@@ -257,8 +257,17 @@ export class OrchestratorChat {
       for(const req of Object.values(this.state.requests)){
         const delivery=req.notification;
         if(delivery?.status!=='pending'||delivery.nextAttemptAt>Date.now())continue;
-        const needsOwner=req.message?.needs && req.message.needs!=='none';
-        const kind=delivery.payload?.kind??(req.status==='failed'?'failure':needsOwner?'blocked':'completed');
+        const needsOwner=!!req.message?.needs && req.message.needs!=='none';
+        // Retire pre-cutover completed-category APNs, including retries already
+        // queued before this policy was deployed. Preserve blocked/failure
+        // payloads even after phone ACK has scrubbed the chat message.
+        const kind=delivery.payload?.kind??(req.status==='failed'?'failure':(needsOwner||req.message?.level==='attention')?'blocked':'completed');
+        if(kind==='completed'){
+          delivery.status='suppressed';delivery.suppressedAt=Date.now();
+          delete delivery.payload;delete delivery.lastError;
+          this.persist();
+          continue;
+        }
         const title=delivery.payload?.title??(req.status==='failed'?'Orchestrator error':'Orchestrator report');
         const body=delivery.payload?.body??sanitizeText(req.message?.text??'Orchestrator needs attention',170);
         try{

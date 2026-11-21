@@ -533,35 +533,33 @@ test('attention notification retries durably with one request identity, never co
   assert.deepEqual(restored.ack(notifiedDelivery),{deliveryId:notifiedDelivery,acked:true});
 });
 
-test('ordinary completed reply uses policy-controlled APNs; disabled category is suppressed without retry',async t=>{
+test('ordinary completed chats use SSE only; legacy completed APNs retries are suppressed',async t=>{
   const {store,headFile}=fixture(t);
   const sent=[];
-  let enabled=true;
-  const notifier={async send(payload){
-    sent.push(payload);
-    if(!enabled){
-      const e=Error('Owner disabled completed notifications');
-      e.code='NOTIFICATION_POLICY_DISABLED';
-      throw e;
-    }
-    return {ok:true,deliveryId:'apns_complete_12345'};
-  }};
+  const notifier={async send(payload){sent.push(payload);return {ok:true,deliveryId:'apns_complete_12345'};}};
   const engine={async run(){return {output:[{content:[{text:envelope('ordinary completion')}]}]}}};
   const chat=new OrchestratorChat({store,engine,legacyHeadFile:headFile,notifier});
-  await chat.submit({requestId:'completion_enabled_1234',text:'hello'});
+  await chat.submit({requestId:'completion_no_apn_1234',text:'hello'});
   await flush();await flush();
-  assert.equal(chat.state.requests.completion_enabled_1234.notification.status,'delivered');
-  assert.equal(sent[0].kind,'completed');
-  enabled=false;
-  await chat.submit({requestId:'completion_disabled_123',text:'next'});
-  await flush();await flush();
-  const suppressed=chat.state.requests.completion_disabled_123.notification;
-  assert.equal(suppressed.status,'suppressed');
-  assert.equal(suppressed.payload,undefined);
-  assert.equal(suppressed.attempts,0);
-  await chat.flushNotifications();
-  assert.equal(sent.length,2,'Disabled owner-policy categories must not retry');
+  const ordinary=chat.state.requests.completion_no_apn_1234;
+  assert.equal(ordinary.status,'completed');
+  assert.equal(ordinary.notification,undefined);
+  assert.equal(sent.length,0,'Everyday Chat responses must never send APNs');
+  assert.equal(chat.pending()[0].message.text,'ordinary completion');
+  // A pending retry from the old completed-category policy must not be sent.
+  ordinary.notification={status:'pending',attempts:6,nextAttemptAt:0,
+    payload:{kind:'completed',title:'Orchestrator report',body:'old reply'}};
+  chat.persist();
+  const restored=new OrchestratorChat({store:new ModelStore(store.base),engine,legacyHeadFile:headFile,notifier});
+  await restored.flushNotifications();
+  assert.equal(sent.length,0);
+  assert.equal(restored.state.requests.completion_no_apn_1234.notification.status,'suppressed');
+  assert.equal(restored.state.requests.completion_no_apn_1234.notification.payload,undefined);
+  assert.equal(restored.pending()[0].message.text,'ordinary completion','Suppressing APNs cannot hide chat message');
+  await restored.flushNotifications();
+  assert.equal(sent.length,0,'Suppression is durable and does not retry');
 });
+
 test('phone ACK scrubs chat content while preserving exact pending APNs retry payload',async t=>{
   const {store,headFile}=fixture(t);
   const sent=[];
