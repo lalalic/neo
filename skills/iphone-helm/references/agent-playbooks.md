@@ -1,4 +1,4 @@
-# NeoUse Agent playbooks
+# iPhoneHelm Agent playbooks
 
 This reference tells an agent what to *do*, what to *assert* and what to *deliver*. The physical iPhone's installed Runner may differ; discover tool support first. Use one App Session at a time.
 
@@ -32,10 +32,10 @@ This reference tells an agent what to *do*, what to *assert* and what to *delive
 1. Write a storyboard: target audience, 3–5 truthful feature beats, opening promise and closing result. Obtain a safe foreground App state, not a customer's private chat.
 2. Rehearse `agent.pilot` actions; confirm semantic element IDs and expected screens before recording. Estimate timing using measured action duration plus headroom.
 3. Create a timed plan of `agent.demo` overlays (`step`, `spotlight`, `caption`, `say`, `clear`) and real `agent.pilot` navigation. A narration command **does not** instantly make audio in the native stream; the Markcut export synthesizes it.
-4. Run the capture companion from the NeoUse repository with the physical iPhone's observed MCP endpoint and existing bearer token, for example:
+4. Run the capture companion from the iPhoneHelm installation with the physical iPhone's observed MCP endpoint and existing bearer token, for example:
 
    ```bash
-   python3 scripts/demo-session.py capture \
+   python3 "$HOME/.local/iphone-helm/engine/scripts/demo-session.py" capture \
      --mcp http://OBSERVED_IPHONE_IP:8100 \
      --token-file .state/native-mcp-token \
      --app ToyAlive --seconds 40 \
