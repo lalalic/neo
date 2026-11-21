@@ -117,6 +117,7 @@ Tool availability varies with the installed Runner; inspect actual `tools/list`,
 ## Reference material (only when needed)
 
 - [Actions lifecycle & Agent experience](references/actions.md): independent installation, App Action discovery and update rules.
+- **[App Action development guide](references/app-action-development.md): WebHelm-style create/fix MJS Actions, manifests, injected Helpers, tests, real iPhone acceptance and publishing.**
 - [Agent playbooks](references/agent-playbooks.md): compact tool-call recipes and acceptance templates.
 - [Operating / recovery guide](references/operations.md): signed Runner and connectivity diagnostics.
 - [QA Bridge / native contract](references/technical-contract.md): protocol details for maintainers or App implementers, not normal Agent workflow.

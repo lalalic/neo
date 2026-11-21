@@ -23,6 +23,8 @@ iphone-helm app run wechat inspect --input '{}'
 
 **Use App Actions first** when verified for the goal. A manifest's `effect` is a hard permission boundary: `read`, `navigation`, `local_write` or `external_write`. The CLI refuses external writes without `--approve-external-write`, and every Action must still verify its own actual result. The Session is acquired for the correct App and closed on success and failure. No App Action should silently retry an uncertain side effect.
 
+**Creating or repairing Actions:** follow [App Action development](app-action-development.md) for the canonical folder layout, manifest grammar, complete Helper API, MJS examples, tests and publication gates.
+
 ## Experience vs Action
 
 - `actions/*.mjs`: executable `export default async function run({ helpers, input, approved }) { ... }`; receives a restricted `helpers` interface over the native iPhone MCP.
