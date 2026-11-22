@@ -599,6 +599,34 @@ test('autonomous discovery DAG starts without URL and persists source-free evide
  }finally{rmSync(f.base,{recursive:true,force:true});}
 });
 
+test('calculator discovery follows project objective instead of Vlog video sourcing', async()=>{
+ const f=fixture(),relay=relayStub();try{
+  const project=join(f.workspace.neoRoot,'calculator-fixture');
+  mkdirSync(project,{recursive:true});
+  writeFileSync(join(project,'AGENTS.md'),'Calculator: implement offline index.html; no video research.');
+  writeFileSync(join(project,'README.md'),'Offline calculator.');
+  writeFileSync(join(project,'graph.mmd'),'flowchart TD\n  builder[agent:calculator-builder] --> qa[agent:calculator-qa]\n');
+  writeFileSync(join(project,'project.run.json'),JSON.stringify({
+    schemaVersion:1,input:{type:'url',schemes:['https'],resumePath:true},
+    graphs:{calculator:'graph.mmd'},defaultDag:'calculator',
+    dagInputs:{calculator:{type:'discovery'}}
+  }));
+  execFileSync('git',['init','-q',project]);
+  const first=JSON.parse(await run(['--project','calculator-fixture','--dag','calculator'],f,relay));
+  assert.equal(first.jobId,'101');
+  const input=readFileSync(join(first.runPath,'neo-project-run.input.md'),'utf8');
+  const objective=readFileSync(join(first.runPath,'neo-project-run.objective.md'),'utf8');
+  for(const text of [input,objective]){
+   assert.match(text,/Follow this project AGENTS.md, objective and selected DAG/);
+   assert.match(text,/project-specific quality, review and source-use gates/);
+   assert.doesNotMatch(text,/trending videos|reference video|licensed source media|reupload/);
+  }
+  const resumed=JSON.parse(await run(['--project','calculator-fixture','--path',first.runPath],f,relay));
+  assert.equal(resumed.jobId,first.jobId);
+  assert.equal(relay.calls.filter(c=>c[0]==='job'&&c[1]==='create').length,1);
+ }finally{rmSync(f.base,{recursive:true,force:true});}
+});
+
 test('discovery is explicitly opt-in, never inferred from default DAG or foreign project flags', async()=>{
  const f=fixture(),relay=relayStub();try{
   await assert.rejects(()=>run(['--project','content-distribution'],f,relay),/requires --url/);
