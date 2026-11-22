@@ -632,6 +632,34 @@ test('calculator discovery follows project objective instead of Vlog video sourc
  }finally{rmSync(f.base,{recursive:true,force:true});}
 });
 
+test('non-vlog projects opt into genuine public-video discovery with project DAG domain', async()=>{
+ const f=fixture(),relay=relayStub();try{
+  const project=join(f.workspace.neoRoot,'script-video-fixture');
+  mkdirSync(project,{recursive:true});
+  writeFileSync(join(project,'AGENTS.md'),'Video research: find public trending videos; do not publish.');
+  writeFileSync(join(project,'README.md'),'Public video discovery script workflow.');
+  writeFileSync(join(project,'graph.mmd'),'flowchart TD\\n  a[agent:stage-a] --> b[agent:stage-b]\\n');
+  const configPath=join(project,'project.run.json');
+  const config={schemaVersion:1,input:{type:'url',schemes:['https'],resumePath:true},
+    graphs:{script:'graph.mmd'},defaultDag:'script',dagInputs:{script:{type:'discovery',domain:'video'}}};
+  writeFileSync(configPath,JSON.stringify(config));
+  execFileSync('git',['init','-q',project]);
+  const created=JSON.parse(await run(['--project','script-video-fixture','--dag','script'],f,relay));
+  assert.equal(created.jobId,'101');
+  for(const path of ['neo-project-run.input.md','neo-project-run.objective.md']){
+   const text=readFileSync(join(created.runPath,path),'utf8');
+   assert.match(text,/independently search public trending videos/);
+   assert.match(text,/reference video is NOT licensed source media/i);
+   assert.match(text,/RUN GIT BOUNDARY/);
+  }
+  const reused=JSON.parse(await run(['--project','script-video-fixture','--path',created.runPath],f,relay));
+  assert.equal(reused.jobId,created.jobId);
+  config.dagInputs.script.domain='invalid-domain';
+  writeFileSync(configPath,JSON.stringify(config));
+  await assert.rejects(()=>run(['--project','script-video-fixture','--dag','script','--dry-run'],f,relay),/unsupported named DAG discovery domain/);
+ }finally{rmSync(f.base,{recursive:true,force:true});}
+});
+
 test('discovery is explicitly opt-in, never inferred from default DAG or foreign project flags', async()=>{
  const f=fixture(),relay=relayStub();try{
   await assert.rejects(()=>run(['--project','content-distribution'],f,relay),/requires --url/);

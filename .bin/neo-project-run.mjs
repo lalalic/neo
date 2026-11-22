@@ -184,7 +184,7 @@ function writePrivate(file, content) {
   chmodSync(file, 0o600);
 }
 
-function initializeRun(runDir, projectName, input, sourceUrl, publicationReview = null, noReview = false, discovery = false, stageReviewAgents = null, chosenSource = null) {
+function initializeRun(runDir, projectName, input, sourceUrl, publicationReview = null, noReview = false, discovery = false, stageReviewAgents = null, chosenSource = null, discoveryDomain = null) {
   const evidence = join(runDir, 'source-reference.json');
   const objective = join(runDir, 'neo-project-run.objective.md');
   const taskInput = join(runDir, 'neo-project-run.input.md');
@@ -252,7 +252,7 @@ function initializeRun(runDir, projectName, input, sourceUrl, publicationReview 
     : null;
   // Keep video-first projects' existing discovery policy, but never inject
   // unrelated video research into a generic project's durable Run input.
-  const videoDiscovery = projectName === 'vlog' || projectName === 'content-distribution';
+  const videoDiscovery = discoveryDomain === 'video' || projectName === 'vlog' || projectName === 'content-distribution';
   const discoveryDirective = chosenSource
     ? `Selected project source: ${chosenSource.id}. The Run-local ${chosenSource.runFile} is the authoritative source brief. The first Agent must follow that brief instead of the default discovery strategy; it must validate genuine source evidence and HOLD when unavailable. A source reference is not a license or permission to publish.`
     : discovery ? (videoDiscovery ? 'Discovery input: no source URL was supplied. First Agent must independently search public trending videos using the project research brief. A reference video is NOT licensed source media. Do not infer permission to reupload or publish.' : 'Discovery input: no source URL was supplied. Follow this project AGENTS.md, objective and selected DAG; do not invent unrelated research or media tasks.') : '';
@@ -360,6 +360,8 @@ export function runProject(args, options = {}) {
     fail('invalid reviewableDags entry for selected Graph');
   const dagInput = selected.declaration.dagInputs?.[graphChoice.dag];
   const discoveryAllowed = dagInput?.type === 'discovery';
+  if (dagInput?.domain !== undefined && !['video','general'].includes(dagInput.domain))
+    fail('unsupported named DAG discovery domain');
   if (dagInput !== undefined && (!dagInput || typeof dagInput !== 'object' || Array.isArray(dagInput) || !discoveryAllowed))
     fail('unsupported named DAG input configuration');
   const isDiscovery = !isUrl && !isPath;
@@ -404,7 +406,7 @@ export function runProject(args, options = {}) {
   const preparedDiscovery = isPath && discoveryAllowed && !existsSync(join(runDir, bindingName)) &&
     !existsSync(join(runDir, 'campaign.json'));
   const files = initializeRun(runDir, parsed.project, isPath ? runDir : undefined, isUrl ? parsed.url : undefined,
-    selected.declaration.publicationReview, parsed.noReview === true, isDiscovery || preparedDiscovery, reviewable, chosenSource);
+    selected.declaration.publicationReview, parsed.noReview === true, isDiscovery || preparedDiscovery, reviewable, chosenSource, dagInput?.domain);
   ensureRunGit(runDir, runGit);
   const activeSourceId = chosenSource?.id ?? files.saved?.source;
   if (files.saved?.source) {
