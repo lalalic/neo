@@ -620,6 +620,11 @@ test('calculator discovery follows project objective instead of Vlog video sourc
    assert.match(text,/Follow this project AGENTS.md, objective and selected DAG/);
    assert.match(text,/project-specific quality, review and source-use gates/);
    assert.doesNotMatch(text,/trending videos|reference video|licensed source media|reupload/);
+   assert.match(text,/RUN GIT BOUNDARY/);
+   assert.match(text,/Generated per-run files/);
+   assert.match(text,/parent Project repository/);
+   assert.ok(text.includes(first.runPath),'Run input must identify exact Run Git root');
+
   }
   const resumed=JSON.parse(await run(['--project','calculator-fixture','--path',first.runPath],f,relay));
   assert.equal(resumed.jobId,first.jobId);
