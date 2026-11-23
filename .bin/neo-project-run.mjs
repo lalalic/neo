@@ -282,7 +282,7 @@ function initializeRun(runDir, projectName, input, sourceUrl, publicationReview 
 }
 
 export function relayCommand(options = {}) {
-  // The explicit test/dev overrides must not replace production's published package default.
+  // Explicit test/dev overrides do not change the production Rust CLI default.
   const localCli = options.relayCli ?? process.env.NEO_RELAY_CLI;
   if (localCli) {
     if (!isAbsolute(localCli) || !statSync(localCli).isFile()) fail('NEO_RELAY_CLI must refer to an existing absolute Relay CLI file');
@@ -290,8 +290,8 @@ export function relayCommand(options = {}) {
   }
   const executable = options.relayExecutable ?? process.env.NEO_RELAY_EXECUTABLE;
   if (executable) return { executable, prefix: [] };
-  // Neo Master CLI and PM2 daemon use the same published npm latest package.
-  return { executable: 'npx', prefix: ['--yes', '--package', 'agents-relay@latest', 'agents-relay'] };
+  // The installed Rust Relay CLI is the supported production entry point.
+  return { executable: 'agents-relay', prefix: [] };
 }
 
 
@@ -467,7 +467,7 @@ export function runProject(args, options = {}) {
   }
   const title=parsed.title??projectRunTitle(parsed.project,runDir);
   const created=invoke(['job','create','--repo',repo,'--project-root',repoCheckout,'--title',title,
-    '--objective-file',files.objective,'--coordinator-graph-file',selected.graph,
+    '--objective-file',files.objective,'--project-run-manifest',join(selected.project,'project.run.json'),'--coordinator-graph-file',selected.graph,
     '--coordinator-input-file',files.taskInput,'--coordinator-output-path',files.output,
     '--coordinator-project-root',repoCheckout,'--coordinator-workspace-root',selected.root,
     ...(parsed.noReview?['--no-review']:[])]);

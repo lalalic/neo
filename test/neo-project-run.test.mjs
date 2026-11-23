@@ -6,11 +6,11 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { runProject, relayCommand } from '../.bin/neo-project-run.mjs';
 
-test('production Neo Project CLI defaults to published npm latest Relay, with explicit dev/test overrides', () => {
+test('production Neo Project CLI defaults to installed Rust Relay, with explicit dev/test overrides', () => {
   const priorCli=process.env.NEO_RELAY_CLI,priorExe=process.env.NEO_RELAY_EXECUTABLE;
   try {
     delete process.env.NEO_RELAY_CLI;delete process.env.NEO_RELAY_EXECUTABLE;
-    assert.deepEqual(relayCommand(), {executable:'npx',prefix:['--yes','--package','agents-relay@latest','agents-relay']});
+    assert.deepEqual(relayCommand(), {executable:'agents-relay',prefix:[]});
     assert.deepEqual(relayCommand({relayExecutable:'/tmp/relay-fixture'}),{executable:'/tmp/relay-fixture',prefix:[]});
   }finally{
     if(priorCli===undefined)delete process.env.NEO_RELAY_CLI;else process.env.NEO_RELAY_CLI=priorCli;
@@ -84,7 +84,7 @@ test('URL input supports both flag forms, keeps token private, and delegates exa
     assert.deepEqual(relay.calls.map(x => x.slice(0, 2)), [['job', 'create'], ['job', 'show'], ['task', 'list'], ['job', 'run']]);
     assert.equal(relay.calls.some(args=>args.includes('--project-path')),false,'Relay no longer accepts Job projectPath');
     const job = relay.calls[0], task = relay.calls[0];
-    assert.deepEqual(job.slice(2), ['--repo', 'content-distribution', '--project-root', realpathSync(f.content), '--title', `Content Distribution · ${result.runPath.split('/').at(-1).replace(/[-_]+/g, ' ')}`, '--objective-file', join(result.runPath, 'neo-project-run.objective.md'), '--coordinator-graph-file',realpathSync(join(f.content,'graph.mmd')),'--coordinator-input-file',join(result.runPath,'neo-project-run.input.md'),'--coordinator-output-path',join(result.runPath,'neo-project-run.result.json'),'--coordinator-project-root',realpathSync(f.content),'--coordinator-workspace-root',realpathSync(f.workspace.neoRoot)]);
+    assert.deepEqual(job.slice(2), ['--repo', 'content-distribution', '--project-root', realpathSync(f.content), '--title', `Content Distribution · ${result.runPath.split('/').at(-1).replace(/[-_]+/g, ' ')}`, '--objective-file', join(result.runPath, 'neo-project-run.objective.md'), '--project-run-manifest',join(realpathSync(f.content),'project.run.json'),'--coordinator-graph-file',realpathSync(join(f.content,'graph.mmd')),'--coordinator-input-file',join(result.runPath,'neo-project-run.input.md'),'--coordinator-output-path',join(result.runPath,'neo-project-run.result.json'),'--coordinator-project-root',realpathSync(f.content),'--coordinator-workspace-root',realpathSync(f.workspace.neoRoot)]);
     assert.equal(job[job.indexOf('--title') + 1].includes('rsroot.com'), false);
     assert.equal(task[task.indexOf('--coordinator-graph-file') + 1], realpathSync(join(f.content, 'graph.mmd')));
     assert.equal(task[task.indexOf('--coordinator-output-path') + 1], join(result.runPath, 'neo-project-run.result.json'));
