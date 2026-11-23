@@ -43,6 +43,7 @@ export class EventsBusCore {
     this.name = options.name || 'events-bus-core';
     this.recordNats = Boolean(options.recordNats);
     this.events = [];
+    this.seenEventIds = new Map();
     this.nextCursor = 1;
     this.waiters = new Set();
     this.nc = null;
@@ -69,14 +70,35 @@ export class EventsBusCore {
         rows.push(row); nextCursor = Math.max(nextCursor, row.cursor + 1);
       } catch {}
     }
-    this.events = rows; this.nextCursor = nextCursor; this.historyStat = stat;
+    this.events = rows;
+    this.seenEventIds = new Map();
+    for (const row of rows) {
+      const id = row.event?.event_id;
+      if (id) this.seenEventIds.set(id, (this.seenEventIds.get(id) ?? 0) + 1);
+    }
+    this.nextCursor = nextCursor; this.historyStat = stat;
   }
   appendEvent(subject, event) {
-    // Recorder is the authoritative history ingestion boundary, including direct NATS publishers.
+    // At-least-once transport may redeliver an existing event_id. Keep the
+    // first received record and cursor: a replay must never become a new
+    // user-visible lifecycle event. The window survives recorder restarts.
+    const id = typeof event?.event_id === 'string' ? event.event_id : null;
+    if (id && this.seenEventIds.has(id)) return null;
     const received = { ...event, timestamp: new Date().toISOString() };
     const row = { cursor: this.nextCursor++, subject, event: received };
     this.events.push(row);
-    if (this.events.length > MAX_MEMORY_EVENTS) this.events.splice(0, this.events.length - MAX_MEMORY_EVENTS);
+    if (id) this.seenEventIds.set(id, (this.seenEventIds.get(id) ?? 0) + 1);
+    if (this.events.length > MAX_MEMORY_EVENTS) {
+      const removed = this.events.splice(0, this.events.length - MAX_MEMORY_EVENTS);
+      for (const old of removed) {
+        const oldId = old.event?.event_id;
+        if (oldId) {
+          const remaining = (this.seenEventIds.get(oldId) ?? 0) - 1;
+          if (remaining > 0) this.seenEventIds.set(oldId, remaining);
+          else this.seenEventIds.delete(oldId);
+        }
+      }
+    }
     fs.appendFileSync(this.config.historyFile, `${JSON.stringify(row)}\n`, { encoding: 'utf8', mode: 0o600 });
     try { this.historyStat = fs.statSync(this.config.historyFile); } catch {}
     for (const waiter of [...this.waiters]) waiter(row);

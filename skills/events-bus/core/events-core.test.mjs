@@ -16,6 +16,27 @@ test('runtime config is one discovery source for NATS and API', () => {
   assert.equal(discovered.subjectPrefix,'test.events');
 });
 
+test('recorder rejects same-event-id replay without new cursor, including after restart', () => {
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'events-bus-dedupe-'));
+  const config={...resolveRuntimeConfig({EVENTS_BUS_DATA_DIR:dir}),dataDir:dir,historyFile:path.join(dir,'events.jsonl')};
+  const source={job_id:'720',task_id:'2242',type:'task.progress',
+    status:'running',visibility:'orchestrator',message:'A Worker milestone'};
+  const first=normalizePublishEvent(source).event;
+  const core=new EventsBusCore({config});
+  assert.ok(core.appendEvent('relay.events.job.720.task.progress',first));
+  assert.equal(core.appendEvent('relay.events.job.720.task.progress',first),null);
+  assert.equal(core.history('720').events.length,1);
+  assert.equal(core.nextCursor,2);
+  const reopened=new EventsBusCore({config});
+  assert.equal(reopened.appendEvent('relay.events.job.720.task.progress',first),null);
+  assert.equal(reopened.history('720').events.length,1);
+  assert.equal(reopened.nextCursor,2);
+  assert.ok(reopened.appendEvent('relay.events.job.720.task.progress',
+    {...first,event_id:'another-unique-event-id'}));
+  assert.equal(reopened.history('720').events.length,2);
+  fs.rmSync(dir,{recursive:true,force:true});
+});
+
 test('core owns history cursor/filter semantics', () => {
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'events-bus-core-'));
   const config={...resolveRuntimeConfig({EVENTS_BUS_DATA_DIR:dir}),dataDir:dir,historyFile:path.join(dir,'events.jsonl')};
