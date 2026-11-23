@@ -246,3 +246,13 @@ unapproved exceptions; full release gates remain deliberately open.
   GPU services/help, a fake provider argv test, missing Node and invalid
   commands. Full Rust suite **90/90**, strict Clippy passed; no paid provider
   invoked. See `contracts/optional-eval-compute.md`.
+
+## Native Escalation history (T017 in progress)
+
+- `neo-rs escalation cases|challenges [--search ...] [--limit 1..200]`
+  now uses Rust and the existing private on-disk record format.
+- 5 synthetic fixture tests match Node JSON for filter/order, status and
+  checkpoint handling, without writing or reading production history.
+- Full Rust suite **95/95**, strict Clippy passed. Running a local model,
+  writing Challenge Attempts, Escalation model locks, and cleanup are still
+  unported, so T017 remains incomplete.

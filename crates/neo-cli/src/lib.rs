@@ -9,6 +9,7 @@ pub mod run_live;
 pub mod workspace;
 
 pub mod dynamic_extensions;
+pub mod escalation_history;
 pub mod mcp_local;
 pub mod mcp_token;
 pub mod package;

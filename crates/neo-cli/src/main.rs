@@ -128,6 +128,18 @@ fn run(args: &[String]) -> Result<i32, String> {
             }
             Ok(exit)
         }
+        "escalation"
+            if rest
+                .first()
+                .is_some_and(|s| matches!(s.as_str(), "cases" | "challenges")) =>
+        {
+            let value = neo_harness_cli::escalation_history::run(rest)?;
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&value).map_err(|e| e.to_string())?
+            );
+            Ok(0)
+        }
         "eval" => neo_harness_cli::dynamic_extensions::eval(rest),
         "compute" | "gpu" => neo_harness_cli::dynamic_extensions::compute(rest),
         "status" | "doctor" => {
