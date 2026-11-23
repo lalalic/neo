@@ -17,7 +17,7 @@ extension-specific scripts outside the native core.
 
 **Language/Version**: Rust 2021 (installed rustc/cargo 1.99), existing Node.js ESM as fixture baseline
 
-**Primary Dependencies**: Rust standard library, serde/serde_json; existing external processes only for their explicitly owned capabilities
+**Primary Dependencies**: Rust standard library, serde/serde_json, URL parser and UTC date handling; existing external processes only for their explicitly owned capabilities
 
 **Storage**: No new database; read existing user configuration/Markdown and preserve private Run Git
 
@@ -95,8 +95,11 @@ and does not replace `/opt/homebrew/bin/neo`.
    `neo-rs agent list/search` and negative cases, with cross-runtime comparison.
 2. **Slice B**: Native Skill resolver, bootstrap JSON and text rendering using
    the canonical resource paths; preserve dynamic content and precedence.
-3. **Slice C**: Native workspace, Project resolution, Run Git and `project run`
-   orchestration, including disposable E2E and failure recovery.
+3. **Slice C (in progress)**: Native workspace/Project discovery and safe
+   `project run --dry-run` preflight are complete. The next substage must add
+   private Run binding and Run Git, then actual Relay delegation, with disposable
+   E2E, idempotency and failure recovery. Project preflight scripts are disabled
+   in the Rust preview until a bounded adapter is implemented.
 4. **Slice D**: Native MCP/gateway client and escalation orchestration; retain
    existing external script runtimes as explicit extension dependencies.
 5. **Release**: Package signed/managed binaries, verify Node-free clean Mac

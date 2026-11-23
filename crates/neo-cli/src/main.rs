@@ -9,7 +9,7 @@ use std::env;
 
 fn run(args: &[String]) -> Result<i32, String> {
     let (command, rest) = args.split_first().ok_or_else(|| {
-        "usage: neo-rs agent list|search ... (other native commands not yet supported)".to_string()
+        "usage: neo-rs --help (preview commands only; installed neo remains unchanged)".to_string()
     })?;
     match command.as_str() {
         "agent" => {
@@ -46,13 +46,21 @@ fn run(args: &[String]) -> Result<i32, String> {
             println!("{}", project::run(rest)?);
             Ok(0)
         }
+        "project" if rest.first().is_some_and(|s| s == "run") => {
+            let preview = neo_harness_cli::run_dry::run(&rest[1..])?;
+            println!(
+                "{}",
+                serde_json::to_string(&preview).map_err(|e| e.to_string())?
+            );
+            Ok(0)
+        }
         "status" | "doctor" => {
             let (text, status) = diagnostics::run(command, rest)?;
             println!("{text}");
             Ok(status)
         }
         "--help" | "-h" => {
-            println!("Neo Harness Rust preview\n\n  neo-rs agent list [--project PATH] [--source project|global|shared|agency]\n  neo-rs agent search QUERY [--project PATH] [--source ...] [--limit N]\n\nOther commands are not yet supported; installed neo remains unchanged.");
+            println!("Neo Harness Rust preview\n\n  neo-rs agent list [--project PATH] [--source project|global|shared|agency]\n  neo-rs agent search QUERY [--project PATH] [--source ...] [--limit N]\n  neo-rs skill list [--project PATH]\n  neo-rs bootstrap [--json] [--project PATH]\n  neo-rs workspace show\n  neo-rs project list | resolve NAME\n  neo-rs project run --dry-run --project NAME [--url URL | --path PATH | --source SOURCE] [--dag NAME]\n  neo-rs status | doctor\n\nActual Run execution and remaining commands are not yet supported; installed neo remains unchanged.");
             Ok(0)
         }
         _ => Err(format!(

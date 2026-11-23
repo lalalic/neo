@@ -33,7 +33,7 @@
 
 **Goal**: Safe native Run management preserving Relay ownership
 
-- [ ] T013 [US2] Add disposable Project+Run Git fixtures and invalid path/symlink regression tests under `crates/neo-cli/tests/`
+- [X] T013 [US2] Add disposable Project+Run Git fixtures and invalid path/symlink regression tests under `crates/neo-cli/tests/`
 - [ ] T014 [US2] Implement Project resolution/declaration validation and Run binding without touching production Runs
 - [ ] T015 [US2] Implement Run Git and delegated Relay submission, including interruption/failure recovery
 - [ ] T016 [US2] Verify real disposable Project E2E and Run state preservation
@@ -62,3 +62,14 @@ apply to each completed slice, but are not grounds to mark unfinished
 features complete.
 
 No work on this branch automatically changes the installed `neo` launcher.
+
+### Current P2 implementation boundary (2026-11-23)
+
+T013 is complete: disposable independent Git Project and private Run Git
+fixtures, tampered path, symlink, malformed dates, and immutable HEAD tests.
+T014 is **not complete**: native safe Project/declaration validation and
+non-mutating `project run --dry-run` are implemented and reference-tested,
+but a durable new/resumed Run binding is not implemented. T015 must add the
+Run Git mutation and real Relay ownership protocols before T014/T015 can
+be accepted together. A project preflight `.mjs` script is deliberately
+unsupported in the preview until bounded execution is implemented.

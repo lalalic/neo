@@ -71,3 +71,23 @@ unapproved exceptions; full release gates remain deliberately open.
   dependencies.
 - Only the preview binary changes. Running `project run` remains unsupported
   until disposable Project/Run safety and delegation tests pass.
+
+## Verified Project Run Safety Slice (T013, T014 foundation) — 2026-11-23
+
+- `cargo test --workspace --offline`: **27/27 integration tests pass**
+  (6 Agent + 5 Skill/Bootstrap + 4 read-only + 5 Project/Run safety +
+  7 native dry-run cases).
+- `cargo clippy --workspace --all-targets --offline -- -D warnings`: pass.
+- The Rust preview returns reference-equivalent JSON for supported isolated
+  URL, canonical Run-path, named DAG, Discovery Source, and safe versioning
+  templates. No private user project or Relay runtime was mutated.
+- Disposable Run Git test verifies the same HEAD and clean status after
+  validating existing private Run paths.
+- A native dry-run passes with `PATH=/usr/bin:/bin` (Git available; Node
+  unavailable); project-owned JS preflight intentionally fails closed.
+- Node regression: **67/68 pass** across Project Run, Run Git, CLI Control and
+  Bootstrap tests. The one failing test is the previously-confirmed baseline
+  staging issue: tracked `skills/iphone-helm` symlink rejected by
+  `scripts/stage-neo-cli.mjs`; it also fails on unchanged `main`.
+- No `project run` actual execution, Run binding, relay submission, release or
+  package install was attempted. See [Run Preflight Contract](contracts/run-dry-preflight.md).
