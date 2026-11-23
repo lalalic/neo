@@ -200,3 +200,16 @@ unapproved exceptions; full release gates remain deliberately open.
   keepalive semantics; no real process start/stop/restart was performed.
 - Native Rust tests **74/74**; original Node control tests **15/15**;
   strict Clippy passed. See `contracts/native-service-cli.md`.
+
+## Native Rust Harness bundle (T018) — 2026-11-23
+
+- `neo-rs package stage ABSOLUTE_NEW_DIR` creates a native binary, manifest,
+  and only 188 committed Agent/Skill/GPU files. It excludes and records the
+  single tracked external `skills/iphone-helm` symlink (no dereference).
+- 4 package acceptance tests verified clean disposable Mac HOME, Node-free
+  `workspace show`, `skill list`, `bootstrap --json`, `project list`, and a
+  versioned `~/.local/bin/neo` symlink launcher. Agency Agents remains an
+  explicit separately installed optional Agent Discovery prerequisite.
+- Rust full suite **78/78**, strict Clippy and real isolated Relay E2E passed.
+  Bundle is **a local preview only**; no actual production install or cutover.
+- See [Native Packaging Contract](contracts/native-package.md).

@@ -26,7 +26,13 @@ pub fn harness_root() -> Result<PathBuf, String> {
         }
         return Ok(root);
     }
-    let exe = env::current_exe().map_err(|e| e.to_string())?;
+    // A normal Mac installation exposes ~/.local/bin/neo as a symlink into
+    // the versioned bundle. Resolve the executable itself, not its launcher
+    // directory, so assets always match the binary's installed version.
+    let exe = env::current_exe()
+        .map_err(|e| e.to_string())?
+        .canonicalize()
+        .map_err(|e| format!("Cannot resolve native Neo executable: {e}"))?;
     for ancestor in exe.ancestors().skip(1) {
         if ancestor.join("agents").is_dir() && ancestor.join("skills").is_dir() {
             return Ok(ancestor.to_path_buf());

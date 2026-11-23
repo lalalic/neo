@@ -10,5 +10,6 @@ pub mod workspace;
 
 pub mod mcp_local;
 pub mod mcp_token;
+pub mod package;
 pub mod process_guard;
 pub mod service;

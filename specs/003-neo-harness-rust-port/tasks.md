@@ -47,7 +47,7 @@
 **Goal**: Node-free core CLI, optional runtime only for explicit extensions
 
 - [ ] T017 [US3] Port MCP/token/escalation coordination and remaining native core CLI commands without duplicating other services
-- [ ] T018 [US3] Package Rust executable with versioned shared Agents/Skills and verify clean Mac installation
+- [X] T018 [US3] Package Rust executable with versioned shared Agents/Skills and verify clean Mac installation
 - [ ] T019 [US3] Run full core CLI parity, node-free and existing Neo.app integration acceptance matrix
 - [ ] T020 [US3] After explicit release approval and verification, replace installed launcher and remove superseded Node core code
 
@@ -85,3 +85,13 @@ error/flag matrix, Job title, Coordinator numeric IDs, DAG immutability,
 prepared URL and six-Stage Growth contracts. Separate Rust release packaging
 and main-CLI cutover remain T017–T020. These are explicitly rejected
 rather than silently skipped. The installed `neo` launcher is unchanged.
+
+### Native bundle gate (T018) — 2026-11-23
+
+Rust-native `package stage` is now verified via four clean temporary
+installation fixtures, including a versioned symlink in a fresh HOME and no
+Node/Python on PATH for core discovery. Git-tracked regular assets only,
+explicit missing external link `skills/iphone-helm`, no secrets. This proves
+staging and clean-room user-prefix launch **without** installing on the user's
+production Mac. T017, T019 and T020 are still open; T020 requires explicit
+release approval after complete command parity and integration evidence.
