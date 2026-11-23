@@ -53,7 +53,8 @@ function fixture(t) {
  const workspace={neoRoot,harnessRoot:join(base,'harness')};
  async function run(args){
   const output=[];
-  await runProject(args,{workspace,runRelay:relay.runRelay,emit:x=>output.push(x),now:new Date('2026-11-19T12:00:00Z')});
+  const declared=args.some(v=>v.startsWith('--preflight')) ? args : [...args,'--preflight=true'];
+  await runProject(declared,{workspace,runRelay:relay.runRelay,emit:x=>output.push(x),now:new Date('2026-11-19T12:00:00Z')});
   return JSON.parse(output[0]);
  }
  return {base,neoRoot,alpha,beta,relay,run};

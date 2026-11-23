@@ -68,9 +68,31 @@ function relayStub() {
 }
 async function run(args, f, relay, extra = {}) {
   const output = [];
-  await runProject(args, { workspace: f.workspace, runRelay: relay.runRelay, emit: value => output.push(value), now: new Date('2026-11-03T12:00:00Z'), ...extra });
+  // Existing tests represent an authorized caller which completed Preflight.
+  // Negative cases invoke runProject directly with no declaration.
+  const declared = args.some(v=>v.startsWith('--preflight')) ? args : [...args, '--preflight=true'];
+  await runProject(declared, { workspace: f.workspace, runRelay: relay.runRelay, emit: value => output.push(value), now: new Date('2026-11-03T12:00:00Z'), ...extra });
   return output[0] ?? '';
 }
+
+test('new Coordinator Job needs explicit Preflight; bound resume does not', async () => {
+  const f = fixture(), relay=relayStub();
+  const invoke = args => runProject(args,{workspace:f.workspace,runRelay:relay.runRelay,emit:()=>{},now:new Date('2026-11-03T12:00:00Z')});
+  try {
+    for (const flag of [null,'--preflight=false','--preflight=TRUE','--preflight','--preflight=true --preflight=false']) {
+      const args=['--project','vlog','--path',f.runDir,...(flag ? flag.split(' ') : [])];
+      assert.throws(()=>invoke(args),/JOB_PREFLIGHT_REQUIRED/);
+      assert.equal(relay.calls.length,0,'invalid preflight must not create Relay Job');
+    }
+    invoke(['--project','vlog','--path',f.runDir,'--preflight=true']);
+    const created=relay.calls.filter(args=>args[0]==='job'&&args[1]==='create');
+    assert.equal(created.length,1);
+    assert.equal(created[0].filter(x=>x==='--preflight=true').length,1);
+    invoke(['--project','vlog','--path',f.runDir]);
+    assert.equal(relay.calls.filter(args=>args[0]==='job'&&args[1]==='create').length,1,
+      'reattachment does not need preflight or create another Job');
+  }finally{rmSync(f.base,{recursive:true,force:true});}
+});
 
 test('URL input supports both flag forms, keeps token private, and delegates exact graph', async () => {
   const f = fixture(), relay = relayStub();
@@ -84,7 +106,7 @@ test('URL input supports both flag forms, keeps token private, and delegates exa
     assert.deepEqual(relay.calls.map(x => x.slice(0, 2)), [['job', 'create'], ['job', 'show'], ['task', 'list'], ['job', 'run']]);
     assert.equal(relay.calls.some(args=>args.includes('--project-path')),false,'Relay no longer accepts Job projectPath');
     const job = relay.calls[0], task = relay.calls[0];
-    assert.deepEqual(job.slice(2), ['--repo', 'content-distribution', '--project-root', realpathSync(f.content), '--title', `Content Distribution · ${result.runPath.split('/').at(-1).replace(/[-_]+/g, ' ')}`, '--objective-file', join(result.runPath, 'neo-project-run.objective.md'), '--project-run-manifest',join(realpathSync(f.content),'project.run.json'),'--coordinator-graph-file',realpathSync(join(f.content,'graph.mmd')),'--coordinator-input-file',join(result.runPath,'neo-project-run.input.md'),'--coordinator-output-path',join(result.runPath,'neo-project-run.result.json'),'--coordinator-project-root',realpathSync(f.content),'--coordinator-workspace-root',realpathSync(f.workspace.neoRoot)]);
+    assert.deepEqual(job.slice(2), ['--repo', 'content-distribution', '--project-root', realpathSync(f.content), '--title', `Content Distribution · ${result.runPath.split('/').at(-1).replace(/[-_]+/g, ' ')}`, '--objective-file', join(result.runPath, 'neo-project-run.objective.md'), '--preflight=true', '--project-run-manifest',join(realpathSync(f.content),'project.run.json'),'--coordinator-graph-file',realpathSync(join(f.content,'graph.mmd')),'--coordinator-input-file',join(result.runPath,'neo-project-run.input.md'),'--coordinator-output-path',join(result.runPath,'neo-project-run.result.json'),'--coordinator-project-root',realpathSync(f.content),'--coordinator-workspace-root',realpathSync(f.workspace.neoRoot)]);
     assert.equal(job[job.indexOf('--title') + 1].includes('rsroot.com'), false);
     assert.equal(task[task.indexOf('--coordinator-graph-file') + 1], realpathSync(join(f.content, 'graph.mmd')));
     assert.equal(task[task.indexOf('--coordinator-output-path') + 1], join(result.runPath, 'neo-project-run.result.json'));

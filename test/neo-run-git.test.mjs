@@ -131,7 +131,7 @@ test('Coordinator creation initializes private Run Git without inventing a verif
    if(type==='job:run'){jobs.get('101').state='ACTIVE';return {scheduled:true,state:'ACTIVE'};}
    throw Error('unknown '+type);
   };
-  const result=await runProject(['--path',f.run,'--project','vlog'],{
+  const result=await runProject(['--path',f.run,'--project','vlog','--preflight=true'],{
    workspace:{neoRoot:f.neoRoot,harnessRoot:sourceRoot},runRelay,emit(){}
   });
   assert.equal(result,0);
