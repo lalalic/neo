@@ -161,3 +161,17 @@ unapproved exceptions; full release gates remain deliberately open.
   Only `package staging includes the project run entrypoint` fails because
   the legacy Node staging script rejects the preexisting
   `skills/iphone-helm` tracked symlink. Rust release packaging is T018.
+
+## Native NeoY MCP facade (T017 in progress) — 2026-11-23
+
+- Rust `mcp tools`/`mcp call` and `computer-use help`/`computer-use call`
+  use NeoY's **existing local loopback Gateway**, never new service ownership.
+  MCP allows only preview/questionnaire tools; Computer Use retains its ten
+  exact allowlisted commands. Unauthorized tools are rejected before network.
+- Native fake-loopback protocol tests **7/7**; original Node MCP reference
+  tests **12/12**; all Rust integration tests **64/64**, strict Clippy passes.
+- Actual read-only NeoY `mcp tools`: Node and Rust JSON **identical**.
+  Live Computer Use Help has the same ten commands. Its raw nested JSON key
+  ordering varies between two Node calls; decoded semantics match Rust.
+- MCP Token OAuth, escalation and remaining CLI are not yet ported. The
+  installed `neo` and production NeoY remain unchanged.

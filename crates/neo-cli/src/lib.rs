@@ -8,4 +8,5 @@ pub mod run_git;
 pub mod run_live;
 pub mod workspace;
 
+pub mod mcp_local;
 pub mod process_guard;

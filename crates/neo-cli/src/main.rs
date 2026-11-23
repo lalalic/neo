@@ -55,6 +55,26 @@ fn run(args: &[String]) -> Result<i32, String> {
             }
             Ok(0)
         }
+        "mcp"
+            if rest
+                .first()
+                .is_some_and(|s| matches!(s.as_str(), "tools" | "call")) =>
+        {
+            let (result, exit) = neo_harness_cli::mcp_local::mcp(rest)?;
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&result).map_err(|e| e.to_string())?
+            );
+            Ok(exit)
+        }
+        "computer-use" => {
+            let (result, exit) = neo_harness_cli::mcp_local::computer(rest)?;
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&result).map_err(|e| e.to_string())?
+            );
+            Ok(exit)
+        }
         "status" | "doctor" => {
             let (text, status) = diagnostics::run(command, rest)?;
             println!("{text}");
