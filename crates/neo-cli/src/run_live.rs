@@ -566,7 +566,19 @@ fn run_locked(prepared: &Prepared) -> Result<RunAction, String> {
     new_job(prepared, &run, &files)
 }
 
+pub const PROJECT_RUN_HELP: &str = include_str!("../assets/project-run-help.txt");
+
 pub fn run(args: &[String]) -> Result<Option<Value>, String> {
+    if args
+        .iter()
+        .any(|arg| matches!(arg.as_str(), "--help" | "-h"))
+    {
+        let options = run_dry::parse(args)?;
+        if options.help {
+            print!("{PROJECT_RUN_HELP}");
+            return Ok(None);
+        }
+    }
     let prepared = run_dry::prepare(args)?;
     if prepared.options.dry_run {
         return Ok(Some(prepared.preview));

@@ -24,12 +24,14 @@ if (root/('fail-'+cmd.replace(':','-'))).exists():
 if cmd=='job:create':
     if (root/'slow-create').exists():time.sleep(.25)
     project=val('--repo');jid=str(101+state['creates']);state['creates']+=1
+    state['create_args']=args
     task={'id':'17','input':pathlib.Path(val('--coordinator-input-file')).read_text(),
       'agentGraph':pathlib.Path(val('--coordinator-graph-file')).read_text(),
       'output':{'kind':'file','path':val('--coordinator-output-path')}}
     state['jobs'][jid]={'id':jid,'repository':project,'projectRoot':val('--project-root'),
        'state':'DRAFT','task':task}
-    persist();print(json.dumps({'repository':project,'pr':0,'job':jid,'state':'DRAFT','taskId':'17'}))
+    persist();print(json.dumps({'repository':project,'pr':0,'job':'old-id' if (root/'bad-job-id').exists() else jid,
+        'state':'DRAFT','taskId':'coordinator' if (root/'bad-task-id').exists() else '17'}))
 elif cmd=='job:show':
     job=state['jobs'].get(val('--id'))
     persist();print(json.dumps(job or {}))
@@ -791,4 +793,216 @@ fn foreground_completed_job_returns_one_terminal_response_without_reinvoking_rel
             .count(),
         1
     );
+}
+
+#[test]
+fn human_title_and_flag_forms_match_node_reference_and_preserve_resume() {
+    let a = Fixture::new_named("vlog");
+    let b = Fixture::new_named("vlog");
+    let args_a = [
+        "--project=vlog",
+        "--path",
+        a.run.to_str().unwrap(),
+        "--title=加拿大周末随拍",
+    ];
+    let args_b = [
+        "--path",
+        b.run.to_str().unwrap(),
+        "--project=vlog",
+        "--title",
+        "加拿大周末随拍",
+    ];
+    let first = a.assert_success(&a.call(true, &args_a));
+    let second = b.assert_success(&b.call(false, &args_b));
+    assert_eq!(first["status"], second["status"]);
+    let title = |f: &Fixture| {
+        let state = f.state();
+        let args = state["create_args"].as_array().unwrap();
+        let i = args
+            .iter()
+            .position(|v| v.as_str() == Some("--title"))
+            .unwrap();
+        args[i + 1].as_str().unwrap().to_string()
+    };
+    assert_eq!(title(&a), "加拿大周末随拍");
+    assert_eq!(title(&a), title(&b));
+    let old = a.state()["creates"].clone();
+    a.assert_success(&a.call(
+        true,
+        &[
+            "--path",
+            a.run.to_str().unwrap(),
+            "--project=vlog",
+            "--title",
+            "different on replay",
+        ],
+    ));
+    assert_eq!(a.state()["creates"], old);
+}
+
+#[test]
+fn coordinator_ids_must_be_numeric_for_new_runs() {
+    for mode in ["bad-job-id", "bad-task-id"] {
+        let f = Fixture::new();
+        put(&f.state_root.join(mode), "invalid response");
+        let result = f.run(true);
+        assert!(!result.status.success());
+        assert!(!f.run.join(".neo-project-run.json").exists());
+        assert_eq!(f.state()["creates"], 1);
+        assert_eq!(
+            f.state()["calls"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter(|v| v.as_str() == Some("job:run"))
+                .count(),
+            0
+        );
+    }
+}
+
+#[test]
+fn bound_named_dag_cannot_be_changed_during_resume() {
+    let f = Fixture::new();
+    put(
+        &f.workspace.join("sample/graph-growth.mmd"),
+        "flowchart TD\n A[agent:writer]-->B\n",
+    );
+    put(
+        &f.workspace.join("sample/project.run.json"),
+        r#"{"schemaVersion":1,"input":{"type":"path","path":{"base":"runs","datedRunDirectory":true}},"graphs":{"growth":"graph-growth.mmd","promotion":"graph.mmd"},"defaultDag":"promotion"}"#,
+    );
+    let run = f.call(
+        true,
+        &[
+            "--project",
+            "sample",
+            "--path",
+            f.run.to_str().unwrap(),
+            "--dag",
+            "growth",
+        ],
+    );
+    let first = f.assert_success(&run);
+    assert_eq!(first["dag"], "growth");
+    let rejected = f.call(
+        true,
+        &[
+            "--project",
+            "sample",
+            "--path",
+            f.run.to_str().unwrap(),
+            "--dag",
+            "promotion",
+        ],
+    );
+    assert!(!rejected.status.success());
+    assert!(String::from_utf8_lossy(&rejected.stderr).contains("different DAG"));
+    assert_eq!(f.state()["creates"], 1);
+    let resumed = f.assert_success(&f.call(
+        false,
+        &["--project", "sample", "--path", f.run.to_str().unwrap()],
+    ));
+    assert_eq!(resumed["jobId"], first["jobId"]);
+}
+
+#[test]
+fn prepared_url_project_run_reuses_original_private_evidence() {
+    let rust = Fixture::new();
+    let node = Fixture::new();
+    for f in [&rust, &node] {
+        put(
+            &f.workspace.join("sample/project.run.json"),
+            r#"{"schemaVersion":1,"input":{"type":"url","schemes":["https"],"resumePath":true,"preparedPath":true}}"#,
+        );
+        put(
+            &f.run.join("campaign.json"),
+            r#"{"schemaVersion":1,"intent":"review"}"#,
+        );
+        put(&f.run.join("evidence/original-source.json"), "{}");
+    }
+    let a = rust.assert_success(&rust.run(true));
+    let b = node.assert_success(&node.run(false));
+    assert_eq!(a["status"], b["status"]);
+    for file in [
+        "source-reference.json",
+        "neo-project-run.objective.md",
+        "neo-project-run.input.md",
+    ] {
+        let native = fs::read_to_string(rust.run.join(file))
+            .unwrap()
+            .replace(rust.run.to_str().unwrap(), "<RUN>");
+        let refer = fs::read_to_string(node.run.join(file))
+            .unwrap()
+            .replace(node.run.to_str().unwrap(), "<RUN>");
+        assert_eq!(native, refer, "prepared URL Run parity: {file}");
+    }
+}
+
+#[test]
+fn vlog_publisher_review_and_six_stage_growth_policy_are_node_equivalent() {
+    for project in ["vlog", "growth"] {
+        let rust = Fixture::new_named(project);
+        let node = Fixture::new_named(project);
+        for f in [&rust, &node] {
+            if project == "vlog" {
+                put(
+                    &f.workspace.join("vlog/project.run.json"),
+                    r#"{"schemaVersion":1,"input":{"type":"path","path":{"base":"runs","datedRunDirectory":true}},"publicationReview":"publisher-explicit-authorization"}"#,
+                );
+                put(
+                    &f.run.join("review-stages.json"),
+                    r#"{"visioner":true,"director":true,"producer":true}"#,
+                );
+            } else {
+                let names = [
+                    "growth-researcher",
+                    "growth-strategist",
+                    "growth-writer",
+                    "growth-editor",
+                    "growth-operator",
+                    "growth-analyst",
+                ];
+                let graph = format!(
+                    "flowchart TD\n {}\n",
+                    names
+                        .iter()
+                        .map(|n| format!(" [agent:{n}]"))
+                        .collect::<Vec<_>>()
+                        .join(" --> ")
+                );
+                put(&f.workspace.join("growth/graph-growth.mmd"), &graph);
+                let config = json!({"schemaVersion":1,"input":{"type":"path","path":{"base":"runs","datedRunDirectory":true}},
+                    "graphs":{"review":"graph-growth.mmd"},"defaultDag":"review","reviewableDags":{"review":names}});
+                put(
+                    &f.workspace.join("growth/project.run.json"),
+                    &serde_json::to_string(&config).unwrap(),
+                );
+                let stages = names
+                    .iter()
+                    .map(|s| (s.to_string(), json!(true)))
+                    .collect::<serde_json::Map<_, _>>();
+                put(
+                    &f.run.join("review-stages.json"),
+                    &serde_json::to_string(&stages).unwrap(),
+                );
+            }
+        }
+        let args_a = ["--project", project, "--path", rust.run.to_str().unwrap()];
+        let args_b = ["--project", project, "--path", node.run.to_str().unwrap()];
+        rust.assert_success(&rust.call(true, &args_a));
+        node.assert_success(&node.call(false, &args_b));
+        for file in ["neo-project-run.objective.md", "neo-project-run.input.md"] {
+            let native = fs::read_to_string(rust.run.join(file))
+                .unwrap()
+                .replace(rust.run.to_str().unwrap(), "<RUN>");
+            let refer = fs::read_to_string(node.run.join(file))
+                .unwrap()
+                .replace(node.run.to_str().unwrap(), "<RUN>");
+            assert_eq!(
+                native, refer,
+                "multi-stage approval policy parity for {project}:{file}"
+            );
+        }
+    }
 }

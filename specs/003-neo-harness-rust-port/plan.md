@@ -95,11 +95,12 @@ and does not replace `/opt/homebrew/bin/neo`.
    `neo-rs agent list/search` and negative cases, with cross-runtime comparison.
 2. **Slice B**: Native Skill resolver, bootstrap JSON and text rendering using
    the canonical resource paths; preserve dynamic content and precedence.
-3. **Slice C (core verified, advanced cases open)**: Native workspace and
-   Project discovery, `project run --dry-run`, private Run binding, Run Git and
-   native Rust Relay delegation passed cross-runtime recovery tests and an
-   isolated real daemon/SQLite E2E. Advanced Vlog policy, JS preflight,
-   unbound source recovery and foreground attachment remain T023–T025.
+3. **Slice C (Project Run verified)**: Native workspace and Project discovery,
+   `project run --dry-run`, private Run binding, Run Git, native Rust Relay
+   delegation, advanced Vlog policy, optional JS preflight, source recovery,
+   named DAG, error/help parity and foreground attachment have passed the
+   57-test Rust acceptance suite and real isolated Relay/SQLite E2E.
+   Packaging, other CLI commands and actual cutover remain T017–T020.
 4. **Slice D**: Native MCP/gateway client and escalation orchestration; retain
    existing external script runtimes as explicit extension dependencies.
 5. **Release**: Package signed/managed binaries, verify Node-free clean Mac

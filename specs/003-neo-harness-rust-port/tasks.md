@@ -39,7 +39,7 @@
 - [X] T016 [US2] Verify real disposable Project E2E and Run state preservation
 - [X] T023 [US2] Port specialty `--no-review`, `review-stages.json`, and unbound discovery source recovery with full parity tests
 - [X] T024 [US2] Support explicit bounded project JS preflight and Rust Relay `--foreground` attachment (no duplicate scheduler)
-- [ ] T025 [US2] Finish Project Run flag, source, error, and compatibility matrix before installation/cutover
+- [X] T025 [US2] Finish Project Run flag, source, error, and compatibility matrix before installation/cutover
 
 
 ## Phase 5: User Story 3 — Complete Native Distribution (P3)
@@ -78,8 +78,10 @@ resume, no duplicate Job, failure recovery, source privacy, byte-equivalent
 private inputs and tamper rejection. The real Rust Relay isolated SQLite and
 daemon E2E also passed with one ACTIVE Job and unchanged Run Git HEAD.
 
-T023–T024 complete: private Vlog and human review stages, unbound source
-recovery, explicit bounded JS project preflight and foreground attachment via
-Rust Relay (no duplicate scheduler). T025 remains open for full CLI variants
-and final Node/Rust parity before replacement. These are explicitly rejected
+T023–T025 complete for the Project Run CLI contract: private Vlog and human
+review stages, unbound source recovery, explicit bounded JS project preflight,
+foreground attachment via Rust Relay (no duplicate scheduler), exact help text,
+error/flag matrix, Job title, Coordinator numeric IDs, DAG immutability,
+prepared URL and six-Stage Growth contracts. Separate Rust release packaging
+and main-CLI cutover remain T017–T020. These are explicitly rejected
 rather than silently skipped. The installed `neo` launcher is unchanged.

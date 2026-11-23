@@ -41,7 +41,7 @@ are also implemented; `--dry-run` remains strictly nonmutating.
 
 ## Verification
 
-`cargo test --workspace --offline` has 50 passing integration tests. Twelve
+`cargo test --workspace --offline` has 57 passing integration tests. Twelve
 Rust/Node live lifecycle cases verify exact canonical input bytes (with test
 paths normalized), bidirectional binding reuse, private URL token handling,
 source JSON key order, DRAFT activation recovery, completed Job reuse, tampered
@@ -71,8 +71,16 @@ T024 is verified: bounded project-owned JS preflight and stdout/stderr
 inheritance for a foreground Rust Relay attachment. The temporary real-daemon
 E2E attaches to the same ACTIVE Job and safely terminates the test terminal,
 without altering the Job ID/Task ID, introducing a second Job or touching live
-SQLite. T025 remains open for complete CLI flag/error variants and final
-Node/Rust parity. These are not accepted as migrated and must fail closed.
+SQLite.
+
+T025 is verified: native `project run --help` is byte-identical to the Node
+reference via a compiled-in static document; error/flag matrix, unicode title,
+Coordinator ID validation, DAG selection lock, prepared URL Runs, Vlog
+publisher and six-Stage Growth policy parity are covered. Node reference
+suite: **38/39 passing**, with the sole known packaging failure on a tracked
+`skills/iphone-helm` symlink. Rust Project Run tests have no failures. The
+preexisting Node package staging issue is independent of Run lifecycle and
+belongs to Rust distribution T018.
 
 The **currently installed Relay bundle** omits the native
 `owned-process-supervisor` executable. The isolated E2E supplies its already

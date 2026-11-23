@@ -145,3 +145,19 @@ unapproved exceptions; full release gates remain deliberately open.
 - Real isolated Rust Relay daemon E2E: ACTIVE -> same ACTIVE identity on
   replay, `foregroundAttached:true`, exactly one SQLite Job, unchanged Run
   Git HEAD and untouched production services.
+
+## Project Run CLI parity matrix (T025) — 2026-11-23
+
+- `neo-rs project run --help` and `-h` are **byte-identical** to Node; the
+  source-derived help is compiled into the Rust binary (no Node at runtime).
+- URL/path flag forms, malformed/duplicate options, Unicode title overrides,
+  source evidence, numeric Job/Task IDs, named DAG immutability, prepared URL
+  Runs and multi-stage publication Review are exercised against Node fixtures.
+- `cargo test --workspace --offline`: **57/57 passing**; strict Clippy with
+  `-D warnings`: pass.
+- Real isolated Rust Relay E2E: `passed:true`, `foregroundAttached:true`,
+  one Job ID/Task ID, one SQLite Job, stable Run Git HEAD.
+- Node reference `node --test test/neo-project-run.test.mjs`: **38/39 passing**.
+  Only `package staging includes the project run entrypoint` fails because
+  the legacy Node staging script rejects the preexisting
+  `skills/iphone-helm` tracked symlink. Rust release packaging is T018.

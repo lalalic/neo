@@ -13,6 +13,7 @@ use url::Url;
 
 #[derive(Default)]
 pub struct Options {
+    pub help: bool,
     pub project: Option<String>,
     pub url: Option<String>,
     pub path: Option<String>,
@@ -31,12 +32,17 @@ fn valid_identifier(s: &str) -> bool {
 fn inside(base: &Path, target: &Path) -> bool {
     target.strip_prefix(base).is_ok()
 }
-fn parse(args: &[String]) -> Result<Options, String> {
+pub(crate) fn parse(args: &[String]) -> Result<Options, String> {
     let mut opt = Options::default();
     let mut flags = HashSet::new();
     let mut i = 0;
     while i < args.len() {
         let raw = &args[i];
+        if raw == "--help" || raw == "-h" {
+            opt.help = true;
+            i += 1;
+            continue;
+        }
         if raw == "--dry-run" || raw == "--foreground" || raw == "--no-review" {
             if !flags.insert(raw.as_str()) {
                 return Err(format!("{raw} may be specified only once"));
@@ -78,6 +84,9 @@ fn parse(args: &[String]) -> Result<Options, String> {
             _ => unreachable!(),
         }
         i += 1;
+    }
+    if opt.help {
+        return Ok(opt);
     }
     if opt.project.is_none() {
         return Err("project run requires --project NAME".into());

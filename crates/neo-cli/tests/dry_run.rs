@@ -466,3 +466,141 @@ fn native_preflight_without_node_is_an_explicit_dependency_failure() {
     }
     assert!(!f.source.join("runs").exists());
 }
+
+#[test]
+fn project_run_help_is_node_free_and_byte_identical_to_reference() {
+    let f = Fixture::new();
+    for args in [
+        vec!["--help"],
+        vec!["-h"],
+        vec!["--project", "content-distribution", "--help"],
+    ] {
+        let reference = f.call(false, &args);
+        let native = f.call(true, &args);
+        assert!(
+            reference.status.success(),
+            "{}",
+            String::from_utf8_lossy(&reference.stderr)
+        );
+        assert!(
+            native.status.success(),
+            "{}",
+            String::from_utf8_lossy(&native.stderr)
+        );
+        assert_eq!(reference.stdout, native.stdout);
+        assert!(String::from_utf8_lossy(&native.stdout).starts_with("Usage: neo project run"));
+    }
+    let invalid = f.call(true, &["--help", "--unexpected"]);
+    assert!(!invalid.status.success());
+    assert!(invalid.stdout.is_empty());
+}
+
+#[test]
+fn project_run_invalid_flag_error_matrix_preserves_node_exit_and_no_writes() {
+    let f = Fixture::new();
+    let run = f.run.to_str().unwrap();
+    let invalid: Vec<Vec<&str>> = vec![
+        vec![
+            "--dry-run",
+            "--project",
+            "vlog",
+            "--path",
+            run,
+            "--project",
+            "vlog",
+        ],
+        vec!["--dry-run", "--project=vlog", "--path", run, "--path", run],
+        vec![
+            "--dry-run",
+            "--project",
+            "vlog",
+            "--path",
+            run,
+            "--no-review",
+            "--no-review",
+        ],
+        vec![
+            "--dry-run",
+            "--project",
+            "vlog",
+            "--path",
+            run,
+            "--foreground",
+        ],
+        vec![
+            "--dry-run",
+            "--project",
+            "vlog",
+            "--path",
+            run,
+            "--title",
+            "line\nunsafe",
+        ],
+        vec![
+            "--dry-run",
+            "--project",
+            "vlog",
+            "--path",
+            run,
+            "--title",
+            "",
+        ],
+        vec![
+            "--dry-run",
+            "--project",
+            "vlog",
+            "--path",
+            run,
+            "--title",
+            "this is fine",
+            "--title",
+            "duplicate",
+        ],
+        vec![
+            "--dry-run",
+            "--project",
+            "vlog",
+            "--path",
+            run,
+            "--dag",
+            "NOT_ALLOWED",
+        ],
+        vec![
+            "--dry-run",
+            "--project",
+            "content-distribution",
+            "--url",
+            "https://u:p@x.example",
+        ],
+        vec![
+            "--dry-run",
+            "--project",
+            "content-distribution",
+            "--url",
+            "https://x.example/%hello",
+        ],
+        vec!["--dry-run", "--project", "vlog", "--path", run, "--mystery"],
+        vec!["--help", "--unexpected"],
+    ];
+    for args in invalid {
+        let reference = f.call(false, &args);
+        let native = f.call(true, &args);
+        assert!(
+            !reference.status.success(),
+            "unexpected accepted reference: {args:?}"
+        );
+        assert_eq!(
+            reference.status.code(),
+            native.status.code(),
+            "exit parity: {args:?} rust={}",
+            String::from_utf8_lossy(&native.stderr)
+        );
+        assert!(
+            native.stdout.is_empty(),
+            "errors must not emit success JSON: {args:?}"
+        );
+        assert!(!native.stderr.is_empty());
+    }
+    assert!(!f.source.join("runs").exists());
+    assert!(!f.run.join(".neo-project-run.json").exists());
+}
