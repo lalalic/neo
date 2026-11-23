@@ -361,3 +361,13 @@ unapproved exceptions; full release gates remain deliberately open.
   guidance as **untrusted user context**, never as system authority.
 - Rust full **166/166**, Node teaching/Experience **20/20**, strict Clippy
   pass. The interactive Learn and real-model self-test remain open.
+
+## Native read-only Escalation self-test (T017 in progress)
+
+- `neo-rs escalation test` now uses fresh private nonce evidence that can
+  only be obtained through a read-only `cat` tool result. It validates the
+  exact observed nonce and owned model teardown, never exposing the nonce
+  in the final JSON or saving an ordinary Challenge/Case.
+- 6 native proof/CLI E2E tests, Rust full **172/172**, Node reference **28/28**,
+  strict Clippy pass. See `contracts/native-escalation-self-test.md`.
+- Interactive Learn remains unported; T017 not yet marked complete.

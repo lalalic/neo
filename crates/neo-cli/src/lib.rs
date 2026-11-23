@@ -15,6 +15,7 @@ pub mod escalation_history;
 pub mod escalation_ledger;
 pub mod escalation_lock;
 pub mod escalation_runtime;
+pub mod escalation_self_test;
 pub mod escalation_server;
 pub mod escalation_stateless;
 pub mod escalation_tool_executor;

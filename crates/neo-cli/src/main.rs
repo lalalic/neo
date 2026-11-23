@@ -52,13 +52,17 @@ fn run(args: &[String]) -> Result<i32, String> {
             Ok(0)
         }
         "project" if rest.first().is_some_and(|s| s == "setup-agent") => {
-            if rest.len()!=2||rest[1].starts_with('-'){
+            if rest.len() != 2 || rest[1].starts_with('-') {
                 return Err("usage: neo project setup-agent NAME".into());
             }
-            let resolved=project::run(&["resolve".into(),rest[1].clone()])?;
-            let project:serde_json::Value=serde_json::from_str(&resolved).map_err(|_|"invalid project resolution JSON")?;
-            let result=neo_harness_cli::project_setup::run(&project)?;
-            println!("{}",serde_json::to_string(&result).map_err(|e|e.to_string())?);
+            let resolved = project::run(&["resolve".into(), rest[1].clone()])?;
+            let project: serde_json::Value =
+                serde_json::from_str(&resolved).map_err(|_| "invalid project resolution JSON")?;
+            let result = neo_harness_cli::project_setup::run(&project)?;
+            println!(
+                "{}",
+                serde_json::to_string(&result).map_err(|e| e.to_string())?
+            );
             Ok(0)
         }
         "project" if rest.first().is_some_and(|s| s == "tts") => {
@@ -150,17 +154,31 @@ fn run(args: &[String]) -> Result<i32, String> {
             );
             Ok(0)
         }
-        "escalation" if rest==["--help"]||rest==["-h"] => {
-            print!("{}",include_str!("../assets/escalation-help.txt"));
+        "escalation" if rest == ["--help"] || rest == ["-h"] => {
+            print!("{}", include_str!("../assets/escalation-help.txt"));
             Ok(0)
         }
-        "escalation" if rest.first().is_some_and(|s|matches!(s.as_str(),"learn"|"test")) => {
-            Err("Interactive learning and the live Escalation self-test are not yet migrated to Rust; no model was started".into())
+        "escalation" if rest.first().is_some_and(|s| s == "test") => {
+            if rest.len() != 1 {
+                return Err("usage: neo escalation test".into());
+            }
+            let result = neo_harness_cli::escalation_self_test::run()?;
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&result).map_err(|e| e.to_string())?
+            );
+            Ok(0)
+        }
+        "escalation" if rest.first().is_some_and(|s| s == "learn") => {
+            Err("Interactive learning is not yet migrated to Rust; no model was started".into())
         }
         "escalation" => {
-            let result=neo_harness_cli::escalation_runtime::run_cli(rest)?;
-            println!("{}",serde_json::to_string_pretty(&result).map_err(|e|e.to_string())?);
-            Ok(if result["status"]=="failed" {2}else{0})
+            let result = neo_harness_cli::escalation_runtime::run_cli(rest)?;
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&result).map_err(|e| e.to_string())?
+            );
+            Ok(if result["status"] == "failed" { 2 } else { 0 })
         }
         "eval" => neo_harness_cli::dynamic_extensions::eval(rest),
         "compute" | "gpu" => neo_harness_cli::dynamic_extensions::compute(rest),

@@ -246,14 +246,12 @@ fn native_cli_escalation_help_is_identical_to_node_and_learn_test_reject_safely(
         .unwrap();
     assert!(rust.status.success() && node.status.success());
     assert_eq!(rust.stdout, node.stdout);
-    for name in ["learn", "test"] {
-        let result = Command::new(env!("CARGO_BIN_EXE_neo-rs"))
-            .args(["escalation", name])
-            .output()
-            .unwrap();
-        assert!(!result.status.success());
-        assert!(result.stdout.is_empty());
-    }
+    let result = Command::new(env!("CARGO_BIN_EXE_neo-rs"))
+        .args(["escalation", "learn"])
+        .output()
+        .unwrap();
+    assert!(!result.status.success());
+    assert!(result.stdout.is_empty());
 }
 #[cfg(unix)]
 #[test]
