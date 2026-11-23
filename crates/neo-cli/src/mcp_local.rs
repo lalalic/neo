@@ -344,3 +344,19 @@ pub fn computer(args: &[String]) -> Result<(Value, i32), String> {
     let exit = code(&value);
     Ok((value, exit))
 }
+
+/// Invoke the same restricted native Computer Use facade directly from the
+/// stateless Tool Executor without writing model-provided JSON to disk.
+pub fn computer_direct(command: &str, args: &Value) -> Result<Value, String> {
+    if !ALLOWED_COMPUTER.contains(&command) {
+        return Err(format!("Computer Use command is not allowed: {command}"));
+    }
+    if !args.is_object() {
+        return Err("Computer Use arguments must be a JSON object".into());
+    }
+    rpc(
+        "tools/call",
+        &json!({"name":"computer","arguments":{"command":command,"args":args}}),
+        true,
+    )
+}

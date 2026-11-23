@@ -316,3 +316,16 @@ unapproved exceptions; full release gates remain deliberately open.
 - Still outstanding: authorized stateless Tool Executor, owned model runtime,
   Challenge/Experience integration and local model end-to-end acceptance.
   T017/T019/T020 remain open.
+
+## Native Tool Executor and owned process-group cleanup (T017 in progress)
+
+- The Rust stateless Tool Executor now delegates Shell/WebHelm/Computer Use
+  to existing local interfaces. Apple sign-in field fill is **disabled by
+  default** and can only be activated by a trusted explicit caller setting.
+- Structured WebHelm JS uses stdin, never argv; model tool subprocesses use
+  bounded capture and an owned process group for timeout/pipe cleanup. Owner
+  Apple `USER_ACCOUNTS`/`USER_PASSWORDS` are not inherited by tool children.
+- 11 isolated Tool Executor tests, all Rust **141/141**, Node model/MCP
+  **18/18**, strict Clippy pass. No real Apple/browser/tool writes were made.
+- Still outstanding: native owned-model lifecycle, terminal orchestration,
+  failure recovery and full local-model E2E. T017/T019/T020 remain open.
