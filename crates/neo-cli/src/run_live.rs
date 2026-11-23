@@ -474,6 +474,7 @@ fn new_job(prepared: &Prepared, run: &Path, files: &RunFiles) -> Result<RunActio
         title,
         "--objective-file".into(),
         files.objective.to_string_lossy().to_string(),
+        "--preflight=true".into(),
         "--project-run-manifest".into(),
         manifest.to_string_lossy().to_string(),
         "--coordinator-graph-file".into(),
@@ -582,6 +583,17 @@ pub fn run(args: &[String]) -> Result<Option<Value>, String> {
     let prepared = run_dry::prepare(args)?;
     if prepared.options.dry_run {
         return Ok(Some(prepared.preview));
+    }
+    // A bound Run is a resume. For a new Job the creator must *explicitly*
+    // attest that Spec Kit Specify/Clarify and independent Preflight Review
+    // are complete. Never fabricate the flag from local Run validation.
+    let reattaching = prepared.options.path.is_some()
+        && prepared
+            .run_dir
+            .as_ref()
+            .is_some_and(|path| path.join(".neo-project-run.json").exists());
+    if !reattaching && !prepared.options.preflight {
+        return Err("ERROR [JOB_PREFLIGHT_REQUIRED]: Job creation requires --preflight=true. Complete Spec Kit Specify/Clarify and independent Preflight Review first. No Job was created.".into());
     }
     // run_locked holds the OS Run-directory lock only during binding/verification.
     // Never hold it during a potentially long-running foreground subscription.

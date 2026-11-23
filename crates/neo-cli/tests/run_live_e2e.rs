@@ -22,6 +22,8 @@ def persist():state_path.write_text(json.dumps(state))
 if (root/('fail-'+cmd.replace(':','-'))).exists():
     persist();sys.exit(7)
 if cmd=='job:create':
+    if args.count('--preflight=true')!=1:
+        persist();sys.stderr.write('JOB_PREFLIGHT_REQUIRED\n');sys.exit(2)
     if (root/'slow-create').exists():time.sleep(.25)
     project=val('--repo');jid=str(101+state['creates']);state['creates']+=1
     state['create_args']=args
@@ -149,6 +151,7 @@ impl Fixture {
         }
         cmd.args(["project", "run"])
             .args(args)
+            .arg("--preflight=true")
             .env("HOME", &self.home)
             .env("NEO_WORKSPACE_CONFIG", &self.config)
             .env("NEO_ROOT", &self.workspace)
@@ -418,6 +421,7 @@ fn concurrent_native_cli_calls_share_one_atomic_run_binding() {
                 "sample",
                 "--path",
                 f.run.to_str().unwrap(),
+                "--preflight=true",
             ])
             .env("HOME", &f.home)
             .env("NEO_WORKSPACE_CONFIG", &f.config)
@@ -1005,4 +1009,57 @@ fn vlog_publisher_review_and_six_stage_growth_policy_are_node_equivalent() {
             );
         }
     }
+}
+
+#[test]
+fn new_job_requires_creator_preflight_attestation_but_resuming_bound_job_does_not() {
+    let f = Fixture::new();
+    let run_cli = |native: bool, args: &[&str]| {
+        let mut cmd = if native {
+            Command::new(env!("CARGO_BIN_EXE_neo-rs"))
+        } else {
+            Command::new(&f.node)
+        };
+        if !native {
+            cmd.arg(f.repo.join(".bin/neo.mjs"));
+        }
+        cmd.args(["project", "run"])
+            .args(args)
+            .env("HOME", &f.home)
+            .env("NEO_WORKSPACE_CONFIG", &f.config)
+            .env("NEO_ROOT", &f.workspace)
+            .env("NEO_RELAY_EXECUTABLE", &f.relay)
+            .env("RELAY_FIXTURE_ROOT", &f.state_root)
+            .current_dir(&f.workspace)
+            .output()
+            .unwrap()
+    };
+    let options = ["--project", "sample", "--path", f.run.to_str().unwrap()];
+    for native in [true, false] {
+        for invalid in [
+            vec![],
+            vec!["--preflight=false"],
+            vec!["--preflight"],
+            vec!["--preflight=true", "--preflight=true"],
+        ] {
+            let mut args = options.to_vec();
+            args.extend(invalid);
+            let rejected = run_cli(native, &args);
+            assert!(
+                !rejected.status.success(),
+                "missing or invalid preflight must not create Job"
+            );
+            assert!(String::from_utf8_lossy(&rejected.stderr).contains("JOB_PREFLIGHT_REQUIRED"));
+            assert!(!f.run.join(".neo-project-run.json").exists());
+            assert!(!f.state_root.join("state.json").exists());
+        }
+    }
+    let mut declared = options.to_vec();
+    declared.push("--preflight=true");
+    let first = f.assert_success(&run_cli(true, &declared));
+    assert_eq!(first["status"], "ACTIVE");
+    assert_eq!(f.state()["creates"], 1);
+    let resumed = f.assert_success(&run_cli(true, &options));
+    assert_eq!(first, resumed);
+    assert_eq!(f.state()["creates"], 1);
 }

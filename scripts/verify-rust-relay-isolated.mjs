@@ -115,7 +115,9 @@ async function main() {
 
     execFileSync('cargo', ['build', '--offline', '-q', '--workspace'], { cwd: harnessRoot, timeout: 90_000 });
     const rust = join(harnessRoot, 'target/debug/neo-rs');
-    const input = ['project', 'run', '--project', 'sample', '--path', run];
+    // This fixture represents a creator who completed Spec Kit Specify/Clarify
+    // and independent Preflight Review. New Jobs require explicit attestation.
+    const input = ['project', 'run', '--project', 'sample', '--path', run, '--preflight=true'];
     const execute = () => JSON.parse(execFileSync(rust, input, {
       cwd: workspace, env: environment, encoding: 'utf8', timeout: 20_000
     }));

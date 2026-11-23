@@ -44,7 +44,32 @@ fn terminal(content: &str, events: &mut Vec<Value>) -> Result<String, String> {
     events.push(json!({"type":"result","exit_code":0,"text":content}));
     let encoded = jsonl(events)?;
     let (parsed, _) = escalation_contract::parse_session(&encoded)?;
-    escalation_contract::normalize(&parsed)?;
+    escalation_contract::normalize(&parsed).map_err(|err| {
+        if err != "Invalid local notification report" {
+            return err;
+        }
+        // Diagnostic *types only*: never expose raw model-provided values,
+        // tool output, account details or an unknown self-test nonce.
+        let kind = |v: &Value| -> &'static str {
+            match v {
+                Value::Null => "null-or-missing",
+                Value::Bool(_) => "boolean",
+                Value::Number(_) => "number",
+                Value::String(_) => "string",
+                Value::Array(_) => "array",
+                Value::Object(_) => "object",
+            }
+        };
+        let n = &parsed["notification"];
+        format!(
+            "{err} (shape notification={}, attempted={}, delivered={}, channel={}, details={})",
+            kind(n),
+            kind(&n["attempted"]),
+            kind(&n["delivered"]),
+            kind(&n["channel"]),
+            kind(&n["details"])
+        )
+    })?;
     Ok(encoded)
 }
 fn model_message<'a>(response: &'a Value, context: &str) -> Result<&'a Value, String> {

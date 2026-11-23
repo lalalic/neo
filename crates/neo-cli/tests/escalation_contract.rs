@@ -271,3 +271,36 @@ fn redaction_masks_exact_tool_observed_secrets_and_common_credential_patterns() 
     }
     assert_eq!(sanitized["summary"], "Result [REDACTED] verified");
 }
+
+#[test]
+fn small_model_omitted_nullable_notification_fields_are_repaired_without_claiming_delivery() {
+    for input in [
+        json!({"attempted":false}),
+        json!({"attempted":false,"delivered":false}),
+        json!({}),
+    ] {
+        let raw = json!({"status":"resolved","summary":"Local fixture observed",
+    "evidence":["one observed nonsecret tool result"],"notification":input});
+        let normal = esc::normalize(&raw).unwrap();
+        if input.is_object() && input.as_object().unwrap().is_empty() {
+            assert!(normal["notification"].is_null());
+        } else {
+            assert_eq!(normal["notification"]["attempted"], false);
+            assert!(normal["notification"].get("delivered").is_some());
+            assert!(normal["notification"].get("channel").is_some());
+            assert!(normal["notification"].get("details").is_some());
+            assert_ne!(normal["notification"]["delivered"], true);
+        }
+    }
+    for bad in [
+        json!({"attempted":true}),
+        json!({"attempted":"false"}),
+        json!({"attempted":false,"delivered":"true"}),
+    ] {
+        assert!(esc::normalize(
+            &json!({"status":"resolved","summary":"Local fixture observed",
+    "evidence":["real observation"],"notification":bad})
+        )
+        .is_err());
+    }
+}

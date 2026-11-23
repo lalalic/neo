@@ -62,12 +62,12 @@ where
     let command = format!("cat {}", file.display());
     let request=Request{
         cwd:dir.into(),
-        handoff:format!("Local Agent read-only self-test. Do not contact anyone, send notifications, open a website, or change files.\nUse your terminal / Shell tool to run exactly `{command}`.\nThe secret test value is not in this handoff; do not guess it.\nReport status=resolved only after observing its actual value using a tool.\nInclude the exact file value as a string in the evidence array; otherwise return status=failed.\nReturn the usual complete escalation JSON schema."),
+        handoff:format!("Local Agent read-only self-test. Do not contact anyone, send notifications, open a website, or change files.\nUse your terminal / Shell tool to run exactly `{command}`.\nThe secret test value is not in this handoff; do not guess it.\nReport status=resolved only after observing its actual value using a tool.\nInclude the exact file value as a string in the evidence array; otherwise return status=failed.\nFor this test you NEVER notify anyone. Set notification to JSON null, reason to JSON null, and user_action to JSON null. Return a complete JSON object with status, summary, reason, user_action, evidence and notification."),
         on_needs_user:"Self-test only. Never notify a human; if a tool cannot run, return failed.".into(),
         correlation_id:None,
     };
     let mut observed = false;
-    let output=escalation_stateless::run_with(endpoint,"You are performing a read-only local inference smoke test. Use exactly the requested Shell cat command to observe the unknown value. Never guess the nonce.",
+    let output=escalation_stateless::run_with(endpoint,"You are performing a read-only local inference smoke test. Use exactly the requested Shell cat command to observe the unknown value. Never guess the nonce. The tool-free final JSON must use notification:null, reason:null and user_action:null because no notification or human action occurred.",
         &request,config,&mut model,|name,args,_|{
             if name!="shell"||args["command"]!=command{
                 return Ok(ToolResult{ok:false,text:"Self-test permits only the exact private fixture read".into()});
@@ -78,7 +78,30 @@ where
             Ok(ToolResult{ok:observed,text:String::from_utf8_lossy(&data.stdout).to_string()})
         })?;
     let (raw, events) = escalation_contract::parse_session(&output)?;
-    let parsed = escalation_contract::normalize(&raw)?;
+    let parsed = escalation_contract::normalize(&raw).map_err(|err| {
+        if err != "Invalid local notification report" {
+            return err;
+        }
+        let n = &raw["notification"];
+        let kind = |v: &Value| -> &'static str {
+            match v {
+                Value::Null => "null-or-missing",
+                Value::Bool(_) => "boolean",
+                Value::Number(_) => "number",
+                Value::String(_) => "string",
+                Value::Array(_) => "array",
+                Value::Object(_) => "object",
+            }
+        };
+        format!(
+            "{err} (shape notification={}, attempted={}, delivered={}, channel={}, details={})",
+            kind(n),
+            kind(&n["attempted"]),
+            kind(&n["delivered"]),
+            kind(&n["channel"]),
+            kind(&n["details"])
+        )
+    })?;
     if !observed
         || parsed["status"] != "resolved"
         || !parsed["evidence"].as_array().is_some_and(|items| {

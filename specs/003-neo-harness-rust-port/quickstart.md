@@ -396,3 +396,11 @@ unapproved exceptions; full release gates remain deliberately open.
 - T017 is complete at the **code/fixture** level. T019 remains the full
   existing Neo.app/real-model integration acceptance; T020 remains a release
   approval gate and cannot be inferred from these unit/integration tests.
+
+## T019 integration acceptance complete (2026-11-23)
+
+- Read-only live Neo Master Node↔Rust matrix: **14/14**. Native NeoY Computer Use actual list-apps call succeeded with zero writes. See `contracts/t019-integration-acceptance.md` and `scripts/verify-rust-harness-readonly.mjs`.
+- Real disposable Rust Relay SQLite/daemon/Coordinator foreground/Run resume E2E **passed** after synchronizing explicit `--preflight=true` new-Job attestation with current main. Missing, false or duplicate attestation fails closed before Job creation; a bound Run resumes without a second declaration.
+- Fully offline cached Qwen3.5 4B inference model **passed** real read-only nonce tool-use proof with server reaped. No download/account/GUI mutation occurred.
+- Native **184/184** tests, strict Clippy, fmt, four clean bundle tests passed. Existing Node packaging's tracked symlink failure on `skills/iphone-helm` is inherited from unchanged main and outside the Rust installer; not resolved here.
+- **T020 remains open:** do not replace the installed launcher, merge or delete Node core until explicit release approval.

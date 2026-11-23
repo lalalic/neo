@@ -275,7 +275,20 @@ pub fn normalize(raw: &Value) -> Result<Value, String> {
         }
     }
     let user_action = raw.get("user_action").cloned().unwrap_or(Value::Null);
-    let notification = raw.get("notification").cloned().unwrap_or(Value::Null);
+    let mut notification = raw.get("notification").cloned().unwrap_or(Value::Null);
+    // Small offline local models sometimes omit nullable fields from a
+    // negative/no-notification report. Filling *only absent optional fields*
+    // with null is a schema-only repair and never fabricates a notification,
+    // delivery, consent, evidence or success state.
+    if let Some(map) = notification.as_object_mut() {
+        if map.is_empty() {
+            notification = Value::Null;
+        } else if map.get("attempted") == Some(&Value::Bool(false)) {
+            for optional in ["delivered", "channel", "details"] {
+                map.entry(optional).or_insert(Value::Null);
+            }
+        }
+    }
     if !notification.is_null()
         && (!notification.is_object()
             || notification["attempted"].as_bool().is_none()
