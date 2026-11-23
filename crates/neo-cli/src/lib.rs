@@ -8,6 +8,7 @@ pub mod run_git;
 pub mod run_live;
 pub mod workspace;
 
+pub mod dynamic_extensions;
 pub mod mcp_local;
 pub mod mcp_token;
 pub mod package;

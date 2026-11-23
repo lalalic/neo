@@ -93,6 +93,30 @@ fn write_committed_assets(root: &Path, out: &Path) -> Result<(usize, Vec<String>
     excluded.sort();
     Ok((total, excluded))
 }
+fn write_optional_eval_assets(root: &Path, out: &Path) -> Result<usize, String> {
+    for &rel in crate::dynamic_extensions::EVAL_ASSETS {
+        let record = git(root, &["ls-files", "--stage", "--", rel])?;
+        let line = String::from_utf8(record).map_err(|e| e.to_string())?;
+        if !line.starts_with("100644 ") && !line.starts_with("100755 ") {
+            return Err(format!(
+                "Native package needs a tracked regular JS extension asset: {rel}"
+            ));
+        }
+        let bytes = git(root, &["show", &format!("HEAD:{rel}")])?;
+        if bytes.len() > 4 * 1024 * 1024 {
+            return Err(format!("Optional JS asset exceeds 4 MiB: {rel}"));
+        }
+        let target = out.join(rel);
+        fs::create_dir_all(target.parent().ok_or("Invalid optional asset directory")?)
+            .map_err(|e| e.to_string())?;
+        fs::write(&target, bytes).map_err(|e| e.to_string())?;
+        #[cfg(unix)]
+        fs::set_permissions(&target, fs::Permissions::from_mode(0o644))
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(crate::dynamic_extensions::EVAL_ASSETS.len())
+}
+
 fn is_inside(outer: &Path, inner: &Path) -> bool {
     inner.starts_with(outer)
 }
@@ -141,10 +165,12 @@ pub fn stage(target: &Path) -> Result<Value, String> {
         #[cfg(unix)]
         fs::set_permissions(&name, fs::Permissions::from_mode(0o755)).map_err(|e| e.to_string())?;
         let (count, external) = write_committed_assets(&root, &destination)?;
+        let optional_js = write_optional_eval_assets(&root, &destination)?;
         let manifest = json!({"schemaVersion":1,"name":"neo-harness-rust-preview",
             "version":env!("CARGO_PKG_VERSION"),"revision":revision,
             "platform":env::consts::OS,"architecture":env::consts::ARCH,
             "entrypoint":"bin/neo","trackedAssets":count,
+            "optionalEvalJavascriptAssets":optional_js,
             "excludedExternalGitLinks":external,
             "productionInstall":false});
         fs::write(
@@ -152,7 +178,7 @@ pub fn stage(target: &Path) -> Result<Value, String> {
             serde_json::to_string_pretty(&manifest).map_err(|e| e.to_string())? + "\n",
         )
         .map_err(|e| e.to_string())?;
-        fs::write(destination.join("README.md"),"# Neo Harness native Rust preview\n\nRun `bin/neo --help`. This is a local staged candidate, not an installation or production cutover. `manifest.json` lists external Git-link Skills intentionally omitted because their targets are outside the tracked Harness checkout. Explicit project JavaScript preflight still requires its declared Node interpreter.\n").map_err(|e|e.to_string())?;
+        fs::write(destination.join("README.md"),"# Neo Harness native Rust preview\n\nRun `bin/neo --help`. This is a local staged candidate, not an installation or production cutover. `manifest.json` lists external Git-link Skills intentionally omitted because their targets are outside the tracked Harness checkout. Explicit Project JS preflight and specialized Eval/Compute dynamic adapters still require their declared Node interpreter.\n").map_err(|e|e.to_string())?;
         Ok(manifest)
     })();
     if written.is_err() {

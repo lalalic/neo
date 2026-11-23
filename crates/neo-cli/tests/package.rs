@@ -76,6 +76,13 @@ fn clean_mac_candidate_bootstraps_and_discovers_skills_without_node_or_source_ch
     let manifest: Value = serde_json::from_slice(&stage.stdout).unwrap();
     assert_eq!(manifest["productionInstall"], false);
     assert!(manifest["trackedAssets"].as_u64().unwrap() > 100);
+    assert_eq!(manifest["optionalEvalJavascriptAssets"], 4);
+    for file in neo_harness_cli::dynamic_extensions::EVAL_ASSETS {
+        assert!(
+            f.package.join(file).is_file(),
+            "missing bundled JS extension file: {file}"
+        );
+    }
     assert!(manifest["excludedExternalGitLinks"]
         .as_array()
         .unwrap()

@@ -234,3 +234,15 @@ unapproved exceptions; full release gates remain deliberately open.
 - Native tests **4/4**, including two real Chinese audio formats and failed
   engine cleanup; original Node TTS **4/4**, full Rust acceptance **85/85**,
   Clippy strict pass. See `contracts/native-project-tts.md`.
+
+## Explicit Eval and GPU dynamic extension routing (T017 in progress)
+
+- Rust dispatches `eval run|list|audit` and `compute|gpu` through their
+  original tightly scoped Node extension scripts. The core binary never
+  silently falls back to Node; a missing optional runtime is an error.
+- The native distribution now bundles four committed Eval JS dependency
+  files alongside its existing committed GPU sources.
+- Five isolated/read-only parity tests pass, including Node Eval List and
+  GPU services/help, a fake provider argv test, missing Node and invalid
+  commands. Full Rust suite **90/90**, strict Clippy passed; no paid provider
+  invoked. See `contracts/optional-eval-compute.md`.

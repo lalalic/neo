@@ -128,13 +128,15 @@ fn run(args: &[String]) -> Result<i32, String> {
             }
             Ok(exit)
         }
+        "eval" => neo_harness_cli::dynamic_extensions::eval(rest),
+        "compute" | "gpu" => neo_harness_cli::dynamic_extensions::compute(rest),
         "status" | "doctor" => {
             let (text, status) = diagnostics::run(command, rest)?;
             println!("{text}");
             Ok(status)
         }
         "--help" | "-h" => {
-            println!("Neo Harness Rust preview\n\n  neo-rs agent list [--project PATH] [--source project|global|shared|agency]\n  neo-rs agent search QUERY [--project PATH] [--source ...] [--limit N]\n  neo-rs skill list [--project PATH] | package SKILL_DIR OUTPUT.zip\n  neo-rs bootstrap [--json] [--project PATH]\n  neo-rs workspace show\n  neo-rs project list | resolve NAME\n  neo-rs project run --project NAME [--url URL | --path PATH | --source SOURCE] [--dag NAME] [--dry-run] [--foreground] [--no-review]\n  neo-rs mcp tools | call TOOL --args-file PATH | token issue|revoke ...\n  neo-rs computer-use help | call COMMAND [--args-file PATH]\n  neo-rs package stage ABSOLUTE_NEW_DIR\n  neo-rs status | doctor\n\nNative Run create/resume, specialty Vlog review, optional project-owned JS preflight and Relay foreground attach are supported. Other commands remain unsupported; installed neo remains unchanged.");
+            println!("Neo Harness Rust preview\n\n  neo-rs agent list [--project PATH] [--source project|global|shared|agency]\n  neo-rs agent search QUERY [--project PATH] [--source ...] [--limit N]\n  neo-rs skill list [--project PATH] | package SKILL_DIR OUTPUT.zip\n  neo-rs bootstrap [--json] [--project PATH]\n  neo-rs workspace show\n  neo-rs project list | resolve NAME\n  neo-rs project run --project NAME [--url URL | --path PATH | --source SOURCE] [--dag NAME] [--dry-run] [--foreground] [--no-review]\n  neo-rs mcp tools | call TOOL --args-file PATH | token issue|revoke ...\n  neo-rs computer-use help | call COMMAND [--args-file PATH]\n  neo-rs eval run|list|audit (optional Node Eval extension)\n  neo-rs compute|gpu build|run|web|services|doctor|cleanup (optional Node GPU extension)\n  neo-rs package stage ABSOLUTE_NEW_DIR\n  neo-rs status | doctor\n\nNative Run create/resume, specialty Vlog review, optional project-owned JS preflight and Relay foreground attach are supported. Other commands remain unsupported; installed neo remains unchanged.");
             Ok(0)
         }
         _ => Err(format!(
