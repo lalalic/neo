@@ -343,3 +343,12 @@ unapproved exceptions; full release gates remain deliberately open.
 - `escalation learn|test`, model-generated Case fallback lessons and final
   phone/device E2E are still open; T017/T019/T020 not marked complete.
   See `contracts/native-escalation-runtime.md`.
+
+## Native Project setup-agent (T017 in progress)
+
+- `neo-rs project setup-agent NAME` now opens the same encoded ChatGPT
+  browser setup URL as Node, with an absolute checked `setup/bootstrap.md`.
+  It never submits the prompt automatically. The real Chrome launcher is
+  **not** invoked in tests.
+- Four native tests, all Rust **160/160**, original Node Control **15/15**,
+  strict Clippy passed. See `contracts/native-project-setup.md`.

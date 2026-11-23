@@ -22,6 +22,7 @@ pub mod mcp_local;
 pub mod mcp_token;
 pub mod package;
 pub mod process_guard;
+pub mod project_setup;
 pub mod project_tts;
 pub mod service;
 pub mod skill_package;
