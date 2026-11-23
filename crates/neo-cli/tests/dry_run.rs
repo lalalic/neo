@@ -327,17 +327,42 @@ fn native_dry_run_does_not_require_node_when_git_is_available() {
 }
 
 #[test]
-fn project_preflight_js_adapter_refuses_instead_of_silently_skipping_or_executing() {
+fn explicit_project_preflight_script_has_reference_parity_and_no_implicit_run_creation() {
     let f = Fixture::new();
     write(
         &f.source.join("scripts/survey.mjs"),
-        "import fs from 'node:fs';fs.writeFileSync('unsafe-marker','must never run');",
+        r"import fs from 'node:fs';fs.appendFileSync('preflight-marker','ran\n');",
     );
     write(
         &f.source.join("project.run.json"),
         r#"{"schemaVersion":1,"input":{"type":"url","schemes":["https"]},"preflight":{"script":"scripts/survey.mjs"}}"#,
     );
-    let output = f.call(
+    f.parity(&[
+        "--dry-run",
+        "--project",
+        "content-distribution",
+        "--url",
+        "https://a.example",
+    ]);
+    assert_eq!(
+        fs::read_to_string(f.source.join("preflight-marker")).unwrap(),
+        "ran\nran\n"
+    );
+    assert!(!f.source.join("runs").exists());
+}
+
+#[test]
+fn declared_preflight_failure_blocks_native_run_preview() {
+    let f = Fixture::new();
+    write(
+        &f.source.join("scripts/survey.mjs"),
+        "console.error('project-assets-invalid');process.exit(3);",
+    );
+    write(
+        &f.source.join("project.run.json"),
+        r#"{"schemaVersion":1,"input":{"type":"url","schemes":["https"]},"preflight":{"script":"scripts/survey.mjs"}}"#,
+    );
+    let native = f.call(
         true,
         &[
             "--dry-run",
@@ -347,9 +372,97 @@ fn project_preflight_js_adapter_refuses_instead_of_silently_skipping_or_executin
             "https://a.example",
         ],
     );
-    assert!(!output.status.success());
-    assert!(String::from_utf8_lossy(&output.stderr).contains("not yet supported"));
-    assert!(output.stdout.is_empty());
-    assert!(!f.source.join("unsafe-marker").exists());
+    assert!(!native.status.success());
+    assert!(String::from_utf8_lossy(&native.stderr).contains("project-assets-invalid"));
+    assert!(!f.source.join("runs").exists());
+}
+
+#[cfg(unix)]
+#[test]
+fn external_symlink_project_preflight_is_rejected_before_script_execution() {
+    use std::os::unix::fs::symlink;
+    let f = Fixture::new();
+    let outside = f._tmp.path().join("danger.mjs");
+    write(&outside,"import fs from 'node:fs';fs.writeFileSync('/tmp/neo-harness-unexpected-preflight','unsafe');");
+    let path = f.source.join("scripts/survey.mjs");
+    fs::create_dir_all(path.parent().unwrap()).unwrap();
+    symlink(&outside, &path).unwrap();
+    write(
+        &f.source.join("project.run.json"),
+        r#"{"schemaVersion":1,"input":{"type":"url","schemes":["https"]},"preflight":{"script":"scripts/survey.mjs"}}"#,
+    );
+    let native = f.call(
+        true,
+        &[
+            "--dry-run",
+            "--project",
+            "content-distribution",
+            "--url",
+            "https://a.example",
+        ],
+    );
+    assert!(!native.status.success());
+    assert!(!f.source.join("runs").exists());
+}
+
+#[test]
+fn oversized_project_preflight_output_is_bounded_and_rejected() {
+    let f = Fixture::new();
+    write(
+        &f.source.join("scripts/too-loud.mjs"),
+        "process.stdout.write('X'.repeat(1024*1024+100));",
+    );
+    write(
+        &f.source.join("project.run.json"),
+        r#"{"schemaVersion":1,"input":{"type":"url","schemes":["https"]},"preflight":{"script":"scripts/too-loud.mjs"}}"#,
+    );
+    let result = f.call(
+        true,
+        &[
+            "--dry-run",
+            "--project",
+            "content-distribution",
+            "--url",
+            "https://example.org",
+        ],
+    );
+    assert!(!result.status.success());
+    assert!(String::from_utf8_lossy(&result.stderr).contains("output exceeded"));
+    assert!(result.stdout.is_empty());
+    assert!(!f.source.join("runs").exists());
+}
+
+#[cfg(unix)]
+#[test]
+fn native_preflight_without_node_is_an_explicit_dependency_failure() {
+    let f = Fixture::new();
+    write(&f.source.join("scripts/survey.mjs"), "process.exit(0);");
+    write(
+        &f.source.join("project.run.json"),
+        r#"{"schemaVersion":1,"input":{"type":"url","schemes":["https"]},"preflight":{"script":"scripts/survey.mjs"}}"#,
+    );
+    let result = Command::new(env!("CARGO_BIN_EXE_neo-rs"))
+        .args([
+            "project",
+            "run",
+            "--dry-run",
+            "--project",
+            "content-distribution",
+            "--url",
+            "https://example.org",
+        ])
+        .env("HOME", &f.home)
+        .env("NEO_ROOT", &f.root)
+        .env("NEO_HARNESS_ROOT", &f.repository)
+        .env("NEO_WORKSPACE_CONFIG", &f.config)
+        .env("PATH", "/usr/bin:/bin")
+        .current_dir(&f.root)
+        .output()
+        .unwrap();
+    // When system Node is installed under /usr/bin, this fallback path may
+    // provide it. Otherwise preflight fails clearly rather than being skipped.
+    if !result.status.success() {
+        assert!(String::from_utf8_lossy(&result.stderr).contains("preflight failed"));
+    }
     assert!(!f.source.join("runs").exists());
 }

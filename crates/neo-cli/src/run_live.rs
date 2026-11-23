@@ -12,7 +12,7 @@ use serde_json::{json, Value};
 use std::os::unix::fs::PermissionsExt;
 use std::{
     env, fs,
-    io::Read,
+    io::{Read, Write},
     path::{Path, PathBuf},
     process::{Command, Stdio},
     thread,
@@ -238,13 +238,61 @@ fn task_rows(value: &Value) -> Vec<Value> {
 fn file_text(path: &Path) -> Result<String, String> {
     fs::read_to_string(path).map_err(|e| e.to_string())
 }
+enum RunAction {
+    Response(Value),
+    Foreground {
+        response: Value,
+        job: String,
+        task: String,
+        project: String,
+        workspace: PathBuf,
+    },
+}
+
+fn relay_foreground(project: &str, job: &str, task: &str, workspace: &Path) -> Result<(), String> {
+    if env::var_os("NEO_RELAY_CLI").is_some() {
+        return Err("NEO_RELAY_CLI (Node.js shim) is unsupported in Rust Harness".into());
+    }
+    let binary = env::var("NEO_RELAY_EXECUTABLE").unwrap_or_else(|_| "agents-relay".into());
+    let mut command = Command::new(binary);
+    command.args([
+        "job",
+        "run",
+        "--repo",
+        project,
+        "--id",
+        job,
+        "--task-id",
+        task,
+        "--workspace-root",
+        workspace.to_str().ok_or("invalid workspace path")?,
+        "--foreground",
+    ]);
+    if let Ok(port) = env::var("NEO_RELAY_CONTROL_PORT") {
+        let value = port
+            .parse::<u16>()
+            .map_err(|_| "NEO_RELAY_CONTROL_PORT must be a valid nonzero port".to_string())?;
+        if value == 0 {
+            return Err("NEO_RELAY_CONTROL_PORT must be a valid nonzero port".into());
+        }
+        command.arg("--port").arg(port);
+    }
+    let status=command.stdin(Stdio::inherit()).stdout(Stdio::inherit()).stderr(Stdio::inherit())
+        .status().map_err(|e|format!("Agents Relay foreground execution failed: {e}; durable Job and Run binding are preserved"))?;
+    if !status.success() {
+        return Err(format!("Agents Relay foreground execution exited ({}); durable Job and Run binding are preserved",
+            status.code().map_or_else(||"signal".into(),|c|c.to_string())));
+    }
+    Ok(())
+}
+
 fn bound(
     prepared: &Prepared,
     run: &Path,
     files: &RunFiles,
     job: &str,
     task: &str,
-) -> Result<Value, String> {
+) -> Result<RunAction, String> {
     let project = prepared.options.project.as_deref().unwrap_or_default();
     let job_object = relay(&relay_args(&[
         "job", "show", "--repo", project, "--id", job,
@@ -276,6 +324,27 @@ fn bound(
         );
     }
     let mut state = job_object["state"].as_str().unwrap_or("").to_string();
+    if prepared.options.foreground && matches!(state.as_str(), "DRAFT" | "ACTIVE") {
+        let mut response = json!({"project":project,"runPath":run.to_string_lossy(),"jobId":job,"taskId":task,"status":state,"foreground":true});
+        if let Some(dag) = &prepared.dag {
+            response["dag"] = json!(dag);
+        }
+        if let Some(source) = prepared
+            .source
+            .as_ref()
+            .map(|v| v.0.as_str())
+            .or_else(|| files.saved.as_ref().and_then(|v| v["source"].as_str()))
+        {
+            response["source"] = json!(source);
+        }
+        return Ok(RunAction::Foreground {
+            response,
+            job: job.into(),
+            task: task.into(),
+            project: project.into(),
+            workspace: prepared.selected.root.clone(),
+        });
+    }
     if state == "DRAFT" {
         let schedule = relay(&relay_args(&[
             "job",
@@ -316,7 +385,7 @@ fn bound(
     if state == "COMPLETED" {
         output["reused"] = json!(true);
     }
-    Ok(output)
+    Ok(RunAction::Response(output))
 }
 fn job_title(project: &str, run: &Path) -> String {
     let p = project
@@ -382,7 +451,7 @@ fn validate_saved_source(run: &Path, files: &RunFiles) -> Result<(), String> {
     Ok(())
 }
 
-fn new_job(prepared: &Prepared, run: &Path, files: &RunFiles) -> Result<Value, String> {
+fn new_job(prepared: &Prepared, run: &Path, files: &RunFiles) -> Result<RunAction, String> {
     let project = prepared
         .options
         .project
@@ -456,23 +525,14 @@ fn new_job(prepared: &Prepared, run: &Path, files: &RunFiles) -> Result<Value, S
     bound(prepared, run, files, &job_id, task_id)
 }
 
-pub fn run(args: &[String]) -> Result<Value, String> {
-    let prepared = run_dry::prepare(args)?;
-    if prepared.options.dry_run {
-        return Ok(prepared.preview);
-    }
-    if prepared.options.foreground {
-        return Err(
-            "native project run --foreground is not yet supported; refusing to submit".into(),
-        );
-    }
+fn run_locked(prepared: &Prepared) -> Result<RunAction, String> {
     // Stage-specific policy is fully validated by the Run initializer before
     // any Relay submission; never silently bypass interactive approval.
-    let run = run_path(&prepared)?;
+    let run = run_path(prepared)?;
     #[cfg(unix)]
     let _run_process_lock = RunDirectoryLock::acquire(&run)?;
-    let files = run_files::stage(&prepared, &run)?;
-    run_git::ensure(&run, &prepared)?;
+    let files = run_files::stage(prepared, &run)?;
+    run_git::ensure(&run, prepared)?;
     validate_saved_source(&run, &files)?;
     if let Some(saved) = &files.saved {
         let repo = prepared.options.project.as_deref().unwrap_or_default();
@@ -501,7 +561,35 @@ pub fn run(args: &[String]) -> Result<Value, String> {
         let task = saved["taskId"]
             .as_str()
             .ok_or("existing Run binding task ID is invalid")?;
-        return bound(&prepared, &run, &files, &id, task);
+        return bound(prepared, &run, &files, &id, task);
     }
-    new_job(&prepared, &run, &files)
+    new_job(prepared, &run, &files)
+}
+
+pub fn run(args: &[String]) -> Result<Option<Value>, String> {
+    let prepared = run_dry::prepare(args)?;
+    if prepared.options.dry_run {
+        return Ok(Some(prepared.preview));
+    }
+    // run_locked holds the OS Run-directory lock only during binding/verification.
+    // Never hold it during a potentially long-running foreground subscription.
+    let action = run_locked(&prepared)?;
+    match action {
+        RunAction::Response(value) => Ok(Some(value)),
+        RunAction::Foreground {
+            response,
+            job,
+            task,
+            project,
+            workspace,
+        } => {
+            println!(
+                "{}",
+                serde_json::to_string(&response).map_err(|e| e.to_string())?
+            );
+            std::io::stdout().flush().map_err(|e| e.to_string())?;
+            relay_foreground(&project, &job, &task, &workspace)?;
+            Ok(None)
+        }
+    }
 }

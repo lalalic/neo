@@ -130,6 +130,42 @@ async function main() {
     assert.deepEqual(resumed, created, 'Run resume changed authoritative Job/Task');
     const after = execFileSync('git', ['-C', run, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
     assert.equal(after, before, 'Run Git HEAD changed during idempotent resume');
+    // Attach to the same ACTIVE Coordinator via the real Rust Relay CLI.
+    // Terminate only this separate terminal process group; the daemon/Job
+    // remain alive and resume must continue to resolve the exact same Job.
+    const foreground = spawn(rust, [...input, '--foreground'], {
+      cwd: workspace, env: environment, detached: true,
+      stdio: ['ignore', 'pipe', 'pipe']
+    });
+    let streamed = '';
+    let streamedError = '';
+    const done = once(foreground, 'exit');
+    const firstIdentity = new Promise(resolve => {
+      foreground.stdout.on('data', bytes => {
+        streamed += bytes.toString('utf8');
+        if (streamed.includes('\n')) resolve();
+      });
+      foreground.stderr.on('data', bytes => { streamedError += bytes.toString('utf8'); });
+    });
+    try {
+      await Promise.race([firstIdentity, delay(3500)]);
+      assert(streamed.includes('\n'), `Foreground failed to publish attached Job identity: ${streamedError}`);
+      const attached = JSON.parse(streamed.split('\n')[0]);
+      assert.equal(attached.foreground, true);
+      assert.equal(attached.status, 'ACTIVE');
+      assert.equal(attached.jobId, created.jobId);
+      assert.equal(attached.taskId, created.taskId);
+      await delay(350);
+      assert.equal(foreground.exitCode, null, `Foreground ended unexpectedly: ${streamedError}`);
+    } finally {
+      try { process.kill(-foreground.pid, 'SIGTERM'); } catch { /* already exited */ }
+      await Promise.race([done, delay(1400)]);
+      if (foreground.exitCode === null && foreground.signalCode === null) {
+        try { process.kill(-foreground.pid, 'SIGKILL'); } catch { /* already exited */ }
+        await Promise.race([done, delay(1000)]);
+      }
+    }
+    const foregroundAttached = true;
     const verify = new DatabaseSync(dbPath, { readOnly: true });
     const count = verify.prepare('SELECT COUNT(*) AS n FROM job_snapshot').get().n;
     verify.close();
@@ -143,6 +179,7 @@ async function main() {
       taskIdStable: created.taskId === resumed.taskId,
       jobs: count,
       privateRunGitStable: before === after,
+      foregroundAttached,
       productionStateTouched: false
     }, null, 2));
   } catch (error) {

@@ -30,12 +30,18 @@ are also implemented; `--dry-run` remains strictly nonmutating.
 - `NEO_RELAY_EXECUTABLE`: explicit test/installation override.
 - `NEO_RELAY_CONTROL_PORT`: explicit isolated loopback daemon port override.
 - `NEO_RELAY_CLI`: deprecated Node shim deliberately rejected.
-- External calls have a 120-second timeout and 4 MiB stdout/stderr limits.
+- Captured Relay calls have a 120-second timeout and 4 MiB stdout/stderr
+  limits; foreground Relay inherits terminal stdio and may remain attached
+  until the user's terminal interrupts it, without a second scheduler.
+- Explicit project-declared `scripts/*.mjs` preflight uses the external Node
+  executable only when that project requests it; execution is limited to
+  30 seconds and 1 MiB output. Script failure, missing interpreter, unsafe
+  path or output overflow abort before any Run creation or Relay submission.
 - Core Rust commands never silently invoke Node or Python.
 
 ## Verification
 
-`cargo test --workspace --offline` has 39 passing integration tests. Twelve
+`cargo test --workspace --offline` has 50 passing integration tests. Twelve
 Rust/Node live lifecycle cases verify exact canonical input bytes (with test
 paths normalized), bidirectional binding reuse, private URL token handling,
 source JSON key order, DRAFT activation recovery, completed Job reuse, tampered
@@ -61,8 +67,12 @@ T023 is verified: named DAG `review-stages.json` policies, private Vlog
 `--no-review` with approved private source manifest and publication blocking,
 and recovery of unbound source presets from staged immutable evidence.
 
-T024–T025 remain open: bounded project-owned JS preflight adapters,
-foreground attached event streaming, and full CLI variant parity. These are not accepted as migrated and must fail closed.
+T024 is verified: bounded project-owned JS preflight and stdout/stderr
+inheritance for a foreground Rust Relay attachment. The temporary real-daemon
+E2E attaches to the same ACTIVE Job and safely terminates the test terminal,
+without altering the Job ID/Task ID, introducing a second Job or touching live
+SQLite. T025 remains open for complete CLI flag/error variants and final
+Node/Rust parity. These are not accepted as migrated and must fail closed.
 
 The **currently installed Relay bundle** omits the native
 `owned-process-supervisor` executable. The isolated E2E supplies its already

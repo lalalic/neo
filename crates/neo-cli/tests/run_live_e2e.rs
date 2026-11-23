@@ -40,7 +40,9 @@ elif cmd=='job:run':
     job=state['jobs'].get(val('--id'))
     if not job: sys.exit(4)
     job['state']='ACTIVE'
-    persist();print(json.dumps({'scheduled':True,'state':'ACTIVE','jobId':job['id'],'taskId':'17'}))
+    persist()
+    if '--foreground' in args:print('FOREGROUND_EVENT_JOB_'+job['id'])
+    else:print(json.dumps({'scheduled':True,'state':'ACTIVE','jobId':job['id'],'taskId':'17'}))
 else:
     persist();sys.stderr.write('unexpected Relay operation '+cmd+'\n');sys.exit(3)
 "#;
@@ -688,4 +690,105 @@ fn recovering_unbound_discovery_source_preserves_exact_source_and_graph() {
             .replace(brun.to_str().unwrap(), "<RUN>");
         assert_eq!(rust, node, "Recovery file parity: {name}");
     }
+}
+
+#[test]
+fn foreground_project_run_attaches_without_duplicate_scheduler_or_false_completion() {
+    let f = Fixture::new();
+    let args = [
+        "--project",
+        "sample",
+        "--path",
+        f.run.to_str().unwrap(),
+        "--foreground",
+    ];
+    let result = f.call(true, &args);
+    assert!(
+        result.status.success(),
+        "{}",
+        String::from_utf8_lossy(&result.stderr)
+    );
+    let output = String::from_utf8_lossy(&result.stdout);
+    let mut lines = output.lines();
+    let attached: Value = serde_json::from_str(lines.next().unwrap()).unwrap();
+    assert_eq!(attached["foreground"], true);
+    assert_eq!(attached["status"], "DRAFT");
+    assert_eq!(lines.next(), Some("FOREGROUND_EVENT_JOB_101"));
+    assert_eq!(lines.next(), None);
+    assert_eq!(f.state()["creates"], 1);
+    assert_eq!(
+        f.state()["calls"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|x| x.as_str() == Some("job:run"))
+            .count(),
+        1
+    );
+    let second = f.call(true, &args);
+    assert!(second.status.success());
+    assert_eq!(f.state()["creates"], 1);
+    assert_eq!(
+        String::from_utf8_lossy(&second.stdout).lines().nth(1),
+        Some("FOREGROUND_EVENT_JOB_101")
+    );
+}
+
+#[test]
+fn foreground_failure_preserves_original_binding_and_exit_failure() {
+    let f = Fixture::new();
+    put(&f.state_root.join("fail-job-run"), "test");
+    let args = [
+        "--project",
+        "sample",
+        "--path",
+        f.run.to_str().unwrap(),
+        "--foreground",
+    ];
+    let failed = f.call(true, &args);
+    assert!(!failed.status.success());
+    assert!(String::from_utf8_lossy(&failed.stderr).contains("foreground"));
+    let binding: Value =
+        serde_json::from_slice(&fs::read(f.run.join(".neo-project-run.json")).unwrap()).unwrap();
+    assert_eq!(binding["jobId"], "101");
+    fs::remove_file(f.state_root.join("fail-job-run")).unwrap();
+    let resumed = f.call(true, &args);
+    assert!(resumed.status.success());
+    assert_eq!(f.state()["creates"], 1);
+}
+
+#[test]
+fn foreground_completed_job_returns_one_terminal_response_without_reinvoking_relay() {
+    let f = Fixture::new();
+    f.assert_success(&f.run(true));
+    let state_file = f.state_root.join("state.json");
+    let mut state = f.state();
+    state["jobs"]["101"]["state"] = json!("COMPLETED");
+    put(&state_file, &serde_json::to_string(&state).unwrap());
+    let output = f.call(
+        true,
+        &[
+            "--project",
+            "sample",
+            "--path",
+            f.run.to_str().unwrap(),
+            "--foreground",
+        ],
+    );
+    assert!(output.status.success());
+    let raw = String::from_utf8_lossy(&output.stdout);
+    assert_eq!(raw.lines().count(), 1);
+    let completed: Value = serde_json::from_str(raw.trim()).unwrap();
+    assert_eq!(completed["status"], "COMPLETED");
+    assert_eq!(completed["reused"], true);
+    assert_eq!(f.state()["creates"], 1);
+    assert_eq!(
+        f.state()["calls"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|x| x.as_str() == Some("job:run"))
+            .count(),
+        1
+    );
 }

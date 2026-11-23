@@ -390,7 +390,28 @@ fn preflight(sel: &SelectedProject) -> Result<(), String> {
     if !inside(&sel.project, &path) || !path.is_file() {
         return Err("invalid project preflight script path".into());
     }
-    Err("project preflight script execution is not yet supported by native dry-run preview".into())
+    let mut command = Command::new("node");
+    command.arg(&path).current_dir(&sel.project);
+    let output = crate::process_guard::capture(
+        &mut command,
+        std::time::Duration::from_secs(30),
+        1024 * 1024,
+    )
+    .map_err(|e| format!("project template asset preflight failed: {e}"))?;
+    if !output.status.success() {
+        let text = if !output.stderr.is_empty() {
+            output.stderr
+        } else {
+            output.stdout
+        };
+        let detail: String = if text.is_empty() {
+            "unknown".into()
+        } else {
+            String::from_utf8_lossy(&text).chars().take(800).collect()
+        };
+        return Err(format!("project template asset preflight failed: {detail}"));
+    }
+    Ok(())
 }
 pub struct Prepared {
     pub options: Options,

@@ -128,3 +128,20 @@ unapproved exceptions; full release gates remain deliberately open.
 - Four advanced Rust/Node fixture cases bring native Rust integration coverage
   to **43/43 passing**; `cargo clippy -D warnings` and real isolated Relay E2E
   also pass. The preview remains on `rust` only.
+
+## Explicit project JS preflight + foreground Relay (T024) — 2026-11-23
+
+- Project-owned script preflight only when `project.run.json` explicitly
+  declares `preflight.script` under `scripts/*.mjs` inside the Git root.
+  Rust launches Node **only for this extension**, 30s timeout / 1MiB
+  captured stdout and stderr limit; rejects nonzero, missing runtime,
+  out-of-project symlinks and excessive output before a private Run is created.
+- Native `--foreground` emits Job/Task identity before invoking the existing
+  Rust Relay CLI's `job run --foreground`. The CLI inherits the user's
+  terminal for Task event streaming; no secondary scheduler or new Job.
+  The OS Run directory lock is released before the terminal attachment.
+- `cargo test --workspace --offline`: **50/50 integration tests passed**;
+  strict Clippy with `-D warnings` passed.
+- Real isolated Rust Relay daemon E2E: ACTIVE -> same ACTIVE identity on
+  replay, `foregroundAttached:true`, exactly one SQLite Job, unchanged Run
+  Git HEAD and untouched production services.
