@@ -67,6 +67,28 @@ fn run(args: &[String]) -> Result<i32, String> {
             );
             Ok(exit)
         }
+        "mcp" if rest.first().is_some_and(|s| s == "token") => {
+            if rest[1..]
+                .iter()
+                .any(|s| matches!(s.as_str(), "--help" | "-h"))
+            {
+                println!("Usage: neo mcp token issue (--stdout | --output ABSOLUTE_PATH) [--origin HTTPS_URL] [--client-name NAME]\n       neo mcp token revoke --file ABSOLUTE_PATH [--origin HTTPS_URL]");
+                return Ok(0);
+            }
+            let result = neo_harness_cli::mcp_token::run(&rest[1..])?;
+            if let Some(secret) = result
+                .get("access_token")
+                .and_then(serde_json::Value::as_str)
+            {
+                println!("{secret}");
+            } else {
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&result).map_err(|e| e.to_string())?
+                );
+            }
+            Ok(0)
+        }
         "computer-use" => {
             let (result, exit) = neo_harness_cli::mcp_local::computer(rest)?;
             println!(
@@ -81,7 +103,7 @@ fn run(args: &[String]) -> Result<i32, String> {
             Ok(status)
         }
         "--help" | "-h" => {
-            println!("Neo Harness Rust preview\n\n  neo-rs agent list [--project PATH] [--source project|global|shared|agency]\n  neo-rs agent search QUERY [--project PATH] [--source ...] [--limit N]\n  neo-rs skill list [--project PATH]\n  neo-rs bootstrap [--json] [--project PATH]\n  neo-rs workspace show\n  neo-rs project list | resolve NAME\n  neo-rs project run --project NAME [--url URL | --path PATH | --source SOURCE] [--dag NAME] [--dry-run] [--foreground] [--no-review]\n  neo-rs status | doctor\n\nNative Run create/resume, specialty Vlog review, optional project-owned JS preflight and Relay foreground attach are supported. Other commands remain unsupported; installed neo remains unchanged.");
+            println!("Neo Harness Rust preview\n\n  neo-rs agent list [--project PATH] [--source project|global|shared|agency]\n  neo-rs agent search QUERY [--project PATH] [--source ...] [--limit N]\n  neo-rs skill list [--project PATH]\n  neo-rs bootstrap [--json] [--project PATH]\n  neo-rs workspace show\n  neo-rs project list | resolve NAME\n  neo-rs project run --project NAME [--url URL | --path PATH | --source SOURCE] [--dag NAME] [--dry-run] [--foreground] [--no-review]\n  neo-rs mcp tools | call TOOL --args-file PATH | token issue|revoke ...\n  neo-rs computer-use help | call COMMAND [--args-file PATH]\n  neo-rs status | doctor\n\nNative Run create/resume, specialty Vlog review, optional project-owned JS preflight and Relay foreground attach are supported. Other commands remain unsupported; installed neo remains unchanged.");
             Ok(0)
         }
         _ => Err(format!(

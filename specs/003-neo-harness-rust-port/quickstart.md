@@ -175,3 +175,18 @@ unapproved exceptions; full release gates remain deliberately open.
   ordering varies between two Node calls; decoded semantics match Rust.
 - MCP Token OAuth, escalation and remaining CLI are not yet ported. The
   installed `neo` and production NeoY remain unchanged.
+
+## Native OAuth token client (T017 in progress) — 2026-11-23
+
+- Implemented `neo-rs mcp token issue|revoke` as a Rust PKCE client of the
+  **existing** NeoY HTTPS OAuth issuer. Verifier/state are cryptographically
+  random; callback/issuer/state validated; one-hour access token is required;
+  unused refresh credentials are revoked before returning any access token.
+- Output-file mode uses exclusive `0600` creation and never prints secrets in
+  metadata. Failures remove incomplete issuance files, while revocation errors
+  preserve the original token file. Issuing to stdout requires explicit opt-in.
+- **All OAuth tests used mock transport only**, not real operator credentials.
+  Rust OAuth mock suite **7/7**, existing Node MCP+Token tests **17/17**,
+  Rust full integration suite **71/71**, strict Clippy passed.
+- Escalation and other core CLI coordination remain T017 open. No production
+  token issuance, credential read, install or service restart occurred.
