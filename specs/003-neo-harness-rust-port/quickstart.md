@@ -303,3 +303,16 @@ unapproved exceptions; full release gates remain deliberately open.
   Rust suite **123/123**, strict Clippy passed. No production record touched.
 - The stateless local inference loop, owned model startup, post-run summary
   and interactive teaching flows are still T017 work, not accepted as done.
+
+## Native stateless local inference state machine (T017 in progress)
+
+- Rust now implements the model-message/Tool Call/Tool Result/Decision Gate
+  loop. It uses only localhost HTTP, <=4 tools per batch, no arbitrary tool
+  names, no persistent transcript and a real successful-tool evidence gate.
+  Tool executors are explicit callbacks; none are wired to production yet.
+- Seven native mock/loopback tests and six original Node tests pass. Full
+  Rust integration **130/130**, strict Clippy pass. No live commands, model
+  startup, credentials, external network or production state were used.
+- Still outstanding: authorized stateless Tool Executor, owned model runtime,
+  Challenge/Experience integration and local model end-to-end acceptance.
+  T017/T019/T020 remain open.
