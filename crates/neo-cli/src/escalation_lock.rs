@@ -183,6 +183,13 @@ pub fn guardian_main(args: &[String]) -> i32 {
                     }
                 }
             }
+            if let Some(raw) = line.strip_prefix("GROUP ") {
+                if let Ok(pgid) = raw.parse::<i32>() {
+                    if pgid > 1 && pgid != unsafe { libc::getpgrp() } && !owned.contains(&-pgid) {
+                        owned.push(-pgid);
+                    }
+                }
+            }
         }
         terminate_owned(&owned);
         Ok(0)
@@ -215,6 +222,26 @@ impl Guard {
             .as_mut()
             .ok_or("Escalation guardian IPC closed")?;
         pipe.write_all(format!("PID {pid}\n").as_bytes())
+            .map_err(|e| e.to_string())?;
+        pipe.flush().map_err(|e| e.to_string())
+    }
+    /// Owns an isolated process group whose group ID equals its spawned
+    /// leader PID. A crash must terminate its descendants as well as its
+    /// top-level inference process; never register arbitrary process groups.
+    #[cfg(unix)]
+    pub fn register_owned_group(&mut self, leader: u32) -> Result<(), String> {
+        if leader < 2 {
+            return Err("Invalid owned model process group".into());
+        }
+        let pid = leader as i32;
+        if unsafe { libc::getpgid(pid) } != pid {
+            return Err("Model PID is not the leader of an isolated process group".into());
+        }
+        let pipe = self
+            .stdin
+            .as_mut()
+            .ok_or("Escalation guardian IPC closed")?;
+        pipe.write_all(format!("GROUP {pid}\n").as_bytes())
             .map_err(|e| e.to_string())?;
         pipe.flush().map_err(|e| e.to_string())
     }

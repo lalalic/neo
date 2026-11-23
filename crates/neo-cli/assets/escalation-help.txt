@@ -1,0 +1,44 @@
+Usage:
+  neo escalation --handoff-file PATH [options]
+  neo escalation test              Run local-agent tool-use and model-cleanup self-test
+  neo escalation learn             Teach the local agent interactively, review and remember a lesson
+  neo escalation cases [--search TEXT] [--limit N]  List private deduplicated scenarios
+  neo escalation challenges [--search TEXT] [--limit N]  Inspect durable challenges and attempts
+  neo status|doctor
+  neo agent list [--project PATH] [--source project|shared|global|agency]
+  neo agent search QUERY [--project PATH] [--source ...] [--limit N]
+  neo project list|resolve NAME|setup-agent NAME
+  neo project run [--url HTTPS_URL | --path ABSOLUTE_RUN_DIR] --project NAME [--dag NAME] [--title TEXT] [--dry-run] [--foreground] [--no-review]
+  neo compute build|run|web|services|doctor|cleanup [options]  On-demand Docker compute
+  neo gpu ...                                 Legacy alias for neo compute
+  neo workspace show
+  neo skill list [--project PATH]|package SKILL_DIR OUTPUT.zip
+  neo bootstrap [--json] [--project PATH]
+  neo eval run --project NAME [--case ID | --dag [--smoke]] [--model MODEL] [--dry-run]
+  neo eval list --project NAME
+  neo eval audit
+  neo service list|status NAME|start|stop|restart NAME --apply
+  neo mcp tools                                List permitted local Neo.app MCP tools
+  neo mcp call review.preview --args-file PATH   View-only or managed review (no Git commit)
+  neo mcp call askquestions --args-file PATH      Markdown Scene questionnaire
+  neo mcp call markcut.preview --args-file PATH Existing provider-compatible preview
+  neo mcp token issue (--stdout | --output ABSOLUTE_PATH) [--origin HTTPS_URL] [--client-name NAME]
+  neo mcp token revoke --file ABSOLUTE_PATH [--origin HTTPS_URL]
+  neo computer-use help | call COMMAND [--args-file PATH]
+
+Options:
+  --handoff-file PATH            Required handoff file containing the full escalation request
+  --on-needs-user-file PATH      Optional notification-policy override file
+  --cwd PATH                     Original working directory for the task (default: current directory)
+  --correlation-id ID            Stable opaque task ID to associate retries
+
+Runtime environment:
+  NEO_ESCALATION_ENGINE            llama (default), mlx, external
+  NEO_ESCALATION_MODEL             Model repo or local model file path
+  NEO_ESCALATION_CONTEXT           Context tokens (default 65536)
+  NEO_ESCALATION_AGENT_COMMAND     Hermes executable (default hermes)
+  NEO_ESCALATION_SERVER_COMMAND    Local inference server executable
+  NEO_ESCALATION_BASE_URL          Loopback /v1 URL for external engine
+  NEO_ESCALATION_CHALLENGES_DIR     Private challenge ledger location
+  NEO_ESCALATION_LOCK_DIR           Per-host exclusive-lock directory (default ~/.local/state/neo/escalation)
+  NEO_ESCALATION_LOCK_WAIT_SECONDS  Queue timeout (default 3600)

@@ -64,12 +64,32 @@ pub fn run_with<M, T>(
     prompt: &str,
     req: &Request,
     config: &Config,
-    mut model: M,
-    mut tool: T,
+    model: M,
+    tool: T,
 ) -> Result<String, String>
 where
     M: FnMut(&Value) -> Result<Value, String>,
     T: FnMut(&str, &Value, &Path) -> Result<ToolResult, String>,
+{
+    run_with_progress(endpoint, prompt, req, config, model, tool, |_, _| {})
+}
+
+/// Progress is metadata only (tool name and success), never raw model
+/// arguments or tool outputs. It lets durable Challenges retain an accurate
+/// count even when a later local model call or status check fails.
+pub fn run_with_progress<M, T, P>(
+    endpoint: &str,
+    prompt: &str,
+    req: &Request,
+    config: &Config,
+    mut model: M,
+    mut tool: T,
+    mut progress: P,
+) -> Result<String, String>
+where
+    M: FnMut(&Value) -> Result<Value, String>,
+    T: FnMut(&str, &Value, &Path) -> Result<ToolResult, String>,
+    P: FnMut(&str, bool),
 {
     if !escalation_contract::local_endpoint(endpoint) {
         return Err("Local loopback inference endpoint required".into());
@@ -153,6 +173,7 @@ where
                 }
             };
             let text = output.text.chars().take(12000).collect::<String>();
+            progress(public_name, output.ok);
             events.push(json!({"type":"tool_result","name":public_name,"is_error":!output.ok,"output":text}));
             messages.push(json!({"role":"tool","tool_call_id":id,"content":serde_json::to_string(&json!({
                 "ok":output.ok,"output":if text.is_empty(){"(no output)"}else{&text},

@@ -329,3 +329,17 @@ unapproved exceptions; full release gates remain deliberately open.
   **18/18**, strict Clippy pass. No real Apple/browser/tool writes were made.
 - Still outstanding: native owned-model lifecycle, terminal orchestration,
   failure recovery and full local-model E2E. T017/T019/T020 remain open.
+
+## Native end-to-end Escalation command (T017 in progress)
+
+- Native `neo-rs escalation --handoff-file ...` now covers original Handoff,
+  persistent Challenge first, flock guardian, external or owned llama/MLX
+  model, tool/decision loop, sanitized Experience and Finished Attempt.
+- Owned model is isolated by process group and private temporary diagnostics;
+  both normal and abnormal termination release the single existing lock.
+- Full Rust 156/156; Node reference Escalation 41/41; strict Clippy and fmt
+  pass. Synthetic E2E included real localhost HTTP, a temporary Shell action
+  and an owned fake server; **no real model or production tool called**.
+- `escalation learn|test`, model-generated Case fallback lessons and final
+  phone/device E2E are still open; T017/T019/T020 not marked complete.
+  See `contracts/native-escalation-runtime.md`.

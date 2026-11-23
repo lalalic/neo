@@ -164,3 +164,23 @@ impl UrlOrPath {
         url::Url::from_file_path(path).unwrap().to_string()
     }
 }
+
+#[cfg(unix)]
+#[test]
+fn guardian_terminates_entire_owned_model_process_group_on_requester_pipe_close() {
+    use std::os::unix::process::CommandExt;
+    let f = Fixture::new();
+    let mut guard = f.acquire(3).unwrap();
+    let mut command = Command::new("/bin/sh");
+    command.args(["-c", "sleep 30 & wait"]).process_group(0);
+    let mut owned = command.spawn().unwrap();
+    guard.register_owned_group(owned.id()).unwrap();
+    let began = Instant::now();
+    guard.finish().unwrap();
+    assert!(began.elapsed() < Duration::from_secs(12));
+    let status = owned.wait().unwrap();
+    assert!(!status.success());
+    // The next request obtains the same lock immediately after cleanup.
+    let next = f.acquire(3).unwrap();
+    next.finish().unwrap();
+}
