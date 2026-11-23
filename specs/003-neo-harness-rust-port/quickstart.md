@@ -280,3 +280,16 @@ unapproved exceptions; full release gates remain deliberately open.
   Run Git/foreground evidence. No production state changed.
 - The actual Escalation stateless execution, durable Attempt writes and
   self-test/learning paths remain T017 open; no production cutover.
+
+## Native durable Escalation Challenge writer (T017 in progress)
+
+- Added native private Challenge/Attempt storage with Node-compatible stable
+  Challenge IDs, original Handoff preservation, atomic 0600 start/checkpoint/
+  finished evidence, retry handling and classified errors. Records cannot
+  be silently overwritten; tampered identities fail closed.
+- Nine synthetic Node/Rust fixture parity/security tests passed, original
+  Node Challenge regression **8/8**, full Rust integration suite **116/116**,
+  strict Clippy passed. No production Escalation data, model or notification.
+- The actual local stateless tool-calling execution, dynamic server ownership,
+  Experience learning and end-to-end terminal recovery are not yet integrated;
+  T017/T019/T020 remain open and production `neo` is unchanged.
