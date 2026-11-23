@@ -332,3 +332,67 @@ fn experience_store_blocks_raw_handoff_events_or_unsanitized_secret_fields() {
     }
     assert!(!f.dir.exists(), "invalid summaries must not create storage");
 }
+
+#[test]
+fn generated_experience_prompt_contains_only_sanitized_context_and_tool_counts() {
+    let events = vec![
+        json!({"type":"tool_use","name":"terminal",
+        "input":{"command":"echo secret=syntheticSensitiveKey12345"}}),
+        json!({"type":"tool_result","name":"terminal","is_error":false,
+        "output":"token=syntheticSensitiveKey12345"}),
+    ];
+    let result = json!({"status":"resolved","summary":"Verified the fixture","reason":null});
+    let mut observed = false;
+    let candidate = experience::generate_with(
+        "Local post-run recorder",
+        "Visit https://private.example/session?token=privateSecret for an authorized task",
+        &result,
+        &events,
+        |request| {
+            observed = true;
+            assert_eq!(request["messages"][0]["role"], "system");
+            assert_eq!(request["messages"][0]["content"], "Local post-run recorder");
+            assert_eq!(request["messages"][1]["role"], "user");
+            assert!(request["messages"][1]["content"].is_string());
+            let text = request["messages"][1]["content"].as_str().unwrap();
+            assert!(!text.contains("private.example"));
+            assert!(!text.contains("syntheticSensitiveKey12345"));
+            assert!(!text.contains("echo secret"));
+            let context: Value = serde_json::from_str(text).unwrap();
+            assert_eq!(context["outcome"], "resolved");
+            assert_eq!(context["tool_calls"], 1);
+            assert_eq!(context["tool_errors"], 0);
+            assert_eq!(context["observed_tools"], json!(["shell"]));
+            assert_eq!(request["response_format"]["type"], "json_object");
+            Ok(json!({"choices":[{"message":{"content":json!({
+           "scenario_key":"recorded_example","category":"tooling","symptom":"Fixture missing",
+           "strategy_key":"inspect_and_verify","steps":["Inspect permitted resource"],
+           "verification":"Confirm tool result","lesson":"Use observed evidence"
+        }).to_string()}}]}))
+        },
+    )
+    .unwrap();
+    assert!(observed);
+    assert_eq!(candidate["scenario_key"], "recorded_example");
+    assert_eq!(candidate["strategy_key"], "inspect_and_verify");
+}
+
+#[test]
+fn malformed_optional_recording_cannot_be_treated_as_success_or_a_tool_result() {
+    let candidate = experience::generate_with(
+        "Recorder",
+        "Safe synthetic task",
+        &json!({"status":"failed","summary":"No evidence"}),
+        &[],
+        |_| Ok(json!({"choices":[{"message":{"content":"not-json"}}]})),
+    );
+    assert!(candidate.is_err());
+    let missing = experience::generate_with(
+        "Recorder",
+        "Safe synthetic task",
+        &json!({"status":"failed","summary":"No evidence"}),
+        &[],
+        |_| Ok(json!({"choices":[{"message":{"content":"[]"}}]})),
+    );
+    assert!(missing.is_err());
+}

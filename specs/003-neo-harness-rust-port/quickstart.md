@@ -382,3 +382,17 @@ unapproved exceptions; full release gates remain deliberately open.
   Learn/SelfTest/Experience **27/27**, strict Clippy passed.
 - Real owner TTY/model acceptance and optional post-run Experience capture
   still need final T017/T019 validation; production `neo` remains untouched.
+
+## Completed T017 native command surface + optional local Case recorder
+
+- Interactive Learn, local read-only nonce self-test, owner-taught recall,
+  Project setup-agent, local Escalation and optional post-run local Experience
+  model summarization have native Rust implementations and acceptance tests.
+- The recorder uses only sanitized scenario/outcome and tool names/counts,
+  never a raw transcript, tool args, credential or private Handoff. Recorder
+  errors never replay a completed task.
+- Rust full suite **182/182**, strict Clippy and fmt passed; Node original
+  Escalation + Control references **72/72**; native clean Mac package **4/4**.
+- T017 is complete at the **code/fixture** level. T019 remains the full
+  existing Neo.app/real-model integration acceptance; T020 remains a release
+  approval gate and cannot be inferred from these unit/integration tests.

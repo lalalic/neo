@@ -67,6 +67,11 @@ impl Progress<'_> {
 /// must return an ephemeral JSON-lines session. No transcript is stored.
 /// The `config` result is evaluated *after* the Challenge start is durable,
 /// so invalid runtime configuration still leaves a diagnosable failure event.
+pub struct CapturedRun {
+    pub session: String,
+    pub generated_experience: Option<Value>,
+}
+
 pub fn execute_with<F>(
     req: &Request,
     config: Result<Config, String>,
@@ -75,6 +80,29 @@ pub fn execute_with<F>(
 ) -> Result<Value, String>
 where
     F: FnMut(&Config, &mut escalation_lock::Guard, &mut Progress<'_>) -> Result<String, String>,
+{
+    execute_with_capture(req, config, paths, |cfg, guard, progress| {
+        action(cfg, guard, progress).map(|session| CapturedRun {
+            session,
+            generated_experience: None,
+        })
+    })
+}
+
+/// Post-run Experience may be captured while the owner-local model is still
+/// available. Recorder failure never replays the completed task.
+pub fn execute_with_capture<F>(
+    req: &Request,
+    config: Result<Config, String>,
+    paths: &Paths,
+    mut action: F,
+) -> Result<Value, String>
+where
+    F: FnMut(
+        &Config,
+        &mut escalation_lock::Guard,
+        &mut Progress<'_>,
+    ) -> Result<CapturedRun, String>,
 {
     if !req.cwd.is_dir() {
         return Err("Escalation working directory is not available".into());
@@ -113,10 +141,12 @@ where
     })();
     let mut events = Vec::<Value>::new();
     let mut raw = Value::Null;
+    let mut generated_experience = None;
     let final_result = match work {
-        Ok(session) => (|| {
+        Ok(captured) => (|| {
+            generated_experience = captured.generated_experience;
             progress.advance("result_parsing")?;
-            let (parsed, observed) = escalation_contract::parse_session(&session)?;
+            let (parsed, observed) = escalation_contract::parse_session(&captured.session)?;
             events = observed;
             let validated = escalation_contract::normalize(&parsed)?;
             let scrubbed = escalation_contract::redact(&validated, &events)?;
@@ -144,12 +174,18 @@ where
         let prepared = escalation_experience::prepare(&escalation_experience::Input {
             handoff: &req.handoff,
             result: &stored_result,
-            experience: raw.get("experience"),
+            experience: generated_experience
+                .as_ref()
+                .or_else(|| raw.get("experience")),
             events: &events,
             backend: "local",
             engine,
             model,
-            capture_method: "executor",
+            capture_method: if generated_experience.is_some() {
+                "postrun_model"
+            } else {
+                "executor"
+            },
             error_class,
             captured_at: &escalation_ledger::timestamp(),
         })?;
@@ -234,7 +270,7 @@ pub fn run_cli(args: &[String]) -> Result<Value, String> {
     let request = escalation_contract::prepare(args, None)?;
     let config = escalation_contract::config();
     let paths = Paths::current()?;
-    execute_with(&request, config, &paths, |config, guardian, progress| {
+    execute_with_capture(&request, config, &paths, |config, guardian, progress| {
         let root = crate::workspace::harness_root()?;
         let rules = std::fs::read_to_string(root.join("agents/escalation.agent.md"))
             .map_err(|_| "Escalation agent rules are missing from the native Harness bundle")?;
@@ -283,11 +319,56 @@ pub fn run_cli(args: &[String]) -> Result<Value, String> {
             |name, args, _| crate::escalation_tool_executor::execute(name, args, &settings),
             |name, ok| progress.tool(name, ok),
         );
-        // The owned model is torn down while the native guardian still holds
-        // the flock; a failed action cannot abandon a model process.
+        // While the model is still loaded, optionally synthesize a small
+        // generalized Case when the executor did not include a classification.
+        // This is a best-effort separate model call; never repeat tools or
+        // demote a verified Run just because the recorder failed.
+        let generated = if let Ok(ref recorded) = session {
+            (|| {
+                let (raw, events) = escalation_contract::parse_session(recorded)?;
+                if raw
+                    .pointer("/experience/scenario_key")
+                    .and_then(Value::as_str)
+                    .is_some_and(|s| !s.trim().is_empty())
+                    && raw
+                        .pointer("/experience/strategy_key")
+                        .and_then(Value::as_str)
+                        .is_some_and(|s| !s.trim().is_empty())
+                {
+                    return Ok::<Option<Value>, String>(None);
+                }
+                let normalized = escalation_contract::normalize(&raw)?;
+                let result = escalation_contract::redact(&normalized, &events)?;
+                let instructions =
+                    std::fs::read_to_string(root.join("agents/escalation-experience.md"))
+                        .map_err(|_| "Local Experience recorder instructions missing")?;
+                let deadline_remaining =
+                    deadline.saturating_duration_since(std::time::Instant::now());
+                if deadline_remaining.is_zero() {
+                    return Ok(None);
+                }
+                let candidate = escalation_experience::generate_with(
+                    &instructions,
+                    &request.handoff,
+                    &result,
+                    &events,
+                    |body| escalation_stateless::live_model(&endpoint, body, deadline_remaining),
+                )?;
+                Ok(Some(candidate))
+            })()
+            .ok()
+            .flatten()
+        } else {
+            None
+        };
+        // Owned model teardown happens while the guardian still holds the
+        // flock, independently of best-effort recorder success.
         if let Some(mut server) = owned {
             server.close();
         }
-        session
+        session.map(|session| CapturedRun {
+            session,
+            generated_experience: generated,
+        })
     })
 }

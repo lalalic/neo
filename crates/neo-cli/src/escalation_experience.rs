@@ -820,3 +820,44 @@ pub fn render_taught(handoff: &str, dir: &Path, limit: usize) -> Result<String, 
     }
     Ok(blocks.join("\n\n").chars().take(4500).collect())
 }
+
+/// Optional post-run local model summary. The recorder sees only a sanitized
+/// scenario/outcome and observed tool names and counts: never a raw transcript,
+/// tool command arguments, or the original Handoff in plaintext.
+pub fn generate_with<M>(
+    prompt: &str,
+    handoff: &str,
+    result: &Value,
+    events: &[Value],
+    mut model: M,
+) -> Result<Value, String>
+where
+    M: FnMut(&Value) -> Result<Value, String>,
+{
+    if prompt.trim().is_empty() {
+        return Err("Experience recorder instructions missing".into());
+    }
+    let stats = observed(events);
+    let context = json!({"sanitized_scenario":sanitize(handoff,1100),
+        "outcome":result["status"],
+        "result_summary":sanitize(result["summary"].as_str().unwrap_or(""),250),
+        "result_reason":sanitize(result["reason"].as_str().unwrap_or(""),220),
+        "observed_tools":stats["tools"],"tool_calls":stats["calls"],"tool_errors":stats["failures"]});
+    let request = json!({"model":"neo-escalation","messages":[
+        {"role":"system","content":prompt},
+        {"role":"user","content":context.to_string()}],
+        "temperature":0,"max_tokens":950,"response_format":{"type":"json_object"},
+        "chat_template_kwargs":{"enable_thinking":false}});
+    let response = model(&request)?;
+    let text = response
+        .pointer("/choices/0/message/content")
+        .and_then(Value::as_str)
+        .filter(|s| !s.trim().is_empty())
+        .ok_or("Local Experience recorder produced no JSON text")?;
+    let candidate: Value = serde_json::from_str(text.trim())
+        .map_err(|_| "Local Experience recorder returned malformed JSON")?;
+    if !candidate.is_object() {
+        return Err("Local Experience candidate is not an object".into());
+    }
+    Ok(candidate)
+}

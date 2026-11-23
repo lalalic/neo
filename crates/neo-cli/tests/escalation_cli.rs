@@ -289,3 +289,49 @@ fn native_cli_absent_owned_model_does_not_return_success_or_leave_an_unclassifie
     assert_eq!(f.challenge()["failure"]["stage"], "model_startup");
     assert_eq!(f.case()["outcome"], "failed");
 }
+
+#[test]
+fn native_cli_model_generated_case_uses_existing_loaded_model_without_replaying_tools() {
+    let f = Fixture::new();
+    let tool = reply(
+        json!({"content":null,"tool_calls":[{"id":"tool-1","type":"function",
+        "function":{"name":"shell","arguments":"{\"command\":\"echo fixture-ready checked\"}"}}]}),
+    );
+    let done = reply(
+        json!({"content":json!({"status":"resolved","summary":"Fixture ready checked",
+        "reason":null,"user_action":null,"evidence":["fixture-ready checked"],
+        "notification":null}).to_string()}),
+    );
+    let captured = reply(
+        json!({"content":json!({"scenario_key":"fixture_needs_check","category":"tooling",
+        "symptom":"Fixture not yet confirmed","strategy_key":"check_once",
+        "steps":["Inspect synthetic local fixture"],"verification":"Read tool evidence",
+        "lesson":"Use verified local tool results"}).to_string()}),
+    );
+    let (endpoint, server) = mock_endpoint(vec![tool, done, captured]);
+    let output = f.run("external", Some(&endpoint), None);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let parsed: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(parsed["status"], "resolved");
+    let requests = server.join().unwrap();
+    assert_eq!(requests.len(), 3);
+    assert_eq!(requests[0]["tool_choice"], "auto");
+    assert_eq!(requests[1]["tool_choice"], "none");
+    assert_eq!(requests[2]["response_format"]["type"], "json_object");
+    let final_prompt = requests[2]["messages"][1]["content"].as_str().unwrap();
+    assert!(
+        !final_prompt.contains("echo fixture-ready"),
+        "recorder must not see full tool call"
+    );
+    assert!(final_prompt.contains("observed_tools"));
+    let case = f.case();
+    assert_eq!(case["source"], "postrun_model");
+    assert_eq!(case["scenario"]["key"], "fixture_needs_check");
+    assert_eq!(case["strategy"]["key"], "check_once");
+    assert_eq!(case["observation"]["calls"], 1);
+    assert_eq!(f.challenge()["outcome"], "resolved");
+}

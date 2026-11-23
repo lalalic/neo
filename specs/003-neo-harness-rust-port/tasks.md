@@ -46,7 +46,7 @@
 
 **Goal**: Node-free core CLI, optional runtime only for explicit extensions
 
-- [ ] T017 [US3] Port MCP/token/escalation coordination and remaining native core CLI commands without duplicating other services
+- [X] T017 [US3] Port MCP/token/escalation coordination and remaining native core CLI commands without duplicating other services
 - [X] T018 [US3] Package Rust executable with versioned shared Agents/Skills and verify clean Mac installation
 - [ ] T019 [US3] Run full core CLI parity, node-free and existing Neo.app integration acceptance matrix
 - [ ] T020 [US3] After explicit release approval and verification, replace installed launcher and remove superseded Node core code
@@ -95,3 +95,18 @@ explicit missing external link `skills/iphone-helm`, no secrets. This proves
 staging and clean-room user-prefix launch **without** installing on the user's
 production Mac. T017, T019 and T020 are still open; T020 requires explicit
 release approval after complete command parity and integration evidence.
+
+### Native core command and Escalation code gate (T017) — 2026-11-23
+
+Native parity for MCP/Token/Computer Use, PM2/launchd, Project setup-agent,
+Skill ZIP, Apple-safe Tool Executor, owner-taught learning, test-only nonce,
+private Challenge/Experience storage, global flock, owned model group,
+read-only self-test and post-run local classification has passed synthetic
+and isolated integration evidence. Optional Eval/Compute remain explicitly
+versioned Node adapters and are not silently claimed as native code.
+
+**182 Rust integration tests**, **72 Node original reference tests** and
+**4 clean Mac package tests** passed with strict Clippy and fmt. This proves
+T017 implementation at code/fixture scope, not a real L3 owner account or
+model-performance test. T019 must separately confirm live NeoY/installed
+services and T020 still requires explicit release approval.
