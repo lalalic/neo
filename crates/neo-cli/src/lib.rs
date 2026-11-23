@@ -12,6 +12,7 @@ pub mod dynamic_extensions;
 pub mod escalation_contract;
 pub mod escalation_experience;
 pub mod escalation_history;
+pub mod escalation_learn;
 pub mod escalation_ledger;
 pub mod escalation_lock;
 pub mod escalation_runtime;

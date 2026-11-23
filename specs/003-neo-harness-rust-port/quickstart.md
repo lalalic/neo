@@ -371,3 +371,14 @@ unapproved exceptions; full release gates remain deliberately open.
 - 6 native proof/CLI E2E tests, Rust full **172/172**, Node reference **28/28**,
   strict Clippy pass. See `contracts/native-escalation-self-test.md`.
 - Interactive Learn remains unported; T017 not yet marked complete.
+
+## Native interactive Escalation Learn (T017 in progress)
+
+- `neo-rs escalation learn` now runs through the existing native guarded
+  local model and tools, with private in-memory dialogue. `/remember` requires
+  an explicit owner confirmation; auto-save requires a **fresh read-only tool
+  check** after a first `[VERIFIED]` claim, never just the model's words.
+- Seven native Learn acceptance tests passed; Rust full **179/179**, Node
+  Learn/SelfTest/Experience **27/27**, strict Clippy passed.
+- Real owner TTY/model acceptance and optional post-run Experience capture
+  still need final T017/T019 validation; production `neo` remains untouched.

@@ -170,7 +170,11 @@ fn run(args: &[String]) -> Result<i32, String> {
             Ok(0)
         }
         "escalation" if rest.first().is_some_and(|s| s == "learn") => {
-            Err("Interactive learning is not yet migrated to Rust; no model was started".into())
+            if rest.len() != 1 {
+                return Err("usage: neo escalation learn".into());
+            }
+            neo_harness_cli::escalation_learn::run()?;
+            Ok(0)
         }
         "escalation" => {
             let result = neo_harness_cli::escalation_runtime::run_cli(rest)?;
