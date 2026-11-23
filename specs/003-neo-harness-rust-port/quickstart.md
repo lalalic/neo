@@ -91,3 +91,26 @@ unapproved exceptions; full release gates remain deliberately open.
   `scripts/stage-neo-cli.mjs`; it also fails on unchanged `main`.
 - No `project run` actual execution, Run binding, relay submission, release or
   package install was attempted. See [Run Preflight Contract](contracts/run-dry-preflight.md).
+
+## Native Run + real Rust Relay (T014–T016) — 2026-11-23
+
+- `cargo test --workspace --offline`: **39/39 integration tests pass**.
+- `cargo clippy --workspace --all-targets --offline -- -D warnings`: pass.
+- Rust/Node bidirectional Run resume, byte-equivalent private inputs, private
+  URL token redaction, source JSON order and tamper rejection are covered.
+- Two concurrent native CLI calls to the same private Run create exactly one
+  Relay Job, using OS directory flock instead of a persistent lease.
+- Real Rust Relay and actual SQLite verification is repeatable with:
+
+  ```sh
+  node scripts/verify-rust-relay-isolated.mjs /absolute/path/to/agents-relay
+  ```
+
+  Evidence: `passed:true`, Job ACTIVE, second Run ACTIVE with unchanged numeric
+  Job/Task identity, one isolated SQLite Job, unchanged Run Git HEAD. The
+  isolated daemon is stopped and temporary assets removed after the test.
+- This is the **common native Project Run** subset, not full command parity.
+  T023–T025 cover advanced review, foreground and JS preflight variants.
+- The installed Rust Relay distribution is missing its
+  `owned-process-supervisor` binary. Test driver copies the existing Rust
+  supervisor into a temporary test bundle; product installation is untouched.

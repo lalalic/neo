@@ -47,7 +47,7 @@ fn run(args: &[String]) -> Result<i32, String> {
             Ok(0)
         }
         "project" if rest.first().is_some_and(|s| s == "run") => {
-            let preview = neo_harness_cli::run_dry::run(&rest[1..])?;
+            let preview = neo_harness_cli::run_live::run(&rest[1..])?;
             println!(
                 "{}",
                 serde_json::to_string(&preview).map_err(|e| e.to_string())?
@@ -60,7 +60,7 @@ fn run(args: &[String]) -> Result<i32, String> {
             Ok(status)
         }
         "--help" | "-h" => {
-            println!("Neo Harness Rust preview\n\n  neo-rs agent list [--project PATH] [--source project|global|shared|agency]\n  neo-rs agent search QUERY [--project PATH] [--source ...] [--limit N]\n  neo-rs skill list [--project PATH]\n  neo-rs bootstrap [--json] [--project PATH]\n  neo-rs workspace show\n  neo-rs project list | resolve NAME\n  neo-rs project run --dry-run --project NAME [--url URL | --path PATH | --source SOURCE] [--dag NAME]\n  neo-rs status | doctor\n\nActual Run execution and remaining commands are not yet supported; installed neo remains unchanged.");
+            println!("Neo Harness Rust preview\n\n  neo-rs agent list [--project PATH] [--source project|global|shared|agency]\n  neo-rs agent search QUERY [--project PATH] [--source ...] [--limit N]\n  neo-rs skill list [--project PATH]\n  neo-rs bootstrap [--json] [--project PATH]\n  neo-rs workspace show\n  neo-rs project list | resolve NAME\n  neo-rs project run --project NAME [--url URL | --path PATH | --source SOURCE] [--dag NAME] [--dry-run]\n  neo-rs status | doctor\n\nBasic native Run creation/resume is available. --foreground, --no-review, interactive review-stages and custom JS preflight remain disabled until verified. Other commands remain unsupported; installed neo remains unchanged.");
             Ok(0)
         }
         _ => Err(format!(

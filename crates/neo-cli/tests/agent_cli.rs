@@ -235,7 +235,7 @@ fn native_does_not_need_node_in_path() {
 #[test]
 fn unsupported_command_fails_closed() {
     let f = Fixture::new();
-    let output = f.native(&["project", "run"]);
+    let output = f.native(&["unimplemented-subcommand"]);
     assert!(!output.status.success());
     assert!(output.stdout.is_empty());
     assert!(String::from_utf8_lossy(&output.stderr).contains("not yet supported"));

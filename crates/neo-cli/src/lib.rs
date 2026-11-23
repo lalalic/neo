@@ -3,4 +3,7 @@
 pub mod run_dry;
 pub mod run_validation;
 
+pub mod run_files;
+pub mod run_git;
+pub mod run_live;
 pub mod workspace;

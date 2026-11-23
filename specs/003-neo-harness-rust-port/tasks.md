@@ -34,9 +34,13 @@
 **Goal**: Safe native Run management preserving Relay ownership
 
 - [X] T013 [US2] Add disposable Project+Run Git fixtures and invalid path/symlink regression tests under `crates/neo-cli/tests/`
-- [ ] T014 [US2] Implement Project resolution/declaration validation and Run binding without touching production Runs
-- [ ] T015 [US2] Implement Run Git and delegated Relay submission, including interruption/failure recovery
-- [ ] T016 [US2] Verify real disposable Project E2E and Run state preservation
+- [X] T014 [US2] Implement Project resolution/declaration validation and Run binding without touching production Runs
+- [X] T015 [US2] Implement Run Git and delegated Relay submission, including interruption/failure recovery
+- [X] T016 [US2] Verify real disposable Project E2E and Run state preservation
+- [ ] T023 [US2] Port specialty `--no-review`, `review-stages.json`, and unbound discovery source recovery with full parity tests
+- [ ] T024 [US2] Support explicit bounded project JS preflight and Rust Relay `--foreground` attachment (no duplicate scheduler)
+- [ ] T025 [US2] Finish Project Run flag, source, error, and compatibility matrix before installation/cutover
+
 
 ## Phase 5: User Story 3 — Complete Native Distribution (P3)
 
@@ -63,13 +67,17 @@ features complete.
 
 No work on this branch automatically changes the installed `neo` launcher.
 
-### Current P2 implementation boundary (2026-11-23)
+### Verified P2 implementation boundary (2026-11-23)
 
-T013 is complete: disposable independent Git Project and private Run Git
-fixtures, tampered path, symlink, malformed dates, and immutable HEAD tests.
-T014 is **not complete**: native safe Project/declaration validation and
-non-mutating `project run --dry-run` are implemented and reference-tested,
-but a durable new/resumed Run binding is not implemented. T015 must add the
-Run Git mutation and real Relay ownership protocols before T014/T015 can
-be accepted together. A project preflight `.mjs` script is deliberately
-unsupported in the preview until bounded execution is implemented.
+T013–T016 are verified for the common Rust Project Run path: independent Git
+Project, canonical path, private binding, source evidence, local-only Run Git,
+Relay Job create/activate/reuse and deterministic recovery. OS kernel directory
+flock serializes concurrent CLI processes; no lease row or stale lockfile.
+12 Rust/Node live lifecycle tests confirm immutable files, numeric IDs, safe
+resume, no duplicate Job, failure recovery, source privacy, byte-equivalent
+private inputs and tamper rejection. The real Rust Relay isolated SQLite and
+daemon E2E also passed with one ACTIVE Job and unchanged Run Git HEAD.
+
+T023–T025 remain open: specialty Vlog review/no-review, project JS preflight,
+foreground attach and final variant parity. These are explicitly rejected
+rather than silently skipped. The installed `neo` launcher is unchanged.

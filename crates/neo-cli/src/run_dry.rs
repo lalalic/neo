@@ -12,16 +12,16 @@ use std::{
 use url::Url;
 
 #[derive(Default)]
-struct Options {
-    project: Option<String>,
-    url: Option<String>,
-    path: Option<String>,
-    title: Option<String>,
-    dag: Option<String>,
-    source: Option<String>,
-    dry_run: bool,
-    foreground: bool,
-    no_review: bool,
+pub struct Options {
+    pub project: Option<String>,
+    pub url: Option<String>,
+    pub path: Option<String>,
+    pub title: Option<String>,
+    pub dag: Option<String>,
+    pub source: Option<String>,
+    pub dry_run: bool,
+    pub foreground: bool,
+    pub no_review: bool,
 }
 fn valid_identifier(s: &str) -> bool {
     let mut chars = s.chars();
@@ -106,12 +106,6 @@ fn parse(args: &[String]) -> Result<Options, String> {
             return Err("--title requires 1–120 printable characters".into());
         }
         opt.title = Some(trimmed.to_string());
-    }
-    if !opt.dry_run {
-        return Err(
-            "project run is not yet supported in neo-rs (only --dry-run preview is implemented)"
-                .into(),
-        );
     }
     Ok(opt)
 }
@@ -370,13 +364,20 @@ fn preflight(sel: &SelectedProject) -> Result<(), String> {
     }
     Err("project preflight script execution is not yet supported by native dry-run preview".into())
 }
-pub fn run(args: &[String]) -> Result<Value, String> {
-    if !args.iter().any(|arg| arg == "--dry-run") {
-        return Err(
-            "project run is not yet supported in neo-rs (only --dry-run preview is implemented)"
-                .into(),
-        );
-    }
+pub struct Prepared {
+    pub options: Options,
+    pub selected: SelectedProject,
+    pub graph: PathBuf,
+    pub dag: Option<String>,
+    pub source: Option<(String, String, String)>,
+    pub run_dir: Option<PathBuf>,
+    pub discovery: bool,
+    pub discovery_domain: Option<String>,
+    pub reviewable: Option<Vec<String>>,
+    pub preview: Value,
+}
+
+pub fn prepare(args: &[String]) -> Result<Prepared, String> {
     let options = parse(args)?;
     let project_name = options.project.as_deref().unwrap();
     let w = crate::workspace::load()?;
@@ -455,7 +456,7 @@ pub fn run(args: &[String]) -> Result<Value, String> {
         }
     }
     preflight(&selected)?;
-    let preview = run_dir.unwrap_or_else(|| {
+    let preview = run_dir.clone().unwrap_or_else(|| {
         selected.project.join("runs").join(format!(
             "{}-{}-<unique>",
             Utc::now().format("%Y-%m-%d"),
@@ -466,12 +467,50 @@ pub fn run(args: &[String]) -> Result<Value, String> {
         "project":project_name,"runPath":preview.to_string_lossy(),
         "inputType":if discovery{"discovery"}else if is_url{"url"}else{"path"},"dryRun":true,
     });
-    if let Some(dag) = dag {
-        result["dag"] = json!(dag);
+    if let Some(name) = &dag {
+        result["dag"] = json!(name);
     }
-    if let Some((name, _, run_file)) = source {
+    if let Some((name, _, run_file)) = &source {
         result["source"] = json!(name);
         result["sourceBrief"] = json!(run_file);
     }
-    Ok(result)
+    let discovery_domain = dag_input
+        .and_then(|v| v.get("domain"))
+        .and_then(Value::as_str)
+        .map(str::to_string);
+    let reviewable = selected
+        .declaration
+        .get("reviewableDags")
+        .and_then(Value::as_object)
+        .and_then(|m| dag.as_deref().and_then(|name| m.get(name)))
+        .and_then(Value::as_array)
+        .map(|stages| {
+            stages
+                .iter()
+                .filter_map(Value::as_str)
+                .map(str::to_string)
+                .collect()
+        });
+    Ok(Prepared {
+        options,
+        selected,
+        graph,
+        dag,
+        source,
+        run_dir,
+        discovery,
+        discovery_domain,
+        reviewable,
+        preview: result,
+    })
+}
+
+pub fn run(args: &[String]) -> Result<Value, String> {
+    if !args.iter().any(|arg| arg == "--dry-run") {
+        return Err(
+            "project run is not yet supported in neo-rs (only --dry-run preview is implemented)"
+                .into(),
+        );
+    }
+    Ok(prepare(args)?.preview)
 }
