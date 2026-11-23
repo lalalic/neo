@@ -13,3 +13,4 @@ pub mod mcp_token;
 pub mod package;
 pub mod process_guard;
 pub mod service;
+pub mod skill_package;

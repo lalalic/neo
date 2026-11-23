@@ -22,6 +22,11 @@ fn run(args: &[String]) -> Result<i32, String> {
             );
             Ok(0)
         }
+        "skill" if rest.first().is_some_and(|s| s == "package") => {
+            let path = neo_harness_cli::skill_package::run(&rest[1..])?;
+            println!("{path}");
+            Ok(0)
+        }
         "skill" => {
             let root = workspace::harness_root()?;
             workspace::validate_workspace_config()?;
@@ -121,7 +126,7 @@ fn run(args: &[String]) -> Result<i32, String> {
             Ok(status)
         }
         "--help" | "-h" => {
-            println!("Neo Harness Rust preview\n\n  neo-rs agent list [--project PATH] [--source project|global|shared|agency]\n  neo-rs agent search QUERY [--project PATH] [--source ...] [--limit N]\n  neo-rs skill list [--project PATH]\n  neo-rs bootstrap [--json] [--project PATH]\n  neo-rs workspace show\n  neo-rs project list | resolve NAME\n  neo-rs project run --project NAME [--url URL | --path PATH | --source SOURCE] [--dag NAME] [--dry-run] [--foreground] [--no-review]\n  neo-rs mcp tools | call TOOL --args-file PATH | token issue|revoke ...\n  neo-rs computer-use help | call COMMAND [--args-file PATH]\n  neo-rs package stage ABSOLUTE_NEW_DIR\n  neo-rs status | doctor\n\nNative Run create/resume, specialty Vlog review, optional project-owned JS preflight and Relay foreground attach are supported. Other commands remain unsupported; installed neo remains unchanged.");
+            println!("Neo Harness Rust preview\n\n  neo-rs agent list [--project PATH] [--source project|global|shared|agency]\n  neo-rs agent search QUERY [--project PATH] [--source ...] [--limit N]\n  neo-rs skill list [--project PATH] | package SKILL_DIR OUTPUT.zip\n  neo-rs bootstrap [--json] [--project PATH]\n  neo-rs workspace show\n  neo-rs project list | resolve NAME\n  neo-rs project run --project NAME [--url URL | --path PATH | --source SOURCE] [--dag NAME] [--dry-run] [--foreground] [--no-review]\n  neo-rs mcp tools | call TOOL --args-file PATH | token issue|revoke ...\n  neo-rs computer-use help | call COMMAND [--args-file PATH]\n  neo-rs package stage ABSOLUTE_NEW_DIR\n  neo-rs status | doctor\n\nNative Run create/resume, specialty Vlog review, optional project-owned JS preflight and Relay foreground attach are supported. Other commands remain unsupported; installed neo remains unchanged.");
             Ok(0)
         }
         _ => Err(format!(

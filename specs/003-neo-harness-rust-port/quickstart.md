@@ -213,3 +213,14 @@ unapproved exceptions; full release gates remain deliberately open.
 - Rust full suite **78/78**, strict Clippy and real isolated Relay E2E passed.
   Bundle is **a local preview only**; no actual production install or cutover.
 - See [Native Packaging Contract](contracts/native-package.md).
+
+## Native text-only Skill export (T017 in progress) — 2026-11-23
+
+- `neo-rs skill package SKILL_DIR OUTPUT.zip` now produces a self-contained
+  DEFLATE ZIP in Rust, without the original Python helper. Valid text-file
+  archive members match the old packager. Hidden/binary/`node_modules` files
+  and symlinks are not included. Exclusive output mode prevents overwrite.
+- Disposable archive parity/security tests **3/3**; full Rust suite **81/81**;
+  strict Clippy and real isolated Relay Coordinator E2E still pass.
+- Local Escalation, Project TTS, Eval/GPU command routing remain unported.
+  T017 stays open and the installed `neo` is untouched.
