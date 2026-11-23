@@ -263,9 +263,14 @@ pub fn run_cli(args: &[String]) -> Result<Value, String> {
             std::env::var("NEO_ESCALATION_APPLE_LOGIN_AUTHORIZED").is_ok_and(|flag| flag == "true");
         let deadline = std::time::Instant::now()
             + std::time::Duration::from_secs(u64::from(config.budget_seconds));
-        let session = escalation_stateless::run_with_progress(
+        let learned =
+            escalation_experience::render_taught(&request.handoff, &paths.experience_dir, 4)?;
+        let session = escalation_stateless::run_with_guidance(
             &endpoint,
-            &prompt,
+            escalation_stateless::ModelGuidance {
+                rules: &prompt,
+                taught: &learned,
+            },
             &request,
             config,
             |body| {

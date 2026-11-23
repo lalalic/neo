@@ -462,3 +462,361 @@ pub fn directory() -> Result<PathBuf, String> {
     }
     Ok(path)
 }
+
+/// Owner-taught records use a distinct, stable identity. A human-confirmed
+/// procedure is guidance, not proof that the execution was verified.
+pub fn prepare_taught(
+    candidate: &Value,
+    engine: &str,
+    model: &str,
+    now: &str,
+) -> Result<Value, String> {
+    if !candidate.is_object() {
+        return Err("Invalid taught lesson".into());
+    }
+    let scenario = category_key(candidate["scenario_key"].as_str().unwrap_or(""), "");
+    let strategy = category_key(candidate["strategy_key"].as_str().unwrap_or(""), "");
+    if scenario.is_empty() || strategy.is_empty() {
+        return Err("Teaching requires safe stable scenario and strategy keys".into());
+    }
+    let completed = json!({"status":"resolved"});
+    let base = prepare(&Input {
+        handoff: "owner-taught lesson",
+        result: &completed,
+        experience: Some(candidate),
+        events: &[],
+        backend: "local",
+        engine,
+        model,
+        capture_method: "executor",
+        error_class: None,
+        captured_at: now,
+    })?;
+    if !base["strategy"]["steps"]
+        .as_array()
+        .is_some_and(|items| !items.is_empty())
+        || base["strategy"]["lesson"].as_str().unwrap_or("").is_empty()
+        || base["scenario"]["symptom"]
+            .as_str()
+            .unwrap_or("")
+            .is_empty()
+    {
+        return Err("Teaching requires symptom, at least one step, and principle".into());
+    }
+    let mut record = base;
+    record["scenario"]["symptom"] =
+        json!(sanitize(candidate["symptom"].as_str().unwrap_or(""), 400));
+    let steps = candidate["steps"]
+        .as_array()
+        .ok_or("Teaching requires steps")?
+        .iter()
+        .take(12)
+        .filter_map(Value::as_str)
+        .map(|text| sanitize(text, 450))
+        .filter(|text| !text.is_empty())
+        .collect::<Vec<_>>();
+    if steps.is_empty() {
+        return Err("Teaching requires at least one safe step".into());
+    }
+    record["strategy"]["steps"] = json!(steps);
+    record["strategy"]["verification"] = json!(sanitize(
+        candidate["verification"]
+            .as_str()
+            .filter(|s| !s.trim().is_empty())
+            .unwrap_or("Not verified; owner described procedure"),
+        400
+    ));
+    record["strategy"]["lesson"] = json!(sanitize(candidate["lesson"].as_str().unwrap_or(""), 550));
+    record["id"] = json!(sha(&serde_json::to_string(&json!([
+        scenario, "taught", strategy
+    ]))
+    .map_err(|e| e.to_string())?));
+    record["source"] = json!("owner_taught");
+    record["outcome"] = json!("taught");
+    record["owner_confirmed"] = json!(true);
+    record["observation"] = json!({"tools":[],"calls":0,"failures":0});
+    record["training_reviewed"] = json!(false);
+    Ok(record)
+}
+fn validate_taught(record: &Value) -> Result<(), String> {
+    if !only_keys(
+        record,
+        &[
+            "version",
+            "id",
+            "captured_at",
+            "source",
+            "scenario",
+            "outcome",
+            "strategy",
+            "observation",
+            "runtime",
+            "training_reviewed",
+            "owner_confirmed",
+            "tool_verified",
+            "verification_evidence",
+        ],
+    ) || record["source"] != "owner_taught"
+        || record["outcome"] != "taught"
+        || record["owner_confirmed"] != true
+        || record["version"] != 1
+        || record["training_reviewed"] != false
+    {
+        return Err("Only confirmed owner-taught lessons can be saved".into());
+    }
+    let scenario = record
+        .pointer("/scenario/key")
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    let strategy = record
+        .pointer("/strategy/key")
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    let expected = sha(
+        &serde_json::to_string(&json!([scenario, "taught", strategy]))
+            .map_err(|e| e.to_string())?,
+    );
+    if !hex64(record["id"].as_str().unwrap_or(""))
+        || record["id"] != expected
+        || category_key(scenario, "") != scenario
+        || category_key(strategy, "") != strategy
+    {
+        return Err("Teaching record has an invalid classification identity".into());
+    }
+    if !only_keys(&record["scenario"], &["key", "category", "symptom"])
+        || !only_keys(
+            &record["strategy"],
+            &["key", "steps", "verification", "failure_reason", "lesson"],
+        )
+        || !only_keys(&record["observation"], &["tools", "calls", "failures"])
+        || !only_keys(&record["runtime"], &["backend", "engine", "model_family"])
+    {
+        return Err("Teaching record contains unexpected raw tool or transcript metadata".into());
+    }
+    if !is_sanitized(&record["scenario"]["symptom"], 400)
+        || !is_sanitized(&record["strategy"]["verification"], 400)
+        || !is_sanitized(&record["strategy"]["lesson"], 550)
+        || !is_sanitized(&record["strategy"]["failure_reason"], 180)
+        || !record["strategy"]["steps"].as_array().is_some_and(|steps| {
+            !steps.is_empty() && steps.len() <= 12 && steps.iter().all(|v| is_sanitized(v, 450))
+        })
+    {
+        return Err("Teaching text was not safely sanitized".into());
+    }
+    if !record["observation"]["tools"].as_array().is_some()
+        || record["observation"]["calls"].as_u64().is_none()
+        || record["observation"]["failures"].as_u64().is_none()
+    {
+        return Err("Teaching observation must contain tool names and counters".into());
+    }
+    if record.get("verification_evidence").is_some()
+        && !is_sanitized(&record["verification_evidence"], 240)
+    {
+        return Err("Teaching tool verification evidence was not sanitized".into());
+    }
+    if record.get("tool_verified").is_some_and(|v| !v.is_boolean()) {
+        return Err("Teaching tool verification flag must be a boolean".into());
+    }
+    if !record["captured_at"]
+        .as_str()
+        .is_some_and(|s| chrono::DateTime::parse_from_rfc3339(s).is_ok())
+    {
+        return Err("Teaching record needs a valid timestamp".into());
+    }
+    Ok(())
+}
+/// Create-if-absent for the first owner-confirmed lesson; subsequent owner
+/// revisions replace *only another taught lesson*, never observed executions.
+pub fn store_taught(record: &Value, dir: &Path) -> Result<Value, String> {
+    validate_taught(record)?;
+    if !dir.is_absolute() {
+        return Err("Owner-taught Experience path must be absolute".into());
+    }
+    private_dir(dir)?;
+    let id = record["id"].as_str().unwrap_or_default();
+    let output = dir.join(format!("{id}.json"));
+    let existing = match fs::symlink_metadata(&output) {
+        Ok(meta) => {
+            if !meta.is_file() || meta.file_type().is_symlink() || meta.len() > 2 * 1024 * 1024 {
+                return Err("Unsafe existing lesson path".into());
+            }
+            let saved: Value =
+                serde_json::from_slice(&fs::read(&output).map_err(|e| e.to_string())?)
+                    .map_err(|_| "Existing lesson record is not valid JSON")?;
+            if saved["source"] != "owner_taught" || saved["outcome"] != "taught" {
+                return Err("Cannot overwrite observed Escalation evidence".into());
+            }
+            true
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => false,
+        Err(e) => return Err(e.to_string()),
+    };
+    if !existing {
+        return write_taught(record, dir, &output, false);
+    }
+    write_taught(record, dir, &output, true)
+}
+fn write_taught(
+    record: &Value,
+    dir: &Path,
+    output: &Path,
+    replacing: bool,
+) -> Result<Value, String> {
+    let id = record["id"].as_str().unwrap_or_default();
+    let scratch = dir.join(format!(".{id}.{}.tmp", Uuid::new_v4()));
+    let mut opts = OpenOptions::new();
+    opts.write(true).create_new(true);
+    #[cfg(unix)]
+    opts.mode(0o600);
+    let mut file = opts.open(&scratch).map_err(|e| e.to_string())?;
+    let result = (|| {
+        let bytes = serde_json::to_string_pretty(record).map_err(|e| e.to_string())? + "\n";
+        file.write_all(bytes.as_bytes())
+            .map_err(|e| e.to_string())?;
+        file.sync_all().map_err(|e| e.to_string())?;
+        if replacing {
+            fs::rename(&scratch, output).map_err(|e| e.to_string())?;
+        } else {
+            fs::hard_link(&scratch, output).map_err(|e| e.to_string())?;
+        }
+        Ok(json!({"stored":true,"updated":replacing,"id":id}))
+    })();
+    let _ = fs::remove_file(scratch);
+    result
+}
+
+fn tokens(text: &str) -> std::collections::BTreeSet<String> {
+    let words = rx(r"(?i)[a-z][a-z0-9_-]{2,}|[\p{Han}]{2,}");
+    let stop = [
+        "with", "from", "have", "that", "this", "when", "after", "before", "should", "error",
+        "failed", "using", "into", "need", "your", "user", "then", "what", "can", "怎么", "什么",
+        "这个", "那个", "需要", "失败", "完成", "进行", "可以", "如何",
+    ];
+    let mut found = std::collections::BTreeSet::<String>::new();
+    for item in words.find_iter(&text.to_lowercase()) {
+        let word = item.as_str();
+        if word
+            .chars()
+            .all(|c| (0x4e00..=0x9fff).contains(&(c as u32)))
+        {
+            let chars = word.chars().collect::<Vec<_>>();
+            for pair in chars.windows(2) {
+                let term = pair.iter().collect::<String>();
+                if !stop.contains(&term.as_str()) {
+                    found.insert(term);
+                }
+            }
+        } else if !stop.contains(&word) {
+            found.insert(word.into());
+        }
+    }
+    found
+}
+/// Relevant owner-taught lessons are untrusted suggestions, not elevated
+/// system authority or already verified outcomes.
+pub fn render_taught(handoff: &str, dir: &Path, limit: usize) -> Result<String, String> {
+    let terms = tokens(handoff);
+    if terms.is_empty() || !dir.exists() {
+        return Ok(String::new());
+    }
+    let meta = fs::symlink_metadata(dir).map_err(|e| e.to_string())?;
+    if !meta.is_dir() || meta.file_type().is_symlink() {
+        return Err("Unsafe Experience history directory".into());
+    }
+    let mut items = Vec::<(usize, String, Value)>::new();
+    let paths = fs::read_dir(dir)
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    if paths.len() > 100000 {
+        return Err("Too many Experience records".into());
+    }
+    for entry in paths {
+        let path = entry.path();
+        if !path
+            .file_name()
+            .and_then(|v| v.to_str())
+            .is_some_and(|s| s.len() == 69 && s.ends_with(".json"))
+        {
+            continue;
+        }
+        let meta = fs::symlink_metadata(&path).map_err(|e| e.to_string())?;
+        if !meta.is_file() || meta.file_type().is_symlink() || meta.len() > 2 * 1024 * 1024 {
+            continue;
+        }
+        let Ok(value) =
+            serde_json::from_slice::<Value>(&fs::read(&path).map_err(|e| e.to_string())?)
+        else {
+            continue;
+        };
+        if value["source"] != "owner_taught"
+            || value["owner_confirmed"] != true
+            || validate_taught(&value).is_err()
+        {
+            continue;
+        }
+        let scenario = value["scenario"]["key"]
+            .as_str()
+            .unwrap_or("")
+            .replace(['.', '_'], " ");
+        let strategy = value["strategy"]["key"]
+            .as_str()
+            .unwrap_or("")
+            .replace(['.', '_'], " ");
+        let mut surface = format!(
+            "{} {} {} {} {}",
+            scenario,
+            value["scenario"]["symptom"].as_str().unwrap_or(""),
+            strategy,
+            value["strategy"]["lesson"].as_str().unwrap_or(""),
+            value["strategy"]["steps"]
+                .as_array()
+                .unwrap_or(&vec![])
+                .iter()
+                .filter_map(Value::as_str)
+                .collect::<Vec<_>>()
+                .join(" ")
+        );
+        surface.make_ascii_lowercase();
+        let overlap = terms.intersection(&tokens(&surface)).count();
+        if overlap >= 2 {
+            items.push((
+                overlap,
+                value["captured_at"].as_str().unwrap_or("").into(),
+                value,
+            ));
+        }
+    }
+    items.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| b.1.cmp(&a.1)));
+    let mut blocks = Vec::<String>::new();
+    for (_, _, record) in items.into_iter().take(limit.min(4)) {
+        let mut lines = vec![
+            format!(
+                "Scenario: {}",
+                record["scenario"]["symptom"].as_str().unwrap_or("")
+            ),
+            format!(
+                "Strategy: {}",
+                record["strategy"]["key"].as_str().unwrap_or("")
+            ),
+        ];
+        for (i, step) in record["strategy"]["steps"]
+            .as_array()
+            .unwrap_or(&vec![])
+            .iter()
+            .enumerate()
+        {
+            lines.push(format!("{}. {}", i + 1, step.as_str().unwrap_or("")));
+        }
+        lines.push(format!(
+            "Verify: {}",
+            record["strategy"]["verification"].as_str().unwrap_or("")
+        ));
+        lines.push(format!(
+            "Lesson: {}",
+            record["strategy"]["lesson"].as_str().unwrap_or("")
+        ));
+        blocks.push(lines.join("\n"));
+    }
+    Ok(blocks.join("\n\n").chars().take(4500).collect())
+}

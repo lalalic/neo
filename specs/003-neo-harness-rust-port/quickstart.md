@@ -352,3 +352,12 @@ unapproved exceptions; full release gates remain deliberately open.
   **not** invoked in tests.
 - Four native tests, all Rust **160/160**, original Node Control **15/15**,
   strict Clippy passed. See `contracts/native-project-setup.md`.
+
+## Owner-taught lessons and safe recall (T017 in progress)
+
+- Native `prepare_taught` / `store_taught` / `render_taught` preserve Node
+  Experience identities and sanitize private lessons. Explicit revisions
+  cannot modify observed Cases. The stateless model receives recalled
+  guidance as **untrusted user context**, never as system authority.
+- Rust full **166/166**, Node teaching/Experience **20/20**, strict Clippy
+  pass. The interactive Learn and real-model self-test remain open.
