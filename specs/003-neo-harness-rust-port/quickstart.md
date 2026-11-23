@@ -224,3 +224,13 @@ unapproved exceptions; full release gates remain deliberately open.
   strict Clippy and real isolated Relay Coordinator E2E still pass.
 - Local Escalation, Project TTS, Eval/GPU command routing remain unported.
   T017 stays open and the installed `neo` is untouched.
+
+## Native Project TTS (T017 in progress) — 2026-11-23
+
+- `neo-rs project tts --text ... --output /absolute/output.m4a|.wav`
+  now runs in Rust, delegating only actual synthesis to macOS `say` and
+  encoding/probing to installed ffmpeg/ffprobe. No Node wrapper or new TTS
+  service. The output is validated audio with exclusive private publication.
+- Native tests **4/4**, including two real Chinese audio formats and failed
+  engine cleanup; original Node TTS **4/4**, full Rust acceptance **85/85**,
+  Clippy strict pass. See `contracts/native-project-tts.md`.

@@ -51,6 +51,14 @@ fn run(args: &[String]) -> Result<i32, String> {
             println!("{}", project::run(rest)?);
             Ok(0)
         }
+        "project" if rest.first().is_some_and(|s| s == "tts") => {
+            let response = neo_harness_cli::project_tts::run(&rest[1..])?;
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&response).map_err(|e| e.to_string())?
+            );
+            Ok(0)
+        }
         "project" if rest.first().is_some_and(|s| s == "run") => {
             if let Some(value) = neo_harness_cli::run_live::run(&rest[1..])? {
                 println!(
