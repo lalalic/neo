@@ -97,6 +97,16 @@ fn run(args: &[String]) -> Result<i32, String> {
             );
             Ok(exit)
         }
+        "service" => {
+            let (result, exit) = neo_harness_cli::service::run(rest)?;
+            if let Some(value) = result {
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&value).map_err(|e| e.to_string())?
+                );
+            }
+            Ok(exit)
+        }
         "status" | "doctor" => {
             let (text, status) = diagnostics::run(command, rest)?;
             println!("{text}");

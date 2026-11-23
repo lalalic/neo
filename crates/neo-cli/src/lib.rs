@@ -11,3 +11,4 @@ pub mod workspace;
 pub mod mcp_local;
 pub mod mcp_token;
 pub mod process_guard;
+pub mod service;

@@ -190,3 +190,13 @@ unapproved exceptions; full release gates remain deliberately open.
   Rust full integration suite **71/71**, strict Clippy passed.
 - Escalation and other core CLI coordination remain T017 open. No production
   token issuance, credential read, install or service restart occurred.
+
+## Native service manager facade (T017 in progress) — 2026-11-23
+
+- Rust `service list|status|start|stop|restart` uses existing PM2 and
+  native NeoY launchd, not a second service scheduler.
+- Live read-only service inventory is **exactly equal** to Node (10 entries).
+- 3 fake PM2/launchctl tests verify `--apply`, service-name fencing and native
+  keepalive semantics; no real process start/stop/restart was performed.
+- Native Rust tests **74/74**; original Node control tests **15/15**;
+  strict Clippy passed. See `contracts/native-service-cli.md`.
