@@ -37,7 +37,7 @@
 - [X] T014 [US2] Implement Project resolution/declaration validation and Run binding without touching production Runs
 - [X] T015 [US2] Implement Run Git and delegated Relay submission, including interruption/failure recovery
 - [X] T016 [US2] Verify real disposable Project E2E and Run state preservation
-- [ ] T023 [US2] Port specialty `--no-review`, `review-stages.json`, and unbound discovery source recovery with full parity tests
+- [X] T023 [US2] Port specialty `--no-review`, `review-stages.json`, and unbound discovery source recovery with full parity tests
 - [ ] T024 [US2] Support explicit bounded project JS preflight and Rust Relay `--foreground` attachment (no duplicate scheduler)
 - [ ] T025 [US2] Finish Project Run flag, source, error, and compatibility matrix before installation/cutover
 
@@ -78,6 +78,7 @@ resume, no duplicate Job, failure recovery, source privacy, byte-equivalent
 private inputs and tamper rejection. The real Rust Relay isolated SQLite and
 daemon E2E also passed with one ACTIVE Job and unchanged Run Git HEAD.
 
-T023–T025 remain open: specialty Vlog review/no-review, project JS preflight,
-foreground attach and final variant parity. These are explicitly rejected
+T023 complete: Vlog private no-review, selected human review stages, unbound
+source recovery and cross-runtime private file parity. T024–T025 remain open:
+explicit JS preflight, foreground attach and final variant parity. These are explicitly rejected
 rather than silently skipped. The installed `neo` launcher is unchanged.

@@ -174,6 +174,34 @@ fn validate_url(raw: &str, sel: &SelectedProject) -> Result<(), String> {
     }
     Ok(())
 }
+fn recover_unbound_source(
+    sel: &SelectedProject,
+    run: Option<&Path>,
+) -> Result<Option<(String, String, String)>, String> {
+    let Some(run) = run else { return Ok(None) };
+    if run.join(".neo-project-run.json").exists() {
+        return Ok(None);
+    }
+    let path = run.join("source-reference.json");
+    if !path.exists() {
+        return Ok(None);
+    }
+    let source: Value = serde_json::from_slice(&fs::read(&path).map_err(|e| e.to_string())?)
+        .map_err(|_| "unbound run has unreadable source-reference.json".to_string())?;
+    if !source.is_object() {
+        return Err("invalid unbound source-reference.json".into());
+    }
+    let Some(source_id) = source.get("source") else {
+        return Ok(None);
+    };
+    let name = source_id.as_str().unwrap_or("");
+    let selected = source_preset(sel, name)?;
+    if source["kind"] != "discovery" || source["sourceBrief"] != selected.2 {
+        return Err("unbound source Run evidence disagrees with project source declaration".into());
+    }
+    Ok(Some(selected))
+}
+
 fn selected_graph(
     sel: &SelectedProject,
     requested: Option<&str>,
@@ -401,7 +429,7 @@ pub fn prepare(args: &[String]) -> Result<Prepared, String> {
     let source = if let Some(name) = options.source.as_deref() {
         Some(source_preset(&selected, name)?)
     } else {
-        None
+        recover_unbound_source(&selected, run_dir.as_deref())?
     };
     let source_dag = source.as_ref().map(|s| s.1.as_str());
     let (dag, graph) = selected_graph(
@@ -478,6 +506,11 @@ pub fn prepare(args: &[String]) -> Result<Prepared, String> {
         .and_then(|v| v.get("domain"))
         .and_then(Value::as_str)
         .map(str::to_string);
+    let prepared_discovery = is_path
+        && discovery_allowed
+        && run_dir.as_ref().is_some_and(|p| {
+            !p.join(".neo-project-run.json").exists() && !p.join("campaign.json").exists()
+        });
     let reviewable = selected
         .declaration
         .get("reviewableDags")
@@ -498,7 +531,7 @@ pub fn prepare(args: &[String]) -> Result<Prepared, String> {
         dag,
         source,
         run_dir,
-        discovery,
+        discovery: discovery || prepared_discovery,
         discovery_domain,
         reviewable,
         preview: result,

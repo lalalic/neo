@@ -114,3 +114,17 @@ unapproved exceptions; full release gates remain deliberately open.
 - The installed Rust Relay distribution is missing its
   `owned-process-supervisor` binary. Test driver copies the existing Rust
   supervisor into a temporary test bundle; product installation is untouched.
+
+## Specialty Project Run policy (T023) — 2026-11-23
+
+- Private Vlog `--no-review` requires owner-approved private source-use and
+  writes `review-mode.json` with publication forbidden (mode 0600).
+- Interactive `review-stages.json` is validated against the selected DAG's
+  `reviewableDags` (or Vlog's exact visioner/director/producer set). Selected
+  Tasks receive explicit mandatory human-review policy; no automatic approval.
+- After a Relay create failure, `--path` recovers the original unbound
+  discovery source, its project-owned brief and original DAG, never silently
+  reselecting or overwriting staged evidence.
+- Four advanced Rust/Node fixture cases bring native Rust integration coverage
+  to **43/43 passing**; `cargo clippy -D warnings` and real isolated Relay E2E
+  also pass. The preview remains on `rust` only.

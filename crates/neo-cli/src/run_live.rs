@@ -418,6 +418,10 @@ fn new_job(prepared: &Prepared, run: &Path, files: &RunFiles) -> Result<Value, S
         "--coordinator-workspace-root".into(),
         prepared.selected.root.to_string_lossy().to_string(),
     ];
+    let mut values = values.to_vec();
+    if prepared.options.no_review {
+        values.push("--no-review".into());
+    }
     let created = relay(&values)?;
     let job_id = identifier(&created, "Job create", true)?;
     let task_id = created["taskId"].as_str().unwrap_or("");
@@ -462,22 +466,8 @@ pub fn run(args: &[String]) -> Result<Value, String> {
             "native project run --foreground is not yet supported; refusing to submit".into(),
         );
     }
-    if prepared.options.no_review {
-        return Err(
-            "native project run --no-review policy is not yet supported; refusing to submit".into(),
-        );
-    }
-    // Side effects begin only after all shared preflight checks and explicit
-    // unsupported policy gates have completed.
-    if let Some(path) = &prepared.run_dir {
-        for file in ["review-stages.json", "review-mode.json"] {
-            if path.join(file).exists() {
-                return Err(format!(
-                    "native {file} policy is not yet supported; refusing to submit"
-                ));
-            }
-        }
-    }
+    // Stage-specific policy is fully validated by the Run initializer before
+    // any Relay submission; never silently bypass interactive approval.
     let run = run_path(&prepared)?;
     #[cfg(unix)]
     let _run_process_lock = RunDirectoryLock::acquire(&run)?;

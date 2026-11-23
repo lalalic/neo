@@ -62,10 +62,13 @@ struct Fixture {
 }
 impl Fixture {
     fn new() -> Self {
+        Self::new_named("sample")
+    }
+    fn new_named(name: &str) -> Self {
         let tmp = tempfile::tempdir().unwrap();
         let home = tmp.path().join("home");
         let workspace = tmp.path().join("workspace");
-        let project = workspace.join("sample");
+        let project = workspace.join(name);
         let run = project.join("runs/2026-11-03-episode");
         fs::create_dir_all(&run).unwrap();
         for file in ["AGENTS.md", "README.md"] {
@@ -489,4 +492,200 @@ fn bound_source_evidence_tampering_is_rejected_without_second_job() {
     assert!(!denied.status.success());
     assert!(String::from_utf8_lossy(&denied.stderr).contains("source evidence does not match"));
     assert_eq!(f.state()["creates"], 1);
+}
+
+#[test]
+fn private_vlog_no_review_requires_authorized_manifest_and_matches_node_bytes() {
+    let a = Fixture::new_named("vlog");
+    let b = Fixture::new_named("vlog");
+    for f in [&a, &b] {
+        put(
+            &f.run.join("source-manifest.json"),
+            r#"{"source_use":{"approved":true,"scope":"private only"}}"#,
+        );
+    }
+    let args_a = [
+        "--project",
+        "vlog",
+        "--path",
+        a.run.to_str().unwrap(),
+        "--no-review",
+    ];
+    let args_b = [
+        "--project",
+        "vlog",
+        "--path",
+        b.run.to_str().unwrap(),
+        "--no-review",
+    ];
+    let one = a.assert_success(&a.call(true, &args_a));
+    let two = b.assert_success(&b.call(false, &args_b));
+    assert_eq!(one["status"], "ACTIVE");
+    assert_eq!(two["status"], "ACTIVE");
+    for name in [
+        "source-reference.json",
+        "neo-project-run.objective.md",
+        "neo-project-run.input.md",
+        "review-mode.json",
+    ] {
+        let rust = fs::read_to_string(a.run.join(name))
+            .unwrap()
+            .replace(a.run.to_str().unwrap(), "<RUN>");
+        let node = fs::read_to_string(b.run.join(name))
+            .unwrap()
+            .replace(b.run.to_str().unwrap(), "<RUN>");
+        assert_eq!(rust, node, "Vlog policy file parity: {name}");
+    }
+    let mode: Value =
+        serde_json::from_slice(&fs::read(a.run.join("review-mode.json")).unwrap()).unwrap();
+    assert_eq!(mode["publicationAllowed"], false);
+    assert_eq!(mode["reviewStatus"], "UNREVIEWED");
+    #[cfg(unix)]
+    assert_eq!(
+        fs::metadata(a.run.join("review-mode.json"))
+            .unwrap()
+            .permissions()
+            .mode()
+            & 0o777,
+        0o600
+    );
+    let reread = a.assert_success(&a.call(false, &args_a));
+    assert_eq!(reread["jobId"], one["jobId"]);
+    assert_eq!(a.state()["creates"], 1);
+    let denied = a.call(
+        true,
+        &["--project", "vlog", "--path", a.run.to_str().unwrap()],
+    );
+    assert!(!denied.status.success());
+}
+
+#[test]
+fn private_vlog_no_review_rejects_missing_approval_before_relay() {
+    for content in [
+        None,
+        Some(r#"{"source_use":{"approved":false,"scope":"private"}}"#),
+        Some(r#"{"source_use":{"approved":true,"scope":"public"}}"#),
+    ] {
+        let f = Fixture::new_named("vlog");
+        if let Some(value) = content {
+            put(&f.run.join("source-manifest.json"), value);
+        }
+        let args = [
+            "--project",
+            "vlog",
+            "--path",
+            f.run.to_str().unwrap(),
+            "--no-review",
+        ];
+        for native in [false, true] {
+            let result = f.call(native, &args);
+            assert!(
+                !result.status.success(),
+                "rejected manifest should not create a Job"
+            );
+            assert!(!f.run.join(".neo-project-run.json").exists());
+        }
+    }
+}
+
+#[test]
+fn stage_review_flags_are_exact_node_rust_parity_and_reject_unconfigured_agents() {
+    let a = Fixture::new();
+    let b = Fixture::new();
+    for f in [&a, &b] {
+        put(
+            &f.workspace.join("sample/project.run.json"),
+            r#"{"schemaVersion":1,"input":{"type":"path","path":{"base":"runs","datedRunDirectory":true}},"reviewableDags":{"growth":["writer"]},"defaultDag":"growth","graphs":{"growth":"graph.mmd"}}"#,
+        );
+        put(&f.run.join("review-stages.json"), r#"{"writer":true}"#);
+    }
+    let args_a = ["--project", "sample", "--path", a.run.to_str().unwrap()];
+    let args_b = ["--project", "sample", "--path", b.run.to_str().unwrap()];
+    a.assert_success(&a.call(true, &args_a));
+    b.assert_success(&b.call(false, &args_b));
+    for name in ["neo-project-run.objective.md", "neo-project-run.input.md"] {
+        let rust = fs::read_to_string(a.run.join(name))
+            .unwrap()
+            .replace(a.run.to_str().unwrap(), "<RUN>");
+        let node = fs::read_to_string(b.run.join(name))
+            .unwrap()
+            .replace(b.run.to_str().unwrap(), "<RUN>");
+        assert_eq!(rust, node, "Review text parity: {name}");
+        assert!(rust.contains("MANDATORY STAGE-BY-STAGE HUMAN REVIEWS"));
+    }
+    let f = Fixture::new();
+    put(
+        &f.workspace.join("sample/project.run.json"),
+        r#"{"schemaVersion":1,"input":{"type":"path","path":{"base":"runs","datedRunDirectory":true}},"reviewableDags":{"growth":["writer"]},"defaultDag":"growth","graphs":{"growth":"graph.mmd"}}"#,
+    );
+    put(&f.run.join("review-stages.json"), r#"{"unknown":true}"#);
+    assert!(!f.run(true).status.success());
+    assert!(!f.run.join(".neo-project-run.json").exists());
+}
+
+#[test]
+fn recovering_unbound_discovery_source_preserves_exact_source_and_graph() {
+    let a = Fixture::new();
+    let b = Fixture::new();
+    for f in [&a, &b] {
+        put(
+            &f.workspace.join("sample/graph-growth.mmd"),
+            "flowchart TD\n A[agent:writer]-->B\n",
+        );
+        put(
+            &f.workspace.join("sample/config/topic.json"),
+            r#"{"schemaVersion":1,"zeta":1,"alpha":2}"#,
+        );
+        put(
+            &f.workspace.join("sample/project.run.json"),
+            r#"{"schemaVersion":1,"input":{"type":"url","schemes":["https"],"resumePath":true,"preparedPath":true},"graphs":{"growth":"graph-growth.mmd"},"defaultDag":"growth","dagInputs":{"growth":{"type":"discovery","domain":"general"}},"sources":{"topic":{"dag":"growth","config":"config/topic.json","runFile":"source-brief.json"}}}"#,
+        );
+        put(&f.state_root.join("fail-job-create"), "test interruption");
+    }
+    let result_a = a.call(true, &["--project", "sample", "--source", "topic"]);
+    let result_b = b.call(false, &["--project", "sample", "--source", "topic"]);
+    assert!(!result_a.status.success() && !result_b.status.success());
+    let discovered = |f: &Fixture| {
+        fs::read_dir(f.workspace.join("sample/runs"))
+            .unwrap()
+            .filter_map(Result::ok)
+            .map(|row| row.path())
+            .find(|p| {
+                p.file_name()
+                    .unwrap()
+                    .to_string_lossy()
+                    .contains("discovery")
+            })
+            .unwrap()
+    };
+    let arun = discovered(&a);
+    let brun = discovered(&b);
+    fs::remove_file(a.state_root.join("fail-job-create")).unwrap();
+    fs::remove_file(b.state_root.join("fail-job-create")).unwrap();
+    let one = a.assert_success(&a.call(
+        true,
+        &["--project", "sample", "--path", arun.to_str().unwrap()],
+    ));
+    let two = b.assert_success(&b.call(
+        false,
+        &["--project", "sample", "--path", brun.to_str().unwrap()],
+    ));
+    assert_eq!(one["source"], "topic");
+    assert_eq!(two["source"], "topic");
+    assert_eq!(one["dag"], "growth");
+    assert_eq!(a.state()["creates"], 1);
+    for name in [
+        "source-reference.json",
+        "neo-project-run.objective.md",
+        "neo-project-run.input.md",
+        "source-brief.json",
+    ] {
+        let rust = fs::read_to_string(arun.join(name))
+            .unwrap()
+            .replace(arun.to_str().unwrap(), "<RUN>");
+        let node = fs::read_to_string(brun.join(name))
+            .unwrap()
+            .replace(brun.to_str().unwrap(), "<RUN>");
+        assert_eq!(rust, node, "Recovery file parity: {name}");
+    }
 }

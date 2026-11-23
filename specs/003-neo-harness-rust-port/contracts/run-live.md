@@ -57,10 +57,12 @@ temporary assets. No production Relay Jobs, database or Project is modified.
 
 ## Outstanding parity gates
 
-T023–T025 remain open: interactive `review-stages.json`, Vlog private
-`--no-review`, unbound discovery source recovery, bounded project-owned JS
-preflight adapters, foreground attached event streaming, and full CLI variant
-parity. These are not accepted as migrated and must fail closed.
+T023 is verified: named DAG `review-stages.json` policies, private Vlog
+`--no-review` with approved private source manifest and publication blocking,
+and recovery of unbound source presets from staged immutable evidence.
+
+T024–T025 remain open: bounded project-owned JS preflight adapters,
+foreground attached event streaming, and full CLI variant parity. These are not accepted as migrated and must fail closed.
 
 The **currently installed Relay bundle** omits the native
 `owned-process-supervisor` executable. The isolated E2E supplies its already
