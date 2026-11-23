@@ -1,13 +1,20 @@
 use serde_json::{json, Value};
 use std::{env, fs, path::PathBuf};
 
+#[derive(Debug)]
+pub struct Workspace {
+    pub neo_root: PathBuf,
+    pub harness_root: PathBuf,
+}
+
 pub fn home() -> Result<PathBuf, String> {
     env::var_os("HOME")
         .map(PathBuf::from)
         .ok_or_else(|| "HOME is not set".to_string())
 }
 
-/// Harness assets (Agents/Skills) are not the user-selected Neo Project root.
+/// Harness assets are versioned with the executable, not stored under the
+/// caller's configurable Neo Projects root.
 pub fn harness_root() -> Result<PathBuf, String> {
     if let Some(explicit) = env::var_os("NEO_HARNESS_ROOT") {
         let root = PathBuf::from(explicit);
@@ -19,21 +26,18 @@ pub fn harness_root() -> Result<PathBuf, String> {
         }
         return Ok(root);
     }
-
-    // Resolve only from the running binary's layout, never from a
-    // compile-time absolute source path embedded in a release executable.
     let exe = env::current_exe().map_err(|e| e.to_string())?;
     for ancestor in exe.ancestors().skip(1) {
         if ancestor.join("agents").is_dir() && ancestor.join("skills").is_dir() {
             return Ok(ancestor.to_path_buf());
         }
     }
-    Err("Harness assets unavailable; set NEO_HARNESS_ROOT to the installed assets root".to_string())
+    Err("Harness assets unavailable; set NEO_HARNESS_ROOT to the installed assets root".into())
 }
 
-/// Mirrors the current CLI's fail-closed workspace config validation.
-/// Neither the config file nor private Projects are modified.
-pub fn validate_workspace_config() -> Result<(), String> {
+/// Preserve strict v1 config validation and existing, real Project root. No
+/// migration or creation is allowed during read-only CLI commands.
+pub fn load() -> Result<Workspace, String> {
     let home = home()?;
     let config_path = env::var_os("NEO_WORKSPACE_CONFIG")
         .map(PathBuf::from)
@@ -66,7 +70,7 @@ pub fn validate_workspace_config() -> Result<(), String> {
     let requested = env::var("NEO_ROOT").unwrap_or_else(|_| configured_root.to_string());
     let root = PathBuf::from(&requested);
     if !root.is_absolute() {
-        return Err("NEO_ROOT must be an absolute path".to_string());
+        return Err("NEO_ROOT must be an absolute path".into());
     }
     if !root.is_dir() {
         return Err(format!(
@@ -74,5 +78,29 @@ pub fn validate_workspace_config() -> Result<(), String> {
             root.display()
         ));
     }
-    Ok(())
+    Ok(Workspace {
+        neo_root: root.canonicalize().map_err(|_| {
+            format!(
+                "NEO_ROOT is not an accessible directory: {}",
+                root.display()
+            )
+        })?,
+        harness_root: harness_root()?,
+    })
+}
+
+pub fn validate_workspace_config() -> Result<(), String> {
+    load().map(|_| ())
+}
+
+pub fn show(args: &[String]) -> Result<String, String> {
+    if args != ["show"] {
+        return Err("usage: neo workspace show".into());
+    }
+    let workspace = load()?;
+    let value = json!({
+        "neoRoot":workspace.neo_root.to_string_lossy(),
+        "harnessRoot":workspace.harness_root.to_string_lossy(),
+    });
+    serde_json::to_string_pretty(&value).map_err(|e| e.to_string())
 }

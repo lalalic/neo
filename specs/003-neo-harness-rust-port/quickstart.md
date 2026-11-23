@@ -48,3 +48,26 @@ All 10 functional requirements and five measurable outcomes have corresponding
 future or completed task coverage. The initial read-only slice satisfies the
 constitution's ownership and no-dual-write gates. No unresolved questions or
 unapproved exceptions; full release gates remain deliberately open.
+
+## Verified Read-only Slice (T010–T012) — 2026-11-23
+
+- `cargo test --workspace --offline`: **15/15 integration tests passed**.
+- `cargo clippy --workspace --all-targets --offline -- -D warnings`: passed.
+- Native `skill list`: **51/51** real entries, including dependencies and paths,
+  structurally identical to Node + Python baseline.
+- `bootstrap --json`: JSON-equal; `bootstrap`: **32,967 bytes identical**
+  to the existing Node.js rendition on this machine.
+- Native `workspace show`: JSON-equal; real `project list`: **14/14** independent
+  Project entries JSON-equal; `project resolve content-distribution`: JSON-equal.
+- Native `status` and `doctor`: JSON-equal and exit-code equivalent during live
+  reference comparison. Until the final cutover, these preserve the legacy Node
+  and Python dependency diagnostics; update that contract deliberately during
+  release staging, not as an accidental language-port behavior change.
+- Explicit fixture parity covers duplicate names, missing Skill prerequisites,
+  project-specific discovery, malformed arguments, missing bootstrap rules,
+  project symlink exclusion, invalid workspace configuration, and diagnostics.
+- `skill list`, `bootstrap --json`, and `agent list` pass with Node excluded
+  from PATH. `status` and `doctor` remain diagnostic probes, not core execution
+  dependencies.
+- Only the preview binary changes. Running `project run` remains unsupported
+  until disposable Project/Run safety and delegation tests pass.

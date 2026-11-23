@@ -25,9 +25,9 @@
 - [X] T007 [US1] Add failing fixture coverage for catalog precedence, search ranking, source filters and bad args in `crates/neo-cli/tests/agent_cli.rs`
 - [X] T008 [US1] Port agent list/search to `crates/neo-cli/src/agent.rs` preserving JSON shapes and source order
 - [X] T009 [US1] Run Node/Rust parity and native no-Node-PATH smoke tests; document evidence in `specs/003-neo-harness-rust-port/quickstart.md`
-- [ ] T010 [US1] Specify and port canonical Skill discovery to `crates/neo-cli/src/skill.rs` with parity fixtures
-- [ ] T011 [US1] Port bootstrap text and JSON to `crates/neo-cli/src/bootstrap.rs` with dynamic discovery and negative tests
-- [ ] T012 [US1] Port remaining read-only workspace, project list/resolve, status and doctor commands with reference comparisons
+- [X] T010 [US1] Specify and port canonical Skill discovery to `crates/neo-cli/src/skill.rs` with parity fixtures
+- [X] T011 [US1] Port bootstrap text and JSON to `crates/neo-cli/src/bootstrap.rs` with dynamic discovery and negative tests
+- [X] T012 [US1] Port remaining read-only workspace, project list/resolve, status and doctor commands with reference comparisons
 
 ## Phase 4: User Story 2 — Project and Run Lifecycle (P2)
 
