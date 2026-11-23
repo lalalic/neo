@@ -293,3 +293,13 @@ unapproved exceptions; full release gates remain deliberately open.
 - The actual local stateless tool-calling execution, dynamic server ownership,
   Experience learning and end-to-end terminal recovery are not yet integrated;
   T017/T019/T020 remain open and production `neo` is unchanged.
+
+## Native sanitized Escalation Experience writer (T017 in progress)
+
+- Added redacted, deduplicated private Case preparation/persistence. It stores
+  only normalized scenario/steps/verification and tool counters, never raw
+  Handoffs, transcripts, tool outputs or account secrets.
+- 7 Rust Node-parity/privacy tests, 11 original Node Experience tests, full
+  Rust suite **123/123**, strict Clippy passed. No production record touched.
+- The stateless local inference loop, owned model startup, post-run summary
+  and interactive teaching flows are still T017 work, not accepted as done.
