@@ -256,3 +256,15 @@ unapproved exceptions; full release gates remain deliberately open.
 - Full Rust suite **95/95**, strict Clippy passed. Running a local model,
   writing Challenge Attempts, Escalation model locks, and cleanup are still
   unported, so T017 remains incomplete.
+
+## Rust Escalation flock guardian (T017 in progress)
+
+- The local inference-slot kernel flock is now implemented in Rust with a
+  guardian child tied to the owner's pipe. It waits for the same lock inode
+  as Node, has bounded timeout and terminates explicitly registered owned
+  child PIDs before releasing the resource.
+- 5 private temporary-process tests passed, including mixed Node/Rust lock
+  contention and orphan-pipe cleanup; full Rust suite **100/100**, strict
+  Clippy passed. No live `llama-server` or production model-lock use.
+- **Escalation execution is not migrated yet.** The guardian is a verified
+  library primitive awaiting native model runtime and ledger integration.

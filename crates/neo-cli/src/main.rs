@@ -160,6 +160,12 @@ fn run(args: &[String]) -> Result<i32, String> {
 
 fn main() {
     let args = env::args().skip(1).collect::<Vec<_>>();
+    if args
+        .first()
+        .is_some_and(|s| s == "__escalation-lock-guardian")
+    {
+        std::process::exit(neo_harness_cli::escalation_lock::guardian_main(&args[1..]));
+    }
     match run(&args) {
         Ok(code) if code != 0 => std::process::exit(code),
         Ok(_) => {}
