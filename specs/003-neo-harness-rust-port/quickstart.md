@@ -268,3 +268,15 @@ unapproved exceptions; full release gates remain deliberately open.
   Clippy passed. No live `llama-server` or production model-lock use.
 - **Escalation execution is not migrated yet.** The guardian is a verified
   library primitive awaiting native model runtime and ledger integration.
+
+## Native Escalation input, model and output contracts (T017 in progress)
+
+- Added pure Rust Handoff/default notification policy parsing, safe runtime
+  settings and model argument construction, plus result evidence gating,
+  normalization and synthetic credential redaction.
+- Seven reference/negative tests passed; full Rust suite **107/107**, strict
+  Clippy passed. Isolated real Rust Relay E2E encountered one transient
+  create-exit failure, then a fresh run passed with one ACTIVE Job and stable
+  Run Git/foreground evidence. No production state changed.
+- The actual Escalation stateless execution, durable Attempt writes and
+  self-test/learning paths remain T017 open; no production cutover.
