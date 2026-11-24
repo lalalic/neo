@@ -23,7 +23,7 @@ In the Dockerfile, define a `CMD` or `ENTRYPOINT` that terminates once:
   or use provider-specific read-only model mounts when available.
 
 Neo builds the project Dockerfile, reads its `CMD`/`ENTRYPOINT`, then wraps the
-image with `compute/runtime/Dockerfile.wrap` and `compute/runtime/service.mjs`. The
+image with `compute/runtime/Dockerfile.wrap` and the statically linked Linux/amd64 Rust executable built from `compute/runtime/src/main.rs`. New images contain no injected Node runtime. Existing immutable images remain supported by the provider launch shim. The wrapper uses a POSIX shell for provider startup compatibility; application dependencies are unchanged. The
 container exposes `GET /health`, `POST /inputs/NAME`, `POST /start`,
 `GET /status`, and `GET /outputs/NAME`. HF Jobs provides a **token-authenticated**
 proxy. Vast.ai uses SSH port forwarding; the HTTP port is not made public.

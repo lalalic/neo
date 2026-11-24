@@ -12,6 +12,24 @@ use std::{
     time::Duration,
 };
 
+/// Ordered build inputs. The hosted builder must hash exactly these bytes.
+pub(crate) const COMPUTE_RUNTIME_FILES: &[&str] =
+    &["Cargo.toml", "Cargo.lock", "src/main.rs", "Dockerfile.wrap"];
+// Immutable pre-Rust images still use the original embedded entrypoint.
+// The fallback is exclusively inside an already-published image; no Node
+// runtime is shipped or executed on the host.
+pub(crate) const RUNTIME_EXEC: &str = "if [ -x /opt/neo-gpu/neo-compute-runtime ]; then exec /opt/neo-gpu/neo-compute-runtime; else exec /opt/neo-gpu/node /opt/neo-gpu/launcher.mjs; fi";
+pub(crate) fn runtime_onstart(web: bool) -> String {
+    let log = if web {
+        "/tmp/neo-gpu-web.log"
+    } else {
+        "/tmp/neo-gpu-service.log"
+    };
+    format!(
+        "nohup /bin/sh -c '{}' > {log} 2>&1 < /dev/null &",
+        RUNTIME_EXEC
+    )
+}
 pub const HELP:&str="Neo Compute — native Rust CLI\n  neo compute build [--project ROOT] [--dockerfile Dockerfile] [--name SERVICE]\n                [--builder github|local] [--image ghcr.io/OWNER/NAME:TAG]\n                [--push] [--dry-run]\n  neo compute run SERVICE [--provider hf|vast] --input NAME=PATH ...\n                --output NAME=PATH ... --allow-spend --allow-upload\n                [--budget USD] [--max-seconds 1200] [--dry-run]\n  neo compute run --image ghcr.io/OWNER/NAME:TAG [options]\n  neo compute services\n  neo compute web add|remove|token|rotate|status|start|stop|serve ...\n  neo compute doctor\n  neo compute cleanup --lease PATH\n";
 fn err(s: &str) -> String {
     s.into()
@@ -499,7 +517,7 @@ pub fn image_plan(args: &[String]) -> Result<Value, String> {
     }
     let runtime = root()?.join("compute/runtime");
     let mut hasher = Sha256::new();
-    for filename in ["service.mjs", "web.mjs", "launcher.mjs", "Dockerfile.wrap"] {
+    for filename in COMPUTE_RUNTIME_FILES {
         hasher.update(
             fs::read(runtime.join(filename))
                 .map_err(|_| "Compute wrapper runtime asset missing")?,
@@ -978,8 +996,9 @@ fn run_hf(plan: &Value) -> Result<Value, String> {
                 "--name",
                 &label,
                 image,
-                "/opt/neo-gpu/node",
-                "/opt/neo-gpu/launcher.mjs",
+                "/bin/sh",
+                "-c",
+                RUNTIME_EXEC,
             ],
             None,
             Duration::from_secs(50),
@@ -1285,7 +1304,7 @@ fn run_vast(plan: &Value) -> Result<Value, String> {
     // creation, protecting uncertain results and hard deadlines.
     watchdog_start(&lease)?;
     let disk = plan["disk"].as_u64().ok_or("Vast disk missing")?;
-    let onstart="nohup /opt/neo-gpu/node /opt/neo-gpu/launcher.mjs > /tmp/neo-gpu-service.log 2>&1 < /dev/null &";
+    let onstart = runtime_onstart(false);
     let mut instance: Option<u64> = None;
     let result = (|| {
         let text = capture(
@@ -1301,7 +1320,7 @@ fn run_vast(plan: &Value) -> Result<Value, String> {
                 "--ssh",
                 "--direct",
                 "--onstart-cmd",
-                onstart,
+                &onstart,
                 "--cancel-unavail",
                 "--label",
                 &label,

@@ -50,8 +50,7 @@ pub(crate) fn service(name: &str) -> Result<Value, String> {
     Ok(entry)
 }
 pub(crate) fn origin() -> String {
-    env::var("NEO_COMPUTE_WEB_ORIGIN")
-        .unwrap_or_else(|_| "https://compute.qili2.com".into())
+    env::var("NEO_COMPUTE_WEB_ORIGIN").unwrap_or_else(|_| "https://compute.qili2.com".into())
 }
 pub(crate) fn url(name: &str) -> String {
     format!("{}/{name}/", origin().trim_end_matches('/'))
@@ -442,8 +441,9 @@ fn start(args: &[String]) -> Result<Value, String> {
                 "--name",
                 &label,
                 image,
-                "/opt/neo-gpu/node",
-                "/opt/neo-gpu/launcher.mjs",
+                "/bin/sh",
+                "-c",
+                compute::RUNTIME_EXEC,
             ],
             None,
             Duration::from_secs(55),
@@ -464,7 +464,7 @@ fn start(args: &[String]) -> Result<Value, String> {
         }
         let chosen = offer.ok_or("No Vast Web offer")?;
         let disk = config["disk"].as_u64().ok_or("Vast Web disk unavailable")?;
-        let onstart="nohup /opt/neo-gpu/node /opt/neo-gpu/launcher.mjs > /tmp/neo-gpu-web.log 2>&1 < /dev/null &";
+        let onstart = compute::runtime_onstart(true);
         let raw = compute::capture(
             "vastai",
             &[
@@ -478,7 +478,7 @@ fn start(args: &[String]) -> Result<Value, String> {
                 "--ssh",
                 "--direct",
                 "--onstart-cmd",
-                onstart,
+                &onstart,
                 "--cancel-unavail",
                 "--label",
                 &label,

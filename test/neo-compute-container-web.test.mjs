@@ -9,7 +9,7 @@ import {createHash} from 'node:crypto';
 import {spawn} from 'node:child_process';
 import {setTimeout as delay} from 'node:timers/promises';
 import {fileURLToPath} from 'node:url';
-const runtime=new URL('../compute/runtime/web.mjs',import.meta.url).pathname;
+const runtime=process.env.NEO_COMPUTE_RUNTIME_BIN||new URL('../target/debug/neo-compute-runtime',import.meta.url).pathname;
 function fixture(){const dir=mkdtempSync(join(tmpdir(),'neo-gpu-web-'));process.env.NEO_COMPUTE_WEB_DIR=join(dir,'config');process.env.NEO_COMPUTE_WEB_SESSIONS=join(dir,'sessions');process.env.NEO_COMPUTE_REGISTRY_FILE=join(dir,'services.json');return dir;}
 async function listen(server){await new Promise((ok,fail)=>{server.once('error',fail);server.listen(0,'127.0.0.1',ok);});return server.address().port;}
 async function close(server){await new Promise(ok=>server.close(()=>ok()));}
@@ -35,7 +35,7 @@ s.listen(Number(process.env.NEO_GPU_APP_PORT),'127.0.0.1');`);
   const probe=httpServer();const port=await listen(probe);await close(probe);
   const appProbe=httpServer();const appPort=await listen(appProbe);await close(appProbe);
   // Both ephemeral ports are released before starting the wrapper.
-  const child=spawn(process.env.NEO_COMPUTE_RUNTIME_BIN||process.execPath,process.env.NEO_COMPUTE_RUNTIME_BIN?[]:[runtime],{env:{...process.env,NEO_GPU_MODE:'web',NEO_GPU_PORT:String(port),
+  const child=spawn(runtime,[],{env:{...process.env,NEO_GPU_MODE:'web',NEO_GPU_PORT:String(port),
     NEO_GPU_APP_PORT:String(appPort),NEO_GPU_BASE_PATH:'/demo/',NEO_GPU_CMD_JSON:JSON.stringify([process.execPath,app])},stdio:'ignore'});
   try{
     let ready=false;

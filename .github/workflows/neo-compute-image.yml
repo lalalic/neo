@@ -82,7 +82,7 @@ jobs:
           node - <<'NODE'
           const {createHash}=require('crypto'),fs=require('fs');
           const hash=createHash('sha256');
-          for(const file of ['service.mjs','web.mjs','launcher.mjs','Dockerfile.wrap'])hash.update(fs.readFileSync('compute/runtime/'+file));
+          for(const file of ['Cargo.toml','Cargo.lock','src/main.rs','Dockerfile.wrap'])hash.update(fs.readFileSync('compute/runtime/'+file));
           if(hash.digest('hex')!==process.env.EXPECTED_HASH)throw Error('Neo Compute runtime differs from invoking CLI; update Neo CLI and retry');
           NODE
       - name: Checkout public project source

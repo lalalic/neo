@@ -81,9 +81,9 @@ fn clean_mac_candidate_bootstraps_and_discovers_skills_without_node_or_source_ch
     assert!(f.package.join("skills/neo-compute/SKILL.md").is_file());
     assert_eq!(manifest["computeContainerRuntimeAssets"], 4);
     for file in [
-        "compute/runtime/service.mjs",
-        "compute/runtime/web.mjs",
-        "compute/runtime/launcher.mjs",
+        "compute/runtime/Cargo.toml",
+        "compute/runtime/Cargo.lock",
+        "compute/runtime/src/main.rs",
         "compute/runtime/Dockerfile.wrap",
     ] {
         assert!(
@@ -96,6 +96,9 @@ fn clean_mac_candidate_bootstraps_and_discovers_skills_without_node_or_source_ch
         "scripts/audit-project-worker-evals.mjs",
         "gpu/cli.mjs",
         "compute/cli.mjs",
+        "compute/runtime/service.mjs",
+        "compute/runtime/web.mjs",
+        "compute/runtime/launcher.mjs",
     ] {
         assert!(
             !f.package.join(obsolete).exists(),

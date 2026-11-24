@@ -93,17 +93,10 @@ fn write_committed_assets(root: &Path, out: &Path) -> Result<(usize, Vec<String>
     excluded.sort();
     Ok((total, excluded))
 }
-/// Container image wrapper files are workload assets, not Neo CLI Node
-/// executables. They remain bundled until the image's internal runtime is
-/// separately migrated. Eval and Compute CLI never delegate to these scripts.
-const COMPUTE_CONTAINER_ASSETS: &[&str] = &[
-    "compute/runtime/service.mjs",
-    "compute/runtime/web.mjs",
-    "compute/runtime/launcher.mjs",
-    "compute/runtime/Dockerfile.wrap",
-];
+/// Ship the exact native container build inputs, not a host Node runtime.
 fn write_container_assets(root: &Path, out: &Path) -> Result<usize, String> {
-    for &rel in COMPUTE_CONTAINER_ASSETS {
+    for name in crate::compute::COMPUTE_RUNTIME_FILES {
+        let rel = &format!("compute/runtime/{name}");
         let record = git(root, &["ls-files", "--stage", "--", rel])?;
         let line = String::from_utf8(record).map_err(|e| e.to_string())?;
         if !line.starts_with("100644 ") && !line.starts_with("100755 ") {
@@ -124,7 +117,7 @@ fn write_container_assets(root: &Path, out: &Path) -> Result<usize, String> {
         .map_err(|e| e.to_string())?;
         fs::write(&target, data).map_err(|e| e.to_string())?;
     }
-    Ok(COMPUTE_CONTAINER_ASSETS.len())
+    Ok(crate::compute::COMPUTE_RUNTIME_FILES.len())
 }
 fn is_inside(outer: &Path, inner: &Path) -> bool {
     inner.starts_with(outer)

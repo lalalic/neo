@@ -9,7 +9,7 @@
     "serviceman": "skills/daemon-service-manage/bin/serviceman.mjs"
   },
   "scripts": {
-    "test": "cargo test --workspace && node --test test/*.test.mjs",
+    "test": "cargo test --workspace && cargo test --locked --manifest-path compute/runtime/Cargo.toml --target-dir target && cargo build --locked --manifest-path compute/runtime/Cargo.toml --target-dir target && node --test test/*.test.mjs",
     "push": "node scripts/guard-private-runs.mjs && GIT_SSH_COMMAND=\"ssh -i ~/.ssh/id_ed25519_1 -o IdentitiesOnly=yes\" git push"
   },
   "private": true
