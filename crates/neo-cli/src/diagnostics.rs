@@ -49,18 +49,17 @@ pub fn run(category: &str, args: &[String]) -> Result<(String, i32), String> {
             remediation.push("Start or diagnose NeoY native gateway");
         }
         if node == "missing" {
-            remediation.push("Install Node.js 18+");
+            remediation
+                .push("Optional: install Node.js for explicitly declared project JS workloads");
         }
         if python == "missing" {
-            remediation.push("Install Python 3 for Neo project/skill discovery");
+            remediation.push("Optional: install Python 3 for project workloads that require it");
         }
         value["remediation"] = json!(remediation);
     }
-    let code = if gateway && node != "missing" && python != "missing" {
-        0
-    } else {
-        2
-    };
+    // Native discovery/bootstrap and MCP no longer require these legacy runtimes.
+    // Keep their inventory fields for callers, but do not fail core readiness.
+    let code = if gateway { 0 } else { 2 };
     Ok((
         serde_json::to_string_pretty(&value).map_err(|e| e.to_string())?,
         code,
