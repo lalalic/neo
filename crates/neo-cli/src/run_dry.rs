@@ -20,7 +20,7 @@ pub struct Options {
     pub title: Option<String>,
     pub dag: Option<String>,
     pub source: Option<String>,
-    pub prefer_adapter: Option<String>,
+    pub routing_preferences: Vec<(String, String)>,
     pub dry_run: bool,
     pub foreground: bool,
     pub no_review: bool,
@@ -59,7 +59,9 @@ pub(crate) fn parse(args: &[String]) -> Result<Options, String> {
         let (key, v) = raw.split_once('=').unwrap_or((raw.as_str(), ""));
         if !matches!(
             key,
-            "--url" | "--path" | "--project" | "--title" | "--dag" | "--source" | "--prefer-adapter"
+            "--url" | "--path" | "--project" | "--title" | "--dag" | "--source"
+                | "--prefer-adapter" | "--prefer-provider" | "--prefer-model"
+                | "--prefer-profile" | "--prefer-reasoning"
         ) {
             return Err(format!("unknown project run option: {raw}"));
         }
@@ -82,11 +84,15 @@ pub(crate) fn parse(args: &[String]) -> Result<Options, String> {
             "--title" => opt.title = Some(val),
             "--dag" => opt.dag = Some(val),
             "--source" => opt.source = Some(val),
-            "--prefer-adapter" => {
-                if !matches!(val.as_str(), "codex" | "chatgpt" | "z") {
-                    return Err("--prefer-adapter must be codex, chatgpt, or z".into());
+            "--prefer-adapter" | "--prefer-provider" | "--prefer-model"
+            | "--prefer-profile" | "--prefer-reasoning" => {
+                if key == "--prefer-adapter" && val != "codex" {
+                    return Err("--prefer-adapter must be codex; use --prefer-profile neo for Neo-backed execution".into());
                 }
-                opt.prefer_adapter = Some(val);
+                if val.trim() != val || val.trim().is_empty() {
+                    return Err(format!("{key} requires a nonempty exact identifier"));
+                }
+                opt.routing_preferences.push((key.to_string(), val));
             }
             _ => unreachable!(),
         }

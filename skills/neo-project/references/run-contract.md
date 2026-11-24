@@ -37,7 +37,7 @@ cannot create a duplicate Job or silently change title or policy.
 
 Project declarations in `project.run.json` define the accepted input type and restrictions. A project without a valid declaration is not enabled. The declaration may additionally define `graphs: { "name": "graph-name.mmd" }` and `defaultDag: "name"`, with `graph.mmd` retained as the canonical default fallback. The selected file is the sole authority for that Run's workflow ordering. `--dag NAME` resolves a named graph; without it, the project default is used. The private Run binding persists the choice and rejects switching DAGs on resume.
 
-The optional `--prefer-adapter codex|chatgpt|z` is passed to Relay at Job creation as a soft routing hint, not an executor override. Script nodes keep their declared executor. On an existing bound Run, use Relay Job update to change the stored preference; do not recreate the Job.
+The optional Relay Job routing switches `--prefer-adapter codex`, `--prefer-provider NAME`, `--prefer-model ID`, `--prefer-profile NAME`, and `--prefer-reasoning EFFORT` are passed through at atomic Job creation as soft routing hints, not executor overrides. Script nodes keep their declared executor. On an existing bound Run, explicitly supplied hints must match the stored preferences; use Relay Job update to change them, not a new Job. Project-owned identity, Coordinator, preflight, and review flags are not arbitrary passthrough arguments.
 
 ## Invocation
 
