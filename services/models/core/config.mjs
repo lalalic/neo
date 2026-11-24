@@ -7,11 +7,7 @@ export const DEFAULTS = Object.freeze({
   subjectPrefix: 'relay.events.job',
   dashboardUrl: 'http://127.0.0.1:8787',
   eventsApiUrl: 'http://127.0.0.1:4223',
-  port: 8791,
   reconcileIntervalMs: 5 * 60_000,
-  deliveryTickMs: 1_000,
-  settleMs: 1_500,
-  retentionMs: 90 * 24 * 60 * 60_000,
 });
 
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '[::1]']);
@@ -50,11 +46,11 @@ function requirePort(name, value) {
 
 /** Local Neo.app MCP listener, resolved like Neo CLI does: loopback only. */
 export function resolveNeoMcpEndpoint({ env = process.env, read = readFileSync, home = homedir() } = {}) {
-  if (env.CHAT_GATEWAY_NEO_MCP_URL) {
-    if (!/^http:\/\/127\.0\.0\.1:\d+\/mcp$/.test(env.CHAT_GATEWAY_NEO_MCP_URL)) {
-      throw new Error('CHAT_GATEWAY_NEO_MCP_URL must be http://127.0.0.1:PORT/mcp');
+  if (env.NEO_MODELS_MCP_URL) {
+    if (!/^http:\/\/127\.0\.0\.1:\d+\/mcp$/.test(env.NEO_MODELS_MCP_URL)) {
+      throw new Error('NEO_MODELS_MCP_URL must be http://127.0.0.1:PORT/mcp');
     }
-    return env.CHAT_GATEWAY_NEO_MCP_URL;
+    return env.NEO_MODELS_MCP_URL;
   }
   const file = join(home, 'Library/Application Support/NeoY/deployment.json');
   const config = readJson(read, file);
@@ -81,7 +77,7 @@ export function resolveConfig({ env = process.env, read = readFileSync, home = h
   const subjectPrefix = env.EVENTS_BUS_SUBJECT_PREFIX || runtime.subjectPrefix || DEFAULTS.subjectPrefix;
   if (!/^[A-Za-z0-9_.-]+$/.test(subjectPrefix)) throw new Error('Invalid events subject prefix');
   const dashboardUrl = requireLoopback(
-    'Dashboard URL', env.CHAT_GATEWAY_DASHBOARD_URL || DEFAULTS.dashboardUrl, 'http:');
+    'Dashboard URL', env.NEO_MODELS_RELAY_URL || DEFAULTS.dashboardUrl, 'http:');
   const eventsApiUrl = requireLoopback(
     'Events history URL', env.EVENTS_BUS_API_URL || runtime.apiUrl || DEFAULTS.eventsApiUrl, 'http:');
   return {
@@ -90,12 +86,7 @@ export function resolveConfig({ env = process.env, read = readFileSync, home = h
     subject: `${subjectPrefix}.*.job.runtime_status.changed`,
     dashboardUrl,
     eventsApiUrl,
-    port: requirePort('CHAT_GATEWAY_PORT', env.CHAT_GATEWAY_PORT ?? DEFAULTS.port),
-    stateDir: env.CHAT_GATEWAY_STATE_DIR || join(home, '.local/state/neo/chat-gateway'),
     neoMcpEndpoint: resolveNeoMcpEndpoint({ env, read, home }),
     reconcileIntervalMs: DEFAULTS.reconcileIntervalMs,
-    deliveryTickMs: DEFAULTS.deliveryTickMs,
-    settleMs: DEFAULTS.settleMs,
-    retentionMs: DEFAULTS.retentionMs,
   };
 }

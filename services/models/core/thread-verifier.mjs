@@ -28,7 +28,7 @@ function lastJson(stdout) {
 }
 
 async function runWebHelm(argv) {
-  const {stdout} = await execute(process.env.CHAT_GATEWAY_WEBHELM_COMMAND || 'webhelm', argv, {
+  const {stdout} = await execute(process.env.NEO_MODELS_WEBHELM_COMMAND || 'webhelm', argv, {
     shell:false, timeout:35_000, maxBuffer:256_000,
   });
   return lastJson(stdout);
@@ -40,7 +40,7 @@ export function createThreadProjectVerifier({run = runWebHelm} = {}) {
     if (!PROJECT.test(projectId ?? '') || !THREAD.test(threadId ?? '')) {
       throw new Error('Invalid orchestrator Project/thread identity');
     }
-    const temp = await mkdtemp(join(tmpdir(),'chat-gateway-head-check-'));
+    const temp = await mkdtemp(join(tmpdir(),'models-head-check-'));
     let sessionId = null;
     try {
       const script = join(temp,'inspect.js');

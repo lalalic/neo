@@ -1,7 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createNeoNotifier } from '../core/notify.mjs';
-import { registerGateway } from '../mcp/admin.mjs';
 
 const policy = {blocked:true,completed:true,failure:true};
 const rpcPolicy = () => Response.json({jsonrpc:'2.0',id:1,result:{content:[{type:'text',text:JSON.stringify(policy)}]}});
@@ -51,37 +50,4 @@ test('APNs false acknowledgement and disabled policy cannot become delivered',as
   const disabled=createNeoNotifier({endpoint:'http://127.0.0.1:6767/mcp',apnsDir:dir,
     fetcher:async ()=>Response.json({result:{content:[{type:'text',text:JSON.stringify({...policy,blocked:false})}]}})});
   await assert.rejects(disabled.send({kind:'blocked',title:'review',body:'pending'}),/disabled/);
-});
-
-test('federation registration authorizes only this provider via Neo applied settings', async () => {
-  const commands = [];
-  const registered = await registerGateway({
-    endpoint: 'http://127.0.0.1:6767/mcp', port: 8791,
-    fetcher: async (_url, init) => {
-      const command = JSON.parse(init.body).params.arguments.command;
-      commands.push(command);
-      const receipt = command.startsWith('mcp add')
-        ? { configuration: { mcp_servers: [{ name: 'chat-gateway' }] }, ok: true }
-        : { ok: true, operation: 'deployment.provider' };
-      return Response.json({ jsonrpc: '2.0', id: 1,
-        result: { content: [{ type: 'text', text: JSON.stringify(receipt) }] } });
-    },
-  });
-  assert.equal(registered.registered, true);
-  assert.equal(registered.remotelyExposed, true);
-  assert.deepEqual(commands, [
-    'mcp add chat-gateway http://127.0.0.1:8791/mcp',
-    'deployment provider enable chat-gateway',
-  ]);
-});
-
-test('never claims remote exposure if Neo rejects provider grant', async () => {
-  let index = 0;
-  await assert.rejects(registerGateway({
-    endpoint: 'http://127.0.0.1:6767/mcp', port: 8791,
-    fetcher: async () => Response.json({
-      result: { content: [{ type: 'text', text: JSON.stringify(index++ === 0
-        ? { ok: true } : { ok: false, error: 'rejected' }) }] },
-    }),
-  }), /did not acknowledge/);
 });

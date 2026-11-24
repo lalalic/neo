@@ -1,4 +1,4 @@
-import { connect } from '@nats-io/transport-node';
+import { connect } from '../../../skills/events-bus/transport/client.mjs';
 import { parseRuntimeStatusEvent } from './job-status.mjs';
 
 const decoder = new TextDecoder();
@@ -16,7 +16,7 @@ export function decodeEvent(data) {
 /** Core NATS is intentionally non-durable; the dashboard reconciler fills gaps. */
 export function createSubscriber({
   natsUrl, subject, onEvent, onReconnect = async () => {},
-  decoder = decodeEvent, connectionName = 'neo-chat-gateway',
+  decoder = decodeEvent, connectionName = 'neo-models-relay',
   connectNats = connect, log = () => {},
   backoff = { baseMs: 1000, capMs: 30_000 },
   sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),

@@ -21,19 +21,19 @@ function fixture(t,reply=envelope('hello')){
 }
 test('preserves pre-existing Project/head with persistent fixed Codex UUID, never creates competing head',t=>{
   const {store,headFile,engine}=fixture(t);
-  const one=new OrchestratorChat({store,engine,legacyHeadFile:headFile});
+  const one=new OrchestratorChat({store,engine,bootstrapHeadFile:headFile});
   assert.equal(one.state.projectId,head.projectId);
   assert.equal(one.state.threadId,head.threadId);
   const sessions=store.listSessions();assert.equal(sessions.length,1);
   assert.equal(sessions[0].threadId,head.threadId);
   assert.equal(sessions[0].codexThreadId,one.state.codexThreadId);
-  const two=new OrchestratorChat({store:new ModelStore(store.base),engine,legacyHeadFile:headFile});
+  const two=new OrchestratorChat({store:new ModelStore(store.base),engine,bootstrapHeadFile:headFile});
   assert.equal(two.state.codexThreadId,one.state.codexThreadId);
   assert.equal(store.listSessions().length,1);
 });
 test('durable idempotent outbox, request collision, completion events and ACK',async t=>{
   const {store,headFile,engine,calls}=fixture(t);
-  const chat=new OrchestratorChat({store,engine,legacyHeadFile:headFile});
+  const chat=new OrchestratorChat({store,engine,bootstrapHeadFile:headFile});
   const id='phone_request_123';
   assert.equal((await chat.submit({requestId:id,text:'hello'})).status,'queued');
   await flush();
@@ -55,30 +55,30 @@ test('durable idempotent outbox, request collision, completion events and ACK',a
   const deliveryId=chat.pending()[0].deliveryId;
   assert.deepEqual(chat.ack(deliveryId),{deliveryId,acked:true});
   assert.deepEqual(chat.pending(),[]);
-  const restored=new OrchestratorChat({store:new ModelStore(store.base),engine,legacyHeadFile:headFile});
+  const restored=new OrchestratorChat({store:new ModelStore(store.base),engine,bootstrapHeadFile:headFile});
   assert.equal((await restored.submit({requestId:id,text:'hello'})).status,'completed');
   assert.equal(calls.length,1);
 });
 test('incomplete request is uncertain on restart, never silently re-sent',async t=>{
   const {store,headFile,calls}=fixture(t);
   const engine={async run(){calls.push('started');return new Promise(()=>{});}};
-  const one=new OrchestratorChat({store,engine,legacyHeadFile:headFile});
+  const one=new OrchestratorChat({store,engine,bootstrapHeadFile:headFile});
   await one.submit({requestId:'pending_12345',text:'hello'});await flush();
-  const restored=new OrchestratorChat({store:new ModelStore(store.base),engine,legacyHeadFile:headFile});
+  const restored=new OrchestratorChat({store:new ModelStore(store.base),engine,bootstrapHeadFile:headFile});
   assert.equal(restored.pending()[0].status,'uncertain');
   assert.equal((await restored.submit({requestId:'pending_12345',text:'hello'})).status,'uncertain');
   assert.equal(calls.length,1);
 });
 test('restart resumes durably queued requests that never entered the browser',async t=>{
   const {store,headFile,engine,calls}=fixture(t);
-  const original=new OrchestratorChat({store,engine,legacyHeadFile:headFile});
+  const original=new OrchestratorChat({store,engine,bootstrapHeadFile:headFile});
   await flush(); // Drain the first constructor's empty startup queue.
   original.state.requests.accepted_before_crash={
     requestId:'accepted_before_crash',text:'resumable',status:'queued',
     attachments:[],files:[],ack:false,createdAt:Date.now(),
   };
   original.persist(); // Simulate 202 persisted, process exit before transport start.
-  const restored=new OrchestratorChat({store:new ModelStore(store.base),engine,legacyHeadFile:headFile});
+  const restored=new OrchestratorChat({store:new ModelStore(store.base),engine,bootstrapHeadFile:headFile});
   for(let i=0;i<10&&restored.pending()[0]?.status!=='completed';i++)await flush();
   assert.equal(restored.pending()[0].status,'completed');
   assert.equal(calls.length,1);
@@ -88,18 +88,18 @@ test('restart resumes durably queued requests that never entered the browser',as
 test('restart does not overtake an uncertain browser submission with newer turns',async t=>{
   const {store,headFile}=fixture(t);
   let firstStarted=0,successorCalls=0;
-  const original=new OrchestratorChat({store,engine:{async run(){firstStarted++;return new Promise(()=>{});}},legacyHeadFile:headFile});
+  const original=new OrchestratorChat({store,engine:{async run(){firstStarted++;return new Promise(()=>{});}},bootstrapHeadFile:headFile});
   await original.submit({requestId:'uncertain_first_123',text:'first'});
   await flush();
   assert.equal(firstStarted,1);
   const restored=new OrchestratorChat({store:new ModelStore(store.base),
     engine:{async run(){successorCalls++;return {output:[{content:[{text:envelope('bad overtaking')}]}]};}},
-    legacyHeadFile:headFile});
+    bootstrapHeadFile:headFile});
   await restored.submit({requestId:'later_queued_12345',text:'second'});
   await flush();await flush();
   assert.deepEqual(restored.pending().map(r=>r.status),['uncertain','queued']);
   assert.equal(successorCalls,0,'The next ChatGPT turn must not overtake an unconfirmed prior turn');
-  const restarted=new OrchestratorChat({store:new ModelStore(store.base),engine:restored.engine,legacyHeadFile:headFile});
+  const restarted=new OrchestratorChat({store:new ModelStore(store.base),engine:restored.engine,bootstrapHeadFile:headFile});
   await flush();
   assert.deepEqual(restarted.pending().map(r=>r.status),['uncertain','queued']);
   assert.equal(successorCalls,0);
@@ -120,7 +120,7 @@ test('lost internal v1 SSE never releases FIFO until the durable exact response 
     }
     return {output:[{content:[{text:envelope('next completed')}]}]};
   }};
-  const original=new OrchestratorChat({store,engine,legacyHeadFile:headFile});
+  const original=new OrchestratorChat({store,engine,bootstrapHeadFile:headFile});
   await original.submit({requestId:'sse_first_uncertain_123',text:'first'});
   await flush();
   assert.equal(original.pending()[0].status,'uncertain');
@@ -128,7 +128,7 @@ test('lost internal v1 SSE never releases FIFO until the durable exact response 
   await flush();
   assert.deepEqual(original.pending().map(x=>x.status),['uncertain','queued']);
   assert.equal(calls.length,1,'Never send next turn while the previous browser outcome is uncertain');
-  const restarted=new OrchestratorChat({store:new ModelStore(store.base),engine,legacyHeadFile:headFile});
+  const restarted=new OrchestratorChat({store:new ModelStore(store.base),engine,bootstrapHeadFile:headFile});
   await flush();
   assert.equal(calls.length,1,'Restart must not re-submit an unknown browser outcome');
   const {reportText,reportComplete}=await import('../services/models/report.mjs');
@@ -145,7 +145,7 @@ test('untrusted control fails closed without verifier and never updates head',as
   const {store,headFile}=fixture(t);
   const control={action:'replace-thread-id',previousThreadId:head.threadId,nextThreadId:'successor_thread_123',expectedGeneration:0,handoffReceipt:'receipt_verified_123'};
   const raw=JSON.stringify({schema:'neo.orchestrator.reply.v1',control});
-  const chat=new OrchestratorChat({store,engine:{async run(){return {output:[{content:[{text:raw}]}]}}},legacyHeadFile:headFile});
+  const chat=new OrchestratorChat({store,engine:{async run(){return {output:[{content:[{text:raw}]}]}}},bootstrapHeadFile:headFile});
   await chat.submit({requestId:'control_12345',text:'handoff'});await flush();
   assert.equal(chat.pending()[0].status,'failed');
   assert.equal(chat.state.threadId,head.threadId);
@@ -155,7 +155,7 @@ test('a message paired with an unverified replacement fails closed',async t=>{
   const {store,headFile}=fixture(t);
   const control={action:'replace-thread-id',previousThreadId:head.threadId,nextThreadId:'successor_thread_123',expectedGeneration:0,handoffReceipt:'receipt_verified_123'};
   const raw=JSON.stringify({schema:'neo.orchestrator.reply.v1',message:{text:'handoff succeeded',level:'info',needs:'none',jobId:null},control});
-  const chat=new OrchestratorChat({store,engine:{async run(){return {output:[{content:[{text:raw}]}]}}},legacyHeadFile:headFile});
+  const chat=new OrchestratorChat({store,engine:{async run(){return {output:[{content:[{text:raw}]}]}}},bootstrapHeadFile:headFile});
   await chat.submit({requestId:'control_with_text_123',text:'handoff'});await flush();
   assert.equal(chat.pending()[0].status,'failed');
   assert.match(chat.pending()[0].message.text,/Independent thread\/handoff verifier unavailable/);
@@ -165,7 +165,7 @@ test('a message paired with an unverified replacement fails closed',async t=>{
 test('verified CAS replacement enforces generation, predecessor and project mapping',async t=>{
   const {store,headFile,engine}=fixture(t);
   const verified=[];
-  const chat=new OrchestratorChat({store,engine,legacyHeadFile:headFile,verifyHandoff:async candidate=>{verified.push(candidate);return candidate.projectId===head.projectId;}});
+  const chat=new OrchestratorChat({store,engine,bootstrapHeadFile:headFile,verifyHandoff:async candidate=>{verified.push(candidate);return candidate.projectId===head.projectId;}});
   const first={action:'replace-thread-id',previousThreadId:head.threadId,nextThreadId:'new_head_b_123456',expectedGeneration:0,handoffReceipt:'receipt_1234567890'};
   assert.equal(await chat.replaceThread(first),1);
   assert.equal(chat.state.threadId,first.nextThreadId);
@@ -189,7 +189,7 @@ test('simulated A to B to C self-handoffs retain fixed Codex UUID and fresh enfo
       handoffReceipt:'receipt_confirmed_'+index+'_123456'};
     return {output:[{content:[{text:JSON.stringify({schema:'neo.orchestrator.reply.v1',control})}]}]};
   }};
-  const chat=new OrchestratorChat({store,engine,legacyHeadFile:headFile,
+  const chat=new OrchestratorChat({store,engine,bootstrapHeadFile:headFile,
     verifyHandoff:async candidate=>{
       verified.push(candidate);
       return candidate.projectId===head.projectId;
@@ -219,7 +219,7 @@ test('crash after Models mapping CAS repairs adapter head without resubmitting a
     nextThreadId:'successor_thread_crash123',expectedGeneration:0,
     handoffReceipt:'receipt_crash_proof_123'};
   const verifyHandoff=async()=>true;
-  const chat=new OrchestratorChat({store,engine,legacyHeadFile:headFile,verifyHandoff});
+  const chat=new OrchestratorChat({store,engine,bootstrapHeadFile:headFile,verifyHandoff});
   const persist=chat.persist.bind(chat);
   let crashed=false;
   chat.persist=()=>{
@@ -233,7 +233,7 @@ test('crash after Models mapping CAS repairs adapter head without resubmitting a
   assert.equal(session.threadId,control.nextThreadId,'Models commit is authoritative');
   assert.equal(session.orchestratorGeneration,1);
   const restored=new OrchestratorChat({store:new ModelStore(store.base),engine,
-    legacyHeadFile:headFile,verifyHandoff});
+    bootstrapHeadFile:headFile,verifyHandoff});
   assert.equal(restored.state.threadId,control.nextThreadId);
   assert.equal(restored.state.generation,1);
   assert.equal(restored.state.pendingHandoff,undefined);
@@ -245,12 +245,12 @@ test('crash before CAS preserves old head and drops incomplete stage on startup'
   const control={action:'replace-thread-id',previousThreadId:head.threadId,
     nextThreadId:'successor_before_cas123',expectedGeneration:0,
     handoffReceipt:'receipt_crash_before_123'};
-  const chat=new OrchestratorChat({store,engine,legacyHeadFile:headFile,
+  const chat=new OrchestratorChat({store,engine,bootstrapHeadFile:headFile,
     verifyHandoff:async()=>true});
   chat.state.pendingHandoff={...control};
   chat.persist();
   const restored=new OrchestratorChat({store:new ModelStore(store.base),engine,
-    legacyHeadFile:headFile,verifyHandoff:async()=>true});
+    bootstrapHeadFile:headFile,verifyHandoff:async()=>true});
   assert.equal(restored.state.threadId,head.threadId);
   assert.equal(restored.state.generation,0);
   assert.equal(restored.state.pendingHandoff,undefined);
@@ -282,7 +282,7 @@ test('strict typed envelope rejects excess fields, invalid need, unsafe job, and
 });
 test('HTTP rejects missing legacy head and never creates competing model thread',async t=>{
   const {store,engine,calls}=fixture(t);
-  const {server}=createModelServer({token:'test-token-12345678901234567890',store,transport:{},orchestratorLegacyHeadFile:join(store.base,'missing-head.json')});
+  const {server}=createModelServer({token:'test-token-12345678901234567890',store,transport:{},orchestratorBootstrapHeadFile:join(store.base,'missing-head.json')});
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
   t.after(()=>new Promise(resolve=>server.close(resolve)));
   const base=`http://127.0.0.1:${server.address().port}`;
@@ -315,7 +315,7 @@ test('real HTTP 202 -> whole-message event -> pending -> ACK with existing ChatG
     },
   };
   const token='test-token-12345678901234567890';
-  const app=createModelServer({token,store,transport,orchestratorLegacyHeadFile:headFile});
+  const app=createModelServer({token,store,transport,orchestratorBootstrapHeadFile:headFile});
   const {server}=app;
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
   t.after(()=>new Promise(resolve=>server.close(resolve)));
@@ -380,7 +380,7 @@ test('real HTTP 202 -> whole-message event -> pending -> ACK with existing ChatG
 test('expired SSE baseline cursor zero forces pending recovery instead of impossible replay',async t=>{
   const {store,headFile}=fixture(t);
   const token='cursor-expiry-token-1234567890';
-  const app=createModelServer({token,store,transport:{},orchestratorLegacyHeadFile:headFile});
+  const app=createModelServer({token,store,transport:{},orchestratorBootstrapHeadFile:headFile});
   await new Promise(resolve=>app.server.listen(0,'127.0.0.1',resolve));
   t.after(()=>new Promise(resolve=>app.server.close(resolve)));
   const chat=app.getOrchestrator();
@@ -414,7 +414,7 @@ test('Orchestrator rejects two reply.text fragments even when joined JSON is val
     },
   };
   const token='model-one-complete-report-token-123456';
-  const app=createModelServer({token,store,transport,orchestratorLegacyHeadFile:headFile});
+  const app=createModelServer({token,store,transport,orchestratorBootstrapHeadFile:headFile});
   await new Promise(resolve=>app.server.listen(0,'127.0.0.1',resolve));
   t.after(()=>new Promise(resolve=>app.server.close(resolve)));
   const requestId='single_fragment_rule_1234';
@@ -446,7 +446,7 @@ test('live SSE survives completed GET request, resumes from cursor, and unsubscr
     },
   };
   const token='sse-live-token-1234567890123456789';
-  const app=createModelServer({token,store,transport,orchestratorLegacyHeadFile:headFile});
+  const app=createModelServer({token,store,transport,orchestratorBootstrapHeadFile:headFile});
   await new Promise(resolve=>app.server.listen(0,'127.0.0.1',resolve));
   t.after(()=>new Promise(resolve=>app.server.close(resolve)));
   const base='http://127.0.0.1:'+app.server.address().port;
@@ -509,7 +509,7 @@ test('attention notification retries durably with one request identity, never co
   const notifier={async send(payload){sent.push(payload);if(failing)throw Error('APNs temporarily unavailable');return {ok:true,deliveryId:'apns_ok_12345'};}};
   const alert=JSON.stringify({schema:'neo.orchestrator.reply.v1',message:{text:'needs review',level:'attention',needs:'phone',jobId:null}});
   const engine={async run(){return {output:[{content:[{text:alert}]}]}}};
-  const chat=new OrchestratorChat({store,engine,legacyHeadFile:headFile,notifier});
+  const chat=new OrchestratorChat({store,engine,bootstrapHeadFile:headFile,notifier});
   await chat.submit({requestId:'notify_alert_12345',text:'check status'});
   await flush();await flush();
   const request=chat.state.requests.notify_alert_12345;
@@ -521,7 +521,7 @@ test('attention notification retries durably with one request identity, never co
   // Simulate the durable retry timer elapsing after restart.
   request.notification.nextAttemptAt=0;chat.persist();
   failing=false;
-  const restored=new OrchestratorChat({store:new ModelStore(store.base),engine,legacyHeadFile:headFile,notifier});
+  const restored=new OrchestratorChat({store:new ModelStore(store.base),engine,bootstrapHeadFile:headFile,notifier});
   await restored.flushNotifications();
   assert.equal(restored.state.requests.notify_alert_12345.notification.status,'delivered');
   assert.equal(restored.pending()[0].status,'completed');
@@ -538,7 +538,7 @@ test('ordinary completed chats use SSE only; legacy completed APNs retries are s
   const sent=[];
   const notifier={async send(payload){sent.push(payload);return {ok:true,deliveryId:'apns_complete_12345'};}};
   const engine={async run(){return {output:[{content:[{text:envelope('ordinary completion')}]}]}}};
-  const chat=new OrchestratorChat({store,engine,legacyHeadFile:headFile,notifier});
+  const chat=new OrchestratorChat({store,engine,bootstrapHeadFile:headFile,notifier});
   await chat.submit({requestId:'completion_no_apn_1234',text:'hello'});
   await flush();await flush();
   const ordinary=chat.state.requests.completion_no_apn_1234;
@@ -550,7 +550,7 @@ test('ordinary completed chats use SSE only; legacy completed APNs retries are s
   ordinary.notification={status:'pending',attempts:6,nextAttemptAt:0,
     payload:{kind:'completed',title:'Orchestrator report',body:'old reply'}};
   chat.persist();
-  const restored=new OrchestratorChat({store:new ModelStore(store.base),engine,legacyHeadFile:headFile,notifier});
+  const restored=new OrchestratorChat({store:new ModelStore(store.base),engine,bootstrapHeadFile:headFile,notifier});
   await restored.flushNotifications();
   assert.equal(sent.length,0);
   assert.equal(restored.state.requests.completion_no_apn_1234.notification.status,'suppressed');
@@ -569,7 +569,7 @@ test('phone ACK scrubs chat content while preserving exact pending APNs retry pa
   const alert=JSON.stringify({schema:'neo.orchestrator.reply.v1',
     message:{text:'Please review PRIVATE subject',level:'attention',needs:'phone',jobId:null}});
   const engine={async run(){return {output:[{content:[{text:alert}]}]}}};
-  const chat=new OrchestratorChat({store,engine,legacyHeadFile:headFile,notifier});
+  const chat=new OrchestratorChat({store,engine,bootstrapHeadFile:headFile,notifier});
   const requestId='apns_after_ack_1234';
   await chat.submit({requestId,text:'original request text'});
   await flush();await flush();
@@ -578,7 +578,7 @@ test('phone ACK scrubs chat content while preserving exact pending APNs retry pa
   assert.equal(chat.state.requests[requestId].text,undefined);
   assert.equal(chat.state.requests[requestId].message,undefined);
   reject=false;
-  const restored=new OrchestratorChat({store:new ModelStore(store.base),engine,legacyHeadFile:headFile,notifier});
+  const restored=new OrchestratorChat({store:new ModelStore(store.base),engine,bootstrapHeadFile:headFile,notifier});
   restored.state.requests[requestId].notification.nextAttemptAt=0;
   await restored.flushNotifications();
   assert.equal(restored.state.requests[requestId].notification.status,'delivered');
@@ -594,7 +594,7 @@ test('concurrent phone and Relay wake submissions drain the same live FIFO witho
   const firstGate=new Promise(resolve=>{unblock=resolve});
   const engine={async run(body){calls.push(body.input[0].content[0].text);if(calls.length===1)await firstGate;
     return {output:[{content:[{text:envelope('processed')}]}]};}};
-  const chat=new OrchestratorChat({store,engine,legacyHeadFile:headFile});
+  const chat=new OrchestratorChat({store,engine,bootstrapHeadFile:headFile});
   await chat.submit({requestId:'phone_first_1234',text:'first'});
   await flush();
   await chat.submit({requestId:'relay_second_1234',text:'second'});
@@ -618,7 +618,7 @@ test('verified binary attachment is forwarded as a real file path, not only a fi
     assert.equal(readFileSync(file,'utf8'),'binary delivered');
     return {output:[{content:[{text:envelope('attached')}]}]};
   }};
-  const chat=new OrchestratorChat({store,engine,legacyHeadFile:headFile});
+  const chat=new OrchestratorChat({store,engine,bootstrapHeadFile:headFile});
   const requestId='attachment_request_123';
   const attachmentId='attachment_image_123';
   const content=Buffer.from('binary delivered');
@@ -659,7 +659,7 @@ test('HTTP binary chunk acceptance -> WebHelm file path -> whole-message complet
     },
   };
   const token='attachment-test-token-1234567890';
-  const {server}=createModelServer({token,store,transport,orchestratorLegacyHeadFile:headFile});
+  const {server}=createModelServer({token,store,transport,orchestratorBootstrapHeadFile:headFile});
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
   t.after(()=>new Promise(resolve=>server.close(resolve)));
   const base='http://127.0.0.1:'+server.address().port;

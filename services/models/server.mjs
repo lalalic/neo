@@ -31,7 +31,7 @@ const chatCompletion=r=>({id:'chatcmpl_'+r.id.slice(5),object:'chat.completion',
   choices:[{index:0,message:{role:'assistant',content:fullText(r)},finish_reason:'stop'}],usage:null});
 const chatChunk=(r,delta,finish_reason=null)=>({id:'chatcmpl_'+r.id.slice(5),object:'chat.completion.chunk',created:r.created_at,model:r.model,
   choices:[{index:0,delta,finish_reason}]});
-export function createModelServer({token,store=new ModelStore(),transport=new WebHelmTransport(),legacyOrigin=null,orchestratorLegacyHeadFile=undefined,orchestratorNotifier=null}={}){
+export function createModelServer({token,store=new ModelStore(),transport=new WebHelmTransport(),legacyOrigin=null,orchestratorBootstrapHeadFile=undefined,orchestratorNotifier=null}={}){
   if(typeof token!=='string'||token.length<24)throw Error('private Bearer token required');
   const engine=new ResponseEngine({store,transport});
   const internalGrants=new Map();
@@ -44,7 +44,7 @@ export function createModelServer({token,store=new ModelStore(),transport=new We
   let orchestrator=null;
   const getOrchestrator=()=>orchestrator??(orchestrator=new OrchestratorChat({store,engine:v1Client,
     verifyHandoff:createOrchestratorHandoffVerifier(),notifier:orchestratorNotifier,
-    ...(orchestratorLegacyHeadFile?{legacyHeadFile:orchestratorLegacyHeadFile}:{})}));
+    ...(orchestratorBootstrapHeadFile?{bootstrapHeadFile:orchestratorBootstrapHeadFile}:{})}));
   const handler=async(req,res)=>{
     if(!authorized(req.headers.authorization,token))return json(res,401,{error:{message:'unauthorized',type:'authentication_error'}});
     const url=new URL(req.url,'http://127.0.0.1');

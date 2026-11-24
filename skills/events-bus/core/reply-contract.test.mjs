@@ -15,7 +15,7 @@ const source=`reply/models/${rid}`;
 test('reply contract uses existing publish type/source/data, distinct subjects and explicit terminal',()=>{
   const config={...resolveRuntimeConfig(),subjectPrefix:'test.replies.job'};
   assert.deepEqual(parseReplySource(source),{channel:'models',request_id:rid});
-  for(const channel of ['models','voice','chat-gateway','family-tutor']){
+  for(const channel of ['models','voice','test-reply','family-tutor']){
     const id='run_12345';
     assert.equal(replySubject(config,channel,id),`test.replies.reply.${channel}.${id}`);
     assert.equal(replyChannelSubject(config,channel),`test.replies.reply.${channel}.>`);
@@ -50,7 +50,7 @@ test('real NATS listener routes exact reply channel without forwarding to Relay 
   const listeners=[
     listenReplyEvents({channel:'models',config,onEvent:e=>received.models.push(e)}),
     listenReplyEvents({channel:'voice',config,onEvent:e=>received.voice.push(e)}),
-    listenReplyEvents({channel:'chat-gateway',config,onEvent:e=>received.chat.push(e)}),
+    listenReplyEvents({channel:'test-reply',config,onEvent:e=>received.chat.push(e)}),
   ];
   t.after(async()=>{await Promise.all(listeners.map(l=>l.close()));await core.close()});
   for(const l of listeners)await l.start();

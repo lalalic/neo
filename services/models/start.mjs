@@ -6,9 +6,9 @@ import {join} from 'node:path';
 import {createModelServer} from './server.mjs';
 import {createModelReplyListener} from './reply-events.mjs';
 import {createOrchestratorEventMonitor} from './orchestrator-events.mjs';
-import {resolveConfig as resolveRelayEventConfig} from '../../skills/chat-gateway/core/config.mjs';
-import {createNeoNotifier} from '../../skills/chat-gateway/core/notify.mjs';
-import {resolveNeoMcpEndpoint} from '../../skills/chat-gateway/core/config.mjs';
+import {resolveConfig as resolveRelayEventConfig} from './core/config.mjs';
+import {createNeoNotifier} from './core/notify.mjs';
+import {resolveNeoMcpEndpoint} from './core/config.mjs';
 const tokenFile=join(homedir(),'.config','neo','models','token');
 if(statSync(tokenFile).mode&0o077)throw Error('model token file permissions must be 0600');
 const token=readFileSync(tokenFile,'utf8').trim();
@@ -23,15 +23,14 @@ const {server,store}=app;
 // if Events Bus is unavailable rather than silently leaving requests pending.
 const replyListener=process.env.NEO_MODEL_REPLY_EVENTS!=='0'?createModelReplyListener(store):null;
 await replyListener?.start();
-// Opt-in only after legacy ingress cutover is verified. Running both listeners
-// against production Relay would create duplicate owner wakeups.
+// Relay wakeups are opt-in and owned only by Models.
 let relayMonitor=null;
 if(process.env.NEO_ORCHESTRATOR_RELAY_EVENTS==='1'){
   try {
     relayMonitor=await createOrchestratorEventMonitor({
       orchestrator:app.orchestrator??app.getOrchestrator(),
       stateDir:join(store.base,'orchestrator-relay-events'),
-      legacyStateDir:join(homedir(),'.local/state/neo/chat-gateway'),
+      bootstrapWatchDir:join(store.base,'orchestrator-watch-bootstrap'),
       config:resolveRelayEventConfig(),
     });
     await relayMonitor.start(); // Fatal on missing baseline, no unsafe subscribe.

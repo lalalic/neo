@@ -1,9 +1,8 @@
 import {randomUUID,createHash} from 'node:crypto';
 import {readFileSync,writeFileSync,renameSync,mkdirSync,rmSync} from 'node:fs';
 import {join} from 'node:path';
-import {homedir} from 'node:os';
-import {createAttachmentStore} from '../../skills/chat-gateway/core/attachments.mjs';
-import {sanitizeText} from '../../skills/chat-gateway/core/notify.mjs';
+import {createAttachmentStore} from './core/attachments.mjs';
+import {sanitizeText} from './core/notify.mjs';
 
 const REQUEST=/^[A-Za-z0-9_-]{8,128}$/;
 const THREAD=/^[A-Za-z0-9_-]{8,160}$/;
@@ -66,9 +65,9 @@ export function parseOrchestratorEnvelope(text){
   return {schema:obj.schema,message,control};
 }
 
-/** Private operational outbox, not a chat transcript. Legacy head is imported read-only once. */
+/** Private operational outbox, not a chat transcript. A verified bootstrap head may be imported once. */
 export class OrchestratorChat {
-  constructor({store,engine,legacyHeadFile=join(homedir(),'.local/state/neo/chat-gateway/head.json'),verifyHandoff=null,notifier=null}={}){
+  constructor({store,engine,bootstrapHeadFile=null,verifyHandoff=null,notifier=null}={}){
     if(!store||!engine)throw Error('Models store and engine required');
     this.store=store;this.engine=engine;this.verifyHandoff=verifyHandoff;this.notifier=notifier;this.notifying=false;
     this.dir=join(store.base,'orchestrator');mkdirSync(this.dir,{recursive:true,mode:0o700});
@@ -76,16 +75,16 @@ export class OrchestratorChat {
     this.attachments=createAttachmentStore({root:this.dir});
     let state=parsed(this.stateFile);
     if(!state){
-      const head=parsed(legacyHeadFile);
+      const head=parsed(bootstrapHeadFile??join(this.dir,'bootstrap-head.json'));
       if(!head||!THREAD.test(head.threadId)||!PROJECT.test(head.projectId)){
         this.unavailable='Existing Orchestrator Project/head not verified; refusing to create a competing thread';
         this.state=null;return;
       }
-      // Preserve the existing ChatGPT Project and head exactly. Never copy legacy chat history.
+      // Preserve the existing ChatGPT Project and head exactly. Never copy chat history.
       state={codexThreadId:randomUUID(),threadId:head.threadId,projectId:head.projectId,generation:0,sequence:0,requests:{},events:[]};
       atomic(this.stateFile,state);
     }
-    // Bind the fixed Codex identity to the already verified legacy head before any turn.
+    // Bind the fixed Codex identity to the already verified bootstrap head before any turn.
     const sessions=store.listSessions().filter(item=>item.codexThreadId===state.codexThreadId);
     if(sessions.length>1){
       this.unavailable='Duplicate persisted Orchestrator Codex mapping';this.state=null;return;

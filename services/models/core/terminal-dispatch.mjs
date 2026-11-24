@@ -1,21 +1,7 @@
+import {orchestratorRelayTurn} from './relay-turn.mjs';
 import { createHash } from 'node:crypto';
 
 const iso = (ms) => new Date(ms).toISOString();
-const concise = (value, max = 160) => String(value ?? '').replace(/[\r\n\t]/g, ' ').slice(0, max);
-
-/** Internal trigger only; the Orchestrator owns verification and the user report. */
-export function terminalTurn(record) {
-  const jobId = concise(record.jobId, 64);
-  const repository = concise(record.repository, 120);
-  const job = repository ? `${repository}/${jobId}` : jobId;
-  const state = record.to === 'CANCELLED' ? 'cancelled' : 'completed';
-  const identity = JSON.stringify({ repository, jobId, status: record.to, at: record.terminalUpdatedAt });
-  return `[Neo Chat Gateway: automated Relay terminal event]
-requestId: ${requestIdFor(record.key ?? identity)}
-Job ${job} ${state} (unverified event).
-Check the authoritative Relay Job, JEL and deliverables. Then chat_report to the user concisely via mcp.chat-gateway chat_report({text, level:"attention", jobId:"${jobId}"}). Mention remaining work if cancelled or blocked. Do not report the raw event or start another Job.`;
-}
-
 const requestIdFor = (key) =>
   (key.startsWith('watch:') ? 'relay-watch-' : 'relay-terminal-') + createHash('sha256').update(key).digest('hex').slice(0, 40);
 
@@ -27,7 +13,7 @@ const requestIdFor = (key) =>
 export function createTerminalDispatcher({
   ledger, chat, submit, now = () => Date.now(), log = () => {},
   batchSize = 3, backoff = { baseMs: 5_000, capMs: 3_600_000 },
-  renderTurn = terminalTurn,
+  renderTurn = orchestratorRelayTurn,
 } = {}) {
   let running = false;
   let lastError = null;

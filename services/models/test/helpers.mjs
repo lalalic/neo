@@ -18,7 +18,7 @@ export function clock(start = Date.parse(timestamp())) {
 }
 
 export async function fixture(t) {
-  const dir = await mkdtemp(join(tmpdir(), 'chat-gateway-test-'));
+  const dir = await mkdtemp(join(tmpdir(), 'models-core-test-'));
   t.after(() => rm(dir, { force: true, recursive: true }));
   const c = clock();
   const ledger = await openLedger({ dir, now: c.now });

@@ -14,8 +14,8 @@ The native Rust Harness is built with `cargo build --release --locked -p neo-har
 - `AGENTS.md` — workspace-wide agent operating rules.
 - `skills/` — canonical editable Neo skills; the [Neo Project Skill](skills/neo-project/SKILL.md) owns all Neo Project knowledge and links to its detailed reference contracts.
 - **Optional iPhoneHelm Skill** — maintained and installed independently from [`lalalic/iphone-helm`](https://github.com/lalalic/iphone-helm). Neo.app's default Harness package does not ship it or the obsolete `neo-use` alias. When explicitly installed under `~/.agents/skills/iphone-helm`, existing Neo skill discovery enables it automatically; see [optional Skills](docs/optional-skills.md).
+- `services/models/` — authenticated Models Gateway and Orchestrator Chat; see [Models service](services/models/README.md).
 - `skills/mcp-wrapper/` — orchestrate external MCP providers, Relay and the Neo.app Core review service with one-call Markcut Preview wrappers.
-- `skills/chat-gateway/` — authenticated Neo Mobile Chat/Jobs feed, scoped Job activity and cancellation via Relay; see [Chat Gateway Skill](skills/chat-gateway/SKILL.md) and [Mobile Job controls](skills/chat-gateway/docs/neo-mobile-job-controls.md).
 - `.bin/` — compatibility and packaging helpers; canonical XChat discovery/resolution scripts live under `skills/xchat-orchestrator/scripts/`.
 - `neo agent list [--project PATH]` and `neo agent search QUERY [--project PATH]` — discover context-visible project and shared Agent definitions plus Agency Agents specialist templates; templates require a project manifest before Relay dispatch.
 - `neo mcp token issue --stdout` (direct interactive copy) or `--output` (private file), plus `revoke` — provider-neutral, one-hour OAuth PKCE credentials; see `docs/interactive-mcp-access.md`.

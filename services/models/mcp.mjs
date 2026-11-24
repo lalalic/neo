@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /** One generic MCP reply tool for ChatGPT-backed Neo model requests.
- * Distinct from Neo Mobile's mcp.chat-gateway chat_report.
+ * Model API MCP transport.
  */
 import readline from 'node:readline';
 import {ModelStore} from './store.mjs';

@@ -29,7 +29,7 @@ function diagnoseFailure(name, args, reason, stage) {
 
 const TOOLS = [{
   name: "publish",
-  description: "Publish an event through the existing Events Bus. Job lifecycle events use source job/<job-id>/task/<task-id>/execution/<execution-id>. Replies use source reply/<channel>/<request_id> and type reply.text (data.text), reply.heartbeat, reply.completed or reply.failed (data.error). Multiple reply.text events may precede explicit reply.completed. Examples of reply channels: models, voice, chat-gateway and family-tutor. The channel is a safe lowercase routing label.",
+  description: "Publish an event through the existing Events Bus. Job lifecycle events use source job/<job-id>/task/<task-id>/execution/<execution-id>. Replies use source reply/<channel>/<request_id> and type reply.text (data.text), reply.heartbeat, reply.completed or reply.failed (data.error). Multiple reply.text events may precede explicit reply.completed. Examples of reply channels: models, voice and family-tutor. The channel is a safe lowercase routing label.",
   inputSchema: {
     type: "object",
     properties: {

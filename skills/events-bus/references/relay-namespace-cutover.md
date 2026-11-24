@@ -6,7 +6,7 @@ This is a coordinated deployment, not a backward-compatible environment alias.
 
 1. Inventory active Relay Jobs and any other producers/consumers (including
    the Events Bus recorder, CLI helper, Neo package-service-updater,
-   `chat-gateway/server` (Neo Mobile Job notifications), remote worker
+   `Models Gateway` (Neo Mobile Job notifications), remote worker
    processes and other notification subscribers). Never switch a Job's
    running event stream while consumers still subscribe to the old subject.
 2. Drain or explicitly suspend existing Jobs at a safe lifecycle boundary.
@@ -21,7 +21,7 @@ This is a coordinated deployment, not a backward-compatible environment alias.
    API and data-directory values). This changes configuration, **not** the
    NATS broker or stored history.
 5. Restart/enable the recorder, all publishers, Relay consumers,
-   `chat-gateway/server`, and optional package updater under the same new prefix. Verify `events-bus config`,
+   `Models Gateway`, and optional package updater under the same new prefix. Verify `events-bus config`,
    `events-bus health`, and the service manager's effective environment.
 6. Publish a new uniquely identified non-terminal test event, confirm the
    subject is `relay.events.job.<job_id>.<type>`, and verify it appears in the

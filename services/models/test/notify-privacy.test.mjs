@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { reportNotification, sanitizeText } from '../core/notify.mjs';
-import { terminalTurn } from '../core/terminal-dispatch.mjs';
+import { orchestratorRelayTurn as terminalTurn } from '../core/relay-turn.mjs';
 
 test('terminal turn contains only job metadata and asks Orchestrator to verify', () => {
   const text = terminalTurn({
@@ -12,7 +12,7 @@ test('terminal turn contains only job metadata and asks Orchestrator to verify',
   });
   assert.doesNotMatch(text, /A useful title/);
   assert.match(text, /Relay Job/);
-  assert.match(text, /chat_report/);
+  assert.match(text, /Orchestrator JSON envelope/);
   assert.match(text, /123/);
   for (const bad of ['THIS_OBJECTIVE', '/private/sensitive', 'THIS_KEY', 'THIS_PROMPT']) {
     assert.equal(text.includes(bad), false);

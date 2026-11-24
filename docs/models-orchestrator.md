@@ -73,9 +73,7 @@ turn. On expiry (SSE 409), reconcile `/pending` before advancing the cursor.
 APNs is reserved for failures, `attention`, and explicit owner `needs`. Apple
 acceptance alone never proves that the alert appeared on a physical phone.
 Relay Jobs/Review use separately authenticated `/relay/api/mobile/*` REST
-routes and their existing owner-safe lifecycle data. See
-[Chat Gateway Skill](../skills/chat-gateway/SKILL.md) for compatibility MCP
-commands and Relay event/watch behavior; they are not the primary Chat path.
+routes and their existing owner-safe lifecycle data. Models owns the Relay event/watch behavior; there is no separate Chat Gateway MCP service.
 
 ## Verification and deployment
 

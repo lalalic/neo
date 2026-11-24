@@ -4,7 +4,7 @@ import {mkdtempSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {createOrchestratorEventMonitor,orchestratorRelayTurn} from '../services/models/orchestrator-events.mjs';
-import {createLiveRegistry} from '../skills/chat-gateway/core/live-watch.mjs';
+import {createLiveRegistry} from '../services/models/core/live-watch.mjs';
 
 const job=(id,status,updatedAt='2026-11-20T12:00:00Z')=>({
   id,repository:'vlog',status,title:'Test '+id,
@@ -88,7 +88,7 @@ test('interrupted legacy watch migration imports remaining watches without advan
     async latestCursor(jobId){queried.push(jobId);return 42},
     async after(id,cursor){return {events:[],next_cursor:cursor}},
   };
-  let monitor=await createOrchestratorEventMonitor({...f,legacyStateDir:legacyDir,history});
+  let monitor=await createOrchestratorEventMonitor({...f,bootstrapWatchDir:legacyDir,history});
   // Simulate a prior process that copied the first watch, then crashed.
   await monitor.registry.add({repository:'vlog',jobId:'first_123',startCursor:11});
   await monitor.start();
@@ -97,7 +97,7 @@ test('interrupted legacy watch migration imports remaining watches without advan
   assert.deepEqual(queried,['second_123']);
   assert.equal(f.calls.length,0,'historical watches must not notify owner on migration');
   await monitor.stop();
-  monitor=await createOrchestratorEventMonitor({...f,legacyStateDir:legacyDir,history});
+  monitor=await createOrchestratorEventMonitor({...f,bootstrapWatchDir:legacyDir,history});
   await monitor.start();
   assert.deepEqual(queried,['second_123'],'restart must not rebaseline previously migrated watches');
   assert.equal((await monitor.registry.list()).length,2);

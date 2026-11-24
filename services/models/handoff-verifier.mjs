@@ -3,7 +3,7 @@ import {promisify} from 'node:util';
 import {mkdtemp,rm,writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {createThreadProjectVerifier} from '../../skills/chat-gateway/core/thread-verifier.mjs';
+import {createThreadProjectVerifier} from './core/thread-verifier.mjs';
 
 const exec = promisify(execFile);
 const THREAD=/^[A-Za-z0-9_-]{8,160}$/;
@@ -18,7 +18,7 @@ function lastJSON(output){
   throw Error('No trusted WebHelm browser result');
 }
 async function webhelm(args){
-  const {stdout}=await exec(process.env.CHAT_GATEWAY_WEBHELM_COMMAND||'webhelm',args,
+  const {stdout}=await exec(process.env.NEO_MODELS_WEBHELM_COMMAND||'webhelm',args,
     {shell:false,timeout:35_000,maxBuffer:256_000});
   return lastJSON(stdout);
 }

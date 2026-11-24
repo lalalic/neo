@@ -56,7 +56,7 @@ multi-fragment generic `/v1` reply protocol. Routine completed chat uses
 in-app delivery; APNs is reserved for attention, failures and owner actions.
 The permanent display transcript belongs to Neo Mobile, not Models.
 
-See [the current Orchestrator contract](../../docs/chat-gateway-orchestrator.md)
+See [the current Orchestrator contract](../../docs/models-orchestrator.md)
 and [the generic Model CLI release gate](MVP_GATE.md). Verified phone
 Send/receive and relaunch recovery do not substitute for a separate real
 A→B→C browser handoff or this generic model gate.
@@ -173,3 +173,5 @@ Events Bus publish tool remains accessible when no structured App mention is
 provided. Do not assume a passing URL navigation test alone proves model
 completion; every model turn still requires independent `reply.completed`.
 Do not use a dedicated Neo Models browser Tab Group.
+
+Models owns Orchestrator helpers in `core/`. Bootstrap an existing verified head using `orchestrator/bootstrap-head.json` only if the durable mapping is absent. Optional imported watch seeds live under `orchestrator-watch-bootstrap/` in the Models state directory. No standalone Chat Gateway service or MCP is required.
