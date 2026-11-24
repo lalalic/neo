@@ -7,7 +7,7 @@
  */
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
-import { execFileSync, spawn } from 'node:child_process';
+import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import { copyFileSync, cpSync, chmodSync, closeSync, existsSync, mkdirSync, mkdtempSync, openSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
@@ -140,6 +140,21 @@ async function main() {
     // This fixture represents a creator who completed Spec Kit Specify/Clarify
     // and independent Preflight Review. New Jobs require explicit attestation.
     const input = ['project', 'run', '--project', 'sample', '--path', run, '--preflight=true'];
+    // Invalid or missing creator attestation must fail *before* the real
+    // Rust Relay receives any Job creation request.
+    for (const options of [
+      ['project', 'run', '--project', 'sample', '--path', run],
+      ['project', 'run', '--project', 'sample', '--path', run, '--preflight=false']
+    ]) {
+      const rejected = spawnSync(rust, options, {
+        cwd: workspace, env: environment, encoding: 'utf8', timeout: 10_000
+      });
+      assert.notEqual(rejected.status, 0, 'missing/false preflight was accepted');
+      assert.match(rejected.stderr, /JOB_PREFLIGHT_REQUIRED/);
+    }
+    assert(!existsSync(join(run, '.neo-project-run.json')),
+      'rejected preflight must not create a Run binding');
+    const preflightRejected = true;
     const execute = () => JSON.parse(execFileSync(rust, input, {
       cwd: workspace, env: environment, encoding: 'utf8', timeout: 20_000
     }));
@@ -204,6 +219,7 @@ async function main() {
       jobs: count,
       privateRunGitStable: before === after,
       foregroundAttached,
+      preflightRejected,
       productionStateTouched: false
     }, null, 2));
   } catch (error) {
