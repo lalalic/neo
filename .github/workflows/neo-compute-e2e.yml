@@ -36,6 +36,16 @@ jobs:
         run: cargo test --locked -p neo-harness-cli --test compute_native --test compute_gateway --test compute_transport
       - name: Independent container workload tests
         run: NEO_CLI_BIN="$GITHUB_WORKSPACE/target/debug/neo-rs" node --test test/neo-compute-e2e.test.mjs test/neo-compute-hello.test.mjs test/neo-compute-container-*.test.mjs test/neo-compute-comfyui.test.mjs
+      - name: Native container runtime candidate contracts
+        run: |
+          cargo test --locked --manifest-path compute/runtime/Cargo.toml --target-dir target
+          cargo build --locked --manifest-path compute/runtime/Cargo.toml --target-dir target
+          NEO_COMPUTE_RUNTIME_BIN="$GITHUB_WORKSPACE/target/debug/neo-compute-runtime" node --test test/neo-compute-container-*.test.mjs
+          python3 compute/runtime/tests/runtime_fixture.py "$GITHUB_WORKSPACE/target/debug/neo-compute-runtime"
       - uses: docker/setup-buildx-action@v3
       - name: Real Dockerfile to Neo batch and web HTTP E2E (no cloud spend)
+        run: node compute/e2e/container-smoke.mjs
+      - name: Real Rust candidate Docker batch and web E2E (no cloud spend)
+        env:
+          NEO_COMPUTE_WRAPPER_DOCKERFILE: compute/runtime/Dockerfile.rust-candidate
         run: node compute/e2e/container-smoke.mjs

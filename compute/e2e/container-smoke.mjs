@@ -23,7 +23,7 @@ async function awaitHealth(port,service){
 }
 function wrap(mode,cmd,service){
   const image='neo-gpu-tiny-e2e-'+mode+':ci';
-  docker('buildx','build','--builder','default','--load','-f','compute/runtime/Dockerfile.wrap',
+  docker('buildx','build','--builder','default','--load','-f',process.env.NEO_COMPUTE_WRAPPER_DOCKERFILE||'compute/runtime/Dockerfile.wrap',
     '--build-context','neo-runtime=./compute/runtime',
     '--build-arg',`NEO_BASE_IMAGE=${base}`, '--build-arg',`NEO_GPU_CMD_JSON=${JSON.stringify(cmd)}`,
     '--build-arg',`NEO_GPU_MODE=${mode}`,'--build-arg','NEO_GPU_APP_PORT=7860',

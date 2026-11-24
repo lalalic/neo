@@ -1,0 +1,24 @@
+[workspace]
+
+[package]
+name = "neo-compute-runtime"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+[dependencies]
+bytes = "1"
+http-body-util = "0.1"
+hyper = { version = "1", features = ["http1", "server", "client"] }
+hyper-util = { version = "0.1", features = ["tokio"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "io-util", "fs", "process", "sync", "signal", "time"] }
+tokio-util = { version = "0.7", features = ["io"] }
+serde_json = "1"
+libc = "0.2"
+getrandom = "0.4"
+futures-util = "0.3"
+
+[profile.release]
+strip = true
+lto = "thin"
+codegen-units = 1
