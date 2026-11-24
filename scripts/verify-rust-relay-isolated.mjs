@@ -19,6 +19,8 @@ import { fileURLToPath } from 'node:url';
 const harnessRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const sourceRoot = process.argv[2];
 const terminal = process.argv.includes("--terminal");
+const reliability = process.argv.includes("--reliability");
+assert(!(terminal && reliability), "Select one test mode");
 if (!sourceRoot || !isAbsolute(sourceRoot)) {
   process.stderr.write('Usage: node scripts/verify-rust-relay-isolated.mjs /absolute/agents-relay/repo\n');
   process.exit(2);
@@ -144,8 +146,9 @@ async function main() {
     }
     assert(healthy, `Isolated Relay daemon unavailable: ${readFileSync(join(base, 'daemon.log'), 'utf8')}`);
 
-    execFileSync('cargo', ['build', '--offline', '-q', '--workspace'], { cwd: harnessRoot, timeout: 90_000 });
-    const rust = join(harnessRoot, 'target/debug/neo-rs');
+    if (!reliability) execFileSync('cargo', ['build', '--offline', '-q', '--workspace'], { cwd: harnessRoot, timeout: 90_000 });
+    const rust = join(harnessRoot, reliability ? 'target/release/neo-rs' : 'target/debug/neo-rs');
+    assert(existsSync(rust), 'Build Release native CLI first');
     // This fixture represents a creator who completed Spec Kit Specify/Clarify
     // and independent Preflight Review. New Jobs require explicit attestation.
     const input = ['project', 'run', '--project', projectName, '--path', run, '--preflight=true', ...(terminal ? ['--no-review'] : [])];
@@ -167,7 +170,20 @@ async function main() {
     const execute = () => JSON.parse(execFileSync(rust, input, {
       cwd: workspace, env: environment, encoding: 'utf8', timeout: 20_000
     }));
-    const created = execute();
+    // Six independent CLI processes racing for exactly the same canonical Run.
+    // The real daemon and SQLite decide the durable identity, not a mock.
+    let concurrent = [];
+    if (reliability) {
+      concurrent = await Promise.all(Array.from({length:6},()=>new Promise((resolve,reject)=>{
+        const child=spawn(rust,input,{cwd:workspace,env:environment,stdio:['ignore','pipe','pipe']});
+        let out='',err='';child.stdout.on('data',b=>out+=b);child.stderr.on('data',b=>err+=b);
+        const timeout=setTimeout(()=>child.kill('SIGKILL'),30000);
+        child.once('error',e=>{clearTimeout(timeout);reject(e)});
+        child.once('close',code=>{clearTimeout(timeout);try{assert.equal(code,0,err.slice(-1000));resolve(JSON.parse(out))}catch(e){reject(e)}});
+      })));
+      for(const row of concurrent)assert.deepEqual(row,concurrent[0]);
+    }
+    const created = reliability ? concurrent[0] : execute();
     assert.equal(created.status, 'ACTIVE');
     assert.match(String(created.jobId), /^[1-9][0-9]*$/);
     assert.match(String(created.taskId), /^[1-9][0-9]*$/);
@@ -218,6 +234,38 @@ async function main() {
       assert.equal(receipt.status,'COMPLETED');
       assert.equal(receipt.output.nodes.A.output.blackbox,true);
       console.log(JSON.stringify({passed:true,mode:'isolated-real-script-terminal',jobState:job.state,workerState:child.state,workerAttempts:child.attempt,events,jobIdStable:true,taskIdStable:true,preflightRejected,reviewEnabled:false,productionStateTouched:false},null,2));
+      return;
+    }
+    if (reliability) {
+      const boundPath=join(run,'.neo-project-run.json');
+      const binding=readFileSync(boundPath);
+      const interruptResults=[];
+      for(const signal of ['SIGINT','SIGTERM']) {
+        const foreground=spawn(rust,[...input,'--foreground'],{cwd:workspace,env:environment,detached:true,stdio:['ignore','pipe','pipe']});
+        let output='',errors='';foreground.stdout.on('data',b=>output+=b);foreground.stderr.on('data',b=>errors+=b);
+        const done=once(foreground,'exit');
+        try {
+          for(let i=0;i<100&&!output.includes('foreground daemon attachment');i++){
+            assert.equal(foreground.exitCode,null,'Foreground unexpectedly exited: '+errors.slice(-800));
+            await delay(50);
+          }
+          assert(output.includes('foreground daemon attachment'),'No real Relay foreground attachment');
+          const attached=JSON.parse(output.split('\n')[0]);assert.equal(attached.jobId,created.jobId);assert.equal(attached.taskId,created.taskId);
+          process.kill(-foreground.pid,signal);
+          const ended=await Promise.race([done,delay(8000).then(()=>null)]);assert(ended,'Foreground process did not exit');
+          assert(ended[1]===signal||ended[0]===130||ended[0]===143||ended[0]===1,'Unexpected signal exit');
+          for(let i=0;i<80;i++){try{process.kill(-foreground.pid,0)}catch(e){if(e.code==='ESRCH')break;throw e}await delay(50)}
+          assert.throws(()=>process.kill(-foreground.pid,0),{code:'ESRCH'},'Foreground process group left alive');
+          assert(binding.equals(readFileSync(boundPath)),'Binding changed after interrupt');
+          const retry=execute();assert.deepEqual(retry,created);
+          interruptResults.push({signal,exit:ended[0],signalExit:ended[1],resumed:true});
+        }finally{try{process.kill(-foreground.pid,'SIGKILL')}catch{}}
+      }
+      const verify=new DatabaseSync(dbPath,{readOnly:true});
+      const rows=verify.prepare('SELECT json FROM job_snapshot').all();verify.close();
+      assert.equal(rows.length,1);const job=JSON.parse(rows[0].json);assert.equal(job.state,'ACTIVE');
+      assert.equal(execFileSync('git',['-C',run,'rev-parse','HEAD'],{encoding:'utf8'}).trim(),before);
+      console.log(JSON.stringify({passed:true,mode:'isolated-real-relay-reliability',parallelCliProcesses:concurrent.length,jobs:rows.length,jobState:job.state,interruptResults,bindingStable:true,gitStable:true,productionStateTouched:false},null,2));
       return;
     }
     // Attach to the same ACTIVE Coordinator via the real Rust Relay CLI.

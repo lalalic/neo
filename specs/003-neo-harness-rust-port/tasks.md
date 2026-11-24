@@ -57,6 +57,7 @@
 - [X] T032 [US3] Native CLI reaches a real isolated Script DAG Job terminal with actual execution receipt and event evidence; validate loopback HTTPS OAuth issue/revoke and fail-closed PKCE paths (see `contracts/cli-terminal-oauth-blackbox.md`)
 - [X] T033 [US3] Execute native CLI local interaction black-box: actual TTS, real read-only Neo.app Preview and accessibility, Escalation shell/history with synthetic loopback model, and installed reviewer outcome contract (see `contracts/cli-interaction-blackbox.md`)
 - [X] T034 [US3] Rehearse optimized Release staging, private atomic launcher switch and rollback, native core readiness without Node/Python, and unchanged production launcher digest (see `contracts/cli-release-blackbox.md`)
+- [X] T035 [US3] Verify Release CLI concurrency and signal detach with real isolated Relay, MCP failure/no-replay/recovery and real local inference guardian cleanup after caller SIGKILL (see `contracts/cli-reliability-blackbox.md`)
 - [ ] T028 [US4] With explicit user cost authorization and supported Docker host, run actual Docker/GitHub/HF/Vast and TLS/WSS/cleanup acceptance; rebuild/fix installed Rust Relay PromptBuilder stale embedded path before production release
 - [ ] T020 [US3] After explicit release approval and verification, replace installed launcher and remove superseded Node core code
 
