@@ -2,9 +2,11 @@
 pub mod attachments;
 pub mod catalog;
 pub mod engine;
+pub mod handoff;
 pub mod http;
 pub mod input;
 pub mod nats;
+pub mod notifier;
 pub mod orchestrator;
 pub mod orchestrator_client;
 pub mod reply;

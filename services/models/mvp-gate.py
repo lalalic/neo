@@ -90,12 +90,16 @@ def validate_native_turn_count(state, session_id, started_ms):
         raise RuntimeError(f'Native two-turn CLI submitted {len(responses)} requests; expected exactly 2')
 
 
-def source_fingerprint():
+def source_fingerprint(native_binary=None):
     folder = Path(__file__).parent
     files = sorted(p for p in folder.iterdir() if p.is_file() and p.suffix in ('.mjs', '.md', '.py'))
+    if native_binary is not None:
+        root = folder.parent.parent
+        files += sorted(p for p in (folder / 'src').rglob('*') if p.is_file())
+        files += [folder / 'Cargo.toml', root / 'Cargo.toml', root / 'Cargo.lock']
     h = hashlib.sha256()
     for file in files:
-        h.update(file.name.encode() + b'\0')
+        h.update(str(file.relative_to(folder.parent.parent)).encode() + b'\0')
         h.update(file.read_bytes())
     # The WebHelm ChatGPT Actions are independently installed and directly
     # control the Send/Stop UI. Their bytes are part of this release contract.
@@ -107,6 +111,11 @@ def source_fingerprint():
             raise RuntimeError('Missing installed WebHelm action: ' + str(path))
         h.update(name.encode() + b'\0')
         h.update(path.read_bytes())
+    if native_binary is not None:
+        h.update(b'native-executable\0')
+        with native_binary.open('rb') as f:
+            for block in iter(lambda: f.read(1024 * 1024), b''):
+                h.update(block)
     return h.hexdigest()
 
 
@@ -194,10 +203,11 @@ def main():
                         help='Candidate must pass before merge; live must pass after activation')
     parser.add_argument('--candidate-evidence', type=Path,
                         help='Required for live: the verified candidate result file')
+    parser.add_argument('--native-binary', type=Path, help='Exact Rust Gateway executable being tested; required for native candidate/live release evidence')
     args = parser.parse_args()
     if not args.state_dir.joinpath('sessions').is_dir():
         raise RuntimeError('state-dir has no Gateway sessions directory')
-    fingerprint = source_fingerprint()
+    fingerprint = source_fingerprint(args.native_binary)
     if args.phase == 'live':
         if not args.candidate_evidence or not args.candidate_evidence.is_file():
             raise RuntimeError('live gate requires a prior ALL_3_MVPS_PASS candidate evidence file')

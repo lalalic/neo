@@ -51,6 +51,9 @@ pub struct Held {
     receipt: Value,
 }
 fn command(binary: &Path, temp: &Path, args: &[String]) -> Result<Value> {
+    command_timeout(binary, temp, args, 300)
+}
+fn command_timeout(binary: &Path, temp: &Path, args: &[String], seconds: u64) -> Result<Value> {
     let output = tempfile::NamedTempFile::new_in(temp).map_err(|e| e.to_string())?;
     let errors = tempfile::NamedTempFile::new_in(temp).map_err(|e| e.to_string())?;
     let mut child = Command::new(binary)
@@ -65,7 +68,7 @@ fn command(binary: &Path, temp: &Path, args: &[String]) -> Result<Value> {
         if let Some(s) = child.try_wait().map_err(|e| e.to_string())? {
             break s;
         }
-        if start.elapsed() > Duration::from_secs(300)
+        if start.elapsed() > Duration::from_secs(seconds)
             || output
                 .as_file()
                 .metadata()
@@ -194,6 +197,37 @@ impl WebHelm {
             return Err("Model transport requires the default WebHelm workspace".into());
         }
         Ok(id.to_owned())
+    }
+    pub(crate) fn inspect(&self, thread: &str, script: &str) -> Result<Value> {
+        if !thread_id(thread) {
+            return Err("invalid ChatGPT thread".into());
+        }
+        let session = self.open(&format!("https://chatgpt.com/c/{thread}"))?;
+        let result = (|| {
+            let mut file =
+                tempfile::NamedTempFile::new_in(&self.temp).map_err(|e| e.to_string())?;
+            file.write_all(script.as_bytes())
+                .map_err(|e| e.to_string())?;
+            file.flush().map_err(|e| e.to_string())?;
+            let result = command_timeout(
+                &self.binary,
+                &self.temp,
+                &strings(&[
+                    "session",
+                    "exec",
+                    &session,
+                    "--code-file",
+                    file.path().to_str().ok_or("invalid temp path")?,
+                ]),
+                35,
+            )?;
+            if result["ok"] != true {
+                return Err("WebHelm inspection not verified".into());
+            }
+            Ok(result["value"].clone())
+        })();
+        close(&self.binary, &self.temp, &session);
+        result
     }
     fn action(
         &self,

@@ -4,6 +4,7 @@ use neo_models::{
     engine::Engine,
     http::{self, App},
     nats,
+    notifier::NeoNotifier,
     orchestrator::Orchestrator,
     orchestrator_client::{Grants, HttpClient},
     store::Store,
@@ -20,6 +21,11 @@ use std::{
     sync::{atomic::AtomicBool, Arc},
 };
 fn run() -> Result<()> {
+    if env::var("NEO_ORCHESTRATOR_RELAY_EVENTS").as_deref() == Ok("1") {
+        return Err(
+            "native Relay event monitor not yet migrated; refusing to silently disable it".into(),
+        );
+    }
     let home = PathBuf::from(env::var_os("HOME").ok_or("HOME unavailable")?);
     let base = env::var_os("NEO_MODELS_STATE_DIR")
         .map(PathBuf::from)
@@ -48,6 +54,22 @@ fn run() -> Result<()> {
     if token.len() < 24 {
         return Err("private Bearer token required".into());
     }
+    let prod = home.join(".local/share/neo/model-gateway");
+    if let Ok(prod) = prod.canonicalize() {
+        let mut existing = base.as_path();
+        while !existing.exists() {
+            existing = existing
+                .parent()
+                .ok_or("candidate state path must be absolute")?;
+        }
+        let canonical = existing.canonicalize().map_err(|e| e.to_string())?;
+        if canonical.starts_with(&prod) || (base.exists() && prod.starts_with(&canonical)) {
+            return Err("candidate state path overlaps production".into());
+        }
+    }
+    if !base.is_absolute() {
+        return Err("candidate state path must be absolute".into());
+    }
     let store = Store::open(base.clone())?;
     let lock = fs::OpenOptions::new()
         .read(true)
@@ -69,7 +91,7 @@ fn run() -> Result<()> {
         }
     }
     let transport = Arc::new(WebHelm::from_env(&home, &base)?);
-    let engine = Engine::new(store.clone(), transport);
+    let engine = Engine::new(store.clone(), transport.clone());
     let ready = if env::var("NEO_MODEL_REPLY_EVENTS").as_deref() == Ok("0") {
         Arc::new(AtomicBool::new(false))
     } else {
@@ -85,8 +107,8 @@ fn run() -> Result<()> {
             token: token.clone(),
             grants: grants.clone(),
         }),
-        None,
-        None,
+        Some(transport),
+        Some(Arc::new(NeoNotifier::from_env(&home)?)),
     )?;
     if orchestrator.health()["ready"] == true {
         orchestrator.start(ready.clone());
