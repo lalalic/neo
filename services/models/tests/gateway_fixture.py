@@ -1,5 +1,8 @@
 """Native HTTP/NATS/WebHelm CLI fixture. No browser or paid provider calls."""
 import contextlib
+import hashlib
+import base64
+import re
 import json
 import os
 from pathlib import Path
@@ -150,6 +153,58 @@ else: sys.exit(2)
             server=subprocess.Popen([binary],env=env,stdout=slog,stderr=slog);stack.callback(stop,server);wait_port(port)
             assert json.load(request(port,"/v1/responses/"+second))["status"]=="completed"
             print("PASS persisted response readback after process restart",flush=True)
+            # Bootstrap only the synthetic project/head, never the production one.
+            stop(server)
+            (state/"orchestrator"/"bootstrap-head.json").write_text(json.dumps({"projectId":"g-p-fixtureproject","threadId":"fixture_thread_123"}))
+            server=subprocess.Popen([binary],env=env,stdout=slog,stderr=slog);stack.callback(stop,server);wait_port(port)
+            health=json.load(request(port,"/orchestrator-chat/health"))
+            assert health["ready"],health
+            rid="fixture_mobile_request"
+            attachment="fixture_attachment"
+            data=b"native attachment fixture"
+            chunk={"requestId":rid,"attachmentId":attachment,"name":"fixture.txt","sha256":hashlib.sha256(data).hexdigest(),"size":len(data),"chunkCount":1,"chunkIndex":0,"contentBase64":base64.b64encode(data).decode()}
+            assert json.load(request(port,"/orchestrator-chat/attachments",chunk))["complete"]
+            assert json.load(request(port,"/orchestrator-chat/attachments",chunk))["complete"]
+            msg={"requestId":rid,"text":"mobile turn","attachments":[{"id":attachment,"name":"fixture.txt"}]}
+            assert request(port,"/orchestrator-chat/messages",msg).status==400
+            hdr={"Idempotency-Key":rid}
+            assert request(port,"/orchestrator-chat/messages",msg,headers=hdr).status==202
+            assert request(port,"/orchestrator-chat/messages",msg,headers=hdr).status==202
+            assert request(port,"/orchestrator-chat/messages",{**msg,"text":"different"},headers=hdr).status==409
+            assert request(port,"/orchestrator-chat/attachments",chunk).status==400
+            rows=wait_action(3)
+            config=rows[2]["config"]
+            assert config["thread_id"]=="fixture_thread_123"
+            assert len(config["file"])==1 and Path(config["file"][0]).read_bytes()==data,config
+            assert "mobile turn" in config["message"]
+            mobile_id=re.search(r"resp_[0-9a-f]{40}",config["enforcement_context"]).group()
+            envelope=json.dumps({"schema":"neo.orchestrator.reply.v1","message":{"text":"mobile report","level":"info","needs":"none"}})
+            publish(nats_port,"test.models.native",mobile_id,"reply.text",{"seq":1,"text":envelope})
+            publish(nats_port,"test.models.native",mobile_id,"reply.completed",{})
+            for _ in range(100):
+                pending=json.load(request(port,"/orchestrator-chat/pending?requestId="+rid))
+                item=pending["pending"][0]
+                if item["status"]=="completed":break
+                time.sleep(.05)
+            assert item["status"]=="completed" and item["message"]["text"]=="mobile report",item
+            assert pending["accepted"] and len(wait_action(3))==3
+            print("PASS native Orchestrator queue, idempotency, verified attachments and private Responses transport",flush=True)
+            with request(port,"/orchestrator-chat/events?cursor=0") as stream:
+                names=[]
+                while "event: message.completed" not in names:
+                    line=stream.readline().decode().strip()
+                    assert line or stream.status==200
+                    if line.startswith("event: "):names.append(line)
+                assert names==["event: message.accepted","event: message.processing","event: message.completed"],names
+            assert request(port,"/orchestrator-chat/events?cursor=999999").status==400
+            assert request(port,"/orchestrator-chat/ack",{"deliveryId":item["deliveryId"]}).status==200
+            pending=json.load(request(port,"/orchestrator-chat/pending?requestId="+rid))
+            assert pending["accepted"] and not pending["pending"],pending
+            assert not Path(config["file"][0]).exists()
+            assert json.load(request(port,"/v1/responses/"+mobile_id))["output"]==[]
+            assert request(port,"/v1/responses",{"model":"neo","input":"forged"},headers={"thread-id":CODEX,"x-neo-orchestrator-grant":"forged"}).status==403
+            print("PASS native Orchestrator cursor replay, ACK privacy cleanup and forged grant rejection",flush=True)
+
 
 if __name__=="__main__":
     main(sys.argv[1])

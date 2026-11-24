@@ -2,6 +2,8 @@
 use crate::{
     catalog,
     engine::Engine,
+    orchestrator::Orchestrator,
+    orchestrator_client::Grants,
     sse::{self, Writer},
     store::{codex_id, response_id},
     Result,
@@ -25,6 +27,8 @@ pub struct App {
     pub token: Arc<String>,
     pub ready: Arc<AtomicBool>,
     pub legacy_origin: Option<String>,
+    pub orchestrator: Arc<Orchestrator>,
+    pub grants: Grants,
 }
 fn header<'a>(r: &'a Request, name: &str) -> Option<&'a str> {
     r.headers()
@@ -276,6 +280,118 @@ fn proxy(mut r: Request, origin: &str, token: &str) {
         Err(_) => error(r, 502, "provider unavailable", "upstream_error"),
     }
 }
+fn orch_error(r: Request, e: &str) {
+    let status = if e == "requestId conflict" || e.starts_with("event cursor expired") {
+        409
+    } else if ["unavailable", "not verified", "retention capacity"]
+        .iter()
+        .any(|x| e.contains(x))
+    {
+        503
+    } else {
+        400
+    };
+    send(r, status, json!({"error":{"message":e}}));
+}
+fn orchestrator(mut r: Request, app: &App, url: &Url) {
+    let o = &app.orchestrator;
+    let path = url.path();
+    let result: Result<(u16, Value)> = match (r.method(), path) {
+        (&Method::Get, "/orchestrator-chat/health") => {
+            let mut v = o.health();
+            v["modelApi"] = json!("available");
+            Ok((if v["ready"] == true { 200 } else { 503 }, v))
+        }
+        (&Method::Get, "/orchestrator-chat/pending") => {
+            let id = url
+                .query_pairs()
+                .find(|(k, _)| k == "requestId")
+                .map(|(_, v)| v.into_owned());
+            o.pending(id.as_deref()).map(|v| (200, v))
+        }
+        (&Method::Post, "/orchestrator-chat/messages") => body(&mut r).and_then(|v| {
+            if header(&r, "idempotency-key").is_none()
+                || header(&r, "idempotency-key") != v["requestId"].as_str()
+            {
+                return Err("Idempotency-Key must match requestId".into());
+            }
+            o.submit(&v).map(|v| (202, v))
+        }),
+        (&Method::Post, "/orchestrator-chat/attachments") => {
+            body(&mut r).and_then(|v| o.upload(&v)).map(|v| (200, v))
+        }
+        (&Method::Post, "/orchestrator-chat/ack") => body(&mut r)
+            .and_then(|v| o.ack(v["deliveryId"].as_str().ok_or("invalid deliveryId")?))
+            .map(|v| (200, v)),
+        (&Method::Get, "/orchestrator-chat/events") => {
+            let query = url
+                .query_pairs()
+                .find(|(k, _)| k == "cursor")
+                .map(|(_, v)| v.into_owned());
+            let raw = header(&r, "last-event-id")
+                .or(query.as_deref())
+                .unwrap_or("0");
+            let cursor = raw.parse::<u64>().ok().filter(|_| {
+                raw.len() <= 16
+                    && (raw == "0" || !raw.starts_with('0'))
+                    && raw.bytes().all(|b| b.is_ascii_digit())
+            });
+            let Some(mut cursor) = cursor else {
+                orch_error(r, "invalid event cursor");
+                return;
+            };
+            let mut events = match o.events_after(cursor) {
+                Ok(v) => v,
+                Err(e) => {
+                    orch_error(r, &e);
+                    return;
+                }
+            };
+            let Ok(mut out) = Stream::open(r) else { return };
+            let mut heartbeat = Instant::now();
+            loop {
+                for v in events {
+                    let Some(id) = v["id"].as_u64() else {
+                        out.finish();
+                        return;
+                    };
+                    let status = v["status"].as_str().unwrap_or("unknown");
+                    let name = if status == "queued" {
+                        "accepted"
+                    } else {
+                        status
+                    };
+                    if out
+                        .chunk(&format!("id: {id}\nevent: message.{name}\ndata: {v}\n\n"))
+                        .is_err()
+                    {
+                        return;
+                    }
+                    cursor = id;
+                }
+                if heartbeat.elapsed() >= Duration::from_secs(15) {
+                    if out.chunk(": keepalive\n\n").is_err() {
+                        return;
+                    }
+                    heartbeat = Instant::now();
+                }
+                thread::sleep(Duration::from_millis(250));
+                events = match o.events_after(cursor) {
+                    Ok(v) => v,
+                    Err(_) => {
+                        out.finish();
+                        return;
+                    }
+                };
+            }
+        }
+        _ => Ok((404, json!({"error":{"message":"not found"}}))),
+    };
+    match result {
+        Ok((status, v)) => send(r, status, v),
+        Err(e) => orch_error(r, &e),
+    }
+}
 pub fn handle(mut r: Request, app: &App) {
     let expected = format!("Bearer {}", app.token);
     if !header(&r, "authorization").is_some_and(|s| equal(s.as_bytes(), expected.as_bytes())) {
@@ -291,12 +407,7 @@ pub fn handle(mut r: Request, app: &App) {
     };
     let path = url.path();
     if path.starts_with("/orchestrator-chat/") {
-        error(
-            r,
-            503,
-            "native Orchestrator adapter not yet enabled",
-            "migration_incomplete",
-        );
+        orchestrator(r, app, &url);
         return;
     }
     if r.method() == &Method::Get && path == "/v1/models" {
@@ -397,17 +508,33 @@ pub fn handle(mut r: Request, app: &App) {
         );
         return;
     }
-    if header(&r, "x-neo-orchestrator-grant").is_some() {
-        error(
-            r,
-            403,
-            "unauthorized private /v1 request",
-            "authentication_error",
-        );
-        return;
-    }
+    let files = if let Some(grant) = header(&r, "x-neo-orchestrator-grant") {
+        if chat_path {
+            error(
+                r,
+                403,
+                "unauthorized private /v1 request",
+                "authentication_error",
+            );
+            return;
+        }
+        match app.grants.take(grant, owner.as_deref()) {
+            Ok(v) => v,
+            Err(_) => {
+                error(
+                    r,
+                    403,
+                    "unauthorized private /v1 request",
+                    "authentication_error",
+                );
+                return;
+            }
+        }
+    } else {
+        vec![]
+    };
     let streaming = input["stream"].as_bool().unwrap_or(false);
-    let admitted = match app.engine.start(input, owner.as_deref(), vec![]) {
+    let admitted = match app.engine.start(input, owner.as_deref(), files) {
         Ok(v) => v,
         Err(e) => {
             if streaming {

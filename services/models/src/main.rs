@@ -4,6 +4,8 @@ use neo_models::{
     engine::Engine,
     http::{self, App},
     nats,
+    orchestrator::Orchestrator,
+    orchestrator_client::{Grants, HttpClient},
     store::Store,
     webhelm::WebHelm,
     Result,
@@ -71,15 +73,32 @@ fn run() -> Result<()> {
     let ready = if env::var("NEO_MODEL_REPLY_EVENTS").as_deref() == Ok("0") {
         Arc::new(AtomicBool::new(false))
     } else {
-        nats::start(nats::Config::from_env(&home)?, store)?
+        nats::start(nats::Config::from_env(&home)?, store.clone())?
     };
     let server = tiny_http::Server::http(("127.0.0.1", port)).map_err(|e| e.to_string())?;
+    let token = Arc::new(token);
+    let grants = Grants::default();
+    let orchestrator = Orchestrator::open(
+        store,
+        Arc::new(HttpClient {
+            port,
+            token: token.clone(),
+            grants: grants.clone(),
+        }),
+        None,
+        None,
+    )?;
+    if orchestrator.health()["ready"] == true {
+        orchestrator.start(ready.clone());
+    }
     println!("Neo native Models candidate on loopback port {port}");
     http::serve(
         server,
         App {
             engine,
-            token: Arc::new(token),
+            token,
+            grants,
+            orchestrator,
             ready,
             legacy_origin,
         },

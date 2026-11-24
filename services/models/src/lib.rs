@@ -1,9 +1,12 @@
 //! Native Models Gateway. This crate is not yet a production replacement.
+pub mod attachments;
 pub mod catalog;
 pub mod engine;
 pub mod http;
 pub mod input;
 pub mod nats;
+pub mod orchestrator;
+pub mod orchestrator_client;
 pub mod reply;
 pub mod sse;
 pub mod store;
