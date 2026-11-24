@@ -28,7 +28,7 @@ network access. Only after `COMPLETED`, Relay may inspect a configured
 separately without changing Job/Task lifecycle. Neo neither pushes nor
 interprets the presence of an origin as publication permission.
 
-**Mandatory creator-owned preflight:** Before creating a new Coordinator Job, the invoking Agent completes Spec Kit Specify/Clarify requirements checks and an independent Preflight Review with PASS, then explicitly passes **`--preflight=true`** to `neo project run`. The Neo runner refuses new Job creation without the exact flag (`JOB_PREFLIGHT_REQUIRED`) and forwards it to Relay `job create`; it never fabricates the declaration or stores it in Run/Job/SQLite. Existing bound Run resumption does not create a Job and does not require another declaration; dry-run is read-only.
+**Declared DAG execution:** A Project Run executes an existing Project contract, not a new requirements-driven Job. No Spec Kit or independent requirements Preflight Review is required. The runner validates the project declaration, selected Graph, Run input, and applicable project-specific checks; it supplies Relay's internal `--preflight=true` on Coordinator creation. The flag is not a caller option or persisted state. Dry-run is read-only; stage, approval and publication gates remain unchanged.
 
 `--title` sets the human-readable title at creation. Otherwise Neo uses the
 project and canonical private Run folder, never the source URL or secret token.
@@ -40,9 +40,9 @@ Project declarations in `project.run.json` define the accepted input type and re
 ## Invocation
 
 ```sh
-neo project run --url="$PRIVATE_SOURCE_URL" --project=content-distribution --dag=promotion --preflight=true
-neo project run --project=content-distribution --dag=growth --preflight=true  # autonomous search; no URL required
-neo project run --path=/absolute/neo/vlog/runs/2026-11-03-episode --project=vlog --title="加拿大周末随拍" --preflight=true
+neo project run --url="$PRIVATE_SOURCE_URL" --project=content-distribution --dag=promotion
+neo project run --project=content-distribution --dag=growth  # autonomous search; no URL required
+neo project run --path=/absolute/neo/vlog/runs/2026-11-03-episode --project=vlog --title="加拿大周末随拍"
 # Start the same Coordinator immediately and stream Task messages in this terminal:
 neo project run --path=/absolute/neo/vlog/runs/2026-11-03-episode --project=vlog --foreground
 ```

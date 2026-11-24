@@ -20,11 +20,6 @@ function parseOptions(args) {
     if (raw === '--dry-run') { if (result.dryRun) fail('--dry-run may be specified only once'); result.dryRun = true; continue; }
     if (raw === '--foreground') { if (result.foreground) fail('--foreground may be specified only once'); result.foreground = true; continue; }
     if (raw === '--no-review') { if (result.noReview) fail('--no-review may be specified only once'); result.noReview = true; continue; }
-    if (raw === '--preflight=true') {
-      if (result.preflight) fail('ERROR [JOB_PREFLIGHT_REQUIRED]: --preflight=true may be specified only once');
-      result.preflight = true; continue;
-    }
-    if (raw.startsWith('--preflight')) fail('ERROR [JOB_PREFLIGHT_REQUIRED]: Job creation requires --preflight=true');
     const match = /^(--(?:url|path|project|title|dag|source))(?:=(.*))?$/.exec(raw);
     if (!match) fail(`unknown project run option: ${raw}`);
     const key = match[1].slice(2);
@@ -397,11 +392,6 @@ export function runProject(args, options = {}) {
     (options.emit ?? (text => process.stdout.write(text)))(`${JSON.stringify({ project: parsed.project, ...(graphChoice.dag ? { dag: graphChoice.dag } : {}), runPath: preview, inputType: isDiscovery ? 'discovery' : isUrl ? 'url' : 'path', ...(chosenSource ? {source:chosenSource.id, sourceBrief:chosenSource.runFile} : {}), dryRun: true })}\n`);
     return 0;
   }
-  // A bound Run is a resume, not a new Job. New Coordinator Jobs require
-  // explicit creator attestation; never synthesize a false PASS.
-  const reattaching = isPath && existsSync(join(runDir, bindingName));
-  if (!reattaching && parsed.preflight !== true)
-    fail('ERROR [JOB_PREFLIGHT_REQUIRED]: Job creation requires --preflight=true. Complete Spec Kit Specify/Clarify and independent Preflight Review first. No Job was created.');
   if (isUrl || isDiscovery) {
     const runs = join(selected.project, 'runs');
     mkdirSync(runs, { recursive: true, mode: 0o700 });
@@ -476,6 +466,7 @@ export function runProject(args, options = {}) {
     return startBound(jobId,files.saved.taskId);
   }
   const title=parsed.title??projectRunTitle(parsed.project,runDir);
+  // The validated Project declaration and Run inputs replace per-Job requirements review.
   const created=invoke(['job','create','--repo',repo,'--project-root',repoCheckout,'--title',title,
     '--objective-file',files.objective,'--preflight=true','--project-run-manifest',join(selected.project,'project.run.json'),'--coordinator-graph-file',selected.graph,
     '--coordinator-input-file',files.taskInput,'--coordinator-output-path',files.output,
@@ -490,7 +481,7 @@ export function runProject(args, options = {}) {
   return startBound(jobId,taskId);
 }
 
-export const projectRunHelp=`Usage: neo project run [--url HTTPS_URL | --path ABSOLUTE_RUN_DIR] --project NAME [--dag NAME] [--source NAME] [--title TEXT] --preflight=true [--dry-run] [--foreground] [--no-review]
+export const projectRunHelp=`Usage: neo project run [--url HTTPS_URL | --path ABSOLUTE_RUN_DIR] --project NAME [--dag NAME] [--source NAME] [--title TEXT] [--dry-run] [--foreground] [--no-review]
 
 Creates one ordinary DRAFT Relay Job and its durable Coordinator DAG Task in
 a single SQLite transaction, binds this private Run, then activates the Job
@@ -501,8 +492,8 @@ Reviews, retry, recovery, Final Review and Git Merge use the ordinary Job/Task
 lifecycle. Human Preview never auto-commits Git. No Shortcut Runner, separate
 DAG scheduler, initial Planner or content-only execution mode is created.
 
-New Jobs require exactly --preflight=true after Spec Kit Specify/Clarify and independent Preflight Review; the flag is not durable state. Reattaching a bound Job needs no new declaration. Dry-run does not create a Job.
-Options accept --name value or --name=value in any order (except --preflight=true, which must use the exact spelling).
+Project Runs validate the declared Graph and input; no Spec Kit or independent requirements Preflight Review is required. The runner supplies Relay's internal preflight flag. Dry-run does not create a Job.
+Options accept --name value or --name=value in any order.
 --url       HTTPS source reference for a project declaring URL input
 --path      Existing canonical dated Run (or a prepared URL-project Run)
 --project   Independent project Git repository beneath NEO_ROOT
