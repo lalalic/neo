@@ -87,7 +87,7 @@ One client conversation corresponds to one persistent ChatGPT Thread:
    No model reply routes to Neo Mobile. See the canonical
    [channel developer contract](../../skills/events-bus/references/channel-development.md).
 6. If WebHelm submission/completion is uncertain, preserve the state, refuse
-   an automatic re-submission, and return an explicit failure or pending state.
+   an automatic re-submission, and return an explicit failure or pending state. A pending Send receipt can recover the original Thread from its owned browser session and exact response marker. Every 60 seconds while awaiting a terminal reply, Models invokes the WebHelm `validate_new_turn_ready` recovery mode in the owned Thread. READY permits a single same-response-ID continuation reminder for that check, with a fresh idempotency key. NOT_READY or a read-only validation error skips the check. The new-turn action rechecks readiness before navigating. No task replay, synthetic reply, or fixed post-reminder deadline; the existing inactivity and maximum request limits remain. An uncertain send fails closed.
 
 **Codex Thread identity and resume.** The Codex HTTP Responses client sends its
 stable UUID as `thread-id` (or legacy `thread_id`). This ID is the primary,
@@ -162,9 +162,7 @@ and `base_url=http://127.0.0.1:8769/v1` on Neo Master.
 The Neo Models Gateway uses WebHelm's `new-thread` and `new-turn` Actions to
 open `https://chatgpt.com/?prompt=...` or `/c/<thread_id>?prompt=...`. The
 Actions observe navigation and the Send/Stop controls, click Send **once** when
-needed, and require verified delivery. No rich-editor manipulation, injected
-structured `@Neo` mention, explicit model selection, or Thinking override is
-part of the default route. `NEO_MODEL_APP_MENTION` is an explicit opt-in to
+needed, and require verified delivery. No rich-editor manipulation or injected structured `@Neo` mention is part of the default route. On a new Thread, explicitly supplied Responses `reasoning.effort` (or Chat Completions `reasoning_effort`) is mapped to the WebHelm `thinking_level` best-effort option; a missing picker or failed verification is nonfatal. Subsequent Turns inherit the Thread setting. `NEO_MODEL_APP_MENTION` is an explicit opt-in to
 structured App selection; the WebHelm Action handles this separately.
 
 **Release gate:** verify in a real Codex/ChatGPT thread that the connected

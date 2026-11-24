@@ -152,7 +152,26 @@ fn latest_input_prompt_omits_history_and_validates_images() {
     let (text, context) = input::prompt(&id, messages.last().unwrap(), &[], None).unwrap();
     assert_eq!(text, "[USER]\nnew turn\n[/USER]");
     assert!(context.contains(&id));
+    assert_eq!(context.matches(&format!("reply/models/{id}")).count(), 1);
+    assert!(!context.contains("<response_id>"));
+    assert!(context.contains("type=reply.text"));
+    assert!(context.contains("type=reply.completed"));
+    assert!(context.contains("type=reply.failed"));
+    assert!(context.contains("separate type=reply.completed"));
+    assert!(context.contains("Verify all publish receipts before ending"));
+    assert!(
+        context.encode_utf16().count() <= 1500,
+        "WebHelm enforcement_context exceeds its limit"
+    );
     assert!(!context.contains("private system"));
+    let mobile = format!("{}\nCurrent verified Orchestrator Project: g-p-{}\nCurrent ChatGPT Thread: {}\nCurrent handoff generation: 0\nOnly server-authorized handoffs may change the head.",
+        include_str!("../src/orchestrator-enforcement.txt").trim(), "a".repeat(32), "b".repeat(36));
+    let (_, mobile_context) =
+        input::prompt(&id, messages.last().unwrap(), &[], Some(&mobile)).unwrap();
+    assert!(mobile_context.contains("neo.orchestrator.reply.v1"));
+    assert!(mobile_context.encode_utf16().count() <= 1500);
+    assert!(input::prompt(&id, messages.last().unwrap(), &[], Some(&"x".repeat(1500))).is_err());
+
     assert!(input::prompt(
         &id,
         messages.last().unwrap(),

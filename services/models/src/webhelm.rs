@@ -22,6 +22,12 @@ pub trait Submission: Send {
     fn heartbeat(&self) -> Result<()> {
         Ok(())
     }
+    fn recovery_ready(&self, _response: &str) -> Result<bool> {
+        Ok(false)
+    }
+    fn remind(&self, _response: &str, _next_seq: usize, _attempt: usize) -> Result<bool> {
+        Err("same-thread recovery is unavailable".into())
+    }
 }
 pub trait Transport: Send + Sync {
     fn submit(
@@ -32,6 +38,7 @@ pub trait Transport: Send + Sync {
         enforcement: &str,
         files: &[PathBuf],
         response: &str,
+        thinking: Option<&str>,
     ) -> Result<Box<dyn Submission>>;
 }
 pub struct WebHelm {
@@ -49,6 +56,7 @@ pub struct Held {
     temp: PathBuf,
     session: Option<String>,
     receipt: Value,
+    platform: String,
 }
 fn command(binary: &Path, temp: &Path, args: &[String]) -> Result<Value> {
     command_timeout(binary, temp, args, 300)
@@ -130,6 +138,93 @@ impl Drop for Held {
         }
     }
 }
+// Inspection stays inside the same caller-owned browser session. No arbitrary
+// sidebar matching, thread navigation, assistant-text replay or fabricated reply.
+impl Held {
+    fn observe(&self, response: &str) -> Result<Value> {
+        let session = self.session.as_deref().ok_or("no owned session")?;
+        let expression = format!(
+            r#"(() => {{
+            const marker = {};
+            const visible = e => !!e && e.getClientRects().length > 0;
+            const nodes = [...document.querySelectorAll('[data-message-author-role]')].filter(visible);
+            const lastUser = nodes.findLastIndex(e => e.getAttribute('data-message-author-role') === 'user');
+            const owner = lastUser >= 0 && (nodes[lastUser].innerText || '').includes(marker);
+            return {{url:location.href, owner}};
+        }})()"#,
+            json!(response)
+        );
+        let script = format!("return await js({});", json!(expression));
+        let mut file = tempfile::NamedTempFile::new_in(&self.temp).map_err(|e| e.to_string())?;
+        file.write_all(script.as_bytes())
+            .map_err(|e| e.to_string())?;
+        file.flush().map_err(|e| e.to_string())?;
+        let r = command_timeout(
+            &self.binary,
+            &self.temp,
+            &strings(&[
+                "session",
+                "exec",
+                session,
+                "--code-file",
+                file.path().to_str().ok_or("invalid temp path")?,
+            ]),
+            35,
+        )?;
+        if r["ok"] != true {
+            return Err("owned browser observation not verified".into());
+        }
+        Ok(r["value"].clone())
+    }
+    fn recover_receipt(&self, response: &str, project: Option<&str>) -> Result<Value> {
+        let start = Instant::now();
+        while start.elapsed() < Duration::from_secs(90) {
+            if let Ok(observed) = self.observe(response) {
+                if observed["owner"] == true {
+                    if let Some((id, url)) = verified_thread_url(&observed["url"], project) {
+                        return Ok(
+                            json!({"status":"submitted","thread_id":id,"thread_url":url,"project_id":project,"verified_by":"same-session-recovery"}),
+                        );
+                    }
+                }
+            }
+            self.heartbeat()?;
+            thread::sleep(Duration::from_secs(2));
+        }
+        Err("Send clicked; original Thread ID still unconfirmed; no resend".into())
+    }
+}
+fn verified_thread_url(value: &Value, project: Option<&str>) -> Option<(String, String)> {
+    let mut u = Url::parse(value.as_str()?).ok()?;
+    if u.scheme() != "https"
+        || u.host_str() != Some("chatgpt.com")
+        || u.port().is_some()
+        || !u.username().is_empty()
+        || u.password().is_some()
+    {
+        return None;
+    }
+    let p = u
+        .path_segments()?
+        .filter(|s| !s.is_empty())
+        .collect::<Vec<_>>();
+    let id = match (p.as_slice(), project) {
+        (["c", id], None) => *id,
+        (["g", scope, "c", id], Some(project))
+            if *scope == project || scope.starts_with(&format!("{project}-")) =>
+        {
+            *id
+        }
+        _ => return None,
+    };
+    if !thread_id(id) || id.starts_with("local-") {
+        return None;
+    }
+    let id = id.to_owned();
+    u.set_query(None);
+    u.set_fragment(None);
+    Some((id, u.to_string()))
+}
 impl Submission for Held {
     fn receipt(&self) -> &Value {
         &self.receipt
@@ -143,6 +238,75 @@ impl Submission for Held {
             )?;
         }
         Ok(())
+    }
+    fn recovery_ready(&self, response: &str) -> Result<bool> {
+        let Some(session) = self.session.as_deref() else {
+            return Ok(false);
+        };
+        let thread = self.receipt["thread_id"]
+            .as_str()
+            .ok_or("no verified thread")?;
+        let mut config = json!({"thread_id":thread,"recovery_response_id":response});
+        if let Some(project) = self.receipt["project_id"].as_str() {
+            config["project_id"] = json!(project);
+        }
+        let mut f = tempfile::NamedTempFile::new_in(&self.temp).map_err(|e| e.to_string())?;
+        serde_json::to_writer(&mut f, &config).map_err(|e| e.to_string())?;
+        f.flush().map_err(|e| e.to_string())?;
+        let result = command_timeout(
+            &self.binary,
+            &self.temp,
+            &strings(&[
+                "platform",
+                "run",
+                &self.platform,
+                "validate_new_turn_ready",
+                "--session-id",
+                session,
+                "--config",
+                f.path().to_str().ok_or("invalid temp path")?,
+            ]),
+            35,
+        )?;
+        result
+            .as_bool()
+            .ok_or("invalid recovery readiness result".into())
+    }
+    fn remind(&self, response: &str, next_seq: usize, attempt: usize) -> Result<bool> {
+        // new-turn rechecks the same read-only gate before navigating.
+        let session = self.session.as_deref().ok_or("no owned session")?;
+        let thread = self.receipt["thread_id"]
+            .as_str()
+            .ok_or("no verified thread")?;
+        let message=format!("Finish existing request {response}. Do not repeat completed actions. Continue only unfinished work. 1. Publish the actual result to reply/models/{response} with reply.text, seq={next_seq} (skip if final text was already accepted). 2. Publish reply.completed separately with data={{}}; on actual failure use reply.failed with an error. 3. Verify the publish receipts before ending.");
+        let mut config = json!({"thread_id":thread,"message":message,"mergeable":false,"idempotency_key":format!("{response}-recovery-{attempt}"),"recovery_response_id":response});
+        if let Some(p) = self.receipt["project_id"].as_str() {
+            config["project_id"] = json!(p);
+        }
+        let mut f = tempfile::NamedTempFile::new_in(&self.temp).map_err(|e| e.to_string())?;
+        serde_json::to_writer(&mut f, &config).map_err(|e| e.to_string())?;
+        f.flush().map_err(|e| e.to_string())?;
+        let r = command(
+            &self.binary,
+            &self.temp,
+            &strings(&[
+                "platform",
+                "run",
+                &self.platform,
+                "new-turn",
+                "--session-id",
+                session,
+                "--config",
+                f.path().to_str().ok_or("invalid temp path")?,
+            ]),
+        )?;
+        if r["status"] == "not_ready" {
+            return Ok(false);
+        }
+        if r["status"] != "submitted" || r["thread_id"] != thread {
+            return Err("same-thread recovery submission unconfirmed".into());
+        }
+        Ok(true)
     }
 }
 impl WebHelm {
@@ -261,6 +425,7 @@ impl Transport for WebHelm {
         enforcement: &str,
         files: &[PathBuf],
         response: &str,
+        thinking: Option<&str>,
     ) -> Result<Box<dyn Submission>> {
         if files.len() > 4 || files.iter().any(|p| !p.is_absolute()) {
             return Err("invalid ChatGPT attachment paths".into());
@@ -298,6 +463,7 @@ impl Transport for WebHelm {
             temp: self.temp.clone(),
             session,
             receipt: Value::Null,
+            platform: self.platform.clone(),
         };
         let mut config = json!({"message":prompt,"enforcement_context":enforcement});
         if let Some(p) = project {
@@ -331,31 +497,39 @@ impl Transport for WebHelm {
         } else {
             config["mode"] = json!("chat");
             config["temporary"] = json!(false);
+            if let Some(level) = thinking {
+                config["thinking_level"] = json!(level);
+            }
+            if held.session.is_some() {
+                config["recover_thread_receipt"] = json!(true);
+            }
             // The existing new-thread Action receives image references in the
             // user prompt; subsequent turns use its supported file field.
-            let receipt = self.action(
+            let mut receipt = self.action(
                 "new-thread",
                 &config,
                 held.session.as_deref(),
                 held.session.is_none(),
             )?;
+            if receipt["status"] == "submitted"
+                && receipt["receipt_pending"] == true
+                && receipt["verified_by"] == "send-clicked"
+                && held.session.is_some()
+            {
+                receipt = held.recover_receipt(response, project)?;
+            }
             let id = receipt["thread_id"]
                 .as_str()
                 .filter(|s| thread_id(s))
                 .ok_or("new-thread returned no verified thread ID")?;
-            let target = Url::parse(receipt["thread_url"].as_str().unwrap_or(""))
-                .map_err(|_| "invalid new-thread URL")?;
             if receipt["status"] != "submitted"
-                || target.scheme() != "https"
-                || target.host_str() != Some("chatgpt.com")
-                || target
-                    .path_segments()
-                    .is_none_or(|mut p| p.next_back() != Some(id))
+                || !verified_thread_url(&receipt["thread_url"], project)
+                    .is_some_and(|(thread, _)| thread == id)
             {
                 return Err("new-thread returned no verified submission receipt".into());
             }
             if let Some(p) = project {
-                if receipt["project_id"] != p || !target.path().contains(&format!("/g/{p}")) {
+                if receipt["project_id"] != p {
                     return Err("new-thread did not verify configured project".into());
                 }
             }

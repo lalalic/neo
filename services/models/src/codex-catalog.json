@@ -5,8 +5,25 @@
       "display_name": "Neo",
       "description": "Stateful ChatGPT agent through the Neo model gateway",
       "base_instructions": "Follow the supplied system, developer and user instructions, using your available connected tools when necessary.",
-      "default_reasoning_level": null,
-      "supported_reasoning_levels": [],
+      "default_reasoning_level": "medium",
+      "supported_reasoning_levels": [
+        {
+          "effort": "low",
+          "description": "Fast response"
+        },
+        {
+          "effort": "medium",
+          "description": "Balanced thinking"
+        },
+        {
+          "effort": "high",
+          "description": "Deeper thinking"
+        },
+        {
+          "effort": "xhigh",
+          "description": "Extra high where available"
+        }
+      ],
       "shell_type": "disabled",
       "visibility": "list",
       "supported_in_api": true,

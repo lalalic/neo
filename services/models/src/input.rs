@@ -151,10 +151,9 @@ pub fn prompt(
     if !crate::store::response_id(id) {
         return Err("invalid response ID".into());
     }
-    let mut context = format!(
-        "{}\n\nNeo model request: {id}",
-        include_str!("../TOP_INSTRUCTIONS.md").trim()
-    );
+    let mut context = include_str!("../TOP_INSTRUCTIONS.md")
+        .trim()
+        .replace("<response_id>", id);
     if let Some(s) = enforcement {
         let lower = s.to_ascii_lowercase();
         if s.trim().is_empty()
@@ -170,8 +169,13 @@ pub fn prompt(
         {
             return Err("invalid enforcement_context".into());
         }
-        context.push_str("\n\nCaller-specific enforcement context (additional, not overriding the reply contract):\n");
+        context.push_str("\nAdditional, not overriding:\n");
         context.push_str(s);
+    }
+    // Reject oversized enforcement before admission, rather than fail after a
+    // response ID is reserved. WebHelm's visible contract is capped at 1500 UTF-16 units.
+    if context.encode_utf16().count() > 1500 {
+        return Err("enforcement_context exceeds WebHelm limit (1500 UTF-16 units)".into());
     }
     let mut text = format!(
         "[USER]\n{}",

@@ -29,6 +29,7 @@ struct Work {
     thread: Option<String>,
     project: Option<String>,
     enforcement: Option<String>,
+    thinking: Option<String>,
     attachments: Vec<PathBuf>,
 }
 impl Engine {
@@ -81,6 +82,20 @@ impl Engine {
             Some(Value::String(s)) => Some(s.clone()),
             _ => return Err("invalid enforcement_context".into()),
         };
+        // The provider may omit effort; only explicitly supported values are forwarded.
+        let thinking = body
+            .pointer("/reasoning/effort")
+            .or_else(|| body.get("reasoning_effort"))
+            .and_then(Value::as_str)
+            .filter(|s| matches!(*s, "low" | "medium" | "high" | "xhigh" | "minimal" | "none"))
+            .map(|s| {
+                match s {
+                    "xhigh" => "extra high",
+                    "minimal" | "none" | "low" => "instant",
+                    x => x,
+                }
+                .to_owned()
+            });
         // Validate enforcement before reserving a durable turn.
         let id = format!("resp_{}", key()?);
         input::prompt(&id, &latest, &[], enforcement.as_deref())?;
@@ -149,6 +164,7 @@ impl Engine {
                 thread: session["threadId"].as_str().map(str::to_owned),
                 project: session["projectId"].as_str().map(str::to_owned),
                 enforcement,
+                thinking,
                 attachments,
             };
             session["status"] = json!("submitting");
@@ -205,6 +221,7 @@ impl Engine {
             &enforcement,
             &all,
             &w.id,
+            w.thinking.as_deref(),
         )?;
         {
             let tx = self.store.transaction()?;
@@ -231,6 +248,8 @@ impl Engine {
         }
         let start = now_ms();
         let mut last_heartbeat = Instant::now();
+        let mut last_observe = Instant::now();
+        let mut recovery_count = 0usize;
         loop {
             let r = self.store.response(&w.id)?.ok_or("response vanished")?;
             match r["status"].as_str() {
@@ -251,6 +270,33 @@ impl Engine {
                 >= 9 * 60 * 1000
             {
                 return Err("ChatGPT model result not reported before inactivity timeout".into());
+            }
+            // Check the canonical WebHelm readiness gate once per minute.
+            // No fixed post-reminder deadline: continue observing until the
+            // original response terminates or the existing request limits expire.
+            if last_observe.elapsed() >= Duration::from_secs(60) {
+                last_observe = Instant::now();
+                match submission.recovery_ready(&w.id) {
+                    Ok(true) => {
+                        // Replies can arrive while WebHelm checks readiness.
+                        let latest = self.store.response(&w.id)?.ok_or("response vanished")?;
+                        if latest["status"] != "in_progress" {
+                            continue;
+                        }
+                        let next_seq = latest["reports"].as_array().map_or(1, |a| a.len() + 1);
+                        if submission.remind(&w.id, next_seq, recovery_count + 1)? {
+                            recovery_count += 1;
+                            eprintln!(
+                                "[models] recovery reminder {recovery_count} sent for {}",
+                                w.id
+                            );
+                        }
+                    }
+                    Ok(false) => {}
+                    Err(e) => eprintln!("[models] recovery readiness skipped: {e}"),
+                }
+                // Count the interval from the completed check/send, never burst.
+                last_observe = Instant::now();
             }
             if last_heartbeat.elapsed() >= Duration::from_secs(30) {
                 submission.heartbeat()?;
