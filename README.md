@@ -4,6 +4,10 @@ Neo is an AI character with a mission to make $1,000,000 in one year. The missio
 
 This repository is the public **Neo Harness source**: CLI, bootstrap/discovery tooling, shared agent definitions, and reusable Skills. Installing Neo.app prepares the Harness without requiring a source checkout. Each runnable Neo Project is an independent Git repository directly beneath the configurable `NEO_ROOT` directory.
 
+## Native Rust CLI trial
+
+The native Rust Harness is built with `cargo build --release --locked -p neo-harness-cli --bin neo-rs`. The Neo Master live trial stages the executable and committed resources with `neo-rs package stage` in a versioned local directory. The legacy Node CLI and npm distribution remain available for rollback and other hosts during the trial. See the [live-trial contract](specs/003-neo-harness-rust-port/contracts/cli-live-trial.md).
+
 ## Repository
 
 - `MISSION.md` — canonical Neo identity and mission context for agents and projects.

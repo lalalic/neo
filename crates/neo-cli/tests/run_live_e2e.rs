@@ -151,7 +151,6 @@ impl Fixture {
         }
         cmd.args(["project", "run"])
             .args(args)
-            .arg("--preflight=true")
             .env("HOME", &self.home)
             .env("NEO_WORKSPACE_CONFIG", &self.config)
             .env("NEO_ROOT", &self.workspace)
@@ -421,7 +420,6 @@ fn concurrent_native_cli_calls_share_one_atomic_run_binding() {
                 "sample",
                 "--path",
                 f.run.to_str().unwrap(),
-                "--preflight=true",
             ])
             .env("HOME", &f.home)
             .env("NEO_WORKSPACE_CONFIG", &f.config)
@@ -1012,7 +1010,7 @@ fn vlog_publisher_review_and_six_stage_growth_policy_are_node_equivalent() {
 }
 
 #[test]
-fn new_job_requires_creator_preflight_attestation_but_resuming_bound_job_does_not() {
+fn declared_dag_supplies_internal_preflight_and_rejects_caller_option() {
     let f = Fixture::new();
     let run_cli = |native: bool, args: &[&str]| {
         let mut cmd = if native {
@@ -1037,7 +1035,7 @@ fn new_job_requires_creator_preflight_attestation_but_resuming_bound_job_does_no
     let options = ["--project", "sample", "--path", f.run.to_str().unwrap()];
     for native in [true, false] {
         for invalid in [
-            vec![],
+            vec!["--preflight=true"],
             vec!["--preflight=false"],
             vec!["--preflight"],
             vec!["--preflight=true", "--preflight=true"],
@@ -1047,16 +1045,16 @@ fn new_job_requires_creator_preflight_attestation_but_resuming_bound_job_does_no
             let rejected = run_cli(native, &args);
             assert!(
                 !rejected.status.success(),
-                "missing or invalid preflight must not create Job"
+                "caller preflight option must not create Job"
             );
-            assert!(String::from_utf8_lossy(&rejected.stderr).contains("JOB_PREFLIGHT_REQUIRED"));
+            assert!(
+                String::from_utf8_lossy(&rejected.stderr).contains("unknown project run option")
+            );
             assert!(!f.run.join(".neo-project-run.json").exists());
             assert!(!f.state_root.join("state.json").exists());
         }
     }
-    let mut declared = options.to_vec();
-    declared.push("--preflight=true");
-    let first = f.assert_success(&run_cli(true, &declared));
+    let first = f.assert_success(&run_cli(true, &options));
     assert_eq!(first["status"], "ACTIVE");
     assert_eq!(f.state()["creates"], 1);
     let resumed = f.assert_success(&run_cli(true, &options));

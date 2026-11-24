@@ -267,7 +267,7 @@ try{
   await verify('Rust Neo CLI creates/resumes one Job through isolated real Rust Relay',async()=>{
     const script=join(root,'scripts/verify-rust-relay-isolated.mjs');
     const result=await run(process.execPath,['--no-warnings',script,relaySource],{env:process.env,timeout:120000});
-    ok(result);const summary=obj(result);
+    assert.equal(result.code,0,`Isolated Relay fixture failed: ${result.stderr.slice(-1200)}`);const summary=obj(result);
     assert.equal(summary.passed,true);assert.equal(summary.jobs,1);
     assert.equal(summary.jobIdStable,true);assert.equal(summary.taskIdStable,true);
     assert.equal(summary.foregroundAttached,true);assert.equal(summary.preflightRejected,true);

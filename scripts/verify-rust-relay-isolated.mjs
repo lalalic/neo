@@ -8,7 +8,7 @@
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
 import { execFileSync, spawn, spawnSync } from 'node:child_process';
-import { copyFileSync, cpSync, chmodSync, closeSync, existsSync, mkdirSync, mkdtempSync, openSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, cpSync, chmodSync, closeSync, existsSync, mkdirSync, mkdtempSync, openSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { once } from 'node:events';
@@ -115,6 +115,11 @@ async function main() {
       history.listen(0,'127.0.0.1',resolve);
     });
     const historyUrl=`http://127.0.0.1:${history.address().port}/`;
+    // Capture the authoritative stderr of each fixture-only Relay invocation.
+    // The Rust Harness intentionally suppresses raw production subprocess output.
+    const relayErrors=join(base,'relay-errors');mkdirSync(relayErrors);
+    const relayWrapper=join(binaries,'fixture-relay');
+    writeFileSync(relayWrapper,`#!/bin/sh\nexec "${join(binaries,'agents-relay-rust')}" "$@" 2>"${relayErrors}/$$.log"\n`,{mode:0o700});
     const environment = {
       ...process.env,
       HOME: home,
@@ -122,7 +127,7 @@ async function main() {
       AGENTS_RELAY_WORKSPACE_ROOT: workspace,
       NEO_ROOT: workspace,
       NEO_WORKSPACE_CONFIG: config,
-      NEO_RELAY_EXECUTABLE: join(binaries, 'agents-relay-rust'),
+      NEO_RELAY_EXECUTABLE: relayWrapper,
       NEO_RELAY_CONTROL_PORT: String(port),
       AGENTS_RELAY_SCRIPT_NODE: process.execPath
     };
@@ -149,23 +154,21 @@ async function main() {
     if (!reliability) execFileSync('cargo', ['build', '--offline', '-q', '--workspace'], { cwd: harnessRoot, timeout: 90_000 });
     const rust = join(harnessRoot, reliability ? 'target/release/neo-rs' : 'target/debug/neo-rs');
     assert(existsSync(rust), 'Build Release native CLI first');
-    // This fixture represents a creator who completed Spec Kit Specify/Clarify
-    // and independent Preflight Review. New Jobs require explicit attestation.
-    const input = ['project', 'run', '--project', projectName, '--path', run, '--preflight=true', ...(terminal ? ['--no-review'] : [])];
-    // Invalid or missing creator attestation must fail *before* the real
-    // Rust Relay receives any Job creation request.
+    // Declared DAG execution validates the project and supplies Relay internal preflight.
+    const input = ['project', 'run', '--project', projectName, '--path', run, ...(terminal ? ['--no-review'] : [])];
+    // Obsolete caller preflight flags are rejected before any Relay request.
     for (const options of [
-      ['project', 'run', '--project', projectName, '--path', run],
+      ['project', 'run', '--project', projectName, '--path', run, '--preflight=true'],
       ['project', 'run', '--project', projectName, '--path', run, '--preflight=false']
     ]) {
       const rejected = spawnSync(rust, options, {
         cwd: workspace, env: environment, encoding: 'utf8', timeout: 10_000
       });
-      assert.notEqual(rejected.status, 0, 'missing/false preflight was accepted');
-      assert.match(rejected.stderr, /JOB_PREFLIGHT_REQUIRED/);
+      assert.notEqual(rejected.status, 0, 'obsolete caller preflight was accepted');
+      assert.match(rejected.stderr, /unknown project run option/);
     }
     assert(!existsSync(join(run, '.neo-project-run.json')),
-      'rejected preflight must not create a Run binding');
+      'rejected caller option must not create a Run binding');
     const preflightRejected = true;
     const execute = () => JSON.parse(execFileSync(rust, input, {
       cwd: workspace, env: environment, encoding: 'utf8', timeout: 20_000
@@ -327,6 +330,9 @@ async function main() {
     // authoritative CLI stderr to diagnose contract changes, not private
     // production state (which this script never mounts or reads).
     const cliError=error?.stderr ? String(error.stderr).slice(-1400) : '';
+    const relayErrors=join(base,'relay-errors');
+    const details=existsSync(relayErrors)?readdirSync(relayErrors).map(f=>readFileSync(join(relayErrors,f),'utf8')).filter(Boolean).join('\n').slice(-2200):'';
+    if(details)process.stderr.write('Isolated Relay subprocess errors:\n'+details+'\n');
     process.stderr.write(`Isolated real Relay verification failed: ${error.message}\n${cliError}\n${daemonLog.slice(-1600)}\n`);
     process.exitCode = 1;
   } finally {

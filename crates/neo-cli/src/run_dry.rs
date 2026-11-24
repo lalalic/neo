@@ -23,7 +23,6 @@ pub struct Options {
     pub dry_run: bool,
     pub foreground: bool,
     pub no_review: bool,
-    pub preflight: bool,
 }
 fn valid_identifier(s: &str) -> bool {
     let mut chars = s.chars();
@@ -55,22 +54,6 @@ pub(crate) fn parse(args: &[String]) -> Result<Options, String> {
             }
             i += 1;
             continue;
-        }
-        if raw == "--preflight=true" {
-            if opt.preflight {
-                return Err(
-                    "ERROR [JOB_PREFLIGHT_REQUIRED]: --preflight=true may be specified only once"
-                        .into(),
-                );
-            }
-            opt.preflight = true;
-            i += 1;
-            continue;
-        }
-        if raw.starts_with("--preflight") {
-            return Err(
-                "ERROR [JOB_PREFLIGHT_REQUIRED]: Job creation requires --preflight=true".into(),
-            );
         }
         let (key, v) = raw.split_once('=').unwrap_or((raw.as_str(), ""));
         if !matches!(

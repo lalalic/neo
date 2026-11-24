@@ -211,8 +211,8 @@ try{
   // Dry-run is a read operation: prove no private Run and no Relay binding.
   pair('project run dry-run (fixture)', ['project','run','--url','https://example.org/fixture','--project','sample','--dry-run'],env,
     {assert:o=>assert.equal(o.dryRun,true)});
-  reject('project run rejects false preflight', ['project','run','--project','sample','--preflight=false'],env,/JOB_PREFLIGHT_REQUIRED/);
-  reject('project run rejects duplicate attestation', ['project','run','--project','sample','--preflight=true','--preflight=true'],env,/JOB_PREFLIGHT_REQUIRED/);
+  reject('project run rejects obsolete caller preflight', ['project','run','--project','sample','--preflight=false'],env,/unknown project run option/);
+  reject('project run rejects obsolete duplicate preflight', ['project','run','--project','sample','--preflight=true','--preflight=true'],env,/unknown project run option/);
   reject('eval rejects invalid DAG flag', ['eval','list','--project','sample','--smoke'],env,/--smoke requires --dag/);
   reject('eval rejects profile without model', ['eval','list','--project','sample','--profile','neo'],env,/requires --model/);
   reject('compute rejects unsupported provider', ['compute','run','--image','ghcr.io/example/fixture:v1','--provider','invalid',

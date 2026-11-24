@@ -20,7 +20,7 @@ Rust Relay PromptBuilder is read-only and uses fixture inputs and synthetic
 Project files. The existing `verify-rust-relay-isolated.mjs` child acceptance
 creates a separate temporary Rust Relay SQLite/daemon (no production database
 access), creates exactly one Job, verifies resume and foreground attachment,
-and rejects missing or false `--preflight=true` before binding.
+and rejects obsolete caller `--preflight` options before binding. The validated DAG supplies the Relay-internal flag (main 0141644 contract).
 
 ## Behavioral gates
 
