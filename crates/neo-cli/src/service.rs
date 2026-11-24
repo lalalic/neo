@@ -85,6 +85,21 @@ pub fn run(args: &[String]) -> Result<(Option<Value>, i32), String> {
     ) {
         return Err(USAGE.into());
     }
+    // Validate the complete invocation BEFORE interrogating PM2/launchd.
+    // PM2 can create HOME state even for `jlist`; malformed or unauthorized
+    // service mutations must therefore fail without launching any manager.
+    let valid = match action.as_str() {
+        "list" => rest.is_empty(),
+        "status" => rest.len() == 1,
+        "start" | "stop" | "restart" => rest.len() == 2 && rest[1] == "--apply",
+        _ => false,
+    };
+    if !valid {
+        return Err(USAGE.into());
+    }
+    if action != "list" && !safe_name(&rest[0]) {
+        return Err("invalid service name".into());
+    }
     let rows = rows()?;
     if action == "list" && rest.is_empty() {
         return Ok((Some(json!(rows)), 0));

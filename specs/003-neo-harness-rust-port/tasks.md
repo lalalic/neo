@@ -51,6 +51,8 @@
 - [X] T019 [US3] Run full core CLI parity, node-free and existing Neo.app integration acceptance matrix
 - [X] T026 [US4] Replace optional Node `eval` and `compute` CLI adapters with direct Rust PromptBuilder, provider, HTTP, and Web gateway implementations; remove legacy `gpu` alias
 - [X] T027 [US4] Verify native CLI command parity, strict paid/upload gating, mocked provider lifecycle, private Web auth, HTTP+WebSocket proxy, and clean bundle with no Eval/Compute Node CLI bridge
+- [X] T029 [US3] Execute side-effect-free Rust Neo CLI black-box matrix against disposable HOME/Project, source Node reference, installed production `neo` and live read-only Neo.app; record fixture file digests and deferred write gates in `contracts/cli-blackbox-acceptance.md`
+- [ ] T030 [US3] Complete separately authorized isolated write-path CLI black-box E2E before installed CLI cutover (native Rust Relay Project Run, MCP token/preview, Eval report and provider state)
 - [ ] T028 [US4] With explicit user cost authorization and supported Docker host, run actual Docker/GitHub/HF/Vast and TLS/WSS/cleanup acceptance; rebuild/fix installed Rust Relay PromptBuilder stale embedded path before production release
 - [ ] T020 [US3] After explicit release approval and verification, replace installed launcher and remove superseded Node core code
 

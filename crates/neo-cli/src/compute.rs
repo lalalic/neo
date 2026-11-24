@@ -258,11 +258,37 @@ pub fn plan_run(args: &[String]) -> Result<Value, String> {
     }
     Ok(plan)
 }
+// `doctor` is a strict read-only capability inventory. Invoking `--version`
+// on external GPU CLIs can create provider caches, Python bytecode, and HOME
+// state, so inspect the executable bit without spawning any third-party code.
 fn tool_ok(command: &str) -> bool {
-    let mut cmd = Command::new(command);
-    cmd.arg("--version");
-    process_guard::capture(&mut cmd, Duration::from_secs(5), 4096)
-        .is_ok_and(|output| output.status.success())
+    #[cfg(unix)]
+    use std::os::unix::fs::PermissionsExt;
+    if command.is_empty() {
+        return false;
+    }
+    let executable = |path: &Path| {
+        fs::metadata(path).is_ok_and(|meta| {
+            meta.is_file() && {
+                #[cfg(unix)]
+                {
+                    meta.permissions().mode() & 0o111 != 0
+                }
+                #[cfg(not(unix))]
+                {
+                    true
+                }
+            }
+        })
+    };
+    if command.contains('/') {
+        return Path::new(command).is_absolute() && executable(Path::new(command));
+    }
+    env::var_os("PATH")
+        .map(|paths| {
+            env::split_paths(&paths).any(|dir| dir.is_absolute() && executable(&dir.join(command)))
+        })
+        .unwrap_or(false)
 }
 pub fn doctor() -> Result<Value, String> {
     Ok(
