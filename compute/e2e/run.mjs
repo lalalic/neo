@@ -11,16 +11,16 @@ import {nativeCli,imagePlan,findService,atomicJson} from './native-cli.mjs';
 import {reusableFixtureImage} from './reuse.mjs';
 import {gatewayCredentialReady} from './gateway-prereq.mjs';
 const project=resolve(fileURLToPath(new URL('../..',import.meta.url)));
-const dockerfile='gpu/e2e/Dockerfile';
+const dockerfile='compute/e2e/Dockerfile';
 const names={batch:'neo-gpu-e2e-job',web:'neo-gpu-e2e-web'};
-const origin=process.env.NEO_COMPUTE_WEB_ORIGIN||process.env.NEO_GPU_WEB_ORIGIN||'https://compute.qili2.com';
+const origin=process.env.NEO_COMPUTE_WEB_ORIGIN||'https://compute.qili2.com';
 const sleep=ms=>new Promise(ok=>setTimeout(ok,ms));
 const print=(event,data={})=>console.log(JSON.stringify({event,...data}));
 const timeout=(ms)=>AbortSignal.timeout(ms);
 const flags=new Set(process.argv.slice(2));
 const allowed=new Set(['--live','--allow-spend','--build','--batch-only','--web-only','--help']);
 if([...flags].some(x=>!allowed.has(x))){console.error('Unknown E2E option');process.exit(2);}
-if(flags.has('--help')){console.log('node gpu/e2e/run.mjs [--live --allow-spend] [--build] [--batch-only|--web-only]');process.exit(0);}
+if(flags.has('--help')){console.log('node compute/e2e/run.mjs [--live --allow-spend] [--build] [--batch-only|--web-only]');process.exit(0);}
 const live=flags.has('--live')&&flags.has('--allow-spend');
 if((flags.has('--live')!==flags.has('--allow-spend'))||(flags.has('--build')&&!live)||
   (flags.has('--batch-only')&&flags.has('--web-only'))){
@@ -169,7 +169,7 @@ async function main(){
   if(modes.includes('web')&&!gatewayCredentialReady())
     throw Error('Persistent HF gateway lacks a private ~/.cache/huggingface/token file (mode 0600). Configure its credentials before renting a web Job.');
   for(const mode of modes)await requireImage(mode,plans[mode]);
-  const receipt={version:1,fixture:'gpu/e2e/Dockerfile',provider:'hf',at:new Date().toISOString(),tests:{}};
+  const receipt={version:1,fixture:'compute/e2e/Dockerfile',provider:'hf',at:new Date().toISOString(),tests:{}};
   try {
     if(modes.includes('batch'))receipt.tests.batch=await batch();
     if(modes.includes('web'))receipt.tests.web=await web();

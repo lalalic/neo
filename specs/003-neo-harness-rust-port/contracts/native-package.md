@@ -13,7 +13,7 @@ bundle/
   bin/neo                 # Native Rust CLI executable (mode 0755)
   agents/...              # Committed public Agent definitions
   skills/...              # Committed public Skills, docs and scripts
-  gpu/...                 # Tracked optional compute asset descriptions
+  compute/...                 # Tracked optional compute asset descriptions
   manifest.json           # Version, commit, platform, architecture, counts
   README.md
 ```

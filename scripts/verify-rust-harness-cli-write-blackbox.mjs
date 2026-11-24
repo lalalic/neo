@@ -84,10 +84,10 @@ try{
     NEO_WORKSPACE_CONFIG:join(home,'.config/neo/workspace.json'),
     NEO_RELAY_EXECUTABLE:relay,AGENTS_RELAY_WORKSPACE_ROOT:workspace,
     NEO_MCP_OPERATOR_TOKEN_FILE:join(home,'operator-dummy'),
-    NEO_GPU_REGISTRY_FILE:join(home,'.config/neo/gpu/services.json'),
-    NEO_GPU_WEB_DIR:join(home,'.config/neo/gpu/web'),
-    NEO_GPU_WEB_SESSIONS:join(home,'.local/state/neo/gpu/web'),
-    NEO_GPU_STATE_DIR:join(home,'.local/state/neo/gpu'),
+    NEO_COMPUTE_REGISTRY_FILE:join(home,'.config/neo/compute/services.json'),
+    NEO_COMPUTE_WEB_DIR:join(home,'.config/neo/compute/web'),
+    NEO_COMPUTE_WEB_SESSIONS:join(home,'.local/state/neo/compute/web'),
+    NEO_COMPUTE_STATE_DIR:join(home,'.local/state/neo/compute'),
     NEO_COMPUTE_WEB_ORIGIN:'https://fixture.invalid',
     PYTHONDONTWRITEBYTECODE:'1',PATH:fakeBin+':'+process.env.PATH};
 
@@ -238,11 +238,11 @@ try{
   });
 
   await verify('Compute Web add/status/token/rotate/remove stays in fixture HOME',async()=>{
-    const registry=env.NEO_GPU_REGISTRY_FILE;mkdirSync(dirname(registry),{recursive:true});
+    const registry=env.NEO_COMPUTE_REGISTRY_FILE;mkdirSync(dirname(registry),{recursive:true});
     writeFileSync(registry,JSON.stringify({version:1,services:{fixture:{mode:'web',published:true,image:'ghcr.io/test/fixture:v1',appPort:7860}}}));
     const add=await cli(['compute','web','add','fixture','--provider','hf','--budget','1'],env);ok(add);
     const first=obj(add).token;assert.ok(first.length>20);
-    const tokenfile=join(env.NEO_GPU_WEB_DIR,'tokens/fixture.token');
+    const tokenfile=join(env.NEO_COMPUTE_WEB_DIR,'tokens/fixture.token');
     assert.equal(readFileSync(tokenfile,'utf8').trim(),first);isPrivate(tokenfile,0o600);
     const current=await cli(['compute','web','status','fixture'],env);ok(current);
     assert.equal(obj(current).session.phase,'stopped');

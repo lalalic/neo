@@ -145,7 +145,7 @@ try{
     chmodSync(file,0o755);
   }
   const env={...process.env,PYTHONDONTWRITEBYTECODE:'1',PATH:fakeBin+':'+process.env.PATH,HOME:home,NEO_ROOT:workspace,NEO_HARNESS_ROOT:root,NEO_WORKSPACE_CONFIG:conf,
-    NEO_GPU_REGISTRY_FILE:join(home,'.config/neo/gpu/services.json'),NEO_GPU_STATE_DIR:join(home,'.local/state/neo/gpu'),
+    NEO_COMPUTE_REGISTRY_FILE:join(home,'.config/neo/compute/services.json'),NEO_COMPUTE_STATE_DIR:join(home,'.local/state/neo/compute'),
     NEO_ESCALATION_CASES_DIR:join(home,'.local/share/neo/escalation/cases'),
     NEO_ESCALATION_CHALLENGES_DIR:join(home,'.local/share/neo/escalation/challenges')};
   // Isolated, write-once staging is set up BEFORE the readonly snapshot.
@@ -232,7 +232,7 @@ try{
     assert.equal(treeFingerprint(home)+treeFingerprint(workspace),before);
     assert.ok(!existsSync(join(project,'runs')));
     assert.ok(!existsSync(join(project,'.evals/reports')));
-    assert.ok(!existsSync(join(home,'.local/state/neo/gpu')));
+    assert.ok(!existsSync(join(home,'.local/state/neo/compute')));
   });
   verify('staged CLI bootstrap / inventory (no source mutation)',()=>{
     const e={...env};delete e.NEO_HARNESS_ROOT;

@@ -8,7 +8,7 @@ removed from the migration branch. There is no silent fallback to Node for
 unsupported Neo CLI functions.
 
 The word "GPU" remains a hardware category and a versioned **container
-runtime** namespace (`gpu/runtime/{service,web,launcher}.mjs` and
+protocol**. The Compute runtime assets live in (`compute/runtime/{service,web,launcher}.mjs` and
 `Dockerfile.wrap`), not a Neo CLI command alias. The current container
 image still uses its original internal Node runtime; the native Rust CLI
 does not start Node to implement `compute` itself. Explicit project-owned

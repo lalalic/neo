@@ -78,10 +78,10 @@ fn clean_mac_candidate_bootstraps_and_discovers_skills_without_node_or_source_ch
     assert!(manifest["trackedAssets"].as_u64().unwrap() > 100);
     assert_eq!(manifest["computeContainerRuntimeAssets"], 4);
     for file in [
-        "gpu/runtime/service.mjs",
-        "gpu/runtime/web.mjs",
-        "gpu/runtime/launcher.mjs",
-        "gpu/runtime/Dockerfile.wrap",
+        "compute/runtime/service.mjs",
+        "compute/runtime/web.mjs",
+        "compute/runtime/launcher.mjs",
+        "compute/runtime/Dockerfile.wrap",
     ] {
         assert!(
             f.package.join(file).is_file(),
@@ -92,6 +92,7 @@ fn clean_mac_candidate_bootstraps_and_discovers_skills_without_node_or_source_ch
         "scripts/eval-project-worker-prompts.mjs",
         "scripts/audit-project-worker-evals.mjs",
         "gpu/cli.mjs",
+        "compute/cli.mjs",
     ] {
         assert!(
             !f.package.join(obsolete).exists(),

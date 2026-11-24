@@ -13,9 +13,9 @@ shared Node HTTP/WebSocket proxy, serving ComfyUI on internal port `8188`.
 Run from the Neo Git root, after commit + push:
 
 ```sh
-neo compute build --dockerfile gpu/examples/comfyui/Dockerfile \
+neo compute build --dockerfile compute/examples/comfyui/Dockerfile \
   --mode web --port 8188 --name comfyui --dry-run
-neo compute build --dockerfile gpu/examples/comfyui/Dockerfile \
+neo compute build --dockerfile compute/examples/comfyui/Dockerfile \
   --mode web --port 8188 --name comfyui
 neo compute web update comfyui  # existing service: preserve token/provider/budget
 # For a fresh installation, use: neo compute web add comfyui --provider hf --budget 2
@@ -56,7 +56,7 @@ hostname or a prefix-aware frontend/proxy. Do not weaken Neo's token gate.
 ## No-spend regression
 
 ```sh
-node --test test/neo-gpu-comfyui.test.mjs test/neo-gpu-web.test.mjs
-neo compute build --dockerfile gpu/examples/comfyui/Dockerfile \
+node --test test/neo-compute-comfyui.test.mjs test/neo-gpu-web.test.mjs
+neo compute build --dockerfile compute/examples/comfyui/Dockerfile \
   --mode web --port 8188 --name comfyui --dry-run
 ```

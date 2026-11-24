@@ -19,7 +19,7 @@ impl Gateway {
         let temp = tempfile::tempdir().unwrap();
         let home = temp.path().join("home");
         fs::create_dir_all(&home).unwrap();
-        let config = home.join(".config/neo/gpu/web/services.json");
+        let config = home.join(".config/neo/compute/web/services.json");
         fs::create_dir_all(config.parent().unwrap()).unwrap();
         fs::write(
             &config,
@@ -28,7 +28,7 @@ impl Gateway {
             .to_string(),
         )
         .unwrap();
-        let token_path = home.join(".config/neo/gpu/web/tokens/demo.token");
+        let token_path = home.join(".config/neo/compute/web/tokens/demo.token");
         fs::create_dir_all(token_path.parent().unwrap()).unwrap();
         fs::write(&token_path, "synthetic-access-secret\n").unwrap();
         let select = TcpListener::bind("127.0.0.1:0").unwrap();

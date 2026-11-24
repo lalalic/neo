@@ -9,8 +9,8 @@ import {connect as tcpConnect} from 'node:net';
 import {spawn} from 'node:child_process';
 import {setTimeout as delay} from 'node:timers/promises';
 import {fileURLToPath} from 'node:url';
-const runtime=new URL('../gpu/runtime/web.mjs',import.meta.url).pathname;
-function fixture(){const dir=mkdtempSync(join(tmpdir(),'neo-gpu-web-'));process.env.NEO_GPU_WEB_DIR=join(dir,'config');process.env.NEO_GPU_WEB_SESSIONS=join(dir,'sessions');process.env.NEO_GPU_REGISTRY_FILE=join(dir,'services.json');return dir;}
+const runtime=new URL('../compute/runtime/web.mjs',import.meta.url).pathname;
+function fixture(){const dir=mkdtempSync(join(tmpdir(),'neo-gpu-web-'));process.env.NEO_COMPUTE_WEB_DIR=join(dir,'config');process.env.NEO_COMPUTE_WEB_SESSIONS=join(dir,'sessions');process.env.NEO_COMPUTE_REGISTRY_FILE=join(dir,'services.json');return dir;}
 async function listen(server){await new Promise((ok,fail)=>{server.once('error',fail);server.listen(0,'127.0.0.1',ok);});return server.address().port;}
 async function close(server){await new Promise(ok=>server.close(()=>ok()));}
 

@@ -1,7 +1,6 @@
 # Neo Compute — native Rust CLI module
 
-`neo compute` is the primary public command. The old `neo gpu` command and
-existing private `gpu/` runtime/state paths are preserved for compatibility.
+`neo compute` is the only supported CLI. Source, host state and the persistent gateway use the Compute namespace. Existing published container images retain the versioned `neo-gpu-v1` protocol and container-side `NEO_GPU_*` contract; no rebuild is required for the host rename.
 The public gateway is `https://compute.qili2.com`. The former
 `https://gpu.qili2.com` hostname has been retired.
 
@@ -24,7 +23,7 @@ In the Dockerfile, define a `CMD` or `ENTRYPOINT` that terminates once:
   or use provider-specific read-only model mounts when available.
 
 Neo builds the project Dockerfile, reads its `CMD`/`ENTRYPOINT`, then wraps the
-image with `gpu/runtime/Dockerfile.wrap` and `gpu/runtime/service.mjs`. The
+image with `compute/runtime/Dockerfile.wrap` and `compute/runtime/service.mjs`. The
 container exposes `GET /health`, `POST /inputs/NAME`, `POST /start`,
 `GET /status`, and `GET /outputs/NAME`. HF Jobs provides a **token-authenticated**
 proxy. Vast.ai uses SSH port forwarding; the HTTP port is not made public.
@@ -65,7 +64,7 @@ Vast.ai has a separate Neo watchdog that destroys the rental at its deadline.
 ## Architecture
 
 - `image.mjs`: builds/publishes images; service registry kept under
-  `~/.config/neo/gpu/services.json` (private local metadata only).
+  `~/.config/neo/compute/services.json` (private local metadata only).
 - `runtime/`: the standard container service contract.
 - `providers/hf.mjs`: HF Jobs scheduling and cleanup using the official `hf`
   CLI; uses authenticated HTTPS with no SSH or persistent Bucket.
@@ -81,7 +80,7 @@ Neo Compute orchestration is native Rust. The isolated container entrypoint rema
 
 ```sh
 cargo test --locked -p neo-harness-cli --test compute_native --test compute_gateway --test compute_transport
-neo compute build --dockerfile gpu/examples/hello/Dockerfile --dry-run
+neo compute build --dockerfile compute/examples/hello/Dockerfile --dry-run
 ```
 
 Build execution on GitHub Actions and real HF/Vast GPU inference must be
@@ -95,16 +94,16 @@ batch and web versions that run a native PTX kernel (`40 + 2 = 42`) via the
 provider's `libcuda.so.1`, then verify the result. On Neo Master:
 
 ```sh
-node gpu/examples/hello-neo/e2e.mjs                          # no rental
-node gpu/examples/hello-neo/e2e.mjs --live --allow-spend --build  # HF T4; publish once
-node gpu/examples/hello-neo/e2e.mjs --live --allow-spend      # HF, reuse images
-node gpu/examples/hello-neo/e2e.mjs --live --allow-spend --vast # Vast.ai, verified provider-specific image
+node compute/examples/hello-neo/e2e.mjs                          # no rental
+node compute/examples/hello-neo/e2e.mjs --live --allow-spend --build  # HF T4; publish once
+node compute/examples/hello-neo/e2e.mjs --live --allow-spend      # HF, reuse images
+node compute/examples/hello-neo/e2e.mjs --live --allow-spend --vast # Vast.ai, verified provider-specific image
 ```
 
 The test registers `hello-neo-job` and `hello-neo-web`, verifies real GPU
 computation in batch and the token-guarded public Web URL, then stops paid
 resources. `hello-neo-web` remains registered but stopped for later use.
-This differs from the CPU-only tiny E2E in `gpu/e2e/`, which validates
+This differs from the CPU-only tiny E2E in `compute/e2e/`, which validates
 orchestration and transport without a CUDA device.
 
 ## Interactive web applications (`--mode web`)
@@ -160,27 +159,27 @@ an authenticated user explicitly starts a session.
 
 ### Neo Master deployment (2026-11-10)
 
-The GPU gateway LaunchAgent's `PATH` must include `~/.local/bin` (for the
+The Compute gateway LaunchAgent's `PATH` must include `~/.local/bin` (for the
 Vast.ai CLI) and `/opt/homebrew/bin` as appropriate; macOS LaunchAgents default
 to `/usr/bin:/bin:/usr/sbin:/sbin`. Without this, Vast Web SSH tunnel setup
 fails even when an interactive shell can run `vastai`. Never store provider
 credentials in a public plist.
 
-The persistent gateway is a user LaunchAgent named `com.neo.gpu-web-gateway`
+The persistent gateway is a user LaunchAgent named `com.neo.compute-web-gateway`
 that runs `neo compute web serve --port 8798 --origin https://compute.qili2.com` on
 **loopback only**. Neo.app owns the shared Cloudflare Tunnel and maps
-`compute.qili2.com` to this local gateway; there is no separate GPU tunnel
+`compute.qili2.com` to this local gateway; there is no separate Compute tunnel
 LaunchAgent. No GPU is rented simply because the gateway is up.
 
 Operator-only state stays outside Git:
 
-- `~/.config/neo/gpu/web/services.json` — per-service provider, budget and cap;
-- `~/.config/neo/gpu/web/tokens/SERVICE.token` — 256-bit token (mode 0600);
-- `~/.local/state/neo/gpu/web/SERVICE.json` — current rental/deadline;
-- `~/Library/LaunchAgents/com.neo.gpu-web-gateway.plist` — gateway keepalive;
+- `~/.config/neo/compute/web/services.json` — per-service provider, budget and cap;
+- `~/.config/neo/compute/web/tokens/SERVICE.token` — 256-bit token (mode 0600);
+- `~/.local/state/neo/compute/web/SERVICE.json` — current rental/deadline;
+- `~/Library/LaunchAgents/com.neo.compute-web-gateway.plist` — gateway keepalive;
 - Neo.app owns the shared tunnel ingress/connector for the public hostname.
 
-Verification: `launchctl print gui/$(id -u)/com.neo.gpu-web-gateway`,
+Verification: `launchctl print gui/$(id -u)/com.neo.compute-web-gateway`,
 `neo compute web status`, `curl -i https://compute.qili2.com/health`, and a browser
 request to `/SERVICE/` without a token (must be rejected). `neo compute web token
 SERVICE` retrieves the secret locally; do not put it in a URL or Git.
@@ -191,20 +190,20 @@ provider-enforced session expiration. No automated idle-time extension exists.
 
 ## Automated tiny Dockerfile E2E (batch + web)
 
-One `gpu/e2e/Dockerfile` builds two service modes from the same dependency-free
+One `compute/e2e/Dockerfile` builds two service modes from the same dependency-free
 Node.js fixture. Run the local, non-billing unit and dry-run verification first:
 
 ```sh
-node --test test/neo-gpu-e2e.test.mjs
-node gpu/e2e/run.mjs
-node gpu/e2e/container-smoke.mjs   # local Docker Buildx; no HF/Vast rental
+node --test test/neo-compute-e2e.test.mjs
+node compute/e2e/run.mjs
+node compute/e2e/container-smoke.mjs   # local Docker Buildx; no HF/Vast rental
 ```
 
 For a **real** HF Jobs provider E2E, including image publication, input/output,
 HTTPS browser token guard, web proxy, and verified cleanup:
 
 ```sh
-node gpu/e2e/run.mjs --live --allow-spend --build
+node compute/e2e/run.mjs --live --allow-spend --build
 ```
 
 Later reruns may omit `--build` when the immutable image matches the current
@@ -216,5 +215,5 @@ separately tested. No credentials are stored in the repository or the E2E
 receipt. See [E2E fixture details](e2e/README.md).
 
 CI additionally runs the single-Dockerfile container smoke suite via
-[Neo Compute tiny Dockerfile E2E](../.github/workflows/neo-gpu-e2e.yml) on GPU-related
+[Neo Compute tiny Dockerfile E2E](../.github/workflows/neo-compute-e2e.yml) on GPU-related
 commits, covering both `batch` and `web` without provider credentials or cost.

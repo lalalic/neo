@@ -11,16 +11,16 @@ import {nativeCli,imagePlan,findService,atomicJson,token} from '../../e2e/native
 import {gatewayCredentialReady} from '../../e2e/gateway-prereq.mjs';
 import {reusableFixtureImage} from '../../e2e/reuse.mjs';
 const root=resolve(fileURLToPath(new URL('../../../',import.meta.url)));
-const dockerfile='gpu/examples/hello-neo/Dockerfile';
+const dockerfile='compute/examples/hello-neo/Dockerfile';
 const args=new Set(process.argv.slice(2));
 const allowed=new Set(['--live','--allow-spend','--build','--batch-only','--web-only','--help','--vast']);
 const provider=args.has('--vast')?'vast':'hf';
 const names={batch:'hello-neo-job',web:provider==='vast'?'hello-neo-vast-web':'hello-neo-web'};
 const gpu=provider==='hf'?['--flavor','t4-small']:['--gpu','RTX 4090'];
-const origin=process.env.NEO_COMPUTE_WEB_ORIGIN||process.env.NEO_GPU_WEB_ORIGIN||'https://compute.qili2.com';
+const origin=process.env.NEO_COMPUTE_WEB_ORIGIN||'https://compute.qili2.com';
 const print=(event,fields={})=>console.log(JSON.stringify({event,...fields}));
 if([...args].some(x=>!allowed.has(x))){console.error('Unknown Hello Neo option');process.exit(2);}
-if(args.has('--help')){console.log('node gpu/examples/hello-neo/e2e.mjs [--live --allow-spend --build] [--vast] [--batch-only|--web-only]');process.exit(0);}
+if(args.has('--help')){console.log('node compute/examples/hello-neo/e2e.mjs [--live --allow-spend --build] [--vast] [--batch-only|--web-only]');process.exit(0);}
 const live=args.has('--live')&&args.has('--allow-spend');
 if(args.has('--live')!==args.has('--allow-spend')||(args.has('--build')&&!live)||
    (args.has('--batch-only')&&args.has('--web-only'))){console.error('Live execution requires both --live and --allow-spend.');process.exit(2);}
@@ -65,8 +65,8 @@ async function images(){
     }
     const saved=findService(name);
     const unchanged=reusableFixtureImage(saved,plan,root,[
-      'gpu/examples/hello-neo/Dockerfile','gpu/examples/hello-neo/cuda-probe.c',
-      'gpu/examples/hello-neo/app.mjs','gpu/runtime/']);
+      'compute/examples/hello-neo/Dockerfile','compute/examples/hello-neo/cuda-probe.c',
+      'compute/examples/hello-neo/app.mjs','compute/runtime/']);
     if(!saved||!saved.published||saved.mode!==mode||
        (saved.image!==plan.image&&!unchanged))
       throw Error(`No published ${name} image matches this fixture. Run with --build after pushing the commit.`);
@@ -154,7 +154,7 @@ async function main(){
     receipt.passed=true;
     print('HELLO_NEO_GPU_E2E_PASS',{provider,batch:!!results.batch,web:!!results.web});
   }finally{
-    const out=join(homedir(),'.local/state/neo/gpu/hello-neo');mkdirSync(out,{recursive:true,mode:0o700});
+    const out=join(homedir(),'.local/state/neo/compute/hello-neo');mkdirSync(out,{recursive:true,mode:0o700});
     atomicJson(join(out,'receipt-'+Date.now()+'.json'),receipt);
   }
 }

@@ -23,8 +23,8 @@ async function awaitHealth(port,service){
 }
 function wrap(mode,cmd,service){
   const image='neo-gpu-tiny-e2e-'+mode+':ci';
-  docker('buildx','build','--builder','default','--load','-f','gpu/runtime/Dockerfile.wrap',
-    '--build-context','neo-runtime=./gpu/runtime',
+  docker('buildx','build','--builder','default','--load','-f','compute/runtime/Dockerfile.wrap',
+    '--build-context','neo-runtime=./compute/runtime',
     '--build-arg',`NEO_BASE_IMAGE=${base}`, '--build-arg',`NEO_GPU_CMD_JSON=${JSON.stringify(cmd)}`,
     '--build-arg',`NEO_GPU_MODE=${mode}`,'--build-arg','NEO_GPU_APP_PORT=7860',
     '--build-arg',`NEO_GPU_SERVICE_NAME=${service}`,'-t',image,'.');
@@ -80,11 +80,11 @@ async function checkWeb(image){
   }finally{stop();}
 }
 async function main(){
-  docker('buildx','build','--builder','default','--load','-f','gpu/e2e/Dockerfile','-t',base,'.');
+  docker('buildx','build','--builder','default','--load','-f','compute/e2e/Dockerfile','-t',base,'.');
   const baseInfo=JSON.parse(docker('image','inspect',base))[0];
   const cmd=[...(baseInfo.Config.Entrypoint||[]),...(baseInfo.Config.Cmd||[])];
   if(!cmd.length||!cmd.every(x=>typeof x==='string'))throw Error('Dockerfile has no valid CMD');
-  output('DOCKERFILE_BUILT',{dockerfile:'gpu/e2e/Dockerfile'});
+  output('DOCKERFILE_BUILT',{dockerfile:'compute/e2e/Dockerfile'});
   await checkBatch(wrap('batch',cmd,'neo-gpu-e2e-job'));
   await checkWeb(wrap('web',cmd,'neo-gpu-e2e-web'));
   output('NEO_GPU_DOCKER_E2E_PASS',{batch:true,web:true,providerJobsCreated:0});

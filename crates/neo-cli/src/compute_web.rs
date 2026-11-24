@@ -12,14 +12,14 @@ use std::{
     time::Duration,
 };
 pub(crate) fn web_root() -> Result<PathBuf, String> {
-    Ok(env::var_os("NEO_GPU_WEB_DIR")
+    Ok(env::var_os("NEO_COMPUTE_WEB_DIR")
         .map(PathBuf::from)
-        .unwrap_or(compute::home()?.join(".config/neo/gpu/web")))
+        .unwrap_or(compute::home()?.join(".config/neo/compute/web")))
 }
 pub(crate) fn sessions_root() -> Result<PathBuf, String> {
-    Ok(env::var_os("NEO_GPU_WEB_SESSIONS")
+    Ok(env::var_os("NEO_COMPUTE_WEB_SESSIONS")
         .map(PathBuf::from)
-        .unwrap_or(compute::home()?.join(".local/state/neo/gpu/web")))
+        .unwrap_or(compute::home()?.join(".local/state/neo/compute/web")))
 }
 pub(crate) fn validate(name: &str) -> Result<&str, String> {
     if !Regex::new("^[a-z][a-z0-9-]{0,63}$").unwrap().is_match(name) {
@@ -51,7 +51,6 @@ pub(crate) fn service(name: &str) -> Result<Value, String> {
 }
 pub(crate) fn origin() -> String {
     env::var("NEO_COMPUTE_WEB_ORIGIN")
-        .or_else(|_| env::var("NEO_GPU_WEB_ORIGIN"))
         .unwrap_or_else(|_| "https://compute.qili2.com".into())
 }
 pub(crate) fn url(name: &str) -> String {

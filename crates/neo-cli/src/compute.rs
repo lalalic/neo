@@ -26,14 +26,14 @@ pub(crate) fn home() -> Result<PathBuf, String> {
         .ok_or("HOME unavailable".into())
 }
 pub(crate) fn registry() -> Result<PathBuf, String> {
-    Ok(env::var_os("NEO_GPU_REGISTRY_FILE")
+    Ok(env::var_os("NEO_COMPUTE_REGISTRY_FILE")
         .map(PathBuf::from)
-        .unwrap_or(home()?.join(".config/neo/gpu/services.json")))
+        .unwrap_or(home()?.join(".config/neo/compute/services.json")))
 }
 pub(crate) fn state_dir() -> Result<PathBuf, String> {
-    Ok(env::var_os("NEO_GPU_STATE_DIR")
+    Ok(env::var_os("NEO_COMPUTE_STATE_DIR")
         .map(PathBuf::from)
-        .unwrap_or(home()?.join(".local/state/neo/gpu")))
+        .unwrap_or(home()?.join(".local/state/neo/compute")))
 }
 pub(crate) fn read_json(path: &Path, default: Value) -> Result<Value, String> {
     if !path.exists() {
@@ -292,7 +292,7 @@ fn tool_ok(command: &str) -> bool {
 }
 pub fn doctor() -> Result<Value, String> {
     Ok(
-        json!({"native":"rust","localContainerRuntime":tool_ok(&env::var("NEO_GPU_CONTAINER_ENGINE")
+        json!({"native":"rust","localContainerRuntime":tool_ok(&env::var("NEO_COMPUTE_CONTAINER_ENGINE")
         .unwrap_or_else(|_|"docker".into())),"hfCli":tool_ok("hf"),"vastCli":tool_ok("vastai"),
         "githubCli":tool_ok("gh"),"serviceCount":service_registry()?["services"].as_object().map_or(0,|v|v.len())}),
     )
@@ -497,7 +497,7 @@ pub fn image_plan(args: &[String]) -> Result<Value, String> {
     if port == 8000 {
         return Err("Web app port conflicts with internal service".into());
     }
-    let runtime = root()?.join("gpu/runtime");
+    let runtime = root()?.join("compute/runtime");
     let mut hasher = Sha256::new();
     for filename in ["service.mjs", "web.mjs", "launcher.mjs", "Dockerfile.wrap"] {
         hasher.update(
@@ -598,7 +598,7 @@ fn native_build(plan: &Value) -> Result<(), String> {
     if builder != "local" {
         return Err("Unknown Compute image builder".into());
     }
-    let engine = env::var("NEO_GPU_CONTAINER_ENGINE").unwrap_or_else(|_| "docker".into());
+    let engine = env::var("NEO_COMPUTE_CONTAINER_ENGINE").unwrap_or_else(|_| "docker".into());
     let project = Path::new(plan["project"].as_str().ok_or("Invalid Compute project")?);
     let dockerfile = project.join(plan["dockerfile"].as_str().ok_or("Invalid Dockerfile")?);
     let image = plan["image"].as_str().ok_or("Missing image tag")?;
@@ -639,7 +639,7 @@ fn native_build(plan: &Value) -> Result<(), String> {
     if command.is_empty() {
         return Err("Project Dockerfile needs executable CMD or ENTRYPOINT".into());
     }
-    let runtime = root()?.join("gpu/runtime");
+    let runtime = root()?.join("compute/runtime");
     let wrap = runtime.join("Dockerfile.wrap");
     let runtime_arg = format!("neo-runtime={}", runtime.display());
     let base_arg = format!("NEO_BASE_IMAGE={base}");
@@ -1441,7 +1441,7 @@ fn build_github(plan: &Value) -> Result<(), String> {
             "Hosted builds require immutable owner-scoped GHCR :sha-XXXXXXXXXXXX tag".into(),
         );
     }
-    let repo = env::var("NEO_GPU_BUILDER_REPO").unwrap_or_else(|_| "lalalic/neo".into());
+    let repo = env::var("NEO_COMPUTE_BUILDER_REPO").unwrap_or_else(|_| "lalalic/neo".into());
     if !rx(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$").is_match(&repo) {
         return Err("Invalid hosted Compute builder repository".into());
     }
@@ -1467,7 +1467,7 @@ fn build_github(plan: &Value) -> Result<(), String> {
     let mut args = vec![
         "workflow",
         "run",
-        "neo-gpu-image.yml",
+        "neo-compute-image.yml",
         "--repo",
         &repo,
         "--ref",
@@ -1497,7 +1497,7 @@ fn build_github(plan: &Value) -> Result<(), String> {
                 "--repo",
                 &repo,
                 "--workflow",
-                "neo-gpu-image.yml",
+                "neo-compute-image.yml",
                 "--limit",
                 "20",
                 "--json",

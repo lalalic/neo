@@ -82,7 +82,7 @@ jobs:
           node - <<'NODE'
           const {createHash}=require('crypto'),fs=require('fs');
           const hash=createHash('sha256');
-          for(const file of ['service.mjs','web.mjs','launcher.mjs','Dockerfile.wrap'])hash.update(fs.readFileSync('gpu/runtime/'+file));
+          for(const file of ['service.mjs','web.mjs','launcher.mjs','Dockerfile.wrap'])hash.update(fs.readFileSync('compute/runtime/'+file));
           if(hash.digest('hex')!==process.env.EXPECTED_HASH)throw Error('Neo Compute runtime differs from invoking CLI; update Neo CLI and retry');
           NODE
       - name: Checkout public project source
@@ -125,8 +125,8 @@ jobs:
           SERVICE_NAME: ${{ inputs.service_name }}
         run: |
           set -euo pipefail
-          docker buildx build --builder default --load --file gpu/runtime/Dockerfile.wrap \
-            --build-context neo-runtime=./gpu/runtime \
+          docker buildx build --builder default --load --file compute/runtime/Dockerfile.wrap \
+            --build-context neo-runtime=./compute/runtime \
             --build-arg NEO_BASE_IMAGE=neo-gpu-base:build \
             --build-arg "NEO_GPU_CMD_JSON=$COMMAND_JSON" \
             --build-arg "NEO_GPU_MODE=$MODE" \

@@ -368,7 +368,7 @@ fn destination(name: &str, state: &Value, gateway: &Gateway) -> Result<Destinati
                     .unwrap_or(0)
                     .saturating_sub(chrono::Utc::now().timestamp_millis());
                 let duration = (deadline.max(0) as u64 / 1000).min(420);
-                let ssh_key = std::env::var_os("NEO_GPU_VAST_SSH_KEY")
+                let ssh_key = std::env::var_os("NEO_COMPUTE_VAST_SSH_KEY")
                     .map(PathBuf::from)
                     .unwrap_or_else(|| compute::home().unwrap_or_default().join(".ssh/id_ed25519"));
                 thread::spawn(move || {
@@ -976,7 +976,7 @@ pub fn serve(args: &[String]) -> Result<i32, String> {
     };
     println!(
         "{}",
-        serde_json::json!({"event":"neo_gpu_web_gateway_ready","port":port,"origin":origin})
+        serde_json::json!({"event":"neo_compute_web_gateway_ready","port":port,"origin":origin})
     );
     let active = Arc::new(std::sync::atomic::AtomicUsize::new(0));
     for incoming in listener.incoming() {

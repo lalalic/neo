@@ -16,7 +16,7 @@ test('Node GPU service accepts inputs, executes Docker CMD, and exposes outputs 
   const program=join(dir,'worker.cjs');
   writeFileSync(program,'const fs=require("fs");const p=require("path");fs.copyFileSync(p.join(process.env.NEO_GPU_INPUT_DIR,"message.txt"),p.join(process.env.NEO_GPU_OUTPUT_DIR,"result.txt"));');
   const port=await new Promise((resolve,reject)=>{const s=createServer();s.once('error',reject);s.listen(0,'127.0.0.1',()=>{const n=s.address().port;s.close(()=>resolve(n));});});
-  const worker=spawn(process.execPath,[join(root,'gpu/runtime/service.mjs')],{
+  const worker=spawn(process.execPath,[join(root,'compute/runtime/service.mjs')],{
     env:{...process.env,NEO_GPU_PORT:String(port),NEO_GPU_INPUT_DIR:inputs,NEO_GPU_OUTPUT_DIR:outputs,
       NEO_GPU_CMD_JSON:JSON.stringify([process.execPath,program])},stdio:'ignore'});
   try{

@@ -8,17 +8,17 @@ import {createServer} from 'node:net';
 import {setTimeout as delay} from 'node:timers/promises';
 import {createHash} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
-import {reusableFixtureImage} from '../gpu/e2e/reuse.mjs';
-import {gatewayCredentialReady} from '../gpu/e2e/gateway-prereq.mjs';
+import {reusableFixtureImage} from '../compute/e2e/reuse.mjs';
+import {gatewayCredentialReady} from '../compute/e2e/gateway-prereq.mjs';
 const root=resolve(fileURLToPath(new URL('..',import.meta.url)));
-const fixture=join(root,'gpu/e2e/fixture.mjs');
-const runner=join(root,'gpu/e2e/run.mjs');
+const fixture=join(root,'compute/e2e/fixture.mjs');
+const runner=join(root,'compute/e2e/run.mjs');
 function temp(){return mkdtempSync(join(tmpdir(),'neo-gpu-fixture-test-'));}
 async function ephemeralPort(){return new Promise((resolve,reject)=>{const s=createServer();s.on('error',reject);
   s.listen(0,'127.0.0.1',()=>{const port=s.address().port;s.close(()=>resolve(port));});});}
 
 test('one tiny Dockerfile declares the same Node fixture for batch and web',()=>{
-  const file=readFileSync(join(root,'gpu/e2e/Dockerfile'),'utf8');
+  const file=readFileSync(join(root,'compute/e2e/Dockerfile'),'utf8');
   assert.match(file,/FROM node:22-bookworm-slim/);
   assert.match(file,/CMD \["node", "\/app\/fixture.mjs"\]/);
   assert.doesNotMatch(file.split('\n').filter(line=>!line.trim().startsWith('#')).join('\n'),/cuda|pytorch|pip install/i);

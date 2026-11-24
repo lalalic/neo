@@ -8,7 +8,7 @@ import {createServer} from 'node:net';
 import {setTimeout as sleep} from 'node:timers/promises';
 import {fileURLToPath} from 'node:url';
 const root=resolve(fileURLToPath(new URL('../',import.meta.url)));
-const hello=join(root,'gpu/examples/hello-neo');
+const hello=join(root,'compute/examples/hello-neo');
 
 test('Hello Neo default image uses no CUDA Toolkit, ML framework or model download',()=>{
   const df=readFileSync(join(hello,'Dockerfile'),'utf8');

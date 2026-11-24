@@ -39,9 +39,9 @@ impl Fixture {
         command
             .args(args)
             .env("HOME", &self.home)
-            .env("NEO_GPU_STATE_DIR", self.temp.path().join("leases"))
+            .env("NEO_COMPUTE_STATE_DIR", self.temp.path().join("leases"))
             .env(
-                "NEO_GPU_REGISTRY_FILE",
+                "NEO_COMPUTE_REGISTRY_FILE",
                 self.temp.path().join("services.json"),
             )
             .env("NEO_HARNESS_ROOT", &self.root)
@@ -108,7 +108,7 @@ fn native_compute_read_only_services_matches_empty_registry_and_requires_no_node
         .args(["compute", "services"])
         .env("HOME", &f.home)
         .env("PATH", "/usr/bin:/bin")
-        .env("NEO_GPU_REGISTRY_FILE", f.temp.path().join("services.json"))
+        .env("NEO_COMPUTE_REGISTRY_FILE", f.temp.path().join("services.json"))
         .output()
         .unwrap();
     assert!(output.status.success());
@@ -365,7 +365,7 @@ fn native_web_compute_register_token_rotate_status_update_remove_lifecycle() {
     assert_eq!(f.json(&["compute", "web", "status"]), json!({}));
     #[cfg(unix)]
     {
-        let dir = f.home.join(".config/neo/gpu/web/tokens");
+        let dir = f.home.join(".config/neo/compute/web/tokens");
         assert_eq!(
             fs::metadata(&dir).unwrap().permissions().mode() & 0o777,
             0o700
@@ -400,7 +400,7 @@ fn native_web_compute_kernel_lock_remains_usable_after_stale_filename() {
     let f = Fixture::new();
     web_fixture(&f);
     f.json(&["compute", "web", "add", "demo"]);
-    let lock = f.home.join(".local/state/neo/gpu/web/demo.json.lock");
+    let lock = f.home.join(".local/state/neo/compute/web/demo.json.lock");
     fs::create_dir_all(lock.parent().unwrap()).unwrap();
     fs::write(&lock, "obsolete legacy lockfile").unwrap();
     let token = f.json(&["compute", "web", "rotate", "demo"]);
@@ -492,7 +492,7 @@ fn native_web_starting_session_recovers_to_stopped_after_watchdog_verifies_clean
             .to_string(),
     )
     .unwrap();
-    let session = f.home.join(".local/state/neo/gpu/web/demo.json");
+    let session = f.home.join(".local/state/neo/compute/web/demo.json");
     fs::create_dir_all(session.parent().unwrap()).unwrap();
     fs::write(
         &session,

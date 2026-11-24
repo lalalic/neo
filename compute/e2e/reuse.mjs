@@ -2,7 +2,7 @@
 // is unchanged between its published source commit and current checkout.
 import {spawnSync} from 'node:child_process';
 export function reusableFixtureImage(saved,plan,project,fixturePaths=[
-  'gpu/e2e/Dockerfile','gpu/e2e/fixture.mjs','gpu/runtime/']){
+  'compute/e2e/Dockerfile','compute/e2e/fixture.mjs','compute/runtime/']){
   if(!saved?.published||saved.mode!==plan.mode||saved.appPort!==plan.appPort||
      !/^ghcr\.io\/[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+:sha-[a-f0-9]{12}$/.test(saved.image||'')||
      !/^[0-9a-f]{40}$/.test(saved.sourceCommit||''))return false;

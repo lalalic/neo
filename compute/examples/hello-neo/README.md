@@ -16,16 +16,16 @@ From the Neo source Git root, after pushing the fixture to GitHub:
 
 ```sh
 # Local no-spend proof of image build plans.
-node gpu/examples/hello-neo/e2e.mjs
+node compute/examples/hello-neo/e2e.mjs
 
 # Publish and test real HF GPU Job + HTTPS Web mode (two versioned images).
-node gpu/examples/hello-neo/e2e.mjs --live --allow-spend --build
+node compute/examples/hello-neo/e2e.mjs --live --allow-spend --build
 
 # On subsequent runs, reuse the exact same published images without rebuilding.
-node gpu/examples/hello-neo/e2e.mjs --live --allow-spend
+node compute/examples/hello-neo/e2e.mjs --live --allow-spend
 
 # Test a verified Vast.ai GPU instead (requires a suitable available offer).
-node gpu/examples/hello-neo/e2e.mjs --live --allow-spend --vast
+node compute/examples/hello-neo/e2e.mjs --live --allow-spend --vast
 ```
 
 The smoke image registers as `hello-neo-job` (batch) and `hello-neo-web` (HF Web),
@@ -42,7 +42,7 @@ Batch output `result.json` and Web `/api/hello` both include `message`,
 `device`, `cuda: true`, `cudaSignature: hello-neo-cuda-v1` and
 `kernelResult: 42`. The runner verifies the exact response and that resources
 are actually stopped. It saves local, private receipts in
-`~/.local/state/neo/gpu/hello-neo/`.
+`~/.local/state/neo/compute/hello-neo/`.
 
 The local unit test deliberately asserts the CUDA probe **fails without a GPU**;
 no mocked success is treated as a real CUDA PASS.

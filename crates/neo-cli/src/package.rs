@@ -97,10 +97,10 @@ fn write_committed_assets(root: &Path, out: &Path) -> Result<(usize, Vec<String>
 /// executables. They remain bundled until the image's internal runtime is
 /// separately migrated. Eval and Compute CLI never delegate to these scripts.
 const COMPUTE_CONTAINER_ASSETS: &[&str] = &[
-    "gpu/runtime/service.mjs",
-    "gpu/runtime/web.mjs",
-    "gpu/runtime/launcher.mjs",
-    "gpu/runtime/Dockerfile.wrap",
+    "compute/runtime/service.mjs",
+    "compute/runtime/web.mjs",
+    "compute/runtime/launcher.mjs",
+    "compute/runtime/Dockerfile.wrap",
 ];
 fn write_container_assets(root: &Path, out: &Path) -> Result<usize, String> {
     for &rel in COMPUTE_CONTAINER_ASSETS {
