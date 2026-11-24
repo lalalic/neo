@@ -9,6 +9,7 @@ This repository is the public **Neo Harness source**: CLI, bootstrap/discovery t
 - `MISSION.md` — canonical Neo identity and mission context for agents and projects.
 - `AGENTS.md` — workspace-wide agent operating rules.
 - `skills/` — canonical editable Neo skills; the [Neo Project Skill](skills/neo-project/SKILL.md) owns all Neo Project knowledge and links to its detailed reference contracts.
+- **Optional iPhoneHelm Skill** — maintained and installed independently from [`lalalic/iphone-helm`](https://github.com/lalalic/iphone-helm). Neo.app's default Harness package does not ship it or the obsolete `neo-use` alias. When explicitly installed under `~/.agents/skills/iphone-helm`, existing Neo skill discovery enables it automatically; see [optional Skills](docs/optional-skills.md).
 - `skills/mcp-wrapper/` — orchestrate external MCP providers, Relay and the Neo.app Core review service with one-call Markcut Preview wrappers.
 - `skills/chat-gateway/` — authenticated Neo Mobile Chat/Jobs feed, scoped Job activity and cancellation via Relay; see [Chat Gateway Skill](skills/chat-gateway/SKILL.md) and [Mobile Job controls](skills/chat-gateway/docs/neo-mobile-job-controls.md).
 - `.bin/` — compatibility and packaging helpers; canonical XChat discovery/resolution scripts live under `skills/xchat-orchestrator/scripts/`.

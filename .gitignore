@@ -27,6 +27,10 @@ neox/
 wechat-bro/
 team-mate/
 
+# Optional iPhoneHelm is independently installed/discovered through ~/.agents/skills.
+# Never track an external linked Skill within the Neo Harness distribution.
+/skills/iphone-helm
+
 # Local one-off skill export; canonical skill sources are tracked below.
 skills/Archive.zip
 
