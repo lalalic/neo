@@ -75,7 +75,10 @@ fn clean_mac_candidate_bootstraps_and_discovers_skills_without_node_or_source_ch
     );
     let manifest: Value = serde_json::from_slice(&stage.stdout).unwrap();
     assert_eq!(manifest["productionInstall"], false);
-    assert!(manifest["trackedAssets"].as_u64().unwrap() > 100);
+    assert!(manifest["trackedAssets"].as_u64().unwrap() > 0);
+    assert!(!f.package.join("gpu").exists());
+    assert!(!f.package.join("skills/chat-gateway").exists());
+    assert!(f.package.join("skills/neo-compute/SKILL.md").is_file());
     assert_eq!(manifest["computeContainerRuntimeAssets"], 4);
     for file in [
         "compute/runtime/service.mjs",
