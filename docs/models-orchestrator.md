@@ -16,7 +16,7 @@ The generic `/v1/responses` model API has a separate reporting contract.
   tokens. The paired `com.neox.app` keeps its Keychain credential across an
   in-place installation of the same bundle identity; a different bundle ID
   cannot assume access to it.
-- **Neo Models** (`services/models/start.mjs`, loopback `127.0.0.1:8769`)
+- **Neo Models** (`services/models/src/main.rs`, loopback `127.0.0.1:8769`)
   owns request acceptance, durable operational queue/events, strict
   idempotency, the fixed Codex-to-ChatGPT Thread mapping, verified Project
   head, and generation-checked successor handoff. It does **not** own a second
@@ -77,7 +77,7 @@ routes and their existing owner-safe lifecycle data. Models owns the Relay event
 
 ## Verification and deployment
 
-Check Models regression with `node --test test/model-*.test.mjs`, verify the
+Check Models regression with `cargo test --locked -p neo-models` and the native HTTP/NATS fixtures in `services/models/tests/`, verify the
 authenticated health/pending/events endpoints (unauthenticated 401 is
 expected), and use **real NeoUse on paired iPhone 17** for message entry,
 Send, actual bubble receipt, and app-relaunch history recovery. A UI tap

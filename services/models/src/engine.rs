@@ -318,3 +318,31 @@ impl Engine {
         }
     }
 }
+
+// Restart cannot prove that an interrupted browser submission was not sent.
+// Close the orphaned API request as failed and retain the uncertain mapping.
+pub fn recover_interrupted(store: &Store) -> Result<()> {
+    let tx = store.transaction()?;
+    for mut session in tx.sessions()? {
+        if !matches!(session["status"].as_str(), Some("submitting" | "awaiting")) {
+            continue;
+        }
+        if let Some(id) = session["lastResponseId"].as_str() {
+            if let Some(mut r) = tx.response(id)? {
+                if r["status"] == "completed" && session["threadId"].as_str().is_some() {
+                    session["status"] = json!("idle");
+                    tx.put_session(&session)?;
+                    continue;
+                }
+                if r["status"] == "in_progress" {
+                    r["status"] = json!("failed");
+                    r["error"] = json!({"type":"transport_error","message":"Models service restarted with an interrupted browser submission; manual reconciliation required"});
+                    tx.put_response(&r)?;
+                }
+            }
+        }
+        session["status"] = json!("uncertain");
+        tx.put_session(&session)?;
+    }
+    Ok(())
+}

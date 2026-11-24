@@ -113,11 +113,7 @@ history and tool results are not used for routing or forwarding. The latest
 incoming transcript is stored for diagnostics, not identity resolution.
 
 The Events Bus MCP `publish` tool is shared with Job lifecycle events; no
-model-specific MCP response tool is needed. The older `mcp.models chat_report`
-and `report.mjs` remain available for existing clients/requests during migration,
-but the new model turn instructions use reply events. Event transport is enabled
-by default; `NEO_MODEL_REPLY_EVENTS=0` is a diagnostic opt-out, not a supported
-production fallback. A publish receipt alone is never model-completion proof.
+model-specific MCP response tool is needed. The older `mcp.models chat_report` and `report.mjs` are retired. Event transport is enabled by default; `NEO_MODEL_REPLY_EVENTS=0` is a diagnostic opt-out, not a supported production fallback. A publish receipt alone is never model-completion proof.
 Neither the input nor the output is size-routed through Gateway-generated files.
 
 ## Inline top instructions (no ChatGPT Project required)
@@ -139,10 +135,10 @@ model context or historical messages.
 
 On Neo Master, the public HTTPS Tunnel still targets `127.0.0.1:8769`.
 The existing Auth Bearer token remains in `~/.config/neo/models/token` (0600).
-The shared service source is `services/models/start.mjs`. Its private request,
+The shared service source is `services/models/src/` (Cargo package `neo-models`). The canonical launchd service runs the native executable with `NEO_MODELS_LIVE=1`. Its private request,
 response, image and session journal defaults to `~/.local/share/neo/model-gateway`
 (0700 directories, 0600 metadata). A local-only experimental deployment may
-use `NEO_MODEL_GATEWAY_PORT=8771`.
+use an explicit isolated `NEO_MODELS_STATE_DIR` and `NEO_MODEL_GATEWAY_PORT=8786` without live mode.
 
 The retained 3D provider, if configured, is reached through
 `NEO_MODELS_LEGACY_ORIGIN=http://127.0.0.1:8770`. No ToyAlive-specific prompt
@@ -152,7 +148,10 @@ migration backend for 3D routes and historical response IDs only.
 Run the relevant regression suite with:
 
 ```sh
-node --test test/model-gateway.test.mjs
+cargo test --locked -p neo-models
+cargo build --locked -p neo-models
+python3 services/models/tests/gateway_fixture.py target/debug/neo-models
+python3 services/models/tests/relay_monitor_fixture.py target/debug/neo-models
 ```
 
 The local Codex profile remains `~/.codex/neo.config.toml`, with `model=neo`
@@ -174,4 +173,4 @@ provided. Do not assume a passing URL navigation test alone proves model
 completion; every model turn still requires independent `reply.completed`.
 Do not use a dedicated Neo Models browser Tab Group.
 
-Models owns Orchestrator helpers in `core/`. Bootstrap an existing verified head using `orchestrator/bootstrap-head.json` only if the durable mapping is absent. Optional imported watch seeds live under `orchestrator-watch-bootstrap/` in the Models state directory. No standalone Chat Gateway service or MCP is required.
+Models owns native Orchestrator helpers in `src/`. Bootstrap an existing verified head using `orchestrator/bootstrap-head.json` only if the durable mapping is absent. Optional imported watch seeds live under `orchestrator-watch-bootstrap/` in the Models state directory. No standalone Chat Gateway service or MCP is required.

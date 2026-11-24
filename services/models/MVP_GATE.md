@@ -16,6 +16,7 @@ Session, and Python `pexpect`. Verify the chosen target has its own state dir.
 ```sh
 python3 services/models/mvp-gate.py \
   --phase candidate \
+  --native-binary /tmp/neo-model-candidate/neo-models \
   --base-url http://127.0.0.1:8786/v1 \
   --state-dir /tmp/neo-model-candidate/state \
   --output-dir /tmp/neo-model-candidate/mvp-evidence
@@ -27,6 +28,7 @@ python3 services/models/mvp-gate.py \
 ```sh
 python3 services/models/mvp-gate.py \
   --phase live \
+  --native-binary "$HOME/.local/bin/neo-models" \
   --base-url http://127.0.0.1:8769/v1 \
   --state-dir "$HOME/.local/share/neo/model-gateway" \
   --output-dir /tmp/neo-model-release/live-evidence \

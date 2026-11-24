@@ -1,5 +1,4 @@
-//! Candidate binary. Live cutover is prohibited until Orchestrator parity
-//! and the documented three real Codex MVPs have passed.
+//! Native Neo Models Gateway. Explicit live mode owns the canonical state and port.
 use neo_models::{
     engine::Engine,
     http::{self, App},
@@ -22,19 +21,24 @@ use std::{
 };
 fn run() -> Result<()> {
     let home = PathBuf::from(env::var_os("HOME").ok_or("HOME unavailable")?);
+    let live = env::var("NEO_MODELS_LIVE").as_deref() == Ok("1");
+    let prod = home.join(".local/share/neo/model-gateway");
     let base = env::var_os("NEO_MODELS_STATE_DIR")
         .map(PathBuf::from)
+        .or_else(|| live.then(|| prod.clone()))
         .ok_or("candidate requires explicit NEO_MODELS_STATE_DIR")?;
-    if base == home.join(".local/share/neo/model-gateway") {
-        return Err("candidate cannot own production Models state before parity gate".into());
-    }
     let port = env::var("NEO_MODEL_GATEWAY_PORT")
-        .unwrap_or("8786".into())
+        .unwrap_or(if live { "8769" } else { "8786" }.into())
         .parse::<u16>()
         .map_err(|_| "invalid Models port")?;
-    if port < 1024 || port == 8769 {
-        return Err("candidate requires a nonproduction loopback port".into());
+    if port < 1024 || (live && (port != 8769 || base != prod)) || (!live && port == 8769) {
+        return Err(
+            "live mode requires canonical Models state and port; candidate must be isolated".into(),
+        );
     }
+    // Reserve the listener before touching durable state, preventing an
+    // accidental concurrent owner while the prior service still listens.
+    let server = tiny_http::Server::http(("127.0.0.1", port)).map_err(|e| e.to_string())?;
     let token_path = env::var_os("NEO_MODELS_TOKEN_FILE")
         .map(PathBuf::from)
         .unwrap_or(home.join(".config/neo/models/token"));
@@ -49,17 +53,18 @@ fn run() -> Result<()> {
     if token.len() < 24 {
         return Err("private Bearer token required".into());
     }
-    let prod = home.join(".local/share/neo/model-gateway");
-    if let Ok(prod) = prod.canonicalize() {
-        let mut existing = base.as_path();
-        while !existing.exists() {
-            existing = existing
-                .parent()
-                .ok_or("candidate state path must be absolute")?;
-        }
-        let canonical = existing.canonicalize().map_err(|e| e.to_string())?;
-        if canonical.starts_with(&prod) || (base.exists() && prod.starts_with(&canonical)) {
-            return Err("candidate state path overlaps production".into());
+    if !live {
+        if let Ok(prod) = prod.canonicalize() {
+            let mut existing = base.as_path();
+            while !existing.exists() {
+                existing = existing
+                    .parent()
+                    .ok_or("candidate state path must be absolute")?;
+            }
+            let canonical = existing.canonicalize().map_err(|e| e.to_string())?;
+            if canonical.starts_with(&prod) || (base.exists() && prod.starts_with(&canonical)) {
+                return Err("candidate state path overlaps production".into());
+            }
         }
     }
     if !base.is_absolute() {
@@ -85,6 +90,7 @@ fn run() -> Result<()> {
             return Err("legacy origin must be loopback".into());
         }
     }
+    neo_models::engine::recover_interrupted(&store)?;
     let transport = Arc::new(WebHelm::from_env(&home, &base)?);
     let engine = Engine::new(store.clone(), transport.clone());
     let ready = if env::var("NEO_MODEL_REPLY_EVENTS").as_deref() == Ok("0") {
@@ -92,7 +98,7 @@ fn run() -> Result<()> {
     } else {
         nats::start(nats::Config::from_env(&home)?, store.clone())?
     };
-    let server = tiny_http::Server::http(("127.0.0.1", port)).map_err(|e| e.to_string())?;
+
     let token = Arc::new(token);
     let grants = Grants::default();
     let orchestrator = Orchestrator::open(
@@ -116,7 +122,7 @@ fn run() -> Result<()> {
     if orchestrator.health()["ready"] == true {
         orchestrator.start(ready.clone());
     }
-    println!("Neo native Models candidate on loopback port {port}");
+    println!("Neo native Models gateway on loopback port {port} (live={live})");
     http::serve(
         server,
         App {
