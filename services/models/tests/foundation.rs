@@ -164,3 +164,20 @@ fn latest_input_prompt_omits_history_and_validates_images() {
     assert_eq!(catalog::list(false)["data"][0]["id"], "neo");
     assert_eq!(catalog::list(true)["models"][0]["slug"], "neo");
 }
+
+#[test]
+fn interrupted_submission_never_replays_and_preserves_mapping() {
+    let (_dir, store, session, id) = fixture();
+    neo_models::engine::recover_interrupted(&store).unwrap();
+    let r = store.response(&id).unwrap().unwrap();
+    assert_eq!(r["status"], "failed");
+    assert_eq!(r["error"]["type"], "transport_error");
+    let tx = store.transaction().unwrap();
+    let mapped = tx.resolve(None, None, Some(CODEX)).unwrap().unwrap();
+    assert_eq!(mapped["id"], session["id"]);
+    assert_eq!(mapped["threadId"], session["threadId"]);
+    assert_eq!(mapped["status"], "uncertain");
+    drop(tx);
+    neo_models::engine::recover_interrupted(&store).unwrap();
+    assert_eq!(store.response(&id).unwrap().unwrap(), r);
+}
