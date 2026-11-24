@@ -28,6 +28,8 @@ network access. Only after `COMPLETED`, Relay may inspect a configured
 separately without changing Job/Task lifecycle. Neo neither pushes nor
 interprets the presence of an origin as publication permission.
 
+**Mandatory creator-owned preflight:** Before creating a new Coordinator Job, the invoking Agent completes Spec Kit Specify/Clarify requirements checks and an independent Preflight Review with PASS, then explicitly passes **`--preflight=true`** to `neo project run`. The Neo runner refuses new Job creation without the exact flag (`JOB_PREFLIGHT_REQUIRED`) and forwards it to Relay `job create`; it never fabricates the declaration or stores it in Run/Job/SQLite. Existing bound Run resumption does not create a Job and does not require another declaration; dry-run is read-only.
+
 `--title` sets the human-readable title at creation. Otherwise Neo uses the
 project and canonical private Run folder, never the source URL or secret token.
 Resuming a bound Run verifies the Job, Coordinator input, output and Graph; it
@@ -38,9 +40,9 @@ Project declarations in `project.run.json` define the accepted input type and re
 ## Invocation
 
 ```sh
-neo project run --url="$PRIVATE_SOURCE_URL" --project=content-distribution --dag=promotion
-neo project run --project=content-distribution --dag=growth  # autonomous search; no URL required
-neo project run --path=/absolute/neo/vlog/runs/2026-11-03-episode --project=vlog --title="加拿大周末随拍"
+neo project run --url="$PRIVATE_SOURCE_URL" --project=content-distribution --dag=promotion --preflight=true
+neo project run --project=content-distribution --dag=growth --preflight=true  # autonomous search; no URL required
+neo project run --path=/absolute/neo/vlog/runs/2026-11-03-episode --project=vlog --title="加拿大周末随拍" --preflight=true
 # Start the same Coordinator immediately and stream Task messages in this terminal:
 neo project run --path=/absolute/neo/vlog/runs/2026-11-03-episode --project=vlog --foreground
 ```
