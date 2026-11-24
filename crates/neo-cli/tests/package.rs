@@ -98,7 +98,10 @@ fn clean_mac_candidate_bootstraps_and_discovers_skills_without_node_or_source_ch
             "bundled obsolete CLI Node extension: {obsolete}"
         );
     }
-    assert!(manifest["excludedExternalGitLinks"]
+    // iPhoneHelm lives in its own repo and is installed only by an opt-in
+    // global Skill link. It is not a bundled Harness asset or a broken
+    // alias entry in a fresh Neo.app installation.
+    assert!(!manifest["excludedExternalGitLinks"]
         .as_array()
         .unwrap()
         .iter()
@@ -109,6 +112,7 @@ fn clean_mac_candidate_bootstraps_and_discovers_skills_without_node_or_source_ch
         .join("skills/xchat-orchestrator/xchat-bootstrap.md")
         .is_file());
     assert!(!f.package.join("skills/iphone-helm").exists());
+    assert!(!f.package.join("skills/neo-use").exists());
     assert!(!f.package.join(".git").exists());
     assert!(!f.package.join("Cargo.lock").exists());
     assert!(!f.package.join("target").exists());
@@ -130,7 +134,22 @@ fn clean_mac_candidate_bootstraps_and_discovers_skills_without_node_or_source_ch
         String::from_utf8_lossy(&skills.stderr)
     );
     let discovered: Value = serde_json::from_slice(&skills.stdout).unwrap();
-    assert!(discovered.as_array().unwrap().len() >= 14);
+    assert!(discovered.as_array().unwrap().len() >= 12);
+    assert!(discovered
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|s| s["name"] == "neo-project"));
+    assert!(discovered
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|s| s["name"] == "xchat-orchestrator"));
+    assert!(!discovered
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|s| matches!(s["name"].as_str(), Some("iphone-helm" | "neo-use"))));
     for skill in discovered.as_array().unwrap() {
         assert!(skill["path"]
             .as_str()
@@ -264,5 +283,73 @@ fn versioned_user_prefix_symlink_launcher_uses_its_own_bundle_assets() {
         String::from_utf8_lossy(&skills.stderr)
     );
     let catalog: Value = serde_json::from_slice(&skills.stdout).unwrap();
-    assert!(catalog.as_array().unwrap().len() >= 14);
+    assert!(catalog.as_array().unwrap().len() >= 12);
+    assert!(catalog
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|s| s["name"] == "neo-project"));
+    assert!(!catalog
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|s| matches!(s["name"].as_str(), Some("iphone-helm" | "neo-use"))));
+}
+
+#[cfg(unix)]
+#[test]
+fn iphone_helm_is_optional_and_discovered_from_independently_installed_global_skill() {
+    use std::os::unix::fs::symlink;
+    let f = Fixture::new();
+    assert!(f.stage().status.success());
+    assert!(!f.package.join("skills/iphone-helm").exists());
+    assert!(!f.package.join("skills/neo-use").exists());
+
+    let list = |f: &Fixture| -> Value {
+        let response = f.bundled(&["skill", "list"]);
+        assert!(
+            response.status.success(),
+            "{}",
+            String::from_utf8_lossy(&response.stderr)
+        );
+        serde_json::from_slice(&response.stdout).unwrap()
+    };
+    let has_iphone = |value: &Value| -> bool {
+        value
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|item| item["name"] == "iphone-helm")
+    };
+    assert!(
+        !has_iphone(&list(&f)),
+        "iPhoneHelm must be absent before optional installation"
+    );
+
+    let independent = f.home.join("independent-iphone-helm/skills/iphone-helm");
+    fs::create_dir_all(&independent).unwrap();
+    fs::write(independent.join("SKILL.md"),
+        "---\nname: iphone-helm\ndescription: Independently installed physical device QA Skill.\n---\n# iPhoneHelm\n")
+        .unwrap();
+    let global = f.home.join(".agents/skills/iphone-helm");
+    fs::create_dir_all(global.parent().unwrap()).unwrap();
+    symlink(&independent, &global).unwrap();
+    let active = list(&f);
+    let optional = active
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|item| item["name"] == "iphone-helm")
+        .expect("Opt-in global iPhoneHelm Skill must become visible to Neo.app");
+    assert_eq!(optional["path"], global.join("SKILL.md").to_str().unwrap());
+    assert!(
+        !f.package.join("skills/iphone-helm").exists(),
+        "Enabling optional Skill must never alter the packaged Harness"
+    );
+
+    fs::remove_file(&global).unwrap();
+    assert!(
+        !has_iphone(&list(&f)),
+        "Removing opt-in link must hide optional Skill without modifying Neo.app"
+    );
 }
