@@ -1,9 +1,13 @@
 //! Native Models Gateway. This crate is not yet a production replacement.
 pub mod catalog;
+pub mod engine;
+pub mod http;
 pub mod input;
+pub mod nats;
 pub mod reply;
 pub mod sse;
 pub mod store;
+pub mod webhelm;
 pub type Result<T> = std::result::Result<T, String>;
 pub fn now_ms() -> u64 {
     std::time::SystemTime::now()
