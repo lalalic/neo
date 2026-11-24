@@ -21,11 +21,6 @@ use std::{
     sync::{atomic::AtomicBool, Arc},
 };
 fn run() -> Result<()> {
-    if env::var("NEO_ORCHESTRATOR_RELAY_EVENTS").as_deref() == Ok("1") {
-        return Err(
-            "native Relay event monitor not yet migrated; refusing to silently disable it".into(),
-        );
-    }
     let home = PathBuf::from(env::var_os("HOME").ok_or("HOME unavailable")?);
     let base = env::var_os("NEO_MODELS_STATE_DIR")
         .map(PathBuf::from)
@@ -110,6 +105,14 @@ fn run() -> Result<()> {
         Some(transport),
         Some(Arc::new(NeoNotifier::from_env(&home)?)),
     )?;
+    if env::var("NEO_ORCHESTRATOR_RELAY_EVENTS").as_deref() == Ok("1") {
+        neo_models::relay_monitor::start(
+            &base,
+            &home,
+            nats::Config::from_env(&home)?,
+            orchestrator.clone(),
+        )?;
+    }
     if orchestrator.health()["ready"] == true {
         orchestrator.start(ready.clone());
     }

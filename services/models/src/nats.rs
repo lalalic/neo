@@ -24,6 +24,7 @@ use url::Url;
 pub struct Config {
     pub url: String,
     pub prefix: String,
+    pub job_prefix: String,
 }
 impl Config {
     pub fn from_env(home: &Path) -> Result<Self> {
@@ -55,6 +56,7 @@ impl Config {
                 .unwrap_or("nats://127.0.0.1:4222")
                 .into()
         });
+        let job_prefix = prefix.clone();
         let prefix = prefix
             .strip_suffix(".job")
             .map(|s| format!("{s}.reply"))
@@ -66,7 +68,11 @@ impl Config {
         }) {
             return Err("invalid NATS subject prefix".into());
         }
-        Ok(Self { url, prefix })
+        Ok(Self {
+            url,
+            prefix,
+            job_prefix,
+        })
     }
 }
 fn line(reader: &mut BufReader<TcpStream>) -> Result<String> {
@@ -84,7 +90,7 @@ fn line(reader: &mut BufReader<TcpStream>) -> Result<String> {
 fn write(reader: &mut BufReader<TcpStream>, data: &[u8]) -> Result<()> {
     reader.get_mut().write_all(data).map_err(|e| e.to_string())
 }
-fn connect(cfg: &Config) -> Result<BufReader<TcpStream>> {
+fn connect(cfg: &Config, subject: &str, name: &str) -> Result<BufReader<TcpStream>> {
     let url = Url::parse(&cfg.url).map_err(|e| e.to_string())?;
     if url.scheme() != "nats"
         || !url.username().is_empty()
@@ -117,14 +123,10 @@ fn connect(cfg: &Config) -> Result<BufReader<TcpStream>> {
     if !caps.is_object() || caps["tls_required"] == true || caps["auth_required"] == true {
         return Err("unsupported NATS broker authentication or TLS".into());
     }
-    let conn = json!({"verbose":false,"pedantic":false,"name":"neo-reply-models-rust"});
+    let conn = json!({"verbose":false,"pedantic":false,"name":name});
     write(
         &mut reader,
-        format!(
-            "CONNECT {conn}\r\nSUB {}.models.> 1\r\nPING\r\n",
-            cfg.prefix
-        )
-        .as_bytes(),
+        format!("CONNECT {conn}\r\nSUB {subject} 1\r\nPING\r\n").as_bytes(),
     )?;
     for _ in 0..16 {
         match line(&mut reader)?.as_str() {
@@ -142,7 +144,10 @@ fn connect(cfg: &Config) -> Result<BufReader<TcpStream>> {
     }
     Err("NATS subscription not acknowledged".into())
 }
-fn consume(reader: &mut BufReader<TcpStream>, cfg: &Config, store: &Store) -> Result<()> {
+fn consume(
+    reader: &mut BufReader<TcpStream>,
+    on_event: &dyn Fn(&str, &Value) -> Result<()>,
+) -> Result<()> {
     let frame = line(reader)?;
     if frame == "PING" {
         return write(reader, b"PONG\r\n");
@@ -171,27 +176,47 @@ fn consume(reader: &mut BufReader<TcpStream>, cfg: &Config, store: &Store) -> Re
     }
     let parsed = serde_json::from_slice::<Value>(&payload)
         .map_err(|_| "invalid reply JSON".to_string())
-        .and_then(|v| reply::apply(store, parts[1], &cfg.prefix, &v));
+        .and_then(|v| on_event(parts[1], &v));
     if let Err(e) = parsed {
         eprintln!("[models] reply rejected: {e}")
     }
     Ok(())
 }
 pub fn start(cfg: Config, store: Store) -> Result<Arc<AtomicBool>> {
-    let initial = connect(&cfg)?;
+    let prefix = cfg.prefix.clone();
+    subscribe(
+        cfg,
+        format!("{prefix}.models.>"),
+        "neo-reply-models-rust",
+        move |subject, v| reply::apply(&store, subject, &prefix, v).map(|_| ()),
+        || Ok(()),
+    )
+}
+pub fn subscribe(
+    cfg: Config,
+    subject: String,
+    name: &'static str,
+    on_event: impl Fn(&str, &Value) -> Result<()> + Send + 'static,
+    on_reconnect: impl Fn() -> Result<()> + Send + 'static,
+) -> Result<Arc<AtomicBool>> {
+    let initial = connect(&cfg, &subject, name)?;
     let ready = Arc::new(AtomicBool::new(true));
     let flag = ready.clone();
     thread::Builder::new()
-        .name("models-nats".into())
+        .name(name.into())
         .spawn(move || {
             let mut connection = initial;
             loop {
-                if let Err(e) = consume(&mut connection, &cfg, &store) {
+                if let Err(e) = consume(&mut connection, &on_event) {
                     flag.store(false, Ordering::Release);
-                    eprintln!("[models] reply subscription disconnected: {e}");
+                    eprintln!("[{name}] subscription disconnected: {e}");
                     loop {
                         thread::sleep(Duration::from_secs(1));
-                        if let Ok(r) = connect(&cfg) {
+                        if let Ok(r) = connect(&cfg, &subject, name) {
+                            if let Err(e) = on_reconnect() {
+                                eprintln!("[{name}] reconciliation failed: {e}");
+                                continue;
+                            }
                             connection = r;
                             flag.store(true, Ordering::Release);
                             break;

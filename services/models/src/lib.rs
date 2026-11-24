@@ -9,6 +9,7 @@ pub mod nats;
 pub mod notifier;
 pub mod orchestrator;
 pub mod orchestrator_client;
+pub mod relay_monitor;
 pub mod reply;
 pub mod sse;
 pub mod store;

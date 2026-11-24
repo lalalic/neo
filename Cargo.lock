@@ -569,6 +569,7 @@ name = "neo-models"
 version = "0.1.0"
 dependencies = [
  "base64",
+ "chrono",
  "getrandom 0.4.3",
  "libc",
  "regex",
