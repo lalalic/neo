@@ -55,6 +55,24 @@ fn cleanse(text: &str, exact: &[&str]) -> String {
         .expect("static credential mask regex")
         .replace_all(text, "USER_CREDENTIALS=[redacted]")
         .to_string();
+    // Tool responses are untrusted: redact credentials *before* giving any
+    // data back to the language model, not only when formatting the final
+    // Challenge result. Real tool output may contain authorization headers,
+    // dotenv-style assignments, URLs with tokens, or SDK keys.
+    let query = Regex::new(r#"(?i)([?&](?:access[_-]?token|refresh[_-]?token|api[_-]?key|token|password|secret|code|key)=)[^&#\s\"']+"#)
+        .expect("static query credential regex");
+    value = query.replace_all(&value, "${1}[credential]").to_string();
+    for pattern in [
+        r#"(?i)\b(?:Bearer|Basic)\s+[^\s;,'\"]+"#,
+        r#"(?i)\b(?:api[-_ ]?key|auth(?:orization)?|access[-_ ]?token|refresh[-_ ]?token|npm[-_ ]?token|password|cookie|secret|credential)\s*(?:[:=]|\bis\b)\s*[\"']?[^\s\"';,]+"#,
+        r"(?i)\b(?:sk[-_]|gh[pousr]_|github_pat_|npm_|xox[baprs]-|pk_live_|rk_live_)[a-z0-9_-]{6,}\b",
+        r"\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b",
+    ] {
+        value = Regex::new(pattern)
+            .expect("static credential pattern")
+            .replace_all(&value, "[credential]")
+            .to_string();
+    }
     for secret in exact.iter().filter(|secret| !secret.is_empty()) {
         value = value.replace(secret, "[credential]");
     }
@@ -86,11 +104,13 @@ fn run(
         Duration::from_secs(90),
         512 * 1024,
     )?;
-    let output = if !capture.stdout.is_empty() {
-        capture.stdout
-    } else {
-        capture.stderr
-    };
+    let mut output = capture.stdout;
+    if !capture.stderr.is_empty() {
+        if !output.is_empty() && !output.ends_with(b"\n") {
+            output.push(b'\n');
+        }
+        output.extend_from_slice(&capture.stderr);
+    }
     let mut all_secrets = secrets.to_vec();
     all_secrets.extend(ambient_accounts.as_deref());
     all_secrets.extend(ambient_passwords.as_deref());
@@ -276,9 +296,17 @@ where
                 return Err("Computer Use arguments must be a JSON object".into());
             }
             let result = computer(command, &options)?;
-            let text = serde_json::to_string(&result).map_err(|e| e.to_string())?;
+            // The MCP adapter must positively acknowledge both the status
+            // and the content shape. An empty/partial JSON object is not
+            // evidence that a computer action was performed successfully.
+            let valid = result["isError"].is_boolean() && result["content"].is_array();
+            let text = if valid {
+                serde_json::to_string(&result).map_err(|e| e.to_string())?
+            } else {
+                "Invalid Computer Use tool response: missing status or content".into()
+            };
             Ok(ToolResult {
-                ok: result["isError"] != true,
+                ok: valid && result["isError"] == false,
                 text: cleanse(&text, &[]),
             })
         }

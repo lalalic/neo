@@ -107,15 +107,17 @@ impl OwnedServer {
             }
             if let Ok(mut response) = agent.get(&health).call() {
                 if response.status().is_success() {
-                    let body: Value = response
+                    // A 200 alone does not mean the model is usable: it may
+                    // be an HTML proxy page, an empty JSON response, or a
+                    // server still reporting `loading`. Never turn a JSON
+                    // parse failure into a ready response.
+                    let ready = response
                         .body_mut()
                         .with_config()
                         .limit(64 * 1024)
-                        .read_json()
-                        .unwrap_or_else(|_| serde_json::json!({}));
-                    if matches!(body["status"].as_str(), Some("ok" | "ready"))
-                        || body.as_object().is_some_and(|o| o.is_empty())
-                    {
+                        .read_json::<Value>()
+                        .is_ok_and(|body| matches!(body["status"].as_str(), Some("ok" | "ready")));
+                    if ready {
                         return Ok(());
                     }
                 }

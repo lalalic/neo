@@ -104,3 +104,33 @@ fn owned_model_startup_timeout_is_bounded_and_does_not_leave_sleeper() {
     assert!(start.elapsed() < Duration::from_secs(6));
     guard.finish().unwrap();
 }
+
+#[test]
+fn owned_model_rejects_http_200_without_explicit_ready_health_status() {
+    let fixture = Fixture::new();
+    let healthy = fixture.mock_server();
+    let base = fs::read_to_string(healthy).unwrap();
+    for (index, reply) in ["not-json", "{}", "{\"status\":\"loading\"}"]
+        .into_iter()
+        .enumerate()
+    {
+        let script = fixture.temp.path().join(format!("bad-health-{index}.mjs"));
+        let original = "res.end(JSON.stringify({status:'ready'}))";
+        assert!(base.contains(original));
+        let modified = base.replace(original, &format!("res.end({reply:?})"));
+        fs::write(&script, modified).unwrap();
+        fs::set_permissions(&script, fs::Permissions::from_mode(0o755)).unwrap();
+        let mut config = fixture.config(script.to_str().unwrap());
+        config.startup_ms = 950;
+        let mut guard =
+            escalation_lock::acquire_with_binary(&fixture.lock, &fixture.executable).unwrap();
+        let error = OwnedServer::start(&config, &mut guard)
+            .err()
+            .expect("invalid health must not return ready server");
+        assert!(
+            error.contains("timed out"),
+            "invalid health mode={index}: {error}"
+        );
+        guard.finish().unwrap();
+    }
+}

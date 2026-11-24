@@ -278,3 +278,114 @@ fn tool_captured_stdin_remains_private_and_has_size_bound() {
     );
     assert!(bad.err().unwrap().contains("input exceeded"));
 }
+
+#[test]
+fn computer_use_malformed_or_missing_success_ack_is_not_successful_tool_evidence() {
+    let fixture = Fixture::new();
+    for invalid in [
+        json!({}),
+        json!(null),
+        json!({"isError":"false"}),
+        json!({"isError":false}),
+        json!({"isError":false,"content":"ok"}),
+        json!({"isError":true,"content":[{"type":"text","text":"not ok"}]}),
+    ] {
+        let outcome = executor::execute_with(
+            "computer_use",
+            &json!({"command":"get_app_state","args":{"app":"Finder"}}),
+            &fixture.settings,
+            |_, _| Ok(invalid.clone()),
+        )
+        .unwrap();
+        assert!(
+            !outcome.ok,
+            "malformed Computer Use result incorrectly accepted as success: {invalid}"
+        );
+    }
+}
+
+#[test]
+fn model_tool_output_masks_common_bearer_api_keys_and_query_tokens_before_inference() {
+    let fixture = Fixture::new();
+    let output=fixture.exec("shell",&json!({"command":
+        "printf '%s\n' 'Authorization: Bearer synthetic12345' 'api_key=privateSample987' 'https://example.test/private?access_token=TOPSECRET1234' 'sk-proj-syntheticlongsecret123'"})).unwrap();
+    assert!(output.ok);
+    for sensitive in [
+        "synthetic12345",
+        "privateSample987",
+        "TOPSECRET1234",
+        "sk-proj-syntheticlongsecret123",
+    ] {
+        assert!(
+            !output.text.contains(sensitive),
+            "tool output leaked a synthetic secret: {sensitive}"
+        );
+    }
+    assert!(output.text.contains("[credential]"));
+}
+
+#[test]
+fn failed_command_with_stdout_and_stderr_preserves_diagnostic_but_masks_secrets() {
+    let fixture = Fixture::new();
+    let result = fixture
+        .exec(
+            "shell",
+            &json!({"command":
+        "printf 'partial result\n'; printf 'error: unexpected state\n' >&2; exit 13"}),
+        )
+        .unwrap();
+    assert!(!result.ok);
+    assert!(result.text.contains("partial result"));
+    assert!(
+        result.text.contains("unexpected state"),
+        "must not discard stderr when stdout exists"
+    );
+}
+
+#[test]
+fn malformed_computer_use_ack_cannot_satisfy_stateless_completion_gate() {
+    use neo_harness_cli::{
+        escalation_contract::{Config, Request},
+        escalation_stateless,
+    };
+    let fixture = Fixture::new();
+    let config = Config {
+        engine: "external".into(),
+        model: "synthetic".into(),
+        context: 65536,
+        budget_seconds: 20,
+        max_turns: 3,
+        startup_ms: 1200,
+        server_command: "none".into(),
+        base_url: Some("http://127.0.0.1:15101/v1".into()),
+    };
+    let request = Request {
+        handoff: "Inspect the local state".into(),
+        on_needs_user: "No notification".into(),
+        cwd: fixture.settings.cwd.clone(),
+        correlation_id: None,
+    };
+    let mut count = 0;
+    let outcome = escalation_stateless::run_with(
+        "http://127.0.0.1:15101/v1",
+        "Trusted system evidence rules",
+        &request,
+        &config,
+        |_| {
+            count += 1;
+            Ok(if count == 1 {
+                json!({"choices":[{"message":{"content":null,"tool_calls":[{
+                    "id":"computer-1","function":{"name":"computer_use",
+                    "arguments":"{\"command\":\"get_app_state\",\"args\":{}}"}}]}}]})
+            } else {
+                json!({"choices":[{"message":{"content":json!({"status":"resolved",
+                    "summary":"Model claims desktop state is fine", "evidence":["Model says so"],
+                    "notification":null}).to_string()}}]})
+            })
+        },
+        |name, args, _| executor::execute_with(name, args, &fixture.settings, |_, _| Ok(json!({}))),
+    );
+    assert!(outcome
+        .err()
+        .is_some_and(|e| e.contains("without a successful tool result")));
+}

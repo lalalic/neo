@@ -404,3 +404,15 @@ unapproved exceptions; full release gates remain deliberately open.
 - Fully offline cached Qwen3.5 4B inference model **passed** real read-only nonce tool-use proof with server reaped. No download/account/GUI mutation occurred.
 - Native **184/184** tests, strict Clippy, fmt, four clean bundle tests passed. Existing Node packaging's tracked symlink failure on `skills/iphone-helm` is inherited from unchanged main and outside the Rust installer; not resolved here.
 - **T020 remains open:** do not replace the installed launcher, merge or delete Node core until explicit release approval.
+
+## Independent review-fix pass (2026-11-23)
+
+- After T019, a further trust-boundary audit found four concrete issues:
+  malformed NeoY Computer Use results counted as success, raw common
+  credential formats visible to the model through tool output, false
+  readiness for invalid HTTP 200 `/health`, and lost tool stderr.
+- Added **five red-then-green regression tests** and implemented all four
+  fixes. Native suite **189/189**, strict Clippy, fmt, live Node/Rust
+  read-only CLI parity **14/14**, disposable real Rust Relay E2E passed.
+- See `checklists/review-fix-2026-11-23.md`. T020 is still explicitly open;
+  production `neo` was not replaced.
