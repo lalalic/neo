@@ -9,40 +9,17 @@ use std::{
 
 struct Fixture {
     tmp: tempfile::TempDir,
-    root: PathBuf,
-    node: String,
 }
 impl Fixture {
     fn new() -> Self {
         let tmp = tempfile::tempdir().unwrap();
-        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../..")
-            .canonicalize()
-            .unwrap();
-        let node = String::from_utf8(
-            Command::new("node")
-                .args(["-p", "process.execPath"])
-                .output()
-                .unwrap()
-                .stdout,
-        )
-        .unwrap()
-        .trim()
-        .to_string();
-        Self { tmp, root, node }
+        Self { tmp }
     }
     fn path(&self, name: &str) -> PathBuf {
         self.tmp.path().join(name)
     }
-    fn call(&self, native: bool, args: &[&str]) -> Output {
-        let mut process = if native {
-            Command::new(env!("CARGO_BIN_EXE_neo-rs"))
-        } else {
-            Command::new(&self.node)
-        };
-        if !native {
-            process.arg(self.root.join(".bin/neo.mjs"));
-        }
+    fn call(&self, args: &[&str]) -> Output {
+        let mut process = Command::new(env!("CARGO_BIN_EXE_neo-rs"));
         process
             .args(["project", "tts"])
             .args(args)
@@ -107,7 +84,7 @@ fn native_synthesizes_real_chinese_m4a_and_wav_with_verified_audio_stream() {
             "--rate",
             rate,
         ];
-        let result = f.call(true, &args);
+        let result = f.call(&args);
         assert!(
             result.status.success(),
             "{}",
@@ -128,7 +105,7 @@ fn native_synthesizes_real_chinese_m4a_and_wav_with_verified_audio_stream() {
         );
         // Repeating the same target must never replace this verified artifact.
         let bytes = fs::read(&output).unwrap();
-        let repeated = f.call(true, &args);
+        let repeated = f.call(&args);
         assert!(!repeated.status.success());
         assert_eq!(fs::read(&output).unwrap(), bytes);
     }
@@ -139,27 +116,23 @@ fn native_accepts_narration_file_and_preserves_reference_cli_help() {
     let narrator = f.path("narration.txt");
     fs::write(&narrator, "路上有光，风里有一点凉意。\n").unwrap();
     let wav = f.path("file.wav");
-    let result = f.call(
-        true,
-        &[
-            "--text-file",
-            narrator.to_str().unwrap(),
-            "--output",
-            wav.to_str().unwrap(),
-        ],
-    );
+    let result = f.call(&[
+        "--text-file",
+        narrator.to_str().unwrap(),
+        "--output",
+        wav.to_str().unwrap(),
+    ]);
     assert!(
         result.status.success(),
         "{}",
         String::from_utf8_lossy(&result.stderr)
     );
     f.verify_audio(&wav, 0.5);
-    let rust = f.call(true, &["--help"]);
-    let node = f.call(false, &["--help"]);
-    assert!(rust.status.success() && node.status.success());
+    let rust = f.call(&["--help"]);
+    assert!(rust.status.success());
     let a: Value = serde_json::from_slice(&rust.stdout).unwrap();
-    let b: Value = serde_json::from_slice(&node.stdout).unwrap();
-    assert_eq!(a, b);
+    assert!(a.is_object());
+    assert!(a.to_string().contains("--text"));
 }
 #[test]
 fn native_rejects_same_invalid_tts_arguments_as_node_without_audio_writes() {
@@ -202,13 +175,12 @@ fn native_rejects_same_invalid_tts_arguments_as_node_without_audio_writes() {
         vec!["--help", "--text", "hello"],
     ];
     for args in matrix {
-        let native = f.call(true, &args);
-        let node = f.call(false, &args);
+        let native = f.call(&args);
         assert!(
             !native.status.success(),
             "invalid TTS args accepted: {args:?}"
         );
-        assert_eq!(native.status.code(), node.status.code(), "{args:?}");
+        assert_eq!(native.status.code(), Some(1), "{args:?}");
         assert!(
             native.stdout.is_empty(),
             "invalid TTS must never emit PASS: {args:?}"

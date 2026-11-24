@@ -1,0 +1,45 @@
+{
+  "input": "retry",
+  "expected": {
+    "challenge": {
+      "version": 1,
+      "id": "f662cd7bd6a7a8c45acef6670368aff441fb46ff32609d521a7421e3ee36288d",
+      "created_at": "2026-11-23T12:00:00.000Z",
+      "correlation_id": "job/example/task/repair",
+      "cwd": "/tmp/project",
+      "handoff": "Goal: Verify local fixture\nBlocker: missing test marker\nProgress: setup complete\nAcceptance: marker verified\n",
+      "goal": "Verify local fixture",
+      "blocker": "missing test marker",
+      "progress": "setup complete",
+      "success_criteria": "marker verified"
+    },
+    "started": {
+      "version": 1,
+      "challenge_id": "f662cd7bd6a7a8c45acef6670368aff441fb46ff32609d521a7421e3ee36288d",
+      "attempt_id": "11111111-1111-1111-1111-111111111111",
+      "event": "started",
+      "at": "2026-11-23T12:00:00.000Z"
+    },
+    "id": "f662cd7bd6a7a8c45acef6670368aff441fb46ff32609d521a7421e3ee36288d",
+    "retry": {
+      "version": 1,
+      "challenge_id": "f662cd7bd6a7a8c45acef6670368aff441fb46ff32609d521a7421e3ee36288d",
+      "attempt_id": "22222222-2222-2222-2222-222222222222",
+      "event": "started",
+      "at": "2026-11-23T12:00:00.000Z",
+      "handoff": "Goal: Retry after missing marker\n"
+    },
+    "challengeAfter": {
+      "version": 1,
+      "id": "f662cd7bd6a7a8c45acef6670368aff441fb46ff32609d521a7421e3ee36288d",
+      "created_at": "2026-11-23T12:00:00.000Z",
+      "correlation_id": "job/example/task/repair",
+      "cwd": "/tmp/project",
+      "handoff": "Goal: Verify local fixture\nBlocker: missing test marker\nProgress: setup complete\nAcceptance: marker verified\n",
+      "goal": "Verify local fixture",
+      "blocker": "missing test marker",
+      "progress": "setup complete",
+      "success_criteria": "marker verified"
+    }
+  }
+}

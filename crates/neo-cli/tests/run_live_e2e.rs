@@ -63,8 +63,6 @@ struct Fixture {
     config: PathBuf,
     relay: PathBuf,
     state_root: PathBuf,
-    repo: PathBuf,
-    node: String,
 }
 impl Fixture {
     fn new() -> Self {
@@ -114,20 +112,6 @@ impl Fixture {
         put(&relay, RELAY_STUB);
         #[cfg(unix)]
         fs::set_permissions(&relay, fs::Permissions::from_mode(0o755)).unwrap();
-        let node = String::from_utf8(
-            Command::new("node")
-                .args(["-p", "process.execPath"])
-                .output()
-                .unwrap()
-                .stdout,
-        )
-        .unwrap()
-        .trim()
-        .into();
-        let repo = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../..")
-            .canonicalize()
-            .unwrap();
         Self {
             _tmp: tmp,
             home,
@@ -136,19 +120,10 @@ impl Fixture {
             config,
             relay,
             state_root,
-            repo,
-            node,
         }
     }
-    fn call(&self, native: bool, args: &[&str]) -> Output {
-        let mut cmd = if native {
-            Command::new(env!("CARGO_BIN_EXE_neo-rs"))
-        } else {
-            Command::new(&self.node)
-        };
-        if !native {
-            cmd.arg(self.repo.join(".bin/neo.mjs"));
-        }
+    fn call(&self, args: &[&str]) -> Output {
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_neo-rs"));
         cmd.args(["project", "run"])
             .args(args)
             .env("HOME", &self.home)
@@ -160,11 +135,8 @@ impl Fixture {
             .output()
             .unwrap()
     }
-    fn run(&self, native: bool) -> Output {
-        self.call(
-            native,
-            &["--project", "sample", "--path", self.run.to_str().unwrap()],
-        )
+    fn run(&self) -> Output {
+        self.call(&["--project", "sample", "--path", self.run.to_str().unwrap()])
     }
     fn state(&self) -> Value {
         serde_json::from_slice(&fs::read(self.state_root.join("state.json")).unwrap()).unwrap()
@@ -196,13 +168,13 @@ impl Fixture {
 #[test]
 fn rust_creates_one_bound_run_that_node_reuses_without_new_job() {
     let f = Fixture::new();
-    let first = f.assert_success(&f.run(true));
+    let first = f.assert_success(&f.run());
     assert_eq!(first["jobId"], "101");
     assert_eq!(first["taskId"], "17");
     assert_eq!(first["status"], "ACTIVE");
     assert_eq!(f.state()["creates"], 1);
     let before = f.git(&["rev-parse", "HEAD"]);
-    let other = f.assert_success(&f.run(false));
+    let other = f.assert_success(&f.run());
     assert_eq!(first, other);
     assert_eq!(f.state()["creates"], 1);
     assert_eq!(before, f.git(&["rev-parse", "HEAD"]));
@@ -222,8 +194,8 @@ fn rust_creates_one_bound_run_that_node_reuses_without_new_job() {
 #[test]
 fn node_creates_bound_run_that_rust_reuses() {
     let f = Fixture::new();
-    let reference = f.assert_success(&f.run(false));
-    let native = f.assert_success(&f.run(true));
+    let reference = f.assert_success(&f.run());
+    let native = f.assert_success(&f.run());
     assert_eq!(reference, native);
     assert_eq!(f.state()["creates"], 1);
 }
@@ -231,7 +203,7 @@ fn node_creates_bound_run_that_rust_reuses() {
 fn failure_during_activation_reuses_same_private_binding() {
     let f = Fixture::new();
     put(&f.state_root.join("fail-job-run"), "on");
-    let failed = f.run(true);
+    let failed = f.run();
     assert!(!failed.status.success());
     assert!(String::from_utf8_lossy(&failed.stderr).contains("binding are preserved"));
     let binding: Value =
@@ -239,24 +211,24 @@ fn failure_during_activation_reuses_same_private_binding() {
     assert_eq!(binding["jobId"], "101");
     assert_eq!(f.state()["jobs"]["101"]["state"], "DRAFT");
     fs::remove_file(f.state_root.join("fail-job-run")).unwrap();
-    let recovered = f.assert_success(&f.run(true));
+    let recovered = f.assert_success(&f.run());
     assert_eq!(recovered["status"], "ACTIVE");
     assert_eq!(f.state()["creates"], 1);
 }
 #[test]
 fn tampered_binding_and_git_remote_refuse_reuse() {
     let f = Fixture::new();
-    f.assert_success(&f.run(true));
+    f.assert_success(&f.run());
     let file = f.run.join(".neo-project-run.json");
     let mut binding: Value = serde_json::from_slice(&fs::read(&file).unwrap()).unwrap();
     binding["taskInput"] = json!("/tmp/unsafe.md");
     put(&file, &serde_json::to_string(&binding).unwrap());
-    let result = f.run(true);
+    let result = f.run();
     assert!(!result.status.success());
     assert!(String::from_utf8_lossy(&result.stderr).contains("binding does not match"));
     assert_eq!(f.state()["creates"], 1);
     let other = Fixture::new();
-    other.assert_success(&other.run(true));
+    other.assert_success(&other.run());
     let origin = Command::new("git")
         .arg("-C")
         .arg(&other.run)
@@ -264,7 +236,7 @@ fn tampered_binding_and_git_remote_refuse_reuse() {
         .output()
         .unwrap();
     assert!(origin.status.success());
-    let failed = other.run(true);
+    let failed = other.run();
     assert!(!failed.status.success());
     assert!(String::from_utf8_lossy(&failed.stderr).contains("no remotes"));
     assert_eq!(other.state()["creates"], 1);
@@ -273,13 +245,13 @@ fn tampered_binding_and_git_remote_refuse_reuse() {
 fn failed_create_stages_inputs_once_and_preserves_git_history() {
     let f = Fixture::new();
     put(&f.state_root.join("fail-job-create"), "on");
-    let failed = f.run(true);
+    let failed = f.run();
     assert!(!failed.status.success());
     assert!(!f.run.join(".neo-project-run.json").exists());
     let first = f.git(&["rev-parse", "HEAD"]);
     let staged = fs::read(f.run.join("neo-project-run.input.md")).unwrap();
     fs::remove_file(f.state_root.join("fail-job-create")).unwrap();
-    let recovered = f.assert_success(&f.run(true));
+    let recovered = f.assert_success(&f.run());
     assert_eq!(recovered["status"], "ACTIVE");
     assert_eq!(first, f.git(&["rev-parse", "HEAD"]));
     assert_eq!(
@@ -292,13 +264,13 @@ fn failed_create_stages_inputs_once_and_preserves_git_history() {
 #[test]
 fn coordinator_task_tampering_blocks_replay_without_reactivation() {
     let f = Fixture::new();
-    f.assert_success(&f.run(true));
+    f.assert_success(&f.run());
     let state_file = f.state_root.join("state.json");
     let mut state = f.state();
     state["jobs"]["101"]["task"]["agentGraph"] = json!("flowchart TD\n Wrong[agent:other]");
     put(&state_file, &serde_json::to_string(&state).unwrap());
     let old_calls = f.state()["calls"].as_array().unwrap().len();
-    let rejected = f.run(true);
+    let rejected = f.run();
     assert!(!rejected.status.success());
     assert!(String::from_utf8_lossy(&rejected.stderr).contains("does not match this canonical Run"));
     assert_eq!(f.state()["creates"], 1);
@@ -308,12 +280,12 @@ fn coordinator_task_tampering_blocks_replay_without_reactivation() {
 #[test]
 fn completed_binding_returns_reused_without_running_again() {
     let f = Fixture::new();
-    f.assert_success(&f.run(true));
+    f.assert_success(&f.run());
     let state_file = f.state_root.join("state.json");
     let mut state = f.state();
     state["jobs"]["101"]["state"] = json!("COMPLETED");
     put(&state_file, &serde_json::to_string(&state).unwrap());
-    let done = f.assert_success(&f.run(true));
+    let done = f.assert_success(&f.run());
     assert_eq!(done["status"], "COMPLETED");
     assert_eq!(done["reused"], true);
     assert_eq!(f.state()["creates"], 1);
@@ -333,15 +305,12 @@ fn url_source_remains_private_and_never_reaches_relay_arguments() {
         &f.workspace.join("sample").join("project.run.json"),
         r#"{"schemaVersion":1,"input":{"type":"url","schemes":["https"],"resumePath":true},"versioning":{"mode":"local-git","template":"run-template"}}"#,
     );
-    let result = f.call(
-        true,
-        &[
-            "--project",
-            "sample",
-            "--url",
-            "https://example.org/preview?token=hidden-secret",
-        ],
-    );
+    let result = f.call(&[
+        "--project",
+        "sample",
+        "--url",
+        "https://example.org/preview?token=hidden-secret",
+    ]);
     let first = f.assert_success(&result);
     let run = PathBuf::from(first["runPath"].as_str().unwrap());
     let evidence = fs::read_to_string(run.join("source-reference.json")).unwrap();
@@ -363,10 +332,8 @@ fn url_source_remains_private_and_never_reaches_relay_arguments() {
         fs::metadata(&run).unwrap().permissions().mode() & 0o777,
         0o700
     );
-    let resumed = f.assert_success(&f.call(
-        false,
-        &["--project", "sample", "--path", run.to_str().unwrap()],
-    ));
+    let resumed =
+        f.assert_success(&f.call(&["--project", "sample", "--path", run.to_str().unwrap()]));
     assert_eq!(resumed["jobId"], first["jobId"]);
     assert_eq!(f.state()["creates"], 1);
 }
@@ -386,7 +353,7 @@ fn source_discovery_uses_declared_brief_with_correct_json_order() {
         &f.workspace.join("sample").join("project.run.json"),
         r#"{"schemaVersion":1,"input":{"type":"url","schemes":["https"],"resumePath":true},"graphs":{"discovery":"graph-discovery.mmd"},"defaultDag":"discovery","dagInputs":{"discovery":{"type":"discovery","domain":"general"}},"sources":{"research":{"dag":"discovery","config":"config/brief.json","runFile":"source-brief.json"}}}"#,
     );
-    let first = f.assert_success(&f.call(true, &["--project", "sample", "--source", "research"]));
+    let first = f.assert_success(&f.call(&["--project", "sample", "--source", "research"]));
     assert_eq!(first["source"], "research");
     assert_eq!(first["dag"], "discovery");
     let run = PathBuf::from(first["runPath"].as_str().unwrap());
@@ -396,10 +363,8 @@ fn source_discovery_uses_declared_brief_with_correct_json_order() {
         serde_json::from_slice(&fs::read(run.join("source-reference.json")).unwrap()).unwrap();
     assert_eq!(evidence["kind"], "discovery");
     assert_eq!(evidence["sourceBrief"], "source-brief.json");
-    let second = f.assert_success(&f.call(
-        false,
-        &["--project", "sample", "--path", run.to_str().unwrap()],
-    ));
+    let second =
+        f.assert_success(&f.call(&["--project", "sample", "--path", run.to_str().unwrap()]));
     assert_eq!(first, second);
     assert_eq!(f.state()["creates"], 1);
 }
@@ -449,9 +414,9 @@ fn concurrent_native_cli_calls_share_one_atomic_run_binding() {
 #[test]
 fn rust_and_node_stage_exactly_equivalent_canonical_private_inputs() {
     let rust = Fixture::new();
-    rust.assert_success(&rust.run(true));
-    let node = Fixture::new();
-    node.assert_success(&node.run(false));
+    rust.assert_success(&rust.run());
+    let peer = Fixture::new();
+    peer.assert_success(&peer.run());
     for name in [
         "source-reference.json",
         "neo-project-run.objective.md",
@@ -462,10 +427,10 @@ fn rust_and_node_stage_exactly_equivalent_canonical_private_inputs() {
             .unwrap()
             .replace(rust.run.to_str().unwrap(), "<RUN>")
             .replace(rust.workspace.to_str().unwrap(), "<WORKSPACE>");
-        let reference = fs::read_to_string(node.run.join(name))
+        let reference = fs::read_to_string(peer.run.join(name))
             .unwrap()
-            .replace(node.run.to_str().unwrap(), "<RUN>")
-            .replace(node.workspace.to_str().unwrap(), "<WORKSPACE>");
+            .replace(peer.run.to_str().unwrap(), "<RUN>")
+            .replace(peer.workspace.to_str().unwrap(), "<WORKSPACE>");
         assert_eq!(native, reference, "private Run input parity: {name}");
     }
 }
@@ -485,16 +450,13 @@ fn bound_source_evidence_tampering_is_rejected_without_second_job() {
         &f.workspace.join("sample").join("project.run.json"),
         r#"{"schemaVersion":1,"input":{"type":"url","schemes":["https"],"resumePath":true},"graphs":{"discovery":"graph-discovery.mmd"},"defaultDag":"discovery","dagInputs":{"discovery":{"type":"discovery","domain":"general"}},"sources":{"research":{"dag":"discovery","config":"config/brief.json","runFile":"source-brief.json"}}}"#,
     );
-    let created = f.assert_success(&f.call(true, &["--project", "sample", "--source", "research"]));
+    let created = f.assert_success(&f.call(&["--project", "sample", "--source", "research"]));
     let run = PathBuf::from(created["runPath"].as_str().unwrap());
     let evidence = run.join("source-reference.json");
     let mut data: Value = serde_json::from_slice(&fs::read(&evidence).unwrap()).unwrap();
     data["source"] = json!("different");
     put(&evidence, &serde_json::to_string_pretty(&data).unwrap());
-    let denied = f.call(
-        true,
-        &["--project", "sample", "--path", run.to_str().unwrap()],
-    );
+    let denied = f.call(&["--project", "sample", "--path", run.to_str().unwrap()]);
     assert!(!denied.status.success());
     assert!(String::from_utf8_lossy(&denied.stderr).contains("source evidence does not match"));
     assert_eq!(f.state()["creates"], 1);
@@ -524,8 +486,8 @@ fn private_vlog_no_review_requires_authorized_manifest_and_matches_node_bytes() 
         b.run.to_str().unwrap(),
         "--no-review",
     ];
-    let one = a.assert_success(&a.call(true, &args_a));
-    let two = b.assert_success(&b.call(false, &args_b));
+    let one = a.assert_success(&a.call(&args_a));
+    let two = b.assert_success(&b.call(&args_b));
     assert_eq!(one["status"], "ACTIVE");
     assert_eq!(two["status"], "ACTIVE");
     for name in [
@@ -537,10 +499,10 @@ fn private_vlog_no_review_requires_authorized_manifest_and_matches_node_bytes() 
         let rust = fs::read_to_string(a.run.join(name))
             .unwrap()
             .replace(a.run.to_str().unwrap(), "<RUN>");
-        let node = fs::read_to_string(b.run.join(name))
+        let peer = fs::read_to_string(b.run.join(name))
             .unwrap()
             .replace(b.run.to_str().unwrap(), "<RUN>");
-        assert_eq!(rust, node, "Vlog policy file parity: {name}");
+        assert_eq!(rust, peer, "Vlog policy file parity: {name}");
     }
     let mode: Value =
         serde_json::from_slice(&fs::read(a.run.join("review-mode.json")).unwrap()).unwrap();
@@ -555,13 +517,10 @@ fn private_vlog_no_review_requires_authorized_manifest_and_matches_node_bytes() 
             & 0o777,
         0o600
     );
-    let reread = a.assert_success(&a.call(false, &args_a));
+    let reread = a.assert_success(&a.call(&args_a));
     assert_eq!(reread["jobId"], one["jobId"]);
     assert_eq!(a.state()["creates"], 1);
-    let denied = a.call(
-        true,
-        &["--project", "vlog", "--path", a.run.to_str().unwrap()],
-    );
+    let denied = a.call(&["--project", "vlog", "--path", a.run.to_str().unwrap()]);
     assert!(!denied.status.success());
 }
 
@@ -583,8 +542,8 @@ fn private_vlog_no_review_rejects_missing_approval_before_relay() {
             f.run.to_str().unwrap(),
             "--no-review",
         ];
-        for native in [false, true] {
-            let result = f.call(native, &args);
+        {
+            let result = f.call(&args);
             assert!(
                 !result.status.success(),
                 "rejected manifest should not create a Job"
@@ -595,7 +554,7 @@ fn private_vlog_no_review_rejects_missing_approval_before_relay() {
 }
 
 #[test]
-fn stage_review_flags_are_exact_node_rust_parity_and_reject_unconfigured_agents() {
+fn stage_review_flags_are_exact_deterministic_contract_and_reject_unconfigured_agents() {
     let a = Fixture::new();
     let b = Fixture::new();
     for f in [&a, &b] {
@@ -607,16 +566,16 @@ fn stage_review_flags_are_exact_node_rust_parity_and_reject_unconfigured_agents(
     }
     let args_a = ["--project", "sample", "--path", a.run.to_str().unwrap()];
     let args_b = ["--project", "sample", "--path", b.run.to_str().unwrap()];
-    a.assert_success(&a.call(true, &args_a));
-    b.assert_success(&b.call(false, &args_b));
+    a.assert_success(&a.call(&args_a));
+    b.assert_success(&b.call(&args_b));
     for name in ["neo-project-run.objective.md", "neo-project-run.input.md"] {
         let rust = fs::read_to_string(a.run.join(name))
             .unwrap()
             .replace(a.run.to_str().unwrap(), "<RUN>");
-        let node = fs::read_to_string(b.run.join(name))
+        let peer = fs::read_to_string(b.run.join(name))
             .unwrap()
             .replace(b.run.to_str().unwrap(), "<RUN>");
-        assert_eq!(rust, node, "Review text parity: {name}");
+        assert_eq!(rust, peer, "Review text parity: {name}");
         assert!(rust.contains("MANDATORY STAGE-BY-STAGE HUMAN REVIEWS"));
     }
     let f = Fixture::new();
@@ -625,7 +584,7 @@ fn stage_review_flags_are_exact_node_rust_parity_and_reject_unconfigured_agents(
         r#"{"schemaVersion":1,"input":{"type":"path","path":{"base":"runs","datedRunDirectory":true}},"reviewableDags":{"growth":["writer"]},"defaultDag":"growth","graphs":{"growth":"graph.mmd"}}"#,
     );
     put(&f.run.join("review-stages.json"), r#"{"unknown":true}"#);
-    assert!(!f.run(true).status.success());
+    assert!(!f.run().status.success());
     assert!(!f.run.join(".neo-project-run.json").exists());
 }
 
@@ -648,8 +607,8 @@ fn recovering_unbound_discovery_source_preserves_exact_source_and_graph() {
         );
         put(&f.state_root.join("fail-job-create"), "test interruption");
     }
-    let result_a = a.call(true, &["--project", "sample", "--source", "topic"]);
-    let result_b = b.call(false, &["--project", "sample", "--source", "topic"]);
+    let result_a = a.call(&["--project", "sample", "--source", "topic"]);
+    let result_b = b.call(&["--project", "sample", "--source", "topic"]);
     assert!(!result_a.status.success() && !result_b.status.success());
     let discovered = |f: &Fixture| {
         fs::read_dir(f.workspace.join("sample/runs"))
@@ -668,14 +627,8 @@ fn recovering_unbound_discovery_source_preserves_exact_source_and_graph() {
     let brun = discovered(&b);
     fs::remove_file(a.state_root.join("fail-job-create")).unwrap();
     fs::remove_file(b.state_root.join("fail-job-create")).unwrap();
-    let one = a.assert_success(&a.call(
-        true,
-        &["--project", "sample", "--path", arun.to_str().unwrap()],
-    ));
-    let two = b.assert_success(&b.call(
-        false,
-        &["--project", "sample", "--path", brun.to_str().unwrap()],
-    ));
+    let one = a.assert_success(&a.call(&["--project", "sample", "--path", arun.to_str().unwrap()]));
+    let two = b.assert_success(&b.call(&["--project", "sample", "--path", brun.to_str().unwrap()]));
     assert_eq!(one["source"], "topic");
     assert_eq!(two["source"], "topic");
     assert_eq!(one["dag"], "growth");
@@ -689,10 +642,10 @@ fn recovering_unbound_discovery_source_preserves_exact_source_and_graph() {
         let rust = fs::read_to_string(arun.join(name))
             .unwrap()
             .replace(arun.to_str().unwrap(), "<RUN>");
-        let node = fs::read_to_string(brun.join(name))
+        let peer = fs::read_to_string(brun.join(name))
             .unwrap()
             .replace(brun.to_str().unwrap(), "<RUN>");
-        assert_eq!(rust, node, "Recovery file parity: {name}");
+        assert_eq!(rust, peer, "Recovery file parity: {name}");
     }
 }
 
@@ -706,7 +659,7 @@ fn foreground_project_run_attaches_without_duplicate_scheduler_or_false_completi
         f.run.to_str().unwrap(),
         "--foreground",
     ];
-    let result = f.call(true, &args);
+    let result = f.call(&args);
     assert!(
         result.status.success(),
         "{}",
@@ -729,7 +682,7 @@ fn foreground_project_run_attaches_without_duplicate_scheduler_or_false_completi
             .count(),
         1
     );
-    let second = f.call(true, &args);
+    let second = f.call(&args);
     assert!(second.status.success());
     assert_eq!(f.state()["creates"], 1);
     assert_eq!(
@@ -749,14 +702,14 @@ fn foreground_failure_preserves_original_binding_and_exit_failure() {
         f.run.to_str().unwrap(),
         "--foreground",
     ];
-    let failed = f.call(true, &args);
+    let failed = f.call(&args);
     assert!(!failed.status.success());
     assert!(String::from_utf8_lossy(&failed.stderr).contains("foreground"));
     let binding: Value =
         serde_json::from_slice(&fs::read(f.run.join(".neo-project-run.json")).unwrap()).unwrap();
     assert_eq!(binding["jobId"], "101");
     fs::remove_file(f.state_root.join("fail-job-run")).unwrap();
-    let resumed = f.call(true, &args);
+    let resumed = f.call(&args);
     assert!(resumed.status.success());
     assert_eq!(f.state()["creates"], 1);
 }
@@ -764,21 +717,18 @@ fn foreground_failure_preserves_original_binding_and_exit_failure() {
 #[test]
 fn foreground_completed_job_returns_one_terminal_response_without_reinvoking_relay() {
     let f = Fixture::new();
-    f.assert_success(&f.run(true));
+    f.assert_success(&f.run());
     let state_file = f.state_root.join("state.json");
     let mut state = f.state();
     state["jobs"]["101"]["state"] = json!("COMPLETED");
     put(&state_file, &serde_json::to_string(&state).unwrap());
-    let output = f.call(
-        true,
-        &[
-            "--project",
-            "sample",
-            "--path",
-            f.run.to_str().unwrap(),
-            "--foreground",
-        ],
-    );
+    let output = f.call(&[
+        "--project",
+        "sample",
+        "--path",
+        f.run.to_str().unwrap(),
+        "--foreground",
+    ]);
     assert!(output.status.success());
     let raw = String::from_utf8_lossy(&output.stdout);
     assert_eq!(raw.lines().count(), 1);
@@ -798,7 +748,7 @@ fn foreground_completed_job_returns_one_terminal_response_without_reinvoking_rel
 }
 
 #[test]
-fn human_title_and_flag_forms_match_node_reference_and_preserve_resume() {
+fn human_title_and_flag_forms_match_contract_and_preserve_resume() {
     let a = Fixture::new_named("vlog");
     let b = Fixture::new_named("vlog");
     let args_a = [
@@ -814,8 +764,8 @@ fn human_title_and_flag_forms_match_node_reference_and_preserve_resume() {
         "--title",
         "加拿大周末随拍",
     ];
-    let first = a.assert_success(&a.call(true, &args_a));
-    let second = b.assert_success(&b.call(false, &args_b));
+    let first = a.assert_success(&a.call(&args_a));
+    let second = b.assert_success(&b.call(&args_b));
     assert_eq!(first["status"], second["status"]);
     let title = |f: &Fixture| {
         let state = f.state();
@@ -829,16 +779,13 @@ fn human_title_and_flag_forms_match_node_reference_and_preserve_resume() {
     assert_eq!(title(&a), "加拿大周末随拍");
     assert_eq!(title(&a), title(&b));
     let old = a.state()["creates"].clone();
-    a.assert_success(&a.call(
-        true,
-        &[
-            "--path",
-            a.run.to_str().unwrap(),
-            "--project=vlog",
-            "--title",
-            "different on replay",
-        ],
-    ));
+    a.assert_success(&a.call(&[
+        "--path",
+        a.run.to_str().unwrap(),
+        "--project=vlog",
+        "--title",
+        "different on replay",
+    ]));
     assert_eq!(a.state()["creates"], old);
 }
 
@@ -847,7 +794,7 @@ fn coordinator_ids_must_be_numeric_for_new_runs() {
     for mode in ["bad-job-id", "bad-task-id"] {
         let f = Fixture::new();
         put(&f.state_root.join(mode), "invalid response");
-        let result = f.run(true);
+        let result = f.run();
         assert!(!result.status.success());
         assert!(!f.run.join(".neo-project-run.json").exists());
         assert_eq!(f.state()["creates"], 1);
@@ -874,45 +821,37 @@ fn bound_named_dag_cannot_be_changed_during_resume() {
         &f.workspace.join("sample/project.run.json"),
         r#"{"schemaVersion":1,"input":{"type":"path","path":{"base":"runs","datedRunDirectory":true}},"graphs":{"growth":"graph-growth.mmd","promotion":"graph.mmd"},"defaultDag":"promotion"}"#,
     );
-    let run = f.call(
-        true,
-        &[
-            "--project",
-            "sample",
-            "--path",
-            f.run.to_str().unwrap(),
-            "--dag",
-            "growth",
-        ],
-    );
+    let run = f.call(&[
+        "--project",
+        "sample",
+        "--path",
+        f.run.to_str().unwrap(),
+        "--dag",
+        "growth",
+    ]);
     let first = f.assert_success(&run);
     assert_eq!(first["dag"], "growth");
-    let rejected = f.call(
-        true,
-        &[
-            "--project",
-            "sample",
-            "--path",
-            f.run.to_str().unwrap(),
-            "--dag",
-            "promotion",
-        ],
-    );
+    let rejected = f.call(&[
+        "--project",
+        "sample",
+        "--path",
+        f.run.to_str().unwrap(),
+        "--dag",
+        "promotion",
+    ]);
     assert!(!rejected.status.success());
     assert!(String::from_utf8_lossy(&rejected.stderr).contains("different DAG"));
     assert_eq!(f.state()["creates"], 1);
-    let resumed = f.assert_success(&f.call(
-        false,
-        &["--project", "sample", "--path", f.run.to_str().unwrap()],
-    ));
+    let resumed =
+        f.assert_success(&f.call(&["--project", "sample", "--path", f.run.to_str().unwrap()]));
     assert_eq!(resumed["jobId"], first["jobId"]);
 }
 
 #[test]
 fn prepared_url_project_run_reuses_original_private_evidence() {
     let rust = Fixture::new();
-    let node = Fixture::new();
-    for f in [&rust, &node] {
+    let peer = Fixture::new();
+    for f in [&rust, &peer] {
         put(
             &f.workspace.join("sample/project.run.json"),
             r#"{"schemaVersion":1,"input":{"type":"url","schemes":["https"],"resumePath":true,"preparedPath":true}}"#,
@@ -923,8 +862,8 @@ fn prepared_url_project_run_reuses_original_private_evidence() {
         );
         put(&f.run.join("evidence/original-source.json"), "{}");
     }
-    let a = rust.assert_success(&rust.run(true));
-    let b = node.assert_success(&node.run(false));
+    let a = rust.assert_success(&rust.run());
+    let b = peer.assert_success(&peer.run());
     assert_eq!(a["status"], b["status"]);
     for file in [
         "source-reference.json",
@@ -934,9 +873,9 @@ fn prepared_url_project_run_reuses_original_private_evidence() {
         let native = fs::read_to_string(rust.run.join(file))
             .unwrap()
             .replace(rust.run.to_str().unwrap(), "<RUN>");
-        let refer = fs::read_to_string(node.run.join(file))
+        let refer = fs::read_to_string(peer.run.join(file))
             .unwrap()
-            .replace(node.run.to_str().unwrap(), "<RUN>");
+            .replace(peer.run.to_str().unwrap(), "<RUN>");
         assert_eq!(native, refer, "prepared URL Run parity: {file}");
     }
 }
@@ -945,8 +884,8 @@ fn prepared_url_project_run_reuses_original_private_evidence() {
 fn vlog_publisher_review_and_six_stage_growth_policy_are_node_equivalent() {
     for project in ["vlog", "growth"] {
         let rust = Fixture::new_named(project);
-        let node = Fixture::new_named(project);
-        for f in [&rust, &node] {
+        let peer = Fixture::new_named(project);
+        for f in [&rust, &peer] {
             if project == "vlog" {
                 put(
                     &f.workspace.join("vlog/project.run.json"),
@@ -991,16 +930,16 @@ fn vlog_publisher_review_and_six_stage_growth_policy_are_node_equivalent() {
             }
         }
         let args_a = ["--project", project, "--path", rust.run.to_str().unwrap()];
-        let args_b = ["--project", project, "--path", node.run.to_str().unwrap()];
-        rust.assert_success(&rust.call(true, &args_a));
-        node.assert_success(&node.call(false, &args_b));
+        let args_b = ["--project", project, "--path", peer.run.to_str().unwrap()];
+        rust.assert_success(&rust.call(&args_a));
+        peer.assert_success(&peer.call(&args_b));
         for file in ["neo-project-run.objective.md", "neo-project-run.input.md"] {
             let native = fs::read_to_string(rust.run.join(file))
                 .unwrap()
                 .replace(rust.run.to_str().unwrap(), "<RUN>");
-            let refer = fs::read_to_string(node.run.join(file))
+            let refer = fs::read_to_string(peer.run.join(file))
                 .unwrap()
-                .replace(node.run.to_str().unwrap(), "<RUN>");
+                .replace(peer.run.to_str().unwrap(), "<RUN>");
             assert_eq!(
                 native, refer,
                 "multi-stage approval policy parity for {project}:{file}"
@@ -1012,15 +951,8 @@ fn vlog_publisher_review_and_six_stage_growth_policy_are_node_equivalent() {
 #[test]
 fn declared_dag_supplies_internal_preflight_and_rejects_caller_option() {
     let f = Fixture::new();
-    let run_cli = |native: bool, args: &[&str]| {
-        let mut cmd = if native {
-            Command::new(env!("CARGO_BIN_EXE_neo-rs"))
-        } else {
-            Command::new(&f.node)
-        };
-        if !native {
-            cmd.arg(f.repo.join(".bin/neo.mjs"));
-        }
+    let run_cli = |args: &[&str]| {
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_neo-rs"));
         cmd.args(["project", "run"])
             .args(args)
             .env("HOME", &f.home)
@@ -1033,7 +965,7 @@ fn declared_dag_supplies_internal_preflight_and_rejects_caller_option() {
             .unwrap()
     };
     let options = ["--project", "sample", "--path", f.run.to_str().unwrap()];
-    for native in [true, false] {
+    {
         for invalid in [
             vec!["--preflight=true"],
             vec!["--preflight=false"],
@@ -1042,7 +974,7 @@ fn declared_dag_supplies_internal_preflight_and_rejects_caller_option() {
         ] {
             let mut args = options.to_vec();
             args.extend(invalid);
-            let rejected = run_cli(native, &args);
+            let rejected = run_cli(&args);
             assert!(
                 !rejected.status.success(),
                 "caller preflight option must not create Job"
@@ -1054,10 +986,10 @@ fn declared_dag_supplies_internal_preflight_and_rejects_caller_option() {
             assert!(!f.state_root.join("state.json").exists());
         }
     }
-    let first = f.assert_success(&run_cli(true, &options));
+    let first = f.assert_success(&run_cli(&options));
     assert_eq!(first["status"], "ACTIVE");
     assert_eq!(f.state()["creates"], 1);
-    let resumed = f.assert_success(&run_cli(true, &options));
+    let resumed = f.assert_success(&run_cli(&options));
     assert_eq!(first, resumed);
     assert_eq!(f.state()["creates"], 1);
 }

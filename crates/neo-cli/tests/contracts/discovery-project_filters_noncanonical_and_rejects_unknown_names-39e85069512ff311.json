@@ -1,0 +1,11 @@
+{
+  "input": [
+    "project",
+    "resolve",
+    "../alpha"
+  ],
+  "expected": {
+    "exit": 1,
+    "stdout": ""
+  }
+}

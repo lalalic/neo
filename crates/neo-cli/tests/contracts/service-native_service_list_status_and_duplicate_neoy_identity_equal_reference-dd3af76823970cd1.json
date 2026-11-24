@@ -1,0 +1,36 @@
+{
+  "input": [
+    "list"
+  ],
+  "expected": {
+    "exit": 0,
+    "stdout": [
+      {
+        "name": "neo/service",
+        "state": "online",
+        "pid": 413,
+        "manager": "pm2",
+        "managed": true,
+        "health": "not_checked"
+      },
+      {
+        "name": "neoy/app",
+        "nativeLabel": "com.neox.neoy.keepalive",
+        "state": "running",
+        "pid": 921,
+        "manager": "launchd",
+        "managed": true,
+        "health": "not_checked",
+        "warning": "legacy PM2 neoy duplicate detected; native launchd is authoritative"
+      },
+      {
+        "name": "off",
+        "state": "stopped",
+        "pid": null,
+        "manager": "pm2",
+        "managed": true,
+        "health": "not_checked"
+      }
+    ]
+  }
+}

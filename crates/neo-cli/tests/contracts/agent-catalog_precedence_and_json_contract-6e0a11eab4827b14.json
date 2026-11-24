@@ -1,0 +1,29 @@
+{
+  "input": [
+    "agent",
+    "list",
+    "--source",
+    "agency"
+  ],
+  "expected": {
+    "exit": 0,
+    "stdout": [
+      {
+        "name": "agency-code-reviewer",
+        "description": "Expert code review specialist",
+        "source": "agency",
+        "path": "<FIXTURE>/home/.local/share/agency-agents/integrations/dsh/agency-code-reviewer/SKILL.md",
+        "requires_project_manifest": true,
+        "effective": true
+      },
+      {
+        "name": "agency-product-strategist",
+        "description": "Product research and strategy",
+        "source": "agency",
+        "path": "<FIXTURE>/home/.local/share/agency-agents/integrations/dsh/agency-product-strategist/SKILL.md",
+        "requires_project_manifest": true,
+        "effective": true
+      }
+    ]
+  }
+}

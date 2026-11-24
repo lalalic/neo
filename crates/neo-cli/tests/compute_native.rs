@@ -34,15 +34,8 @@ impl Fixture {
             root,
         }
     }
-    fn run(&self, native: bool, args: &[&str]) -> Output {
-        let mut command = if native {
-            Command::new(env!("CARGO_BIN_EXE_neo-rs"))
-        } else {
-            Command::new("node")
-        };
-        if !native {
-            command.arg(self.root.join(".bin/neo.mjs"));
-        }
+    fn run(&self, args: &[&str]) -> Output {
+        let mut command = Command::new(env!("CARGO_BIN_EXE_neo-rs"));
         command
             .args(args)
             .env("HOME", &self.home)
@@ -60,8 +53,8 @@ impl Fixture {
             .output()
             .unwrap()
     }
-    fn json(&self, native: bool, args: &[&str]) -> Value {
-        let output = self.run(native, args);
+    fn json(&self, args: &[&str]) -> Value {
+        let output = self.run(args);
         assert!(
             output.status.success(),
             "{args:?}: {}",
@@ -107,11 +100,9 @@ impl Fixture {
     }
 }
 #[test]
-fn native_compute_read_only_services_matches_node_registry_and_requires_no_node_on_path() {
+fn native_compute_read_only_services_matches_empty_registry_and_requires_no_node_on_path() {
     let f = Fixture::new();
-    let native = f.json(true, &["compute", "services"]);
-    let node = f.json(false, &["compute", "services"]);
-    assert_eq!(native, node);
+    let native = f.json(&["compute", "services"]);
     assert_eq!(native, json!({"version":1,"services":{}}));
     let output = Command::new(env!("CARGO_BIN_EXE_neo-rs"))
         .args(["compute", "services"])
@@ -127,7 +118,7 @@ fn native_compute_read_only_services_matches_node_registry_and_requires_no_node_
     );
 }
 #[test]
-fn native_compute_run_dry_run_matches_original_provider_plan_and_performs_no_rental() {
+fn native_compute_run_dry_run_matches_provider_plan_and_performs_no_rental() {
     let f = Fixture::new();
     let output = f.temp.path().join("result.mp4");
     let output = output.to_str().unwrap();
@@ -142,11 +133,11 @@ fn native_compute_run_dry_run_matches_original_provider_plan_and_performs_no_ren
         output,
         "--dry-run",
     ];
-    let mut a = f.json(true, &args);
-    let b = f.json(false, &args);
-    // Node deliberately omits undefined SSH keys; Rust includes a JSON null.
-    a.as_object_mut().unwrap().remove("sshKey");
-    assert_eq!(a, b);
+    let a = f.json(&args);
+    assert_eq!(a["mode"], "dry_run");
+    assert_eq!(a["provider"], "hf");
+    assert_eq!(a["allowSpend"], false);
+    assert_eq!(a["image"], "ghcr.io/test-owner/service:sha-abcdef012345");
     assert!(!output.to_string().contains("SYNTHETIC_SECRET"));
     assert!(!f.temp.path().join("leases").exists());
 }
@@ -166,14 +157,14 @@ fn native_compute_rejects_invalid_cost_and_remote_job_before_any_provider_action
             output,
         ];
         args.extend(extra);
-        let result = f.run(true, &args);
+        let result = f.run(&args);
         assert!(!result.status.success());
         assert!(result.stdout.is_empty());
     }
     assert!(!f.home.join("provider-called").exists());
 }
 #[test]
-fn native_compute_build_plan_matches_canonical_node_image_identity_and_no_docker_invocation() {
+fn native_compute_build_plan_matches_canonical_image_identity_and_no_docker_invocation() {
     let f = Fixture::new();
     f.repo();
     f.fake(
@@ -189,25 +180,30 @@ fn native_compute_build_plan_matches_canonical_node_image_identity_and_no_docker
         "local",
         "--dry-run",
     ];
-    let native = f.json(true, &args);
-    let node = f.json(false, &args);
-    for key in [
-        "name",
-        "image",
-        "project",
-        "repository",
-        "commit",
-        "dockerfile",
-        "builder",
-        "push",
-        "mode",
-        "appPort",
-        "runtimeHash",
-        "buildId",
-        "dryRun",
-    ] {
-        assert_eq!(native[key], node[key], "Compute build plan mismatch: {key}");
-    }
+    let native = f.json(&args);
+    let commit = String::from_utf8(
+        Command::new("git")
+            .args(["rev-parse", "HEAD"])
+            .current_dir(&f.project)
+            .output()
+            .unwrap()
+            .stdout,
+    )
+    .unwrap()
+    .trim()
+    .to_string();
+    assert_eq!(native["name"], "sample");
+    assert_eq!(native["commit"], commit);
+    assert_eq!(native["dockerfile"], "Dockerfile");
+    assert_eq!(native["builder"], "local");
+    assert_eq!(native["mode"], "batch");
+    assert_eq!(native["push"], true);
+    assert!(native["image"]
+        .as_str()
+        .unwrap()
+        .starts_with("ghcr.io/test-owner/sample-gpu:sha-"));
+    assert_eq!(native["runtimeHash"].as_str().unwrap().len(), 64);
+    assert!(native["buildId"].is_null());
     assert!(!f.home.join("docker-called").exists());
 }
 #[test]
@@ -218,7 +214,7 @@ fn native_compute_cleanup_rejects_untrusted_paths_and_does_not_call_providers() 
         "/tmp/not-a-lease.json",
         "relative/lease-0123456789abcdef00.json",
     ] {
-        let status = f.run(true, &["compute", "cleanup", "--lease", path]);
+        let status = f.run(&["compute", "cleanup", "--lease", path]);
         assert!(!status.status.success());
         assert!(status.stdout.is_empty());
     }
@@ -236,19 +232,13 @@ fn native_compute_cleanup_reconciles_hf_job_and_persists_a_private_destroyed_rec
     )
     .unwrap();
     f.fake("hf","if [ \"$1\" = jobs ] && [ \"$2\" = inspect ]; then echo '{\"status\":{\"stage\":\"CANCELED\"}}'; fi");
-    let result = f.json(
-        true,
-        &["compute", "cleanup", "--lease", file.to_str().unwrap()],
-    );
+    let result = f.json(&["compute", "cleanup", "--lease", file.to_str().unwrap()]);
     assert_eq!(result["phase"], "destroyed");
     assert_eq!(result["terminalStatus"], "CANCELED");
     let stored: Value = serde_json::from_slice(&fs::read(&file).unwrap()).unwrap();
     assert_eq!(stored["phase"], "destroyed");
     assert_eq!(
-        f.json(
-            true,
-            &["compute", "cleanup", "--lease", file.to_str().unwrap()]
-        )["already"],
+        f.json(&["compute", "cleanup", "--lease", file.to_str().unwrap()])["already"],
         true
     );
     #[cfg(unix)]
@@ -261,7 +251,7 @@ fn native_compute_cleanup_reconciles_hf_job_and_persists_a_private_destroyed_rec
 fn legacy_gpu_cli_is_rejected_and_no_node_subprocess_is_started() {
     let f = Fixture::new();
     f.fake("node", "echo NODE_CALLED > \"$HOME/node-called\"");
-    let result = f.run(true, &["gpu", "services"]);
+    let result = f.run(&["gpu", "services"]);
     assert!(!result.status.success());
     assert!(String::from_utf8_lossy(&result.stderr).contains("obsolete"));
     assert!(!f.home.join("node-called").exists());
@@ -276,20 +266,17 @@ if [ "$1" = jobs ] && [ "$2" = run ]; then echo 'WRONG_PAID_CREATE' > "$HOME/pai
 exit 4
 "#);
     let output = f.temp.path().join("result.mp4");
-    let reply = f.run(
-        true,
-        &[
-            "compute",
-            "run",
-            "--image",
-            "ghcr.io/test/demo:v1",
-            "--output",
-            output.to_str().unwrap(),
-            "--allow-spend",
-            "--budget",
-            "2",
-        ],
-    );
+    let reply = f.run(&[
+        "compute",
+        "run",
+        "--image",
+        "ghcr.io/test/demo:v1",
+        "--output",
+        output.to_str().unwrap(),
+        "--allow-spend",
+        "--budget",
+        "2",
+    ]);
     assert!(!reply.status.success());
     assert!(String::from_utf8_lossy(&reply.stderr).contains("exceeds budget"));
     assert!(!f.home.join("paid-created").exists());
@@ -307,20 +294,17 @@ fi
 exit 0
 "#);
     let output = f.temp.path().join("result.mp4");
-    let reply = f.run(
-        true,
-        &[
-            "compute",
-            "run",
-            "--image",
-            "ghcr.io/test/demo:v1",
-            "--output",
-            output.to_str().unwrap(),
-            "--allow-spend",
-            "--budget",
-            "2",
-        ],
-    );
+    let reply = f.run(&[
+        "compute",
+        "run",
+        "--image",
+        "ghcr.io/test/demo:v1",
+        "--output",
+        output.to_str().unwrap(),
+        "--allow-spend",
+        "--budget",
+        "2",
+    ]);
     assert!(!reply.status.success());
     assert!(reply.stdout.is_empty());
     assert_eq!(
@@ -356,29 +340,29 @@ fn web_fixture(f: &Fixture) {
 fn native_web_compute_register_token_rotate_status_update_remove_lifecycle() {
     let f = Fixture::new();
     web_fixture(&f);
-    let registered = f.json(true, &["compute", "web", "add", "demo"]);
+    let registered = f.json(&["compute", "web", "add", "demo"]);
     assert_eq!(registered["service"], "demo");
     assert_eq!(registered["provider"], "hf");
     let original = registered["token"].as_str().unwrap().to_owned();
     assert_eq!(original.len(), 43);
-    let read = f.json(true, &["compute", "web", "token", "demo"]);
+    let read = f.json(&["compute", "web", "token", "demo"]);
     assert_eq!(read["token"], original);
-    let status = f.json(true, &["compute", "web", "status", "demo"]);
+    let status = f.json(&["compute", "web", "status", "demo"]);
     assert_eq!(status["session"]["phase"], "stopped");
     assert_eq!(status["config"]["provider"], "hf");
-    let rotated = f.json(true, &["compute", "web", "rotate", "demo"]);
+    let rotated = f.json(&["compute", "web", "rotate", "demo"]);
     assert_eq!(rotated["rotated"], true);
     assert_ne!(rotated["token"], original);
     assert_eq!(
-        f.json(true, &["compute", "web", "token", "demo"])["token"],
+        f.json(&["compute", "web", "token", "demo"])["token"],
         rotated["token"]
     );
-    let refresh = f.json(true, &["compute", "web", "update", "demo"]);
+    let refresh = f.json(&["compute", "web", "update", "demo"]);
     assert_eq!(refresh["tokenPreserved"], true);
     assert_eq!(refresh["changed"], false);
-    let removed = f.json(true, &["compute", "web", "remove", "demo"]);
+    let removed = f.json(&["compute", "web", "remove", "demo"]);
     assert_eq!(removed["phase"], "removed");
-    assert_eq!(f.json(true, &["compute", "web", "status"]), json!({}));
+    assert_eq!(f.json(&["compute", "web", "status"]), json!({}));
     #[cfg(unix)]
     {
         let dir = f.home.join(".config/neo/gpu/web/tokens");
@@ -392,22 +376,22 @@ fn native_web_compute_register_token_rotate_status_update_remove_lifecycle() {
 fn native_web_compute_requires_spend_consent_and_blocks_over_budget_rental() {
     let f = Fixture::new();
     web_fixture(&f);
-    f.json(true, &["compute", "web", "add", "demo"]);
+    f.json(&["compute", "web", "add", "demo"]);
     f.fake("hf",r#"
 if [ "$1" = jobs ] && [ "$2" = hardware ]; then echo '[{"name":"l4x1","cost/hour":"$99"}]'; exit 0; fi
 if [ "$1" = jobs ] && [ "$2" = run ]; then echo BILLABLE_JOB_CALLED > "$HOME/billable"; exit 0; fi
 exit 10
 "#);
-    let denied = f.run(true, &["compute", "web", "start", "demo"]);
+    let denied = f.run(&["compute", "web", "start", "demo"]);
     assert!(!denied.status.success());
     assert!(String::from_utf8_lossy(&denied.stderr).contains("--allow-spend"));
-    let expensive = f.run(true, &["compute", "web", "start", "demo", "--allow-spend"]);
+    let expensive = f.run(&["compute", "web", "start", "demo", "--allow-spend"]);
     assert!(!expensive.status.success());
     assert!(String::from_utf8_lossy(&expensive.stderr).contains("exceeds budget"));
     assert!(!f.home.join("billable").exists());
     assert!(!f.temp.path().join("leases").exists());
     assert_eq!(
-        f.json(true, &["compute", "web", "status", "demo"])["session"]["phase"],
+        f.json(&["compute", "web", "status", "demo"])["session"]["phase"],
         "stopped"
     );
 }
@@ -415,11 +399,11 @@ exit 10
 fn native_web_compute_kernel_lock_remains_usable_after_stale_filename() {
     let f = Fixture::new();
     web_fixture(&f);
-    f.json(true, &["compute", "web", "add", "demo"]);
+    f.json(&["compute", "web", "add", "demo"]);
     let lock = f.home.join(".local/state/neo/gpu/web/demo.json.lock");
     fs::create_dir_all(lock.parent().unwrap()).unwrap();
     fs::write(&lock, "obsolete legacy lockfile").unwrap();
-    let token = f.json(true, &["compute", "web", "rotate", "demo"]);
+    let token = f.json(&["compute", "web", "rotate", "demo"]);
     assert_eq!(token["rotated"], true);
     assert!(
         lock.exists(),
@@ -429,36 +413,33 @@ fn native_web_compute_kernel_lock_remains_usable_after_stale_filename() {
 #[test]
 fn native_web_compute_gateway_rejects_unsafe_public_origin_before_listening() {
     let f = Fixture::new();
-    let result = f.run(
-        true,
-        &[
-            "compute",
-            "web",
-            "serve",
-            "--port",
-            "8798",
-            "--origin",
-            "http://external.example.com",
-        ],
-    );
+    let result = f.run(&[
+        "compute",
+        "web",
+        "serve",
+        "--port",
+        "8798",
+        "--origin",
+        "http://external.example.com",
+    ]);
     assert!(!result.status.success());
     assert!(result.stdout.is_empty());
     assert!(String::from_utf8_lossy(&result.stderr).contains("origin must use HTTPS"));
 }
 
 #[test]
-fn native_web_compute_status_and_registered_config_match_node_reference() {
+fn native_web_compute_status_and_registered_config_are_deterministic() {
     let rust = Fixture::new();
-    let node = Fixture::new();
+    let peer = Fixture::new();
     web_fixture(&rust);
-    web_fixture(&node);
-    let native = rust.json(true, &["compute", "web", "add", "demo"]);
-    let legacy = node.json(false, &["compute", "web", "add", "demo"]);
+    web_fixture(&peer);
+    let native = rust.json(&["compute", "web", "add", "demo"]);
+    let second = peer.json(&["compute", "web", "add", "demo"]);
     for field in ["service", "url", "provider", "hardShutdownSeconds"] {
-        assert_eq!(native[field], legacy[field], "Web add parity: {field}");
+        assert_eq!(native[field], second[field], "Web add parity: {field}");
     }
-    let ours = rust.json(true, &["compute", "web", "status", "demo"]);
-    let reference = node.json(false, &["compute", "web", "status", "demo"]);
+    let ours = rust.json(&["compute", "web", "status", "demo"]);
+    let reference = peer.json(&["compute", "web", "status", "demo"]);
     for field in ["service", "config", "session", "url"] {
         assert_eq!(ours[field], reference[field], "Web status parity: {field}");
     }
@@ -485,10 +466,7 @@ if [ "$1" = jobs ] && [ "$2" = cancel ]; then echo "$3" >> "$HOME/hf-canceled"; 
 if [ "$1" = jobs ] && [ "$2" = inspect ]; then echo '{"status":{"stage":"CANCELED"}}'; exit 0; fi
 exit 12
 "#);
-    let response = f.json(
-        true,
-        &["compute", "cleanup", "--lease", location.to_str().unwrap()],
-    );
+    let response = f.json(&["compute", "cleanup", "--lease", location.to_str().unwrap()]);
     assert_eq!(response["phase"], "destroyed");
     assert_eq!(response["terminalStatus"], "reconciled_canceled");
     assert_eq!(
@@ -504,7 +482,7 @@ exit 12
 fn native_web_starting_session_recovers_to_stopped_after_watchdog_verifies_cleanup() {
     let f = Fixture::new();
     web_fixture(&f);
-    f.json(true, &["compute", "web", "add", "demo"]);
+    f.json(&["compute", "web", "add", "demo"]);
     let leases = f.temp.path().join("leases");
     fs::create_dir_all(&leases).unwrap();
     let lease = leases.join("lease-0123456789abcdef00.json");
@@ -521,7 +499,7 @@ fn native_web_starting_session_recovers_to_stopped_after_watchdog_verifies_clean
         json!({"phase":"starting","provider":"hf","lease":lease}).to_string(),
     )
     .unwrap();
-    let recovered = f.json(true, &["compute", "web", "status", "demo"]);
+    let recovered = f.json(&["compute", "web", "status", "demo"]);
     assert_eq!(recovered["session"]["phase"], "stopped");
     assert_eq!(
         recovered["session"]["terminalStatus"],
@@ -553,7 +531,7 @@ exit 0
         "local",
         "--no-push",
     ];
-    let result = f.json(true, &request);
+    let result = f.json(&request);
     assert_eq!(result["event"], "neo_gpu_service_built");
     assert_eq!(result["service"], "sample");
     assert_eq!(result["published"], false);
@@ -579,7 +557,7 @@ exit 0
             .count(),
         0
     );
-    let services = f.json(true, &["compute", "services"]);
+    let services = f.json(&["compute", "services"]);
     assert_eq!(services["services"]["sample"]["published"], false);
 }
 #[test]
@@ -622,34 +600,28 @@ fi
 exit 23
 "#);
     let project = f.project.to_str().unwrap();
-    let denied = f.run(
-        true,
-        &[
-            "compute",
-            "build",
-            "--project",
-            project,
-            "--builder",
-            "github",
-        ],
-    );
+    let denied = f.run(&[
+        "compute",
+        "build",
+        "--project",
+        project,
+        "--builder",
+        "github",
+    ]);
     assert!(!denied.status.success());
     assert!(
         !f.home.join("gh-commands").exists(),
         "no gh action without explicit --push"
     );
-    let output = f.run(
-        true,
-        &[
-            "compute",
-            "build",
-            "--project",
-            project,
-            "--builder",
-            "github",
-            "--push",
-        ],
-    );
+    let output = f.run(&[
+        "compute",
+        "build",
+        "--project",
+        project,
+        "--builder",
+        "github",
+        "--push",
+    ]);
     assert!(
         output.status.success(),
         "{}",
@@ -683,7 +655,7 @@ exit 23
             .count(),
         1
     );
-    let registry = f.json(true, &["compute", "services"]);
+    let registry = f.json(&["compute", "services"]);
     assert_eq!(registry["services"]["sample"]["published"], true);
 }
 
@@ -691,7 +663,7 @@ exit 23
 fn native_web_hf_session_paid_lifecycle_runs_once_and_verifies_cancellation() {
     let f = Fixture::new();
     web_fixture(&f);
-    f.json(true, &["compute", "web", "add", "demo"]);
+    f.json(&["compute", "web", "add", "demo"]);
     f.fake("hf",r#"
 if [ "$1" = jobs ] && [ "$2" = hardware ]; then echo '[{"name":"l4x1","cost/hour":"$0.50"}]'; exit 0; fi
 if [ "$1" = jobs ] && [ "$2" = run ]; then
@@ -709,9 +681,9 @@ if [ "$1" = jobs ] && [ "$2" = inspect ]; then
 fi
 exit 26
 "#);
-    let running = f.json(true, &["compute", "web", "start", "demo", "--allow-spend"]);
+    let running = f.json(&["compute", "web", "start", "demo", "--allow-spend"]);
     assert_eq!(running["phase"], "running");
-    let session = f.json(true, &["compute", "web", "status", "demo"]);
+    let session = f.json(&["compute", "web", "status", "demo"]);
     assert_eq!(session["session"]["phase"], "running");
     assert_eq!(session["session"]["jobId"], "abcdef012345abcdef012345");
     let lease = Path::new(session["session"]["lease"].as_str().unwrap());
@@ -721,7 +693,7 @@ exit 26
         .as_str()
         .unwrap()
         .starts_with("neo-gpu-web-"));
-    let stopped = f.json(true, &["compute", "web", "stop", "demo"]);
+    let stopped = f.json(&["compute", "web", "stop", "demo"]);
     assert_eq!(stopped["phase"], "stopped");
     assert_eq!(stopped["terminalStatus"], "CANCELED");
     let final_record: Value = serde_json::from_slice(&fs::read(lease).unwrap()).unwrap();
@@ -751,20 +723,17 @@ if [ "$1" = create ]; then echo 'UNSAFE_PAID_CREATE' > "$HOME/vast-created"; exi
 exit 25
 "#);
     let output = f.temp.path().join("vast-output.mp4");
-    let request = f.run(
-        true,
-        &[
-            "compute",
-            "run",
-            "--image",
-            "ghcr.io/test/demo:v1",
-            "--provider",
-            "vast",
-            "--output",
-            output.to_str().unwrap(),
-            "--allow-spend",
-        ],
-    );
+    let request = f.run(&[
+        "compute",
+        "run",
+        "--image",
+        "ghcr.io/test/demo:v1",
+        "--provider",
+        "vast",
+        "--output",
+        output.to_str().unwrap(),
+        "--allow-spend",
+    ]);
     assert!(!request.status.success());
     assert!(String::from_utf8_lossy(&request.stderr).contains("No verified Vast GPU offer"));
     assert!(!f.home.join("vast-created").exists());

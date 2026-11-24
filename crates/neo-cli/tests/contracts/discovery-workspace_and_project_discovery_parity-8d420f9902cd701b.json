@@ -1,0 +1,13 @@
+{
+  "input": [
+    "workspace",
+    "show"
+  ],
+  "expected": {
+    "exit": 0,
+    "stdout": {
+      "neoRoot": "<FIXTURE>/projects",
+      "harnessRoot": "<HARNESS>"
+    }
+  }
+}

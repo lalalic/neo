@@ -5,7 +5,7 @@ description: Package GitHub repositories as Docker compute services and run mana
 
 # Neo Compute
 
-Use `neo compute` when a GitHub repository needs a reusable Docker image, one-shot cloud Job, or authenticated Web application. This is a **built-in Node.js Neo CLI module**, not a separate package or a Relay Job runner. The project owns its Dockerfile and computation; Neo owns a shared service wrapper, image registry, transport and provider adapters.
+Use `neo compute` when a GitHub repository needs a reusable Docker image, one-shot cloud Job, or authenticated Web application. This is a **native Rust Neo CLI module**, not a separate package or a Relay Job runner. The project owns its Dockerfile and computation; Neo owns a shared service wrapper, image registry, transport and provider adapters.
 
 ## Natural-language onboarding
 

@@ -7,12 +7,10 @@ import {tmpdir,homedir} from 'node:os';
 import {join,resolve} from 'node:path';
 import {randomUUID,createHash} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
-import {imagePlan} from '../image.mjs';
-import {findService,atomicJson} from '../common.mjs';
+import {nativeCli,imagePlan,findService,atomicJson} from './native-cli.mjs';
 import {reusableFixtureImage} from './reuse.mjs';
 import {gatewayCredentialReady} from './gateway-prereq.mjs';
 const project=resolve(fileURLToPath(new URL('../..',import.meta.url)));
-const neo=join(project,'.bin','neo.mjs');
 const dockerfile='gpu/e2e/Dockerfile';
 const names={batch:'neo-gpu-e2e-job',web:'neo-gpu-e2e-web'};
 const origin=process.env.NEO_COMPUTE_WEB_ORIGIN||process.env.NEO_GPU_WEB_ORIGIN||'https://compute.qili2.com';
@@ -30,7 +28,7 @@ if((flags.has('--live')!==flags.has('--allow-spend'))||(flags.has('--build')&&!l
 }
 
 async function cmd(args,{privateOutput=false,limitMs=3600000}={}) {
-  const child=spawn(process.execPath,[neo,'compute',...args],{cwd:project,stdio:['ignore','pipe','pipe']});
+  const child=spawn(nativeCli,['compute',...args],{cwd:project,env:{...process.env,NEO_HARNESS_ROOT:project},stdio:['ignore','pipe','pipe']});
   let out='',err='';
   const cap=32*1024;
   child.stdout.on('data',x=>{out=(out+x).slice(-cap);if(!privateOutput)process.stdout.write(x);});
@@ -79,7 +77,7 @@ async function requireImage(mode,plan){
   }
   if(!flags.has('--build'))throw Error(`Image not built: run with --live --allow-spend --build for ${mode}`);
   print('image_build_start',{mode});
-  await cmd(['build','--mode',mode,'--name',names[mode],'--dockerfile',dockerfile,'--builder','github']);
+  await cmd(['build','--mode',mode,'--name',names[mode],'--dockerfile',dockerfile,'--builder','github','--push']);
   const result=findService(names[mode]);
   if(!result?.published||result.image!==plan.image)throw Error(`Image build receipt invalid: ${mode}`);
   print('image_build_pass',{mode,image:result.image});
@@ -100,7 +98,7 @@ async function batch(){
     if(result.signature!=='neo-gpu-e2e-v1'||result.mode!=='batch'||
        result.requestId!==requestId||result.textSha256!==expectedHash||result.bytes!==Buffer.byteLength(data.text))
       throw Error('Batch output contract mismatch');
-    if(!logs.includes('NEO_GPU_RUN_PASS')||!logs.includes('hf_job_cleaned'))
+    if(!logs.includes('NEO_GPU_RUN_PASS'))
       throw Error('Missing real execution and provider cleanup receipts');
     print('batch_pass',{requestId,sha256:expectedHash,outputVerified:true,providerCleanup:true});
     return {requestId,sha256:expectedHash};

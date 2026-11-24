@@ -1,4 +1,4 @@
-use serde_json::Value;
+mod contracts;
 use std::{
     fs,
     path::{Path, PathBuf},
@@ -11,7 +11,6 @@ struct Fixture {
     workspace: PathBuf,
     config: PathBuf,
     project: PathBuf,
-    node: String,
 }
 fn put(p: &Path, s: &str) {
     fs::create_dir_all(p.parent().unwrap()).unwrap();
@@ -60,16 +59,6 @@ impl Fixture {
             .join("../..")
             .canonicalize()
             .unwrap();
-        let node = String::from_utf8(
-            Command::new("node")
-                .args(["-p", "process.execPath"])
-                .output()
-                .unwrap()
-                .stdout,
-        )
-        .unwrap()
-        .trim()
-        .to_string();
         Self {
             _temp: temp,
             home,
@@ -77,18 +66,10 @@ impl Fixture {
             workspace,
             config,
             project,
-            node,
         }
     }
-    fn call(&self, native: bool, args: &[&str], path: Option<&Path>) -> Output {
-        let mut c = if native {
-            Command::new(env!("CARGO_BIN_EXE_neo-rs"))
-        } else {
-            Command::new(&self.node)
-        };
-        if !native {
-            c.arg(self.root.join(".bin/neo.mjs"));
-        }
+    fn call(&self, args: &[&str], path: Option<&Path>) -> Output {
+        let mut c = Command::new(env!("CARGO_BIN_EXE_neo-rs"));
         c.args(args)
             .current_dir(&self.workspace)
             .env("HOME", &self.home)
@@ -102,24 +83,17 @@ impl Fixture {
         }
         c.output().unwrap()
     }
-    fn parity(&self, args: &[&str], path: Option<&Path>) {
-        let a = self.call(false, args, path);
-        let b = self.call(true, args, path);
-        assert_eq!(
-            a.status.code(),
-            b.status.code(),
-            "args {args:?}: ref={}, rust={}",
-            String::from_utf8_lossy(&a.stderr),
-            String::from_utf8_lossy(&b.stderr)
+    fn assert_contract(&self, args: &[&str], path: Option<&Path>) {
+        let b = self.call(args, path);
+        contracts::assert_output(
+            "discovery",
+            args,
+            &b,
+            &[
+                (self._temp.path().to_str().unwrap(), "<FIXTURE>"),
+                (self.root.to_str().unwrap(), "<HARNESS>"),
+            ],
         );
-        if a.status.success() {
-            let x: Value = serde_json::from_slice(&a.stdout).unwrap();
-            let y: Value = serde_json::from_slice(&b.stdout).unwrap();
-            assert_eq!(x, y, "{args:?}");
-        } else {
-            assert!(b.stdout.is_empty());
-            assert!(!b.stderr.is_empty());
-        }
     }
 }
 #[test]
@@ -131,7 +105,7 @@ fn workspace_and_project_discovery_parity() {
         vec!["project", "resolve", "alpha"],
         vec!["project", "resolve", "ALPHA"],
     ] {
-        f.parity(&args, None);
+        f.assert_contract(&args, None);
     }
 }
 #[test]
@@ -141,21 +115,21 @@ fn project_filters_noncanonical_and_rejects_unknown_names() {
     fs::create_dir_all(&nested).unwrap();
     #[cfg(unix)]
     std::os::unix::fs::symlink(&f.project, f.workspace.join("shortcut")).unwrap();
-    f.parity(&["project", "list"], None);
+    f.assert_contract(&["project", "list"], None);
     for a in [
         vec!["project", "resolve", "missing"],
         vec!["project", "resolve", "../alpha"],
         vec!["project", "resolve", "alpha", "extra"],
     ] {
-        f.parity(&a, None);
+        f.assert_contract(&a, None);
     }
 }
 #[test]
 fn invalid_workspace_configuration_fails_closed() {
     let f = Fixture::new();
     put(&f.config, "{\"schemaVersion\":2,\"neoRoot\":\"/tmp\"}");
-    f.parity(&["workspace", "show"], None);
-    f.parity(&["project", "list"], None);
+    f.assert_contract(&["workspace", "show"], None);
+    f.assert_contract(&["project", "list"], None);
 }
 #[cfg(unix)]
 #[test]
@@ -173,6 +147,6 @@ fn status_and_doctor_match_reference_diagnostics() {
         put(&p, code);
         fs::set_permissions(&p, fs::Permissions::from_mode(0o755)).unwrap();
     }
-    f.parity(&["status"], Some(&bin));
-    f.parity(&["doctor"], Some(&bin));
+    f.assert_contract(&["status"], Some(&bin));
+    f.assert_contract(&["doctor"], Some(&bin));
 }

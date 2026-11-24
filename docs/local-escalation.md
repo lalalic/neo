@@ -72,7 +72,7 @@ webhelm status
 
 It does not establish that arbitrary multi-step website tasks, GUI actions, or human notifications work; validate those with separate controlled tasks when they are required.
 
-To evaluate credential-recovery prompt enforcement without contacting real providers, run `node scripts/eval-local-escalation-credential.mjs` from the Neo source tree. It creates an isolated mock Worknode, Neo Master credential source and target Secret Store, then checks exact transfer, 0600 permissions, no returned plaintext, and case-summary hygiene. This test may report failure if the small model does not finish the multistep task; do not treat a general Shell smoke test as proof of credential-recovery reliability.
+Run `cargo test --locked -p neo-harness-cli --test escalation_contract --test escalation_experience` for native credential-redaction and experience contracts. A general Shell smoke is not proof of multi-step credential-recovery reliability.
 
 ## Call/return contract
 

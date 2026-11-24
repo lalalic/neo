@@ -1,3 +1,4 @@
+mod contracts;
 use serde_json::{json, Value};
 #[cfg(unix)]
 use std::os::unix::fs::{symlink, PermissionsExt};
@@ -11,7 +12,6 @@ struct Fixture {
     cases: PathBuf,
     challenges: PathBuf,
     root: PathBuf,
-    node: String,
 }
 impl Fixture {
     fn new() -> Self {
@@ -27,33 +27,15 @@ impl Fixture {
             .join("../..")
             .canonicalize()
             .unwrap();
-        let node = String::from_utf8(
-            Command::new("node")
-                .args(["-p", "process.execPath"])
-                .output()
-                .unwrap()
-                .stdout,
-        )
-        .unwrap()
-        .trim()
-        .to_string();
         Self {
             _tmp: tmp,
             cases,
             challenges,
             root,
-            node,
         }
     }
-    fn invoke(&self, native: bool, args: &[&str]) -> Output {
-        let mut cmd = if native {
-            Command::new(env!("CARGO_BIN_EXE_neo-rs"))
-        } else {
-            Command::new(&self.node)
-        };
-        if !native {
-            cmd.arg(self.root.join(".bin/neo.mjs"));
-        }
+    fn invoke(&self, args: &[&str]) -> Output {
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_neo-rs"));
         cmd.args(["escalation"])
             .args(args)
             .env("NEO_ESCALATION_CASES_DIR", &self.cases)
@@ -120,16 +102,8 @@ fn native_history_lists_and_filters_private_cases_exactly_like_reference() {
         vec!["cases", "--search", "WIRELESS"],
         vec!["cases", "--search", "not-found"],
     ] {
-        let node = f.invoke(false, &args);
-        let rust = f.invoke(true, &args);
-        assert!(
-            node.status.success() && rust.status.success(),
-            "{}",
-            String::from_utf8_lossy(&rust.stderr)
-        );
-        let a: Value = serde_json::from_slice(&node.stdout).unwrap();
-        let b: Value = serde_json::from_slice(&rust.stdout).unwrap();
-        assert_eq!(a, b, "case history parity for {args:?}");
+        let rust = f.invoke(&args);
+        contracts::assert_output("history", &args, &rust, &[]);
     }
 }
 #[test]
@@ -142,12 +116,9 @@ fn native_history_preserves_challenge_attempt_order_and_omits_stale_checkpoints(
         vec!["challenges", "--limit", "1"],
         vec!["challenges", "--search", "no-match"],
     ] {
-        let node = f.invoke(false, &args);
-        let rust = f.invoke(true, &args);
-        assert!(node.status.success() && rust.status.success());
-        let a: Value = serde_json::from_slice(&node.stdout).unwrap();
+        let rust = f.invoke(&args);
+        contracts::assert_output("history", &args, &rust, &[]);
         let b: Value = serde_json::from_slice(&rust.stdout).unwrap();
-        assert_eq!(a, b, "challenge ledger parity for {args:?}");
         if args.len() == 1 {
             assert_eq!(b[0]["attempts"].as_array().unwrap().len(), 2);
         }
@@ -159,7 +130,7 @@ fn native_history_missing_roots_are_read_only_and_return_empty_array() {
     fs::remove_dir_all(&f.cases).unwrap();
     fs::remove_dir_all(&f.challenges).unwrap();
     for cmd in ["cases", "challenges"] {
-        let native = f.invoke(true, &[cmd]);
+        let native = f.invoke(&[cmd]);
         assert!(native.status.success());
         assert_eq!(
             serde_json::from_slice::<Value>(&native.stdout).unwrap(),
@@ -179,7 +150,7 @@ fn native_history_rejects_unknown_flags_limits_and_invalid_root() {
         vec!["challenges", "--unknown", "x"],
         vec!["cases", "--search"],
     ] {
-        let native = f.invoke(true, &args);
+        let native = f.invoke(&args);
         assert!(!native.status.success());
         assert!(native.stdout.is_empty());
     }
@@ -198,7 +169,7 @@ fn private_history_rejects_symlinked_challenge_root_and_does_not_follow_events()
     let real = f.challenges.with_extension("original");
     fs::rename(&f.challenges, &real).unwrap();
     symlink(&real, &f.challenges).unwrap();
-    let result = f.invoke(true, &["challenges"]);
+    let result = f.invoke(&["challenges"]);
     assert!(!result.status.success());
     assert!(result.stdout.is_empty());
     assert!(real.exists());

@@ -2,11 +2,11 @@
 
 Neo is an AI character with a mission to make $1,000,000 in one year. The mission is a goal, not a claim of earned revenue; milestones, costs, and outcomes should be backed by evidence.
 
-This repository is the public **Neo Harness source**: CLI, bootstrap/discovery tooling, shared agent definitions, and reusable Skills. Installing Neo.app prepares the Harness without requiring a source checkout. Each runnable Neo Project is an independent Git repository directly beneath the configurable `NEO_ROOT` directory.
+This repository is the public **Neo Harness source**: CLI, bootstrap/discovery tooling, shared agent definitions, and reusable Skills. The native bundle contains the executable and committed Harness assets without requiring a source checkout. Each runnable Neo Project is an independent Git repository directly beneath the configurable `NEO_ROOT` directory.
 
-## Native Rust CLI trial
+## Native Rust CLI
 
-The native Rust Harness is built with `cargo build --release --locked -p neo-harness-cli --bin neo-rs`. The Neo Master live trial stages the executable and committed resources with `neo-rs package stage` in a versioned local directory. The legacy Node CLI and npm distribution remain available for rollback and other hosts during the trial. See the [live-trial contract](specs/003-neo-harness-rust-port/contracts/cli-live-trial.md).
+The native Rust Harness is built with `cargo build --release --locked -p neo-harness-cli --bin neo-rs`. The Neo Master deployment stages the executable and committed resources with `neo-rs package stage` in a versioned local directory. Rust is the only Harness implementation in this repository. Rollback uses a previous versioned Rust bundle. JavaScript remains only for independent workloads, container internals, Skills and test drivers; it is not a second CLI. Neo.app installer migration from its historical npm distribution is owned by the separate neox repository. See the [live-trial contract](specs/003-neo-harness-rust-port/contracts/cli-live-trial.md).
 
 ## Repository
 
@@ -19,7 +19,7 @@ The native Rust Harness is built with `cargo build --release --locked -p neo-har
 - `.bin/` — compatibility and packaging helpers; canonical XChat discovery/resolution scripts live under `skills/xchat-orchestrator/scripts/`.
 - `neo agent list [--project PATH]` and `neo agent search QUERY [--project PATH]` — discover context-visible project and shared Agent definitions plus Agency Agents specialist templates; templates require a project manifest before Relay dispatch.
 - `neo mcp token issue --stdout` (direct interactive copy) or `--output` (private file), plus `revoke` — provider-neutral, one-hour OAuth PKCE credentials; see `docs/interactive-mcp-access.md`.
-- `neo compute build|run|web|services|doctor|cleanup` — **built-in Node.js** on-demand Docker module: converts a project Dockerfile into a reusable image and runs it through HF Jobs or Vast.ai. Start with the [Neo Compute Skill](skills/neo-compute/SKILL.md) and consult the [GPU service contract](gpu/README.md) for details. `neo gpu` remains a compatibility alias; no separate package is needed. Images and private inputs are never bundled into the Neo CLI.
+- `neo compute build|run|web|services|doctor|cleanup` — **native Rust** on-demand Docker module: converts a project Dockerfile into a reusable image and runs it through HF Jobs or Vast.ai. Start with the [Neo Compute Skill](skills/neo-compute/SKILL.md) and consult the [GPU service contract](gpu/README.md) for details. no separate package is needed. Images and private inputs are never bundled into the Neo CLI.
 - `neo computer-use help` and `neo computer-use call COMMAND [--args-file PATH]` — **the only Neo.app MCP tool exposed via local CLI**. Calls are synchronous, bound to a fixed Computer Use subcommand allowlist, and reuse the native app permissions. Other local operations use Shell or WebHelm Skills, not generic MCP passthrough. Local Escalation uses this CLI directly; its workflow is defined in `agents/escalation.agent.md`.
 - `neo escalation --handoff-file PATH` — always runs a synchronous on-demand stateless local agent + llama.cpp Metal using Qwen3.5-4B Q4. Uses WebHelm, `neo computer-use`, and Shell; stops model process after the call. A per-host exclusive lock serializes concurrent `neo escalation` requests, including the self-test (default wait 3600s). Change model/inference with `NEO_ESCALATION_MODEL` / `NEO_ESCALATION_ENGINE`. See `docs/local-escalation.md`.
 - `neo escalation challenges [--search TEXT] [--limit N]` — inspect original unredacted handoffs, compact attempt outcomes and last-stage crash checkpoints on Neo Master. Stored locally in 0700/0600 directories; do not forward to public logs.

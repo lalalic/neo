@@ -1,24 +1,15 @@
+mod contracts;
 use neo_harness_cli::escalation_contract::{self as esc};
 use serde_json::{json, Value};
-use std::{
-    collections::HashMap,
-    fs,
-    path::{Path, PathBuf},
-    process::Command,
-};
+use std::{collections::HashMap, fs, path::PathBuf};
 struct Fixture {
     _tmp: tempfile::TempDir,
-    root: PathBuf,
     handoff: PathBuf,
     notify: PathBuf,
 }
 impl Fixture {
     fn new() -> Self {
         let tmp = tempfile::tempdir().unwrap();
-        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../..")
-            .canonicalize()
-            .unwrap();
         let handoff = tmp.path().join("handoff.md");
         let notify = tmp.path().join("policy.md");
         fs::write(
@@ -33,29 +24,12 @@ impl Fixture {
         .unwrap();
         Self {
             _tmp: tmp,
-            root,
             handoff,
             notify,
         }
     }
-    fn node_function(&self, name: &str, payload: &Value) -> Value {
-        let js=match name{
-   "normal"=>"import {normalizeLocalResult} from './.bin/neo-local-escalation.mjs';console.log(JSON.stringify(normalizeLocalResult(JSON.parse(process.argv[1]))));",
-   "config"=>"import {localEscalationConfig,serverArguments} from './.bin/neo-local-escalation.mjs';const conf=localEscalationConfig(JSON.parse(process.argv[1]));console.log(JSON.stringify({engine:conf.engine,model:conf.model,context:conf.context,budgetSeconds:conf.budgetSeconds,maxTurns:conf.maxTurns,startupMs:conf.startupMs,serverArguments:serverArguments(conf,18937)}));",
-   "session"=>"import {parseLocalSession} from './.bin/neo-local-escalation.mjs';const parsed=parseLocalSession(JSON.parse(process.argv[1]));console.log(JSON.stringify(parsed));",
-   _=>panic!("unknown reference function")
-  };
-        let output = Command::new("node")
-            .args(["--input-type=module", "-e", js, &payload.to_string()])
-            .current_dir(&self.root)
-            .output()
-            .unwrap();
-        assert!(
-            output.status.success(),
-            "{}",
-            String::from_utf8_lossy(&output.stderr)
-        );
-        serde_json::from_slice(&output.stdout).unwrap()
+    fn expected_contract(&self, name: &str, payload: &Value) -> Value {
+        contracts::expected(&format!("escalation-{name}"), payload)
     }
 }
 #[test]
@@ -138,7 +112,7 @@ fn invalid_legacy_handoff_flags_missing_files_and_unsafe_correlation_ids_fail_cl
     assert!(esc::prepare(&bad, None).is_err());
 }
 #[test]
-fn local_model_config_and_metal_arguments_match_node_reference() {
+fn local_model_config_and_metal_arguments_match_frozen_contract() {
     let f = Fixture::new();
     for entries in [
         vec![],
@@ -160,7 +134,7 @@ fn local_model_config_and_metal_arguments_match_node_reference() {
         let native = json!({"engine":config.engine,"model":config.model,"context":config.context,
     "budgetSeconds":config.budget_seconds,"maxTurns":config.max_turns,"startupMs":config.startup_ms,
     "serverArguments":esc::server_args(&config,18937).unwrap()});
-        let reference = f.node_function("config", &json!(env));
+        let reference = f.expected_contract("config", &json!(env));
         assert_eq!(native, reference);
     }
 }
@@ -203,7 +177,7 @@ fn remote_inference_endpoints_and_invalid_runtime_numbers_are_rejected() {
     assert!(esc::server_args(&config, 7777).is_err());
 }
 #[test]
-fn native_local_result_normalization_matches_node_evidence_object_rules() {
+fn native_local_result_normalization_matches_evidence_object_contract() {
     let f = Fixture::new();
     for raw in [
         json!({"status":"resolved","summary":"File verified","reason":"observed",
@@ -213,7 +187,7 @@ fn native_local_result_normalization_matches_node_evidence_object_rules() {
      "evidence":"Delivery tested","notification":{"attempted":true,"delivered":false,"channel":"wechat-bro","details":"not delivered"}}),
     ] {
         let native = esc::normalize(&raw).unwrap();
-        let node = f.node_function("normal", &raw);
+        let node = f.expected_contract("normal", &raw);
         assert_eq!(native, node);
     }
 }
@@ -247,7 +221,7 @@ fn resolved_without_evidence_or_successful_tool_event_is_never_reported_success(
     assert_eq!(parsed, payload);
     assert_eq!(returned, events);
     let f = Fixture::new();
-    let reference = f.node_function("session", &json!(content));
+    let reference = f.expected_contract("session", &json!(content));
     assert_eq!(reference["result"], parsed);
     assert_eq!(reference["events"], json!(returned));
 }

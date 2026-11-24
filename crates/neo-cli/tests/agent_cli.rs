@@ -1,3 +1,4 @@
+mod contracts;
 use serde_json::Value;
 use std::{
     env, fs,
@@ -66,35 +67,6 @@ impl Fixture {
             .output()
             .unwrap()
     }
-
-    fn oracle(&self, args: &[&str]) -> Option<Output> {
-        if Command::new("node").arg("--version").output().is_err() {
-            return None;
-        }
-        let repo = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
-        let code = r#"const {runAgentDiscovery}=await import(process.env.NEO_ORACLE_MODULE);
-try {
-const result=runAgentDiscovery(process.argv.slice(2), {
-  neoRoot: process.env.NEO_HARNESS_ROOT,
-  home: process.env.HOME,
-  cwd: process.cwd(),
-  agencyDirectory: process.env.NEO_AGENCY_ROOT
-});
-process.stdout.write(JSON.stringify(result,null,2)+'\n');
-} catch(e) { console.error(e.message); process.exitCode=1; }"#;
-        Some(
-            Command::new("node")
-                .args(["--input-type=module", "--eval", code])
-                .args(args)
-                .current_dir(&self.project)
-                .env("HOME", &self.home)
-                .env("NEO_HARNESS_ROOT", &self.harness)
-                .env("NEO_AGENCY_ROOT", &self.agency)
-                .env("NEO_ORACLE_MODULE", repo.join(".bin/neo-agent-catalog.mjs"))
-                .output()
-                .unwrap(),
-        )
-    }
 }
 
 fn as_json(data: &[u8]) -> Value {
@@ -102,32 +74,14 @@ fn as_json(data: &[u8]) -> Value {
         .unwrap_or_else(|e| panic!("invalid JSON: {e}; raw={}", String::from_utf8_lossy(data)))
 }
 
-fn parity(f: &Fixture, args: &[&str]) {
+fn assert_contract(f: &Fixture, args: &[&str]) {
     let native = f.native(args);
-    let Some(node) = f.oracle(args) else { return };
-    assert_eq!(
-        native.status.code(),
-        node.status.code(),
-        "status for {args:?}: rust={} node={}",
-        String::from_utf8_lossy(&native.stderr),
-        String::from_utf8_lossy(&node.stderr)
+    contracts::assert_output(
+        "agent",
+        args,
+        &native,
+        &[(f._dir.path().to_str().unwrap(), "<FIXTURE>")],
     );
-    if native.status.success() {
-        assert_eq!(
-            as_json(&native.stdout),
-            as_json(&node.stdout),
-            "JSON for {args:?}"
-        );
-    } else {
-        assert!(
-            native.stdout.is_empty(),
-            "native must not emit success data on error"
-        );
-        assert!(
-            !native.stderr.is_empty(),
-            "native failure must explain the cause"
-        );
-    }
 }
 
 #[test]
@@ -142,7 +96,7 @@ fn catalog_precedence_and_json_contract() {
         vec!["agent", "search", "review", "--limit", "1"],
         vec!["agent", "search", "draft", "--source", "shared"],
     ] {
-        parity(&f, &args);
+        assert_contract(&f, &args);
     }
     let output = f.native(&["agent", "list"]);
     assert!(
@@ -181,7 +135,7 @@ fn rejects_invalid_arguments_without_stdout() {
         vec!["agent", "search", "review", "--limit", "284"],
         vec!["agent", "list", "--unknown"],
     ] {
-        parity(&f, &args);
+        assert_contract(&f, &args);
     }
 }
 
@@ -189,7 +143,7 @@ fn rejects_invalid_arguments_without_stdout() {
 fn missing_agency_is_explicit_failure() {
     let f = Fixture::new();
     fs::remove_dir_all(&f.agency).unwrap();
-    parity(&f, &["agent", "list"]);
+    assert_contract(&f, &["agent", "list"]);
     let output = f.native(&["agent", "list"]);
     assert!(!output.status.success());
     assert!(String::from_utf8_lossy(&output.stderr).contains("Agency Agents library unavailable"));
@@ -199,7 +153,7 @@ fn missing_agency_is_explicit_failure() {
 fn explicit_relative_project_path_is_lexically_normalized() {
     let f = Fixture::new();
     // Node path.resolve removes "agents/.." without resolving symlink identity.
-    parity(
+    assert_contract(
         &f,
         &[
             "agent",
@@ -210,7 +164,7 @@ fn explicit_relative_project_path_is_lexically_normalized() {
             "agents/..",
         ],
     );
-    parity(&f, &["agent", "search", "review", "--limit", "1.0"]);
+    assert_contract(&f, &["agent", "search", "review", "--limit", "1.0"]);
 }
 
 #[test]

@@ -1,0 +1,49 @@
+{
+  "input": {
+    "scenario_key": "apple_developer.login_challenge",
+    "category": "authentication",
+    "symptom": "Apple Developer sign-in stuck after interactive verification request",
+    "strategy_key": "resume_existing_verified_session",
+    "steps": [
+      "Inspect the existing authorized sign-in session",
+      "Use an available approved verification route and resume the original task"
+    ],
+    "verification": "Confirm Apple Developer portal is authenticated and expected account is visible",
+    "failure_reason": "",
+    "lesson": "Keep the initial session alive while completing the verification step"
+  },
+  "expected": {
+    "version": 1,
+    "id": "07714a63a2cd746afeb01d19d3f57565497c0c2cd267b73f21b25a6c78c6e811",
+    "captured_at": "2026-11-24T06:00:01.356Z",
+    "source": "owner_taught",
+    "scenario": {
+      "key": "apple_developer.login_challenge",
+      "category": "authentication",
+      "symptom": "Apple Developer sign-in stuck after interactive verification request"
+    },
+    "outcome": "taught",
+    "strategy": {
+      "key": "resume_existing_verified_session",
+      "steps": [
+        "Inspect the existing authorized sign-in session",
+        "Use an available approved verification route and resume the original task"
+      ],
+      "verification": "Confirm Apple Developer portal is authenticated and expected account is visible",
+      "failure_reason": "",
+      "lesson": "Keep the initial session alive while completing the verification step"
+    },
+    "observation": {
+      "tools": [],
+      "calls": 0,
+      "failures": 0
+    },
+    "runtime": {
+      "backend": "local",
+      "engine": "llama",
+      "model_family": "test_model"
+    },
+    "training_reviewed": false,
+    "owner_confirmed": true
+  }
+}

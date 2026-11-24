@@ -180,7 +180,7 @@ fn clean_mac_candidate_bootstraps_and_discovers_skills_without_node_or_source_ch
     );
     let help = f.bundled(&["--help"]);
     assert!(help.status.success());
-    assert!(String::from_utf8_lossy(&help.stdout).contains("Rust preview"));
+    assert!(String::from_utf8_lossy(&help.stdout).contains("native Rust CLI"));
 }
 #[test]
 fn distribution_rejects_existing_output_source_overlap_and_relative_paths() {

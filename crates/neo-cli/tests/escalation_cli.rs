@@ -230,22 +230,13 @@ fn native_cli_invalid_config_creates_start_and_finished_without_any_model_reques
     assert_eq!(f.challenge()["failure"]["stage"], "preflight");
 }
 #[test]
-fn native_cli_escalation_help_is_identical_to_node_and_learn_test_reject_safely() {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .canonicalize()
-        .unwrap();
+fn native_cli_escalation_help_matches_contract_and_learn_test_reject_safely() {
     let rust = Command::new(env!("CARGO_BIN_EXE_neo-rs"))
         .args(["escalation", "--help"])
         .output()
         .unwrap();
-    let node = Command::new("node")
-        .arg(root.join(".bin/neo.mjs"))
-        .args(["escalation", "--help"])
-        .output()
-        .unwrap();
-    assert!(rust.status.success() && node.status.success());
-    assert_eq!(rust.stdout, node.stdout);
+    assert!(rust.status.success());
+    assert_eq!(rust.stdout, include_bytes!("../assets/escalation-help.txt"));
     let result = Command::new(env!("CARGO_BIN_EXE_neo-rs"))
         .args(["escalation", "learn"])
         .output()

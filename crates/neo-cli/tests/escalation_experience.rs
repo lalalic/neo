@@ -1,30 +1,18 @@
+mod contracts;
 use neo_harness_cli::escalation_experience as experience;
 use serde_json::{json, Value};
 #[cfg(unix)]
 use std::os::unix::fs::{symlink, PermissionsExt};
-use std::{
-    fs,
-    path::{Path, PathBuf},
-    process::Command,
-};
+use std::{fs, path::PathBuf};
 struct Fixture {
     _tmp: tempfile::TempDir,
     dir: PathBuf,
-    root: PathBuf,
 }
 impl Fixture {
     fn new() -> Self {
         let temp = tempfile::tempdir().unwrap();
         let dir = temp.path().join("private-cases");
-        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../..")
-            .canonicalize()
-            .unwrap();
-        Self {
-            _tmp: temp,
-            dir,
-            root,
-        }
+        Self { _tmp: temp, dir }
     }
     fn agent() -> Value {
         json!({"scenario_key":"oauth.callback_pending","category":"authentication",
@@ -70,31 +58,12 @@ impl Fixture {
         events: &[Value],
         error: Option<&str>,
     ) -> Value {
-        let snippet = r#"
-import {prepareExperience} from './.bin/neo-escalation-experience.mjs';
-const args=JSON.parse(process.argv[1]);
-const r=prepareExperience({handoff:'OAuth authorization callback appears stuck',result:args.result,
- experience:args.experience??undefined,events:args.events,
- backend:'local',engine:'llama',model:'unsloth/Qwen3.5-4B-GGUF:Q4_K_M',
- captureMethod:'executor',error:args.error?Object.assign(new Error('test'),{name:args.error}):undefined});
-console.log(JSON.stringify(r));
-"#;
         let payload = json!({"result":result,"experience":agent,"events":events,"error":error});
-        let output = Command::new("node")
-            .args(["--input-type=module", "-e", snippet, &payload.to_string()])
-            .current_dir(&self.root)
-            .output()
-            .unwrap();
-        assert!(
-            output.status.success(),
-            "{}",
-            String::from_utf8_lossy(&output.stderr)
-        );
-        serde_json::from_slice(&output.stdout).unwrap()
+        contracts::expected("experience", &payload)
     }
 }
 #[test]
-fn native_sanitized_experience_record_matches_node_fields_and_never_stores_tool_transcripts() {
+fn native_sanitized_experience_record_matches_contract_fields_and_never_stores_tool_transcripts() {
     let f = Fixture::new();
     let agent = Fixture::agent();
     let events = Fixture::events();
@@ -129,7 +98,7 @@ fn native_sanitized_experience_record_matches_node_fields_and_never_stores_tool_
     assert_eq!(native["training_reviewed"], false);
 }
 #[test]
-fn invalid_scenario_fallback_and_runtime_failure_are_node_reference_equivalent() {
+fn invalid_scenario_fallback_and_runtime_failure_are_contract_equivalent() {
     let f = Fixture::new();
     let result = json!({"status":"failed"});
     let events = [];
@@ -154,20 +123,9 @@ fn invalid_scenario_fallback_and_runtime_failure_are_node_reference_equivalent()
         .contains("OAuth authorization callback appears stuck"));
 }
 #[test]
-fn credential_path_ip_otp_and_long_id_sanitizer_matches_node() {
+fn credential_path_ip_otp_and_long_id_sanitizer_matches_contract() {
     let sensitive="token=abcd1234 sk-abcdef1234567890 Bearer abc.def.ghi email alice@example.com link https://site.test/auth?key=xyz path /Users/alice/private/token.txt 192.168.1.5 OTP 123456";
-    let snippet = r#"
-import {sanitizeLesson,categoryKey} from './.bin/neo-escalation-experience.mjs';
-console.log(JSON.stringify({text:sanitizeLesson(process.argv[1],500),category:categoryKey('OAuth Callback Pending')}));
-"#;
-    let f = Fixture::new();
-    let node = Command::new("node")
-        .args(["--input-type=module", "-e", snippet, sensitive])
-        .current_dir(&f.root)
-        .output()
-        .unwrap();
-    assert!(node.status.success());
-    let reference: Value = serde_json::from_slice(&node.stdout).unwrap();
+    let reference = contracts::expected("sanitize", &json!(sensitive));
     assert_eq!(
         experience::sanitize(sensitive, 500),
         reference["text"].as_str().unwrap()

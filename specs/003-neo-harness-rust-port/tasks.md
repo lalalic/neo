@@ -59,8 +59,8 @@
 - [X] T034 [US3] Rehearse optimized Release staging, private atomic launcher switch and rollback, native core readiness without Node/Python, and unchanged production launcher digest (see `contracts/cli-release-blackbox.md`)
 - [X] T035 [US3] Verify Release CLI concurrency and signal detach with real isolated Relay, MCP failure/no-replay/recovery and real local inference guardian cleanup after caller SIGKILL (see `contracts/cli-reliability-blackbox.md`)
 - [ ] T028 [US4] With explicit user cost authorization and supported Docker host, run actual Docker/GitHub/HF/Vast and TLS/WSS/cleanup acceptance; rebuild/fix installed Rust Relay PromptBuilder stale embedded path before production release
-- [ ] T020 [US3] Remove superseded Node core code after the approved Rust live trial stabilizes; retain rollback until then.
-- [ ] T036 [US3] Activate versioned native Release on Neo Master and verify production launcher, live smoke and preserved Node rollback.
+- [x] T020 [US3] Remove superseded Node core code; rollback uses a previous Rust bundle.
+- [x] T036 [US3] Activate versioned native Release on Neo Master and verify production launcher and live smoke (d4f245c).
 
 ## Final Phase: Review and Cleanup
 

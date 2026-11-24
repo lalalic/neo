@@ -62,15 +62,8 @@ impl Fixture {
             bin,
         }
     }
-    fn run(&self, native: bool, options: &[&str]) -> Output {
-        let mut cmd = if native {
-            Command::new(env!("CARGO_BIN_EXE_neo-rs"))
-        } else {
-            Command::new("node")
-        };
-        if !native {
-            cmd.arg(self.root.join(".bin/neo.mjs"));
-        }
+    fn run(&self, options: &[&str]) -> Output {
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_neo-rs"));
         cmd.arg("eval")
             .args(options)
             .env("HOME", &self.home)
@@ -85,8 +78,8 @@ impl Fixture {
             .output()
             .unwrap()
     }
-    fn json(&self, native: bool, args: &[&str]) -> Value {
-        let reply = self.run(native, args);
+    fn json(&self, args: &[&str]) -> Value {
+        let reply = self.run(args);
         assert!(
             reply.status.success(),
             "{}",
@@ -119,11 +112,9 @@ printf '{"builder":"managedWorkerInput","mode":"isolated-evaluation","agentName"
     }
 }
 #[test]
-fn native_eval_list_matches_reference_without_node_or_report_writes() {
+fn native_eval_list_contract_without_node_or_report_writes() {
     let f = Fixture::new();
-    let native = f.json(true, &["list", "--project", "sample"]);
-    let node = f.json(false, &["list", "--project", "sample"]);
-    assert_eq!(native, node);
+    let native = f.json(&["list", "--project", "sample"]);
     assert_eq!(native["cases"].as_array().unwrap().len(), 2);
     assert!(!f.project.join(".evals/reports").exists());
     let pure = Command::new(env!("CARGO_BIN_EXE_neo-rs"))
@@ -143,10 +134,10 @@ fn native_eval_list_matches_reference_without_node_or_report_writes() {
 #[test]
 fn native_eval_dag_roles_and_smoke_selection_require_missing_roles_fail_closed() {
     let f = Fixture::new();
-    let result = f.json(true, &["list", "--project", "sample", "--dag"]);
+    let result = f.json(&["list", "--project", "sample", "--dag"]);
     assert_eq!(result["dagRoles"], json!(["visioner", "editor"]));
     assert_eq!(result["cases"].as_array().unwrap().len(), 2);
-    let invalid = f.run(true, &["list", "--project", "sample", "--smoke"]);
+    let invalid = f.run(&["list", "--project", "sample", "--smoke"]);
     assert!(!invalid.status.success());
     assert!(String::from_utf8_lossy(&invalid.stderr).contains("--smoke requires --dag"));
 }
@@ -159,17 +150,14 @@ fn native_eval_dry_run_uses_canonical_relay_builder_without_invoking_codex() {
         "codex",
         "echo CODEX_CALLED > \"$HOME/codex-called\"; exit 22",
     );
-    let result = f.json(
-        true,
-        &[
-            "run",
-            "--project",
-            "sample",
-            "--case",
-            "visioner-choose",
-            "--dry-run",
-        ],
-    );
+    let result = f.json(&[
+        "run",
+        "--project",
+        "sample",
+        "--case",
+        "visioner-choose",
+        "--dry-run",
+    ]);
     assert_eq!(result["mode"], "dry-run");
     assert_eq!(result["executed"], 0);
     let report: Value =
@@ -195,10 +183,7 @@ cat >/dev/null
 printf '%s' '{"decision":"plan","actions":["inspect docs"],"reason":"fixture"}' > "$last"
 "#,
     );
-    let result = f.json(
-        true,
-        &["run", "--project", "sample", "--case", "visioner-choose"],
-    );
+    let result = f.json(&["run", "--project", "sample", "--case", "visioner-choose"]);
     assert_eq!(result["failed"], 0);
     assert_eq!(result["passed"], 1);
     let report: Value =
@@ -209,7 +194,7 @@ printf '%s' '{"decision":"plan","actions":["inspect docs"],"reason":"fixture"}' 
 #[test]
 fn native_eval_audit_reports_dag_role_coverage_without_mutation() {
     let f = Fixture::new();
-    let result = f.json(true, &["audit"]);
+    let result = f.json(&["audit"]);
     assert_eq!(result["projects"], 1);
     assert_eq!(result["roles"], 2);
     assert_eq!(result["rolesWithoutCases"], json!([]));
@@ -222,21 +207,18 @@ fn native_eval_audit_reports_dag_role_coverage_without_mutation() {
 #[test]
 fn native_eval_missing_case_or_relay_binary_fails_closed() {
     let f = Fixture::new();
-    let invalid = f.run(true, &["run", "--project", "sample", "--case", "bogus"]);
+    let invalid = f.run(&["run", "--project", "sample", "--case", "bogus"]);
     assert!(!invalid.status.success());
     assert!(invalid.stdout.is_empty());
     assert!(!f.project.join(".evals/reports").exists());
-    let missing = f.run(
-        true,
-        &[
-            "run",
-            "--project",
-            "sample",
-            "--case",
-            "visioner-choose",
-            "--dry-run",
-        ],
-    );
+    let missing = f.run(&[
+        "run",
+        "--project",
+        "sample",
+        "--case",
+        "visioner-choose",
+        "--dry-run",
+    ]);
     assert!(!missing.status.success());
     assert!(
         String::from_utf8_lossy(&missing.stderr).contains("spawn error")
@@ -247,33 +229,12 @@ fn native_eval_missing_case_or_relay_binary_fails_closed() {
 #[test]
 fn native_eval_audit_remains_usable_without_removed_node_graph_parser() {
     let f = Fixture::new();
-    let native = f.json(true, &["audit"]);
-    let reference = f.run(false, &["audit"]);
-    if reference.status.success() {
-        let raw = String::from_utf8(reference.stdout).unwrap();
-        let start = raw.rfind("\n{").map_or(0, |i| i + 1);
-        let reference: Value = serde_json::from_str(&raw[start..]).unwrap();
-        for field in [
-            "projects",
-            "roles",
-            "rolesWithCases",
-            "rolesWithoutCases",
-            "projectsMissingEvalManifest",
-            "missingDagDecisionCases",
-        ] {
-            assert_eq!(
-                native[field], reference[field],
-                "Eval audit parity: {field}"
-            );
-        }
-        assert_eq!(native["dagCoverage"], reference["dagCoverage"]);
-    } else {
-        assert!(
-            String::from_utf8_lossy(&reference.stderr)
-                .contains("Relay Agent Graph parser unavailable"),
-            "unexpected legacy Node audit failure"
-        );
-        assert_eq!(native["projects"], 1);
-        assert_eq!(native["rolesWithCases"], 2);
-    }
+    let native = f.json(&["audit"]);
+    assert_eq!(native["projects"], 1);
+    assert_eq!(native["roles"], 2);
+    assert_eq!(native["rolesWithCases"], 2);
+    assert_eq!(
+        native["dagCoverage"]["sample"]["agents"][0]["role"],
+        "visioner"
+    );
 }

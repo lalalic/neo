@@ -1,0 +1,10 @@
+{
+  "input": [
+    "agent",
+    "list"
+  ],
+  "expected": {
+    "exit": 1,
+    "stdout": ""
+  }
+}

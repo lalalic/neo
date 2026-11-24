@@ -1,0 +1,15 @@
+{
+  "input": [
+    "--dry-run",
+    "--project",
+    "content-distribution",
+    "--dag",
+    "missing",
+    "--url",
+    "https://a.example"
+  ],
+  "expected": {
+    "exit": 1,
+    "stdout": ""
+  }
+}

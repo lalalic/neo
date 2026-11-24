@@ -12,7 +12,7 @@ const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
 const release=join(root,'target/release/neo-rs');
 const installed=process.env.NEO_BLACKBOX_INSTALLED_CLI||'/opt/homebrew/bin/neo';
 assert(existsSync(release),'Build native release first');
-assert(existsSync(installed),'Existing Node launcher required for rollback rehearsal');
+assert(existsSync(installed),'Existing Rust launcher required for rollback rehearsal');
 const original=realpathSync(installed);
 const digest=p=>createHash('sha256').update(readFileSync(p)).digest('hex');
 const oldDigest=digest(installed),base=mkdtempSync(join(tmpdir(),'neo-release-blackbox-'));
@@ -29,7 +29,7 @@ try{
  symlinkSync(original,launcher);
  function switchTo(p){const next=join(bin,'neo.next');symlinkSync(p,next);renameSync(next,launcher);}
  const old=doc(run(launcher,['workspace','show'],env));
- test('Existing Node CLI works through disposable launcher',()=>{assert.equal(old.neoRoot,realpathSync(workspace));assert.notEqual(old.harnessRoot,realpathSync(workspace));});
+ test('Existing Rust CLI works through disposable launcher',()=>{assert.equal(old.neoRoot,realpathSync(workspace));assert.notEqual(old.harnessRoot,realpathSync(workspace));});
  test('Optimized Rust candidate staged with matching executable and tracked assets',()=>{
   const manifest=doc(run(release,['package','stage',target],{...env,NEO_HARNESS_ROOT:root},root));
   const rev=run('git',['rev-parse','HEAD'],env,root);assert.equal(rev.status,0);assert.equal(manifest.revision,rev.stdout.trim());
@@ -45,7 +45,7 @@ try{
  test('Installed release agent, skill and project discovery with minimal PATH',()=>{const skills=doc(run(launcher,['skill','list'],bare));assert.ok(skills.some(x=>x.name==='neo-project'));assert.ok(skills.every(x=>!['iphone-helm','neo-use'].includes(x.name)));assert.ok(Array.isArray(doc(run(launcher,['agent','list','--source','shared'],bare))));assert.deepEqual(doc(run(launcher,['project','list'],bare)),[]);});
  test('Installed release status/doctor treat Node/Python as optional with real gateway',()=>{for(const cmd of ['status','doctor']){const r=doc(run(launcher,[cmd],bare));assert.equal(r.gateway_http,'reachable');assert.equal(r.node,'missing');assert.equal(r.python,'missing');if(cmd==='doctor')assert.ok(r.remediation.every(x=>x.startsWith('Optional:')));}});
  test('Installed release compute diagnostics and no paid side effects',()=>{const r=doc(run(launcher,['compute','doctor'],bare));assert.equal(r.native,'rust');assert.equal(r.hfCli,false);assert.equal(r.vastCli,false);assert.equal(r.localContainerRuntime,false);});
- test('Actual installed Node rollback preserves workspace and old executable',()=>{switchTo(original);assert.equal(realpathSync(launcher),original);assert.equal(digest(launcher),oldDigest);assert.deepEqual(doc(run(launcher,['workspace','show'],env)),old);});
+ test('Actual installed Rust rollback preserves workspace and old executable',()=>{switchTo(original);assert.equal(realpathSync(launcher),original);assert.equal(digest(launcher),oldDigest);assert.deepEqual(doc(run(launcher,['workspace','show'],env)),old);});
  test('Second Rust activation and repeat rollback are idempotent',()=>{switchTo(join(target,'bin/neo'));assert.equal(doc(run(launcher,['workspace','show'],bare)).harnessRoot,realpathSync(target));switchTo(original);assert.deepEqual(doc(run(launcher,['workspace','show'],env)),old);});
  test('Production launcher and content unchanged',()=>{assert.equal(realpathSync(installed),original);assert.equal(digest(installed),oldDigest);});
 }finally{rmSync(base,{recursive:true,force:true})}

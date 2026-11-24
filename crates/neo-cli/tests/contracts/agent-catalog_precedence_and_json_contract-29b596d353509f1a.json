@@ -1,0 +1,22 @@
+{
+  "input": [
+    "agent",
+    "search",
+    "review",
+    "--limit",
+    "1"
+  ],
+  "expected": {
+    "exit": 0,
+    "stdout": [
+      {
+        "name": "agency-code-reviewer",
+        "description": "Expert code review specialist",
+        "source": "agency",
+        "path": "<FIXTURE>/home/.local/share/agency-agents/integrations/dsh/agency-code-reviewer/SKILL.md",
+        "requires_project_manifest": true,
+        "effective": true
+      }
+    ]
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "input": [
+    "cases",
+    "--search",
+    "WIRELESS"
+  ],
+  "expected": {
+    "exit": 0,
+    "stdout": [
+      {
+        "version": 1,
+        "id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "captured_at": "2026-11-23T12:00:00.000Z",
+        "outcome": "resolved",
+        "scenario": {
+          "key": "printer_no_network",
+          "category": "network",
+          "symptom": "printer offline"
+        },
+        "strategy": {
+          "key": "wireless_setup",
+          "steps": [
+            "configure SSID"
+          ],
+          "lesson": "Print when online"
+        },
+        "observation": {
+          "tools": [
+            "computer-use"
+          ],
+          "calls": 1,
+          "failures": 0
+        }
+      }
+    ]
+  }
+}

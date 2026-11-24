@@ -1,0 +1,19 @@
+{
+  "input": [
+    "status",
+    "neoy/app"
+  ],
+  "expected": {
+    "exit": 0,
+    "stdout": {
+      "name": "neoy/app",
+      "nativeLabel": "com.neox.neoy.keepalive",
+      "state": "running",
+      "pid": 921,
+      "manager": "launchd",
+      "managed": true,
+      "health": "not_checked",
+      "warning": "legacy PM2 neoy duplicate detected; native launchd is authoritative"
+    }
+  }
+}

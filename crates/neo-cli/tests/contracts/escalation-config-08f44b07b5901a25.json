@@ -1,0 +1,33 @@
+{
+  "input": {},
+  "expected": {
+    "engine": "llama",
+    "model": "unsloth/Qwen3.5-4B-GGUF:Q4_K_M",
+    "context": 65536,
+    "budgetSeconds": 900,
+    "maxTurns": 24,
+    "startupMs": 900000,
+    "serverArguments": [
+      "--hf-repo",
+      "unsloth/Qwen3.5-4B-GGUF:Q4_K_M",
+      "--no-mmproj",
+      "--jinja",
+      "--host",
+      "127.0.0.1",
+      "--port",
+      "18937",
+      "--alias",
+      "neo-escalation",
+      "-c",
+      "65536",
+      "-np",
+      "1",
+      "-ngl",
+      "99",
+      "-ctk",
+      "q8_0",
+      "-ctv",
+      "q8_0"
+    ]
+  }
+}

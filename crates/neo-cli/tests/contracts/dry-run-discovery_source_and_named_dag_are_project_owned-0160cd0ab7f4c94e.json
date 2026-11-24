@@ -1,0 +1,19 @@
+{
+  "input": [
+    "--dry-run",
+    "--project",
+    "content-distribution",
+    "--dag",
+    "growth"
+  ],
+  "expected": {
+    "exit": 0,
+    "stdout": {
+      "project": "content-distribution",
+      "dag": "growth",
+      "runPath": "<FIXTURE>/workspace/content-distribution/runs/<TODAY>-discovery-<unique>",
+      "inputType": "discovery",
+      "dryRun": true
+    }
+  }
+}

@@ -1,0 +1,4 @@
+{
+  "input": "Apple Developer login verification gets stuck",
+  "expected": "Scenario: Apple Developer sign-in stuck after interactive verification request\nStrategy: resume_existing_verified_session\n1. Inspect the existing authorized sign-in session\n2. Use an available approved verification route and resume the original task\nVerify: Confirm Apple Developer portal is authenticated and expected account is visible\nLesson: Keep the initial session alive while completing the verification step"
+}

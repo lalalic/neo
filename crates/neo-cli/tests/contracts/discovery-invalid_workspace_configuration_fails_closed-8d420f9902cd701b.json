@@ -1,0 +1,10 @@
+{
+  "input": [
+    "workspace",
+    "show"
+  ],
+  "expected": {
+    "exit": 1,
+    "stdout": ""
+  }
+}

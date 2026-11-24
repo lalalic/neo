@@ -14,7 +14,6 @@ struct Fixture {
     _tmp: tempfile::TempDir,
     home: PathBuf,
     root: PathBuf,
-    node: String,
 }
 impl Fixture {
     fn new() -> Self {
@@ -25,32 +24,14 @@ impl Fixture {
             .join("../..")
             .canonicalize()
             .unwrap();
-        let node = String::from_utf8(
-            Command::new("node")
-                .args(["-p", "process.execPath"])
-                .output()
-                .unwrap()
-                .stdout,
-        )
-        .unwrap()
-        .trim()
-        .to_string();
         Self {
             _tmp: temp,
             home,
             root,
-            node,
         }
     }
-    fn call(&self, native: bool, args: &[&str]) -> Output {
-        let mut c = if native {
-            Command::new(env!("CARGO_BIN_EXE_neo-rs"))
-        } else {
-            Command::new(&self.node)
-        };
-        if !native {
-            c.arg(self.root.join(".bin/neo.mjs"));
-        }
+    fn call(&self, args: &[&str]) -> Output {
+        let mut c = Command::new(env!("CARGO_BIN_EXE_neo-rs"));
         c.args(["mcp", "token"])
             .args(args)
             .env("HOME", &self.home)
@@ -124,13 +105,8 @@ fn token_cli_invalid_options_are_rejected_without_network_or_secret_reads() {
         vec!["revoke", "--file", "/tmp/a", "--client-name", "bad"],
     ];
     for args in invalid {
-        let reference = f.call(false, &args);
-        let native = f.call(true, &args);
-        assert!(
-            !reference.status.success(),
-            "unexpected reference success: {args:?}"
-        );
-        assert_eq!(reference.status.code(), native.status.code(), "{args:?}");
+        let native = f.call(&args);
+        assert_eq!(native.status.code(), Some(1), "invalid token args {args:?}");
         assert!(native.stdout.is_empty());
     }
     assert!(!path.exists());

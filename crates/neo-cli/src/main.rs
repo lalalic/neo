@@ -8,9 +8,9 @@ mod workspace;
 use std::env;
 
 fn run(args: &[String]) -> Result<i32, String> {
-    let (command, rest) = args.split_first().ok_or_else(|| {
-        "usage: neo-rs --help (preview commands only; installed neo remains unchanged)".to_string()
-    })?;
+    let (command, rest) = args
+        .split_first()
+        .ok_or_else(|| "usage: neo --help".to_string())?;
     match command.as_str() {
         "agent" => {
             let root = workspace::harness_root()?;
@@ -193,13 +193,10 @@ fn run(args: &[String]) -> Result<i32, String> {
             Ok(status)
         }
         "--help" | "-h" => {
-            println!("Neo Harness Rust preview\n\n  neo-rs agent list [--project PATH] [--source project|global|shared|agency]\n  neo-rs agent search QUERY [--project PATH] [--source ...] [--limit N]\n  neo-rs skill list [--project PATH] | package SKILL_DIR OUTPUT.zip\n  neo-rs bootstrap [--json] [--project PATH]\n  neo-rs workspace show\n  neo-rs project list | resolve NAME | setup-agent NAME\n  neo-rs project run --project NAME [--url URL | --path PATH | --source SOURCE] [--dag NAME] [--dry-run] [--foreground] [--no-review]\n  neo-rs mcp tools | call TOOL --args-file PATH | token issue|revoke ...\n  neo-rs computer-use help | call COMMAND [--args-file PATH]\n  neo-rs escalation --handoff-file PATH [--cwd DIR] [--on-needs-user-file PATH] [--correlation-id ID]\n  neo-rs eval run|list|audit (native Rust Eval using canonical Relay PromptBuilder)\n  neo-rs compute build|run|web|services|doctor|cleanup (native Rust; paid actions require explicit authorization)\n  neo-rs package stage ABSOLUTE_NEW_DIR\n  neo-rs status | doctor\n\nNative Run create/resume, specialty Vlog review, optional project-owned JS preflight and Relay foreground attach are supported. Other commands remain unsupported; installed neo remains unchanged.");
+            println!("Neo Harness — native Rust CLI\n\n  neo agent list [--project PATH] [--source project|global|shared|agency]\n  neo agent search QUERY [--project PATH] [--source ...] [--limit N]\n  neo skill list [--project PATH] | package SKILL_DIR OUTPUT.zip\n  neo bootstrap [--json] [--project PATH]\n  neo workspace show\n  neo project list | resolve NAME | setup-agent NAME\n  neo project run --project NAME [--url URL | --path PATH | --source SOURCE] [--dag NAME] [--dry-run] [--foreground] [--no-review]\n  neo mcp tools | call TOOL --args-file PATH | token issue|revoke ...\n  neo computer-use help | call COMMAND [--args-file PATH]\n  neo escalation --handoff-file PATH [--cwd DIR] [--on-needs-user-file PATH] [--correlation-id ID]\n  neo eval run|list|audit (native Rust Eval using canonical Relay PromptBuilder)\n  neo compute build|run|web|services|doctor|cleanup (native Rust; paid actions require explicit authorization)\n  neo package stage ABSOLUTE_NEW_DIR\n  neo service list | status NAME | start NAME | stop NAME | restart NAME\n  neo escalation cases | challenges | test | learn\n  neo project tts --help\n  neo status | doctor\n\nNative Run create/resume, specialty Vlog review, optional project-owned JS preflight and Relay foreground attach are supported. ");
             Ok(0)
         }
-        _ => Err(format!(
-            "command '{}' not yet supported by neo-rs preview",
-            command
-        )),
+        _ => Err(format!("command '{}' not yet supported by neo", command)),
     }
 }
 

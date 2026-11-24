@@ -1,0 +1,33 @@
+{
+  "input": "{\"type\":\"tool_use\",\"name\":\"terminal\",\"input\":{\"command\":\"pwd\"}}\n{\"type\":\"tool_result\",\"name\":\"terminal\",\"is_error\":false,\"output\":\"/tmp\"}\n{\"type\":\"result\",\"exit_code\":0,\"text\":\"{\\\"status\\\":\\\"resolved\\\",\\\"summary\\\":\\\"done\\\",\\\"evidence\\\":[\\\"file checked\\\"],\\\"notification\\\":null}\"}",
+  "expected": {
+    "result": {
+      "status": "resolved",
+      "summary": "done",
+      "evidence": [
+        "file checked"
+      ],
+      "notification": null
+    },
+    "events": [
+      {
+        "type": "tool_use",
+        "name": "terminal",
+        "input": {
+          "command": "pwd"
+        }
+      },
+      {
+        "type": "tool_result",
+        "name": "terminal",
+        "is_error": false,
+        "output": "/tmp"
+      },
+      {
+        "type": "result",
+        "exit_code": 0,
+        "text": "{\"status\":\"resolved\",\"summary\":\"done\",\"evidence\":[\"file checked\"],\"notification\":null}"
+      }
+    ]
+  }
+}

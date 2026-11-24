@@ -1,0 +1,12 @@
+{
+  "input": [
+    "agent",
+    "list",
+    "--source",
+    "unknown"
+  ],
+  "expected": {
+    "exit": 1,
+    "stdout": ""
+  }
+}

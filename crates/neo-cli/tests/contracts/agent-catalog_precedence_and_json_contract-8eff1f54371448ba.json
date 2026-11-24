@@ -1,0 +1,30 @@
+{
+  "input": [
+    "agent",
+    "list",
+    "--source",
+    "shared"
+  ],
+  "expected": {
+    "exit": 0,
+    "stdout": [
+      {
+        "name": "author",
+        "description": "Prepare a draft",
+        "source": "shared",
+        "path": "<FIXTURE>/harness/agents/author.agent.md",
+        "type": "worker",
+        "requires_project_manifest": false,
+        "effective": true
+      },
+      {
+        "name": "reviewer",
+        "description": "Shared code reviewer",
+        "source": "shared",
+        "path": "<FIXTURE>/harness/agents/reviewer.agent.md",
+        "requires_project_manifest": false,
+        "effective": false
+      }
+    ]
+  }
+}
