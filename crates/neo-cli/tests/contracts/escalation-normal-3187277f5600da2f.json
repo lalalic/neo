@@ -1,0 +1,23 @@
+{
+  "input": {
+    "status": "resolved",
+    "summary": "File verified",
+    "reason": "observed",
+    "evidence": {
+      "nonce": "abc123",
+      "path": "/tmp/data"
+    },
+    "notification": null
+  },
+  "expected": {
+    "status": "resolved",
+    "summary": "File verified",
+    "reason": "observed",
+    "user_action": null,
+    "evidence": [
+      "nonce: abc123",
+      "path: /tmp/data"
+    ],
+    "notification": null
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "input": [
+    "agent",
+    "list",
+    "--source",
+    "project",
+    "--project",
+    "agents/.."
+  ],
+  "expected": {
+    "exit": 0,
+    "stdout": [
+      {
+        "name": "reviewer",
+        "description": "Project-specific reviewer",
+        "source": "project",
+        "path": "<FIXTURE>/project/agents/reviewer.agent.md",
+        "requires_project_manifest": false,
+        "effective": true
+      }
+    ]
+  }
+}

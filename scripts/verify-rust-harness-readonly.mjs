@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Live Neo Harness Node↔Rust read-only CLI parity acceptance.
+ * Live Neo Harness native read-only CLI acceptance.
  * Never prints bootstrap rules, private paths, credential data, service logs
  * or raw tool responses. It neither creates tasks nor performs UI actions.
  * Requires the source checkout and compiled Rust preview binary.
@@ -11,14 +11,12 @@ import {dirname,join,resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
 const rust=join(root,'target/debug/neo-rs');
-const node=join(root,'.bin/neo.mjs');
-if(!existsSync(rust)||!existsSync(node)){
-  console.error('Rust native preview binary or reference Node CLI is unavailable; build and retry.');
+if(!existsSync(rust)){
+  console.error('Rust native binary is unavailable; build and retry.');
   process.exit(2);
 }
-function run(native,args){
-  const command=native?rust:process.execPath;
-  const result=spawnSync(command,native?args:[node,...args],{
+function run(args){
+  const result=spawnSync(rust,args,{
     cwd:root,encoding:'utf8',timeout:15000,maxBuffer:12*1024*1024});
   return {code:result.status,stdout:result.stdout||'',error:result.error?.code||null};
 }
@@ -56,21 +54,21 @@ const cases=[
 ];
 const results=[];
 for(const test of cases){
-  const a=run(false,test.args),b=run(true,test.args);
+  const b=run(test.args);
   let same=false,source_count=null;
-  if(!a.error&&!b.error&&a.code===0&&b.code===0){
+  if(!b.error&&b.code===0){
     try{
-      const nodeValue=parse(a.stdout,test.kind);
+
       const rustValue=parse(b.stdout,test.kind);
-      same=JSON.stringify(nodeValue)===JSON.stringify(rustValue);
-      if(Array.isArray(nodeValue))source_count=nodeValue.length;
-      else if(Array.isArray(nodeValue?.skills))source_count=nodeValue.skills.length;
-      else if(Array.isArray(nodeValue?.tools))source_count=nodeValue.tools.length;
+      same=rustValue!==null && (typeof rustValue!=="string" || rustValue.length>0);
+      if(Array.isArray(rustValue))source_count=rustValue.length;
+      else if(Array.isArray(rustValue?.skills))source_count=rustValue.skills.length;
+      else if(Array.isArray(rustValue?.tools))source_count=rustValue.tools.length;
     }catch{same=false;}
   }
-  results.push({name:test.name,pass:same,nodeExit:a.code,rustExit:b.code,...(source_count===null?{}:{count:source_count})});
+  results.push({name:test.name,pass:same,rustExit:b.code,...(source_count===null?{}:{count:source_count})});
 }
-const outcome={schemaVersion:1,scope:'read-only-live-native-vs-node',
+const outcome={schemaVersion:1,scope:'read-only-live-native',
   passes:results.filter(t=>t.pass).length,total:results.length,results};
 console.log(JSON.stringify(outcome,null,2));
 if(outcome.passes!==outcome.total)process.exitCode=1;

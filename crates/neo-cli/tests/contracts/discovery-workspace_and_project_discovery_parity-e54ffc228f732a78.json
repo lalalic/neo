@@ -1,0 +1,28 @@
+{
+  "input": [
+    "project",
+    "resolve",
+    "ALPHA"
+  ],
+  "expected": {
+    "exit": 0,
+    "stdout": {
+      "xchat_project": "alpha",
+      "name": "alpha",
+      "local_path": "<FIXTURE>/projects/alpha",
+      "git_root": "<FIXTURE>/projects/alpha",
+      "repo": "alpha",
+      "origin": "git@github.com:someone/alpha.git",
+      "neo_project": true,
+      "context_files": [
+        "<FIXTURE>/home/.agents/AGENTS.md",
+        "<FIXTURE>/projects/AGENTS.md",
+        "<FIXTURE>/projects/alpha/AGENTS.md",
+        "<FIXTURE>/projects/alpha/README.md"
+      ],
+      "setup": {
+        "bootstrap": "<FIXTURE>/projects/alpha/setup/bootstrap.md"
+      }
+    }
+  }
+}

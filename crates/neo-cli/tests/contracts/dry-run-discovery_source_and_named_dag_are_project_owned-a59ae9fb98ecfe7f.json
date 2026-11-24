@@ -1,0 +1,21 @@
+{
+  "input": [
+    "--dry-run",
+    "--project",
+    "content-distribution",
+    "--source",
+    "trending"
+  ],
+  "expected": {
+    "exit": 0,
+    "stdout": {
+      "project": "content-distribution",
+      "dag": "growth",
+      "runPath": "<FIXTURE>/workspace/content-distribution/runs/<TODAY>-discovery-<unique>",
+      "inputType": "discovery",
+      "source": "trending",
+      "sourceBrief": "source-brief.json",
+      "dryRun": true
+    }
+  }
+}

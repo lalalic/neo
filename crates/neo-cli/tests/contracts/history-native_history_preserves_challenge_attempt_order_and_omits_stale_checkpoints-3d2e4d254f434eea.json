@@ -1,0 +1,11 @@
+{
+  "input": [
+    "challenges",
+    "--search",
+    "no-match"
+  ],
+  "expected": {
+    "exit": 0,
+    "stdout": []
+  }
+}

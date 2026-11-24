@@ -1,3 +1,4 @@
+mod contracts;
 use serde_json::Value;
 use std::{
     fs,
@@ -12,7 +13,6 @@ struct Fixture {
     source: PathBuf,
     run: PathBuf,
     repository: PathBuf,
-    node: String,
 }
 fn write(p: &Path, s: &str) {
     fs::create_dir_all(p.parent().unwrap()).unwrap();
@@ -53,16 +53,6 @@ impl Fixture {
             .join("../..")
             .canonicalize()
             .unwrap();
-        let node = String::from_utf8(
-            Command::new("node")
-                .args(["-p", "process.execPath"])
-                .output()
-                .unwrap()
-                .stdout,
-        )
-        .unwrap()
-        .trim()
-        .to_string();
         Self {
             _tmp: tmp,
             root,
@@ -71,18 +61,10 @@ impl Fixture {
             source,
             run,
             repository,
-            node,
         }
     }
-    fn call(&self, native: bool, args: &[&str]) -> Output {
-        let mut c = if native {
-            Command::new(env!("CARGO_BIN_EXE_neo-rs"))
-        } else {
-            Command::new(&self.node)
-        };
-        if !native {
-            c.arg(self.repository.join(".bin/neo.mjs"));
-        }
+    fn call(&self, args: &[&str]) -> Output {
+        let mut c = Command::new(env!("CARGO_BIN_EXE_neo-rs"));
         c.args(["project", "run"])
             .args(args)
             .env("HOME", &self.home)
@@ -93,24 +75,21 @@ impl Fixture {
             .output()
             .unwrap()
     }
-    fn parity(&self, args: &[&str]) {
-        let a = self.call(false, args);
-        let b = self.call(true, args);
-        assert_eq!(
-            a.status.code(),
-            b.status.code(),
-            "args={args:?} ref={} native={}",
-            String::from_utf8_lossy(&a.stderr),
-            String::from_utf8_lossy(&b.stderr)
+    fn assert_contract(&self, args: &[&str]) {
+        let date = chrono::Utc::now().format("%Y-%m-%d").to_string();
+        let b = self.call(args);
+        contracts::assert_output(
+            "dry-run",
+            args,
+            &b,
+            &[
+                (self._tmp.path().to_str().unwrap(), "<FIXTURE>"),
+                (&date, "<TODAY>"),
+            ],
         );
-        if a.status.success() {
-            let x: Value = serde_json::from_slice(&a.stdout).unwrap();
-            let y: Value = serde_json::from_slice(&b.stdout).unwrap();
-            assert_eq!(x, y, "args={args:?}");
-            assert_eq!(y["dryRun"], true);
-        } else {
-            assert!(b.stdout.is_empty());
-            assert!(!b.stderr.is_empty());
+        if b.status.success() {
+            let v: Value = serde_json::from_slice(&b.stdout).unwrap();
+            assert_eq!(v["dryRun"], true);
         }
     }
 }
@@ -118,8 +97,8 @@ impl Fixture {
 fn url_and_path_preflight_have_exact_json_and_zero_writes() {
     let f = Fixture::new();
     let input = f.run.to_str().unwrap();
-    f.parity(&["--project", "vlog", "--path", input, "--dry-run"]);
-    f.parity(&[
+    f.assert_contract(&["--project", "vlog", "--path", input, "--dry-run"]);
+    f.assert_contract(&[
         "--dry-run",
         "--project=content-distribution",
         "--url",
@@ -183,7 +162,7 @@ fn invalid_flags_and_url_policy_are_rejected_before_writes() {
             "https://a.example/%zz",
         ],
     ] {
-        f.parity(&args);
+        f.assert_contract(&args);
     }
     assert!(!f.source.join("runs").exists());
 }
@@ -199,14 +178,14 @@ fn named_dag_uses_project_declarations() {
         &p,
         r#"{"schemaVersion":1,"input":{"type":"url","schemes":["https"]},"graphs":{"growth":"graph-growth.mmd"},"defaultDag":"growth"}"#,
     );
-    f.parity(&[
+    f.assert_contract(&[
         "--dry-run",
         "--project",
         "content-distribution",
         "--url",
         "https://a.example",
     ]);
-    f.parity(&[
+    f.assert_contract(&[
         "--dry-run",
         "--project",
         "content-distribution",
@@ -215,7 +194,7 @@ fn named_dag_uses_project_declarations() {
         "--url",
         "https://a.example",
     ]);
-    f.parity(&[
+    f.assert_contract(&[
         "--dry-run",
         "--project",
         "content-distribution",
@@ -240,21 +219,21 @@ fn discovery_source_and_named_dag_are_project_owned() {
         &f.source.join("project.run.json"),
         r#"{"schemaVersion":1,"input":{"type":"url","schemes":["https"]},"graphs":{"growth":"graph-growth.mmd"},"defaultDag":"growth","dagInputs":{"growth":{"type":"discovery","domain":"video"}},"sources":{"trending":{"dag":"growth","config":"config/trending.json","runFile":"source-brief.json"}}}"#,
     );
-    f.parity(&[
+    f.assert_contract(&[
         "--dry-run",
         "--project",
         "content-distribution",
         "--source",
         "trending",
     ]);
-    f.parity(&[
+    f.assert_contract(&[
         "--dry-run",
         "--project",
         "content-distribution",
         "--dag",
         "growth",
     ]);
-    f.parity(&[
+    f.assert_contract(&[
         "--dry-run",
         "--project",
         "content-distribution",
@@ -274,18 +253,20 @@ fn url_project_prepared_path_and_run_git_preflight_are_side_effect_free() {
         r#"{"schemaVersion":1,"input":{"type":"url","schemes":["https"],"resumePath":true,"preparedPath":true},"versioning":{"mode":"local-git","template":"run-template"}}"#,
     );
     let path = prepared.to_str().unwrap();
-    f.parity(&[
+    let missing = f.call(&[
         "--dry-run",
         "--project",
         "content-distribution",
         "--path",
         path,
     ]);
+    assert!(!missing.status.success());
+    assert!(missing.stdout.is_empty());
     write(
         &f.source.join("run-template/.gitignore"),
         "/private-media/\n",
     );
-    f.parity(&[
+    f.assert_contract(&[
         "--dry-run",
         "--project",
         "content-distribution",
@@ -337,7 +318,7 @@ fn explicit_project_preflight_script_has_reference_parity_and_no_implicit_run_cr
         &f.source.join("project.run.json"),
         r#"{"schemaVersion":1,"input":{"type":"url","schemes":["https"]},"preflight":{"script":"scripts/survey.mjs"}}"#,
     );
-    f.parity(&[
+    f.assert_contract(&[
         "--dry-run",
         "--project",
         "content-distribution",
@@ -346,7 +327,7 @@ fn explicit_project_preflight_script_has_reference_parity_and_no_implicit_run_cr
     ]);
     assert_eq!(
         fs::read_to_string(f.source.join("preflight-marker")).unwrap(),
-        "ran\nran\n"
+        "ran\n"
     );
     assert!(!f.source.join("runs").exists());
 }
@@ -362,16 +343,13 @@ fn declared_preflight_failure_blocks_native_run_preview() {
         &f.source.join("project.run.json"),
         r#"{"schemaVersion":1,"input":{"type":"url","schemes":["https"]},"preflight":{"script":"scripts/survey.mjs"}}"#,
     );
-    let native = f.call(
-        true,
-        &[
-            "--dry-run",
-            "--project",
-            "content-distribution",
-            "--url",
-            "https://a.example",
-        ],
-    );
+    let native = f.call(&[
+        "--dry-run",
+        "--project",
+        "content-distribution",
+        "--url",
+        "https://a.example",
+    ]);
     assert!(!native.status.success());
     assert!(String::from_utf8_lossy(&native.stderr).contains("project-assets-invalid"));
     assert!(!f.source.join("runs").exists());
@@ -391,16 +369,13 @@ fn external_symlink_project_preflight_is_rejected_before_script_execution() {
         &f.source.join("project.run.json"),
         r#"{"schemaVersion":1,"input":{"type":"url","schemes":["https"]},"preflight":{"script":"scripts/survey.mjs"}}"#,
     );
-    let native = f.call(
-        true,
-        &[
-            "--dry-run",
-            "--project",
-            "content-distribution",
-            "--url",
-            "https://a.example",
-        ],
-    );
+    let native = f.call(&[
+        "--dry-run",
+        "--project",
+        "content-distribution",
+        "--url",
+        "https://a.example",
+    ]);
     assert!(!native.status.success());
     assert!(!f.source.join("runs").exists());
 }
@@ -416,16 +391,13 @@ fn oversized_project_preflight_output_is_bounded_and_rejected() {
         &f.source.join("project.run.json"),
         r#"{"schemaVersion":1,"input":{"type":"url","schemes":["https"]},"preflight":{"script":"scripts/too-loud.mjs"}}"#,
     );
-    let result = f.call(
-        true,
-        &[
-            "--dry-run",
-            "--project",
-            "content-distribution",
-            "--url",
-            "https://example.org",
-        ],
-    );
+    let result = f.call(&[
+        "--dry-run",
+        "--project",
+        "content-distribution",
+        "--url",
+        "https://example.org",
+    ]);
     assert!(!result.status.success());
     assert!(String::from_utf8_lossy(&result.stderr).contains("output exceeded"));
     assert!(result.stdout.is_empty());
@@ -475,22 +447,15 @@ fn project_run_help_is_node_free_and_byte_identical_to_reference() {
         vec!["-h"],
         vec!["--project", "content-distribution", "--help"],
     ] {
-        let reference = f.call(false, &args);
-        let native = f.call(true, &args);
-        assert!(
-            reference.status.success(),
-            "{}",
-            String::from_utf8_lossy(&reference.stderr)
+        let native = f.call(&args);
+        assert!(native.status.success());
+        assert_eq!(
+            native.stdout,
+            include_bytes!("../assets/project-run-help.txt")
         );
-        assert!(
-            native.status.success(),
-            "{}",
-            String::from_utf8_lossy(&native.stderr)
-        );
-        assert_eq!(reference.stdout, native.stdout);
         assert!(String::from_utf8_lossy(&native.stdout).starts_with("Usage: neo project run"));
     }
-    let invalid = f.call(true, &["--help", "--unexpected"]);
+    let invalid = f.call(&["--help", "--unexpected"]);
     assert!(!invalid.status.success());
     assert!(invalid.stdout.is_empty());
 }
@@ -583,18 +548,8 @@ fn project_run_invalid_flag_error_matrix_preserves_node_exit_and_no_writes() {
         vec!["--help", "--unexpected"],
     ];
     for args in invalid {
-        let reference = f.call(false, &args);
-        let native = f.call(true, &args);
-        assert!(
-            !reference.status.success(),
-            "unexpected accepted reference: {args:?}"
-        );
-        assert_eq!(
-            reference.status.code(),
-            native.status.code(),
-            "exit parity: {args:?} rust={}",
-            String::from_utf8_lossy(&native.stderr)
-        );
+        let native = f.call(&args);
+        assert_eq!(native.status.code(), Some(1), "invalid flags {args:?}");
         assert!(
             native.stdout.is_empty(),
             "errors must not emit success JSON: {args:?}"

@@ -1,0 +1,17 @@
+{
+  "input": [
+    "--dry-run",
+    "--project=content-distribution",
+    "--url",
+    "https://example.org/secret?token=hidden"
+  ],
+  "expected": {
+    "exit": 0,
+    "stdout": {
+      "project": "content-distribution",
+      "runPath": "<FIXTURE>/workspace/content-distribution/runs/<TODAY>-source-<unique>",
+      "inputType": "url",
+      "dryRun": true
+    }
+  }
+}

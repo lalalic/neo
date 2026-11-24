@@ -1,0 +1,15 @@
+{
+  "input": [
+    "--dry-run",
+    "--project",
+    "vlog",
+    "--path",
+    "<FIXTURE>/workspace/vlog/runs/2026-11-03-first",
+    "--title",
+    " "
+  ],
+  "expected": {
+    "exit": 1,
+    "stdout": ""
+  }
+}

@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {existsSync,readFileSync} from 'node:fs';
 import {join,resolve} from 'node:path';
-import {imagePlan} from '../gpu/image.mjs';
+import {imagePlan} from '../gpu/e2e/native-cli.mjs';
 
 const root=resolve(import.meta.dirname,'..');
 const docker=readFileSync(join(root,'gpu/examples/comfyui/Dockerfile'),'utf8');

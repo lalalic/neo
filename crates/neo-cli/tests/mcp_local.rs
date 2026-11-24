@@ -11,7 +11,6 @@ struct Fixture {
     _temp: tempfile::TempDir,
     home: PathBuf,
     root: PathBuf,
-    node: String,
 }
 impl Fixture {
     fn new(port: u16) -> Self {
@@ -24,32 +23,14 @@ impl Fixture {
             .join("../..")
             .canonicalize()
             .unwrap();
-        let node = String::from_utf8(
-            Command::new("node")
-                .args(["-p", "process.execPath"])
-                .output()
-                .unwrap()
-                .stdout,
-        )
-        .unwrap()
-        .trim()
-        .to_string();
         Self {
             _temp: temp,
             home,
             root,
-            node,
         }
     }
-    fn run(&self, native: bool, args: &[&str]) -> Output {
-        let mut command = if native {
-            Command::new(env!("CARGO_BIN_EXE_neo-rs"))
-        } else {
-            Command::new(&self.node)
-        };
-        if !native {
-            command.arg(self.root.join(".bin/neo.mjs"));
-        }
+    fn run(&self, args: &[&str]) -> Output {
+        let mut command = Command::new(env!("CARGO_BIN_EXE_neo-rs"));
         command
             .args(args)
             .current_dir(&self.root)
@@ -115,10 +96,10 @@ fn one_server(expected: usize) -> (u16, thread::JoinHandle<Vec<Value>>) {
 }
 #[test]
 fn mcp_tool_inventory_filters_privileged_tools_with_same_reference_json() {
-    for native in [false, true] {
+    {
         let (port, host) = one_server(1);
         let f = Fixture::new(port);
-        let result = f.run(native, &["mcp", "tools"]);
+        let result = f.run(&["mcp", "tools"]);
         assert!(
             result.status.success(),
             "{}",
@@ -133,20 +114,17 @@ fn mcp_tool_inventory_filters_privileged_tools_with_same_reference_json() {
 }
 #[test]
 fn mcp_allowlisted_call_requires_registered_tool_and_json_object_file() {
-    for native in [false, true] {
+    {
         let (port, host) = one_server(2);
         let f = Fixture::new(port);
         let file = f.args_file(r#"{"title":"Test","questions":["What changed?"]}"#);
-        let result = f.run(
-            native,
-            &[
-                "mcp",
-                "call",
-                "askquestions",
-                "--args-file",
-                file.to_str().unwrap(),
-            ],
-        );
+        let result = f.run(&[
+            "mcp",
+            "call",
+            "askquestions",
+            "--args-file",
+            file.to_str().unwrap(),
+        ]);
         assert!(
             result.status.success(),
             "{}",
@@ -166,10 +144,10 @@ fn mcp_allowlisted_call_requires_registered_tool_and_json_object_file() {
 }
 #[test]
 fn computer_help_filters_privileged_subcommands_and_denied_tool_exits_two() {
-    for native in [false, true] {
+    {
         let (port, host) = one_server(2);
         let f = Fixture::new(port);
-        let help = f.run(native, &["computer-use", "help"]);
+        let help = f.run(&["computer-use", "help"]);
         assert!(
             help.status.success(),
             "{}",
@@ -185,7 +163,7 @@ fn computer_help_filters_privileged_subcommands_and_denied_tool_exits_two() {
             .filter_map(|v| v["command"].as_str())
             .collect::<Vec<_>>();
         assert_eq!(names, vec!["click", "list_apps"]);
-        let denied = f.run(native, &["computer-use", "call", "click"]);
+        let denied = f.run(&["computer-use", "call", "click"]);
         assert_eq!(denied.status.code(), Some(2));
         let state: Value = serde_json::from_slice(&denied.stdout).unwrap();
         assert_eq!(state["isError"], true);
@@ -203,7 +181,7 @@ fn mcp_and_computer_use_reject_unlisted_operations_before_any_network() {
         vec!["computer-use", "call", "setup"],
         vec!["mcp", "call", "review.preview"],
     ] {
-        let result = f.run(true, &args);
+        let result = f.run(&args);
         assert!(
             !result.status.success(),
             "dangerous operation succeeded: {args:?}"
@@ -269,7 +247,7 @@ fn native_mcp_jsonrpc_http_and_redirect_failures_are_not_claimed_success() {
     for (status, body, headers, error) in responses {
         let (port, host) = response_server(status, body, headers);
         let f = Fixture::new(port);
-        let result = f.run(true, &["mcp", "tools"]);
+        let result = f.run(&["mcp", "tools"]);
         assert!(
             !result.status.success(),
             "response {status} must not be accepted"
@@ -297,7 +275,7 @@ fn native_mcp_rejects_invalid_local_deployment_port_before_any_request() {
             .home
             .join("Library/Application Support/NeoY/deployment.json");
         fs::write(file, content).unwrap();
-        let result = f.run(true, &["mcp", "tools"]);
+        let result = f.run(&["mcp", "tools"]);
         assert!(!result.status.success());
         assert!(result.stdout.is_empty());
         assert!(String::from_utf8_lossy(&result.stderr).contains("Neo.app"));
@@ -331,24 +309,18 @@ fn native_mcp_rejects_malformed_or_privileged_call_args_before_any_request() {
     ];
     for (name, body) in attempts {
         let path = f.args_file(body);
-        let result = f.run(
-            true,
-            &["mcp", "call", name, "--args-file", path.to_str().unwrap()],
-        );
+        let result = f.run(&["mcp", "call", name, "--args-file", path.to_str().unwrap()]);
         assert!(!result.status.success(), "unsafe {name} accepted: {body}");
         assert!(result.stdout.is_empty());
     }
     let file = f.args_file("[]");
-    let result = f.run(
-        true,
-        &[
-            "mcp",
-            "call",
-            "review.preview",
-            "--args-file",
-            file.to_str().unwrap(),
-        ],
-    );
+    let result = f.run(&[
+        "mcp",
+        "call",
+        "review.preview",
+        "--args-file",
+        file.to_str().unwrap(),
+    ]);
     assert!(!result.status.success());
     assert!(String::from_utf8_lossy(&result.stderr).contains("JSON object"));
 }

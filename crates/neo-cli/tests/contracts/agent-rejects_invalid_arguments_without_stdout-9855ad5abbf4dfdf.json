@@ -1,0 +1,13 @@
+{
+  "input": [
+    "agent",
+    "search",
+    "review",
+    "--limit",
+    "284"
+  ],
+  "expected": {
+    "exit": 1,
+    "stdout": ""
+  }
+}

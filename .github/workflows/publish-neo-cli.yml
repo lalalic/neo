@@ -1,46 +1,27 @@
-name: Publish Neo CLI
+name: Build native Neo CLI
 on:
   workflow_dispatch:
   push:
     tags: ['neo-cli-v*']
 permissions:
   contents: read
-  id-token: write
 jobs:
-  publish:
-    runs-on: ubuntu-latest
-    env:
-      AGENTS_RELAY_WORKSPACE_ROOT: ${{ github.workspace }}/..
-      AGENTS_RELAY_DIST_CLI: ${{ github.workspace }}/vendor/agents-relay/dist/cli.js
+  bundle:
+    strategy:
+      matrix:
+        os: [macos-14, ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/checkout@v4
-        with:
-          repository: lalalic/agents-relay
-          path: vendor/agents-relay
-          persist-credentials: false
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          registry-url: https://registry.npmjs.org
-      - run: npm install --global npm@11.15.0
-      - name: Build canonical Agents Relay PromptBuilder for eval integration tests
-        working-directory: vendor/agents-relay
-        run: npm ci && npm run build
-      - name: Portable CLI and independent-project contract tests
-        # Linux runs the contract tests which build isolated Git fixture projects.
-        # macOS audio/TTS, optional Hermes model runtimes and project-owned Vlog
-        # contracts are verified by their respective host/project suites, not
-        # by the standalone Neo CLI npm publication job.
-        run: node --test test/neo-project-run.test.mjs test/neo-independent-project.test.mjs
-      - name: Stage CLI distribution
-        run: node scripts/stage-neo-cli.mjs "$RUNNER_TEMP/neo-cli-dist"
-      - name: Verify release identity
-        working-directory: ${{ runner.temp }}/neo-cli-dist
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo build --release --locked -p neo-harness-cli --bin neo-rs
+      - run: cargo test --locked -p neo-harness-cli --lib
+      - name: Stage native release
         run: |
-          node -e 'const p=require("./package.json");if(p.name!=="@lalalic/neo"||p.version!=="1.0.6"||p.private||!p.bin.neo)process.exit(1)'
-          node .bin/neo.mjs --help
-          npm pack --dry-run --ignore-scripts
-      - name: Publish with npm Trusted Publisher OIDC
-        working-directory: ${{ runner.temp }}/neo-cli-dist
-        run: npm publish --provenance --access public
+          NEO_HARNESS_ROOT="$GITHUB_WORKSPACE" target/release/neo-rs package stage "$RUNNER_TEMP/neo-cli-dist"
+          "$RUNNER_TEMP/neo-cli-dist/bin/neo" --help
+          tar -czf "$RUNNER_TEMP/neo-cli.tar.gz" -C "$RUNNER_TEMP/neo-cli-dist" .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: neo-cli-${{ matrix.os }}
+          path: ${{ runner.temp }}/neo-cli.tar.gz

@@ -1,0 +1,13 @@
+{
+  "input": [
+    "--dry-run",
+    "--project",
+    "content-distribution",
+    "--source",
+    "missing"
+  ],
+  "expected": {
+    "exit": 1,
+    "stdout": ""
+  }
+}

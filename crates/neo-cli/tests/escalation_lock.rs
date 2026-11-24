@@ -4,7 +4,7 @@ use std::{
     fs,
     io::{BufRead, BufReader, Write},
     os::unix::fs::{symlink, PermissionsExt},
-    path::{Path, PathBuf},
+    path::PathBuf,
     process::{Command, Stdio},
     time::{Duration, Instant},
 };
@@ -128,41 +128,27 @@ fn guardian_releases_lock_when_parent_disappears_without_explicit_finish() {
     later.finish().unwrap();
 }
 #[test]
-fn native_lock_interoperates_with_original_node_flock_without_two_model_slots() {
+fn native_lock_interoperates_with_independent_kernel_flock() {
     let f = Fixture::new();
-    let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .canonicalize()
+    fs::create_dir(&f.dir).unwrap();
+    fs::set_permissions(&f.dir, fs::Permissions::from_mode(0o700)).unwrap();
+    let file = std::fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create_new(true)
+        .open(f.dir.join("inference.lock"))
         .unwrap();
-    let module = UrlOrPath::path_to_url(&root.join(".bin/neo-escalation-lock.mjs"));
-    let program=format!("import {{withGlobalEscalationLock}} from '{}';\nawait withGlobalEscalationLock(async()=>{{console.log('NODE_HELD');await new Promise(r=>setTimeout(r,1400));}},{{dir:process.argv[1],waitSeconds:3}});",module);
-    let mut node = Command::new("node")
-        .args([
-            "--input-type=module",
-            "-e",
-            &program,
-            f.dir.to_str().unwrap(),
-        ])
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .unwrap();
-    let mut output = BufReader::new(node.stdout.take().unwrap());
-    let mut seen = String::new();
-    output.read_line(&mut seen).unwrap();
-    assert_eq!(seen.trim(), "NODE_HELD");
+    use std::os::fd::AsRawFd;
+    assert_eq!(unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX) }, 0);
+    let released = std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_millis(1400));
+        drop(file);
+    });
     let start = Instant::now();
-    let rust = f.acquire(4).unwrap();
+    let guard = f.acquire(4).unwrap();
     assert!(start.elapsed() >= Duration::from_millis(950));
-    rust.finish().unwrap();
-    assert!(node.wait().unwrap().success());
-}
-struct UrlOrPath;
-impl UrlOrPath {
-    fn path_to_url(path: &Path) -> String {
-        url::Url::from_file_path(path).unwrap().to_string()
-    }
+    guard.finish().unwrap();
+    released.join().unwrap();
 }
 
 #[cfg(unix)]

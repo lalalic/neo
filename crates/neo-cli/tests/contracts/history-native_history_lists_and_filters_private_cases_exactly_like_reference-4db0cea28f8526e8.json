@@ -1,0 +1,58 @@
+{
+  "input": [
+    "cases"
+  ],
+  "expected": {
+    "exit": 0,
+    "stdout": [
+      {
+        "version": 1,
+        "id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "captured_at": "2026-11-23T13:00:00.000Z",
+        "outcome": "taught",
+        "scenario": {
+          "key": "local_voice",
+          "category": "tooling",
+          "symptom": "offline sound"
+        },
+        "strategy": {
+          "key": "voice_setup",
+          "steps": [
+            "set default"
+          ],
+          "lesson": "Check codec"
+        },
+        "observation": {
+          "tools": [],
+          "calls": 0,
+          "failures": 0
+        }
+      },
+      {
+        "version": 1,
+        "id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "captured_at": "2026-11-23T12:00:00.000Z",
+        "outcome": "resolved",
+        "scenario": {
+          "key": "printer_no_network",
+          "category": "network",
+          "symptom": "printer offline"
+        },
+        "strategy": {
+          "key": "wireless_setup",
+          "steps": [
+            "configure SSID"
+          ],
+          "lesson": "Print when online"
+        },
+        "observation": {
+          "tools": [
+            "computer-use"
+          ],
+          "calls": 1,
+          "failures": 0
+        }
+      }
+    ]
+  }
+}

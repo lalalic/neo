@@ -1,0 +1,17 @@
+{
+  "input": [
+    "status",
+    "neo/service"
+  ],
+  "expected": {
+    "exit": 0,
+    "stdout": {
+      "name": "neo/service",
+      "state": "online",
+      "pid": 413,
+      "manager": "pm2",
+      "managed": true,
+      "health": "not_checked"
+    }
+  }
+}

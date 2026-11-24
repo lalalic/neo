@@ -1,0 +1,23 @@
+{
+  "input": "one-tool",
+  "expected": [
+    {
+      "type": "tool_use",
+      "name": "terminal",
+      "input": {
+        "command": "mock-source-read"
+      }
+    },
+    {
+      "type": "tool_result",
+      "name": "terminal",
+      "is_error": false,
+      "output": "mock-secret: a-short-secret-value"
+    },
+    {
+      "type": "result",
+      "exit_code": 0,
+      "text": "{\"status\":\"resolved\",\"summary\":\"Mock target configured\",\"reason\":null,\"user_action\":null,\"evidence\":[\"mock target validated\"],\"notification\":null}"
+    }
+  ]
+}

@@ -175,7 +175,7 @@ pub fn stage(target: &Path) -> Result<Value, String> {
         fs::set_permissions(&name, fs::Permissions::from_mode(0o755)).map_err(|e| e.to_string())?;
         let (count, external) = write_committed_assets(&root, &destination)?;
         let container_assets = write_container_assets(&root, &destination)?;
-        let manifest = json!({"schemaVersion":1,"name":"neo-harness-rust-preview",
+        let manifest = json!({"schemaVersion":1,"name":"neo-harness-rust",
             "version":env!("CARGO_PKG_VERSION"),"revision":revision,
             "platform":env::consts::OS,"architecture":env::consts::ARCH,
             "entrypoint":"bin/neo","trackedAssets":count,
@@ -187,7 +187,7 @@ pub fn stage(target: &Path) -> Result<Value, String> {
             serde_json::to_string_pretty(&manifest).map_err(|e| e.to_string())? + "\n",
         )
         .map_err(|e| e.to_string())?;
-        fs::write(destination.join("README.md"),"# Neo Harness native Rust preview\n\nRun `bin/neo --help`. This is a local staged candidate, not an installation or production cutover. `manifest.json` lists external Git-link Skills intentionally omitted because their targets are outside the tracked Harness checkout. Compute and Eval CLI command routing is native Rust. Project-specific JS test cases and optional JS preflight scripts require their explicitly declared project Node runner. Container images still use a separately bundled internal JS runtime.\n").map_err(|e|e.to_string())?;
+        fs::write(destination.join("README.md"),"# Neo Harness native Rust CLI\n\nRun `bin/neo --help`. This is a local staged candidate, not an installation or production cutover. `manifest.json` lists external Git-link Skills intentionally omitted because their targets are outside the tracked Harness checkout. Compute and Eval CLI command routing is native Rust. Project-specific JS test cases and optional JS preflight scripts require their explicitly declared project Node runner. Container images still use a separately bundled internal JS runtime.\n").map_err(|e|e.to_string())?;
         Ok(manifest)
     })();
     if written.is_err() {

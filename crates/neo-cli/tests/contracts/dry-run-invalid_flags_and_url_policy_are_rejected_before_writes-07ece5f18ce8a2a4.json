@@ -1,0 +1,13 @@
+{
+  "input": [
+    "--dry-run",
+    "--project",
+    "content-distribution",
+    "--url",
+    "https://user:password@a.example"
+  ],
+  "expected": {
+    "exit": 1,
+    "stdout": ""
+  }
+}

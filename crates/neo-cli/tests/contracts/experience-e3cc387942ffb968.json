@@ -1,0 +1,86 @@
+{
+  "input": {
+    "result": {
+      "status": "resolved"
+    },
+    "experience": {
+      "scenario_key": "oauth.callback_pending",
+      "category": "authentication",
+      "symptom": "Authorization callback not received",
+      "strategy_key": "webhelm.resume_auth",
+      "steps": [
+        "Check existing managed Chrome tab",
+        "Finish authorized consent flow"
+      ],
+      "verification": "Connection status is healthy",
+      "failure_reason": null,
+      "lesson": "Keep waiting CLI process alive during consent"
+    },
+    "events": [
+      {
+        "type": "tool_use",
+        "name": "terminal",
+        "input": {
+          "command": "webhelm status --url https://secret.example/session?token=ABC"
+        }
+      },
+      {
+        "type": "tool_result",
+        "name": "terminal",
+        "is_error": false,
+        "output": "password: syntheticSECRET_77"
+      },
+      {
+        "type": "tool_use",
+        "name": "terminal",
+        "input": {
+          "command": "neo computer-use call list_apps"
+        }
+      },
+      {
+        "type": "tool_result",
+        "name": "terminal",
+        "is_error": true,
+        "output": "local error"
+      }
+    ],
+    "error": null
+  },
+  "expected": {
+    "version": 1,
+    "id": "0d77314e64de3cf771919aaddd680662120038f90effe34199bcc5ca2ee13a79",
+    "captured_at": "2026-11-24T05:59:59.500Z",
+    "source": "agent",
+    "scenario": {
+      "key": "oauth.callback_pending",
+      "category": "authentication",
+      "symptom": "Authorization callback not received"
+    },
+    "outcome": "resolved",
+    "strategy": {
+      "key": "webhelm.resume_auth",
+      "steps": [
+        "Check existing managed Chrome tab",
+        "Finish authorized consent flow"
+      ],
+      "verification": "Connection status is healthy",
+      "failure_reason": "",
+      "lesson": "Keep waiting CLI process alive during consent"
+    },
+    "observation": {
+      "tools": [
+        "computer-use",
+        "shell",
+        "webhelm"
+      ],
+      "calls": 2,
+      "failures": 1
+    },
+    "runtime": {
+      "backend": "local",
+      "engine": "llama",
+      "model_family": "qwen3.5_4b_gguf"
+    },
+    "training_reviewed": false
+  }
+}

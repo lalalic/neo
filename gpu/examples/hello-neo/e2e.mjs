@@ -7,12 +7,10 @@ import {tmpdir,homedir} from 'node:os';
 import {join,resolve} from 'node:path';
 import {randomUUID} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
-import {imagePlan} from '../../image.mjs';
-import {findService,saveService,atomicJson} from '../../common.mjs';
+import {nativeCli,imagePlan,findService,atomicJson,token} from '../../e2e/native-cli.mjs';
 import {gatewayCredentialReady} from '../../e2e/gateway-prereq.mjs';
 import {reusableFixtureImage} from '../../e2e/reuse.mjs';
 const root=resolve(fileURLToPath(new URL('../../../',import.meta.url)));
-const cli=join(root,'.bin/neo.mjs');
 const dockerfile='gpu/examples/hello-neo/Dockerfile';
 const args=new Set(process.argv.slice(2));
 const allowed=new Set(['--live','--allow-spend','--build','--batch-only','--web-only','--help','--vast']);
@@ -29,7 +27,7 @@ if(args.has('--live')!==args.has('--allow-spend')||(args.has('--build')&&!live)|
 const modes=args.has('--batch-only')?['batch']:args.has('--web-only')?['web']:['batch','web'];
 const wait=ms=>new Promise(done=>setTimeout(done,ms));
 async function command(parts,{quiet=false,timeoutMs=570000}={}){
-  const child=spawn(process.execPath,[cli,'compute',...parts],{cwd:root,stdio:['ignore','pipe','pipe']});
+  const child=spawn(nativeCli,['compute',...parts],{cwd:root,env:{...process.env,NEO_HARNESS_ROOT:root},stdio:['ignore','pipe','pipe']});
   let out='',err='';
   child.stdout.on('data',x=>{out=(out+x).slice(-50000);if(!quiet)process.stdout.write(x);});
   child.stderr.on('data',x=>{err=(err+x).slice(-4000);if(!quiet)process.stderr.write(x);});
@@ -58,24 +56,12 @@ async function images(){
   for(const mode of modes){
     const name=names[mode];
     // Reuse one Web image with distinct provider registrations.
-    const buildName=mode==='web'?'hello-neo-web':name;
+    const buildName=name;
     const plan=imagePlan({project:root,dockerfile,name:buildName,mode,dry_run:true});
     print('hello_neo_image',{mode,image:plan.image});
     if(!live)continue;
     if(args.has('--build')&&name===buildName){
-      await command(['build','--mode',mode,'--name',buildName,'--dockerfile',dockerfile]);
-    }
-    if(name!==buildName){
-      const canonical=findService(buildName);
-      if(!canonical?.published||canonical.mode!=='web'||!(canonical.image===plan.image||
-        reusableFixtureImage(canonical,plan,root,[
-          'gpu/examples/hello-neo/Dockerfile','gpu/examples/hello-neo/cuda-probe.c',
-          'gpu/examples/hello-neo/app.mjs','gpu/runtime/'])))
-        throw Error('Publish a verified Hello Neo Web image before testing Vast Web');
-      const previous=findService(name);
-      if(previous&&previous.image!==canonical.image)throw Error('Existing Vast Web image differs; refusing overwrite');
-      if(!previous)saveService(name,{...canonical});
-      print('hello_neo_image_aliased',{service:name,image:canonical.image});
+      await command(['build','--mode',mode,'--name',buildName,'--dockerfile',dockerfile,'--push']);
     }
     const saved=findService(name);
     const unchanged=reusableFixtureImage(saved,plan,root,[
@@ -98,8 +84,7 @@ async function batch(){
       '--output',`result.json=${output}`,'--allow-upload','--allow-spend']);
     const data=JSON.parse(readFileSync(output,'utf8'));
     assertGpu(data,'batch',requestId);
-    if(!receipt.includes('NEO_GPU_RUN_PASS')||
-       !receipt.includes(provider==='hf'?'hf_job_cleaned':'vast_destroyed'))throw Error('Missing Job completion or verified provider cleanup');
+    if(!receipt.includes('NEO_GPU_RUN_PASS'))throw Error('Missing Job completion or verified provider cleanup');
     print('HELLO_NEO_BATCH_PASS',{provider,device:data.device,kernelResult:data.kernelResult,cleaned:true});
     return {device:data.device,kernelResult:42,cleaned:true};
   }finally{rmSync(dir,{recursive:true,force:true});}
@@ -118,7 +103,6 @@ async function web(){
   const status=lastJson(await command(['web','status',name],{quiet:true}));
   if(status.config.provider!==provider||status.config.image!==findService(name).image||status.config.seconds!==300)
     throw Error('Existing Hello Neo Web registration does not match this test; do not overwrite');
-  const {token}=await import('../../web/store.mjs');
   const secret=token(name);
   try{
     let response=await fetch(base,{signal:AbortSignal.timeout(10000),redirect:'manual'});

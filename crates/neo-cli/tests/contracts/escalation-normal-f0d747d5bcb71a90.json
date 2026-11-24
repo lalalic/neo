@@ -1,0 +1,29 @@
+{
+  "input": {
+    "status": "needs_user",
+    "summary": "Human confirmation needed",
+    "user_action": "Confirm on phone",
+    "evidence": "Delivery tested",
+    "notification": {
+      "attempted": true,
+      "delivered": false,
+      "channel": "wechat-bro",
+      "details": "not delivered"
+    }
+  },
+  "expected": {
+    "status": "needs_user",
+    "summary": "Human confirmation needed",
+    "reason": null,
+    "user_action": "Confirm on phone",
+    "evidence": [
+      "Delivery tested"
+    ],
+    "notification": {
+      "attempted": true,
+      "delivered": false,
+      "channel": "wechat-bro",
+      "details": "not delivered"
+    }
+  }
+}

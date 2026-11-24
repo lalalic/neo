@@ -5,13 +5,12 @@
   "license": "ISC",
   "author": "",
   "type": "commonjs",
-  "main": "index.js",
   "bin": {
-    "neo": ".bin/neo.mjs",
     "serviceman": "skills/daemon-service-manage/bin/serviceman.mjs"
   },
   "scripts": {
-    "test": "node --test test/*.test.mjs",
+    "test": "cargo test --workspace && node --test test/*.test.mjs",
     "push": "node scripts/guard-private-runs.mjs && GIT_SSH_COMMAND=\"ssh -i ~/.ssh/id_ed25519_1 -o IdentitiesOnly=yes\" git push"
-  }
+  },
+  "private": true
 }

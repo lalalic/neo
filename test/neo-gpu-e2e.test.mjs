@@ -8,10 +8,6 @@ import {createServer} from 'node:net';
 import {setTimeout as delay} from 'node:timers/promises';
 import {createHash} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
-import {register,service,saveSession,tokenFile,sessionFile} from '../gpu/web/store.mjs';
-import {webRemove} from '../gpu/web/manager.mjs';
-import {hfRunArgs} from '../gpu/providers/hf.mjs';
-import {hfWebArgs} from '../gpu/web/providers.mjs';
 import {reusableFixtureImage} from '../gpu/e2e/reuse.mjs';
 import {gatewayCredentialReady} from '../gpu/e2e/gateway-prereq.mjs';
 const root=resolve(fileURLToPath(new URL('..',import.meta.url)));
@@ -26,15 +22,6 @@ test('one tiny Dockerfile declares the same Node fixture for batch and web',()=>
   assert.match(file,/FROM node:22-bookworm-slim/);
   assert.match(file,/CMD \["node", "\/app\/fixture.mjs"\]/);
   assert.doesNotMatch(file.split('\n').filter(line=>!line.trim().startsWith('#')).join('\n'),/cuda|pytorch|pip install/i);
-});
-
-test('both HF provider modes pass the required explicit image command',()=>{
-  const image='ghcr.io/lalalic/neo-gpu:sha-abcdefabcdef';
-  const batch=hfRunArgs({image,flavor:'cpu-basic',maxSeconds:420,name:'e2e-batch'});
-  assert.deepEqual(batch.slice(-3),[image,'/opt/neo-gpu/node','/opt/neo-gpu/launcher.mjs']);
-  assert.equal(batch[batch.indexOf('--timeout')+1],'420s');
-  assert.deepEqual(hfWebArgs({image,flavor:'cpu-basic',seconds:300},'e2e-web').slice(-3),
-    [image,'/opt/neo-gpu/node','/opt/neo-gpu/launcher.mjs']);
 });
 
 test('immutable E2E images can be reused after unrelated provider changes',()=>{
@@ -102,33 +89,5 @@ test('reusable runner defaults to no-spend and requires both explicit live appro
     const rejected=spawnSync(process.execPath,[runner,opt],{cwd:root,encoding:'utf8',timeout:30000});
     assert.equal(rejected.status,2);
     assert.match(rejected.stderr,/BOTH --live and --allow-spend/);
-  }
-});
-
-test('web test registration can be removed only after a stopped provider',async()=>{
-  const dir=temp();
-  const env={NEO_GPU_WEB_DIR:join(dir,'web'),NEO_GPU_WEB_SESSIONS:join(dir,'state')};
-  const previous={NEO_GPU_WEB_DIR:process.env.NEO_GPU_WEB_DIR,NEO_GPU_WEB_SESSIONS:process.env.NEO_GPU_WEB_SESSIONS};
-  Object.assign(process.env,env);
-  const oldLog=console.log;let printed='';
-  try{
-    const t=register('e2e-test',{image:'ghcr.io/example/test:sha-abcdef123456'});
-    assert.ok(t);
-    saveSession('e2e-test',{phase:'running',provider:'hf',jobId:'0123456789abcdef01234567'});
-    await assert.rejects(webRemove(['e2e-test']),/Stop and verify/);
-    assert.ok(existsSync(tokenFile('e2e-test')));
-    saveSession('e2e-test',{phase:'stopped',provider:'hf'});
-    console.log=x=>printed=x;
-    await webRemove(['e2e-test']);
-    assert.equal(JSON.parse(printed).phase,'removed');
-    assert.equal(service('e2e-test'),null);
-    assert.equal(existsSync(tokenFile('e2e-test')),false);
-    assert.equal(existsSync(sessionFile('e2e-test')),false);
-  }finally{
-    console.log=oldLog;
-    for(const k of Object.keys(env)){
-      if(previous[k]===undefined)delete process.env[k];else process.env[k]=previous[k];
-    }
-    rmSync(dir,{recursive:true,force:true});
   }
 });

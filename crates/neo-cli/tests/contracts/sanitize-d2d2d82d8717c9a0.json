@@ -1,0 +1,7 @@
+{
+  "input": "token=abcd1234 sk-abcdef1234567890 Bearer abc.def.ghi email alice@example.com link https://site.test/auth?key=xyz path /Users/alice/private/token.txt 192.168.1.5 OTP 123456",
+  "expected": {
+    "text": "[credential] [credential] [credential] email [email] link [url] path [path] [ip] [one-time-code]",
+    "category": "oauth_callback_pending"
+  }
+}

@@ -57,7 +57,7 @@ test('installed Neo CLI distribution includes all Project reference contracts', 
   const temp = mkdtempSync(join(tmpdir(), 'neo-project-skill-package-'));
   try {
     const dst = join(temp, 'dist');
-    execFileSync(process.execPath, [join(repo, 'scripts/stage-neo-cli.mjs'), dst], { stdio: 'pipe' });
+    execFileSync(process.env.NEO_CLI_BIN || join(repo, 'target/debug/neo-rs'), ['package', 'stage', dst], { stdio: 'pipe', env: {...process.env, NEO_HARNESS_ROOT: repo} });
     for (const path of ['SKILL.md', ...references.map(name => `references/${name}`), 'recipes/dag-agent-evolution.md', 'evals/cases.md']) {
       assert.ok(existsSync(join(dst, 'skills/neo-project', path)), `packaged Skill is missing ${path}`);
     }

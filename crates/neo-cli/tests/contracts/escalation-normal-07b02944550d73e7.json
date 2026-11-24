@@ -1,0 +1,16 @@
+{
+  "input": {
+    "status": "failed",
+    "summary": "Missing input",
+    "evidence": [],
+    "notification": null
+  },
+  "expected": {
+    "status": "failed",
+    "summary": "Missing input",
+    "reason": null,
+    "user_action": null,
+    "evidence": [],
+    "notification": null
+  }
+}

@@ -1,4 +1,4 @@
-use serde_json::Value;
+mod contracts;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::{
@@ -13,7 +13,6 @@ struct Fixture {
     root: PathBuf,
     home: PathBuf,
     stub_bin: PathBuf,
-    node: String,
     trace: PathBuf,
 }
 #[cfg(unix)]
@@ -54,34 +53,16 @@ fi
         for file in [&pm2, &launchctl] {
             fs::set_permissions(file, fs::Permissions::from_mode(0o755)).unwrap();
         }
-        let node = String::from_utf8(
-            Command::new("node")
-                .args(["-p", "process.execPath"])
-                .output()
-                .unwrap()
-                .stdout,
-        )
-        .unwrap()
-        .trim()
-        .to_string();
         Self {
             _temp: temp,
             root,
             home,
             stub_bin,
-            node,
             trace,
         }
     }
-    fn call(&self, native: bool, args: &[&str]) -> Output {
-        let mut command = if native {
-            Command::new(env!("CARGO_BIN_EXE_neo-rs"))
-        } else {
-            Command::new(&self.node)
-        };
-        if !native {
-            command.arg(self.root.join(".bin/neo.mjs"));
-        }
+    fn call(&self, args: &[&str]) -> Output {
+        let mut command = Command::new(env!("CARGO_BIN_EXE_neo-rs"));
         let path = format!(
             "{}:{}",
             self.stub_bin.display(),
@@ -111,13 +92,8 @@ fn native_service_list_status_and_duplicate_neoy_identity_equal_reference() {
         vec!["status", "neo/service"],
         vec!["status", "neoy/app"],
     ] {
-        let a = f.call(false, &args);
-        let b = f.call(true, &args);
-        assert_eq!(a.status.code(), b.status.code());
-        assert!(a.status.success());
-        let ref_json: Value = serde_json::from_slice(&a.stdout).unwrap();
-        let rust_json: Value = serde_json::from_slice(&b.stdout).unwrap();
-        assert_eq!(ref_json, rust_json, "{args:?}");
+        let b = f.call(&args);
+        contracts::assert_output("service", &args, &b, &[]);
     }
     assert!(f.traced().is_empty(), "service inventory must be read-only");
 }
@@ -132,7 +108,7 @@ fn native_service_denies_mutations_without_apply_and_unknown_names() {
         vec!["start", "/invalid", "--apply"],
         vec!["restart", "neo/service", "--wrong"],
     ] {
-        let result = f.call(true, &args);
+        let result = f.call(&args);
         assert!(
             !result.status.success(),
             "unsafe request accepted: {args:?}"
@@ -153,7 +129,7 @@ fn explicit_apply_delegates_only_to_canonical_manager_and_existing_name() {
         vec!["start", "neoy/app", "--apply"],
         vec!["restart", "neoy/app", "--apply"],
     ] {
-        let result = f.call(true, &args);
+        let result = f.call(&args);
         assert!(
             result.status.success(),
             "{}",

@@ -1,0 +1,11 @@
+{
+  "input": [
+    "cases",
+    "--search",
+    "not-found"
+  ],
+  "expected": {
+    "exit": 0,
+    "stdout": []
+  }
+}

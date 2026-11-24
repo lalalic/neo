@@ -1,7 +1,7 @@
 # Optional Skills in Neo.app
 
 Neo.app ships the versioned Neo Harness **core** Skill catalog. An optional
-Skill is **not** part of the `@lalalic/neo` or Rust Harness distribution and
+Skill is **not** part of the native Rust Harness distribution and
 is not installed or upgraded merely because Neo.app starts. The existing Neo
 Skill discovery also checks direct children of `~/.agents/skills/`, so users
 who deliberately install an independent Skill can use it without changing

@@ -1,0 +1,9 @@
+{
+  "input": [
+    "agent"
+  ],
+  "expected": {
+    "exit": 1,
+    "stdout": ""
+  }
+}

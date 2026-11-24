@@ -1,0 +1,11 @@
+{
+  "input": [
+    "--dry-run",
+    "--project",
+    "vlog"
+  ],
+  "expected": {
+    "exit": 1,
+    "stdout": ""
+  }
+}

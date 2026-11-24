@@ -1,0 +1,44 @@
+{
+  "input": {
+    "result": {
+      "status": "failed"
+    },
+    "experience": {
+      "scenario_key": "oauth.user@example.com",
+      "strategy_key": "",
+      "steps": []
+    },
+    "events": [],
+    "error": "Error"
+  },
+  "expected": {
+    "version": 1,
+    "id": "78a303e227db03172ae4a4ee481b4f7bcc29eea6e44ee5ad7fe78ce98d23910f",
+    "captured_at": "2026-11-24T05:59:59.622Z",
+    "source": "fallback",
+    "scenario": {
+      "key": "unclassified.76330d8ea9b75dfa",
+      "category": "other",
+      "symptom": ""
+    },
+    "outcome": "failed",
+    "strategy": {
+      "key": "runtime.error",
+      "steps": [],
+      "verification": "",
+      "failure_reason": "Runtime error class: Error",
+      "lesson": ""
+    },
+    "observation": {
+      "tools": [],
+      "calls": 0,
+      "failures": 0
+    },
+    "runtime": {
+      "backend": "local",
+      "engine": "llama",
+      "model_family": "qwen3.5_4b_gguf"
+    },
+    "training_reviewed": false
+  }
+}

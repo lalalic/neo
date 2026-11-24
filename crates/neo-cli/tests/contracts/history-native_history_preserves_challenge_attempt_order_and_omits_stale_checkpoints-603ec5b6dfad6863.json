@@ -1,0 +1,37 @@
+{
+  "input": [
+    "challenges"
+  ],
+  "expected": {
+    "exit": 0,
+    "stdout": [
+      {
+        "version": 1,
+        "id": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "created_at": "2026-11-23T13:00:00.000Z",
+        "goal": "Check test-only work",
+        "blocker": "missing local configuration",
+        "handoff": "Goal: Check test-only work",
+        "last_event_at": "2026-11-23T13:03:00.000Z",
+        "attempts": [
+          {
+            "version": 1,
+            "challenge_id": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "attempt_id": "11111111-1111-1111-1111-111111111111",
+            "event": "started",
+            "at": "2026-11-23T13:01:00.000Z"
+          },
+          {
+            "version": 1,
+            "challenge_id": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "attempt_id": "11111111-1111-1111-1111-111111111111",
+            "event": "finished",
+            "at": "2026-11-23T13:03:00.000Z",
+            "outcome": "resolved",
+            "summary": "test fixture verified"
+          }
+        ]
+      }
+    ]
+  }
+}

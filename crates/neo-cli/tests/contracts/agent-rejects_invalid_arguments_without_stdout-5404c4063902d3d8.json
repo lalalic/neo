@@ -1,0 +1,12 @@
+{
+  "input": [
+    "agent",
+    "list",
+    "--limit",
+    "1"
+  ],
+  "expected": {
+    "exit": 1,
+    "stdout": ""
+  }
+}

@@ -9,9 +9,6 @@ struct Fixture {
     _tmp: tempfile::TempDir,
     source: PathBuf,
     output: PathBuf,
-    reference: PathBuf,
-    root: PathBuf,
-    node: String,
 }
 impl Fixture {
     fn new() -> Self {
@@ -19,28 +16,10 @@ impl Fixture {
         let source = tmp.path().join("demo-skill");
         fs::create_dir_all(&source).unwrap();
         let output = tmp.path().join("rust.zip");
-        let reference = tmp.path().join("node.zip");
-        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../..")
-            .canonicalize()
-            .unwrap();
-        let node = String::from_utf8(
-            Command::new("node")
-                .args(["-p", "process.execPath"])
-                .output()
-                .unwrap()
-                .stdout,
-        )
-        .unwrap()
-        .trim()
-        .into();
         Self {
             _tmp: tmp,
             source,
             output,
-            reference,
-            root,
-            node,
         }
     }
     fn put(&self, name: &str, bytes: &[u8]) {
@@ -57,18 +36,6 @@ impl Fixture {
                 self.output.to_str().unwrap(),
             ])
             .env("PATH", "/usr/bin:/bin")
-            .output()
-            .unwrap()
-    }
-    fn node(&self) -> Output {
-        Command::new(&self.node)
-            .arg(self.root.join(".bin/neo.mjs"))
-            .args([
-                "skill",
-                "package",
-                self.source.to_str().unwrap(),
-                self.reference.to_str().unwrap(),
-            ])
             .output()
             .unwrap()
     }
@@ -98,7 +65,7 @@ fn contents(path: &Path) -> Vec<(String, Vec<u8>)> {
         .collect()
 }
 #[test]
-fn native_skill_zip_matches_node_reference_text_content_and_layout() {
+fn native_skill_zip_preserves_text_content_and_layout() {
     let f = Fixture::new();
     f.put(
         "SKILL.md",
@@ -113,22 +80,28 @@ fn native_skill_zip_matches_node_reference_text_content_and_layout() {
     f.put("node_modules/secret.js", b"should not package\n");
     f.put(".git/config", b"secret=unused\n");
     let rust = f.native();
-    let node = f.node();
     assert!(
         rust.status.success(),
         "{}",
         String::from_utf8_lossy(&rust.stderr)
     );
-    assert!(
-        node.status.success(),
-        "{}",
-        String::from_utf8_lossy(&node.stderr)
-    );
     let mut a = contents(&f.output);
-    let mut b = contents(&f.reference);
     a.sort_by(|x, y| x.0.cmp(&y.0));
-    b.sort_by(|x, y| x.0.cmp(&y.0));
-    assert_eq!(a, b);
+    let expected = vec![
+        (
+            "demo-skill/SKILL.md".to_string(),
+            fs::read(f.source.join("SKILL.md")).unwrap(),
+        ),
+        (
+            "demo-skill/docs/cafe.md".to_string(),
+            fs::read(f.source.join("docs/cafe.md")).unwrap(),
+        ),
+        (
+            "demo-skill/scripts/run.sh".to_string(),
+            fs::read(f.source.join("scripts/run.sh")).unwrap(),
+        ),
+    ];
+    assert_eq!(a, expected);
     assert_eq!(a.len(), 3);
     assert!(a.iter().all(|(name, _)| name.starts_with("demo-skill/")));
     #[cfg(unix)]

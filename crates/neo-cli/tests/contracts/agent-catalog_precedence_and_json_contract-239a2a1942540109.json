@@ -1,0 +1,45 @@
+{
+  "input": [
+    "agent",
+    "search",
+    "code",
+    "review"
+  ],
+  "expected": {
+    "exit": 0,
+    "stdout": [
+      {
+        "name": "agency-code-reviewer",
+        "description": "Expert code review specialist",
+        "source": "agency",
+        "path": "<FIXTURE>/home/.local/share/agency-agents/integrations/dsh/agency-code-reviewer/SKILL.md",
+        "requires_project_manifest": true,
+        "effective": true
+      },
+      {
+        "name": "reviewer",
+        "description": "Shared code reviewer",
+        "source": "shared",
+        "path": "<FIXTURE>/harness/agents/reviewer.agent.md",
+        "requires_project_manifest": false,
+        "effective": false
+      },
+      {
+        "name": "reviewer",
+        "description": "Project-specific reviewer",
+        "source": "project",
+        "path": "<FIXTURE>/project/agents/reviewer.agent.md",
+        "requires_project_manifest": false,
+        "effective": true
+      },
+      {
+        "name": "reviewer",
+        "description": "Global reviewer",
+        "source": "global",
+        "path": "<FIXTURE>/home/.agents/agents/reviewer.agent.md",
+        "requires_project_manifest": false,
+        "effective": false
+      }
+    ]
+  }
+}

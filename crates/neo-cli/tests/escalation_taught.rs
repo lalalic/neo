@@ -1,30 +1,18 @@
+mod contracts;
 use neo_harness_cli::escalation_experience as experience;
 use serde_json::{json, Value};
 #[cfg(unix)]
 use std::os::unix::fs::{symlink, PermissionsExt};
-use std::{
-    fs,
-    path::{Path, PathBuf},
-    process::Command,
-};
+use std::{fs, path::PathBuf};
 struct Fixture {
     _temp: tempfile::TempDir,
     cases: PathBuf,
-    root: PathBuf,
 }
 impl Fixture {
     fn new() -> Self {
         let temp = tempfile::tempdir().unwrap();
         let cases = temp.path().join("private-cases");
-        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../..")
-            .canonicalize()
-            .unwrap();
-        Self {
-            _temp: temp,
-            cases,
-            root,
-        }
+        Self { _temp: temp, cases }
     }
     fn candidate() -> Value {
         json!({"scenario_key":"apple_developer.login_challenge","category":"authentication",
@@ -39,52 +27,22 @@ impl Fixture {
         experience::prepare_taught(candidate, "llama", "test-model", "2026-11-23T12:00:00.000Z")
             .unwrap()
     }
-    fn node_prepare(&self, candidate: &Value) -> Value {
-        let src = r#"import {prepareTaughtExperience} from './.bin/neo-escalation-experience.mjs';
-console.log(JSON.stringify(prepareTaughtExperience(JSON.parse(process.argv[1]),{engine:'llama',model:'test-model'})));"#;
-        let output = Command::new("node")
-            .args(["--input-type=module", "-e", src, &candidate.to_string()])
-            .current_dir(&self.root)
-            .output()
-            .unwrap();
-        assert!(
-            output.status.success(),
-            "{}",
-            String::from_utf8_lossy(&output.stderr)
-        );
-        serde_json::from_slice(&output.stdout).unwrap()
+    fn expected_taught(&self, candidate: &Value) -> Value {
+        contracts::expected("taught", candidate)
     }
-    fn node_render(&self, handoff: &str) -> String {
-        let js = r#"import {renderTaughtExperience} from './.bin/neo-escalation-experience.mjs';
-console.log(renderTaughtExperience(process.argv[2],{dir:process.argv[1]}));"#;
-        let output = Command::new("node")
-            .args([
-                "--input-type=module",
-                "-e",
-                js,
-                self.cases.to_str().unwrap(),
-                handoff,
-            ])
-            .current_dir(&self.root)
-            .output()
-            .unwrap();
-        assert!(
-            output.status.success(),
-            "{}",
-            String::from_utf8_lossy(&output.stderr)
-        );
-        String::from_utf8(output.stdout)
+    fn expected_render(&self, handoff: &str) -> String {
+        contracts::expected("taught-render", &json!(handoff))
+            .as_str()
             .unwrap()
-            .trim_end_matches('\n')
-            .into()
+            .to_string()
     }
 }
 #[test]
-fn native_owner_taught_record_parity_preserves_unverified_truth_and_no_model_training() {
+fn native_owner_taught_record_contract_preserves_unverified_truth_and_no_model_training() {
     let f = Fixture::new();
     let candidate = Fixture::candidate();
     let mut native = f.make(&candidate);
-    let mut reference = f.node_prepare(&candidate);
+    let mut reference = f.expected_taught(&candidate);
     native["captured_at"] = json!("fixed");
     reference["captured_at"] = json!("fixed");
     assert_eq!(native, reference);
@@ -102,7 +60,7 @@ fn owner_taught_save_and_explicit_revision_are_private_and_relevant_to_future_ha
     assert_eq!(saved["updated"], false);
     let handoff = "Apple Developer login verification gets stuck";
     let native = experience::render_taught(handoff, &f.cases, 4).unwrap();
-    let node = f.node_render(handoff);
+    let node = f.expected_render(handoff);
     assert_eq!(native, node);
     assert!(native.contains("Inspect the existing authorized sign-in session"));
     assert_eq!(
@@ -164,7 +122,7 @@ fn native_owner_taught_content_masks_urls_passwords_private_paths_and_otp() {
             "unredacted taught summary: {secret}"
         );
     }
-    let mut reference = f.node_prepare(&candidate);
+    let mut reference = f.expected_taught(&candidate);
     let mut ours = native;
     reference["captured_at"] = json!("fixed");
     ours["captured_at"] = json!("fixed");

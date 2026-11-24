@@ -1,0 +1,36 @@
+{
+  "input": {
+    "NEO_ESCALATION_MODEL": "/tmp/test.gguf",
+    "NEO_ESCALATION_BUDGET_SECONDS": "300"
+  },
+  "expected": {
+    "engine": "llama",
+    "model": "/tmp/test.gguf",
+    "context": 65536,
+    "budgetSeconds": 300,
+    "maxTurns": 24,
+    "startupMs": 900000,
+    "serverArguments": [
+      "-m",
+      "/tmp/test.gguf",
+      "--no-mmproj",
+      "--jinja",
+      "--host",
+      "127.0.0.1",
+      "--port",
+      "18937",
+      "--alias",
+      "neo-escalation",
+      "-c",
+      "65536",
+      "-np",
+      "1",
+      "-ngl",
+      "99",
+      "-ctk",
+      "q8_0",
+      "-ctv",
+      "q8_0"
+    ]
+  }
+}

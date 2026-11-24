@@ -1,0 +1,35 @@
+{
+  "input": [
+    "cases",
+    "--limit",
+    "1"
+  ],
+  "expected": {
+    "exit": 0,
+    "stdout": [
+      {
+        "version": 1,
+        "id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "captured_at": "2026-11-23T13:00:00.000Z",
+        "outcome": "taught",
+        "scenario": {
+          "key": "local_voice",
+          "category": "tooling",
+          "symptom": "offline sound"
+        },
+        "strategy": {
+          "key": "voice_setup",
+          "steps": [
+            "set default"
+          ],
+          "lesson": "Check codec"
+        },
+        "observation": {
+          "tools": [],
+          "calls": 0,
+          "failures": 0
+        }
+      }
+    ]
+  }
+}

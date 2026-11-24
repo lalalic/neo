@@ -1,0 +1,15 @@
+{
+  "input": [
+    "doctor"
+  ],
+  "expected": {
+    "exit": 0,
+    "stdout": {
+      "gateway_http": "reachable",
+      "mcp_federation": "not_checked",
+      "node": "v25.6.0",
+      "python": "Python 3.9.6",
+      "remediation": []
+    }
+  }
+}

@@ -16,7 +16,6 @@ import {tmpdir} from 'node:os';
 import {fileURLToPath} from 'node:url';
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
 const native=join(root,'target/debug/neo-rs');
-const nodeReference=join(root,'.bin/neo.mjs');
 const relay=process.env.NEO_BLACKBOX_RELAY_BINARY||join(process.env.HOME||'', '.local/share/agents-relay/live/bin/agents-relay-rust');
 const relaySource=process.env.NEO_BLACKBOX_RELAY_SOURCE||'/Users/chengli/Workspace/agents-relay';
 assert(existsSync(native),'Build the native Rust Neo CLI first');
@@ -100,9 +99,8 @@ try{
     writeFileSync(join(skill,'node_modules/secret.js'),'should not package\n');
     const secret=join(temp,'secret.txt');writeFileSync(secret,'NEVER_PACKAGE_THIS_SECRET');
     symlinkSync(secret,join(skill,'private.txt'));
-    const dest=join(temp,'rust.zip'),reference=join(temp,'node.zip');
+    const dest=join(temp,'rust.zip');
     ok(await cli(['skill','package',skill,dest],env));
-    ok(await run(process.execPath,[nodeReference,'skill','package',skill,reference],{env}));
     const contents=async path=>{
       const names=await run('/usr/bin/unzip',['-Z','-1',path],{env});ok(names);
       const found={};
@@ -112,15 +110,13 @@ try{
       }
       return found;
     };
-    const rustContents=await contents(dest),nodeContents=await contents(reference);
+    const rustContents=await contents(dest);
     const safeEntries=['sample-skill/SKILL.md','sample-skill/docs/reference.md'];
     assert.deepEqual(Object.keys(rustContents).sort(),safeEntries);
-    for(const name of safeEntries)assert.equal(rustContents[name],nodeContents[name],
+    for(const name of safeEntries)assert.equal(rustContents[name],readFileSync(join(skill,name.slice("sample-skill/".length)),"utf8"),
       `Safe ZIP text differs for ${name}`);
     assert.ok(!Object.hasOwn(rustContents,'sample-skill/private.txt'),
       'Rust must not package symlinks that escape the Skill root');
-    if(Object.hasOwn(nodeContents,'sample-skill/private.txt'))observations.push(
-      'Legacy Node Skill packager includes an external symlink target; Rust excludes it');
     assert.ok(!readFileSync(dest).includes(Buffer.from('NEVER_PACKAGE_THIS_SECRET')));
     isPrivate(dest,0o600);
     const initial=readFileSync(dest);

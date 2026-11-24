@@ -1,0 +1,18 @@
+{
+  "input": [
+    "--dry-run",
+    "--project",
+    "content-distribution",
+    "--path",
+    "<FIXTURE>/workspace/content-distribution/runs/2026-11-07-prepared"
+  ],
+  "expected": {
+    "exit": 0,
+    "stdout": {
+      "project": "content-distribution",
+      "runPath": "<FIXTURE>/workspace/content-distribution/runs/2026-11-07-prepared",
+      "inputType": "path",
+      "dryRun": true
+    }
+  }
+}

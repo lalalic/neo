@@ -1,12 +1,10 @@
+mod contracts;
 use neo_harness_cli::{
     escalation_contract::{self, Config, Request},
     escalation_stateless::{self, ToolResult},
 };
 use serde_json::{json, Value};
-use std::{
-    path::{Path, PathBuf},
-    process::Command,
-};
+use std::path::{Path, PathBuf};
 fn config() -> Config {
     Config {
         engine: "external".into(),
@@ -44,7 +42,7 @@ fn events(text: &str) -> Vec<Value> {
         .collect()
 }
 #[test]
-fn native_stateless_one_tool_result_and_decision_match_node_reference_events() {
+fn native_stateless_one_tool_result_and_decision_match_frozen_contract_events() {
     let input = request();
     let mut count = 0;
     let mut received = Vec::<Value>::new();
@@ -68,33 +66,7 @@ fn native_stateless_one_tool_result_and_decision_match_node_reference_events() {
     assert_eq!(reply[2]["type"], "result");
     let (parsed, _) = escalation_contract::parse_session(&result).unwrap();
     assert_eq!(parsed, done());
-    let node_reference = r#"
-import {runStatelessAgent} from './.bin/neo-stateless-agent.mjs';
-const done={status:'resolved',summary:'Mock target configured',reason:null,user_action:null,evidence:['mock target validated'],notification:null};
-let count=0;const out=await runStatelessAgent({baseUrl:'http://127.0.0.1:12121/v1',agentPrompt:'Local rules',
- request:{cwd:'/tmp',handoff:'Find the mock marker and verify it',onNeedsUser:'Do not notify during tests'},
- config:{maxTurns:5,budgetSeconds:30},
- askModel:async()=>Response.json({choices:[{message:count++===0?
- {role:'assistant',content:null,tool_calls:[{id:'c1',type:'function',function:{name:'shell',arguments:'{"command":"mock-source-read"}'}}]}:
- {role:'assistant',content:JSON.stringify(done)}}]}),
- callTool:async()=>({ok:true,text:'mock-secret: a-short-secret-value'})});
-console.log(JSON.stringify(out.split('\n').map(JSON.parse)));
-"#;
-    let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .canonicalize()
-        .unwrap();
-    let node = Command::new("node")
-        .args(["--input-type=module", "-e", node_reference])
-        .current_dir(root)
-        .output()
-        .unwrap();
-    assert!(
-        node.status.success(),
-        "{}",
-        String::from_utf8_lossy(&node.stderr)
-    );
-    let reference: Value = serde_json::from_slice(&node.stdout).unwrap();
+    let reference = contracts::expected("stateless-events", &json!("one-tool"));
     assert_eq!(json!(reply), reference);
 }
 #[test]

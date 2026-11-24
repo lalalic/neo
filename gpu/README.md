@@ -1,4 +1,4 @@
-# Neo Compute — built-in Node.js module
+# Neo Compute — native Rust CLI module
 
 `neo compute` is the primary public command. The old `neo gpu` command and
 existing private `gpu/` runtime/state paths are preserved for compatibility.
@@ -75,13 +75,13 @@ Vast.ai has a separate Neo watchdog that destroys the rental at its deadline.
 - `watchdog.mjs`: independent Vast.ai cleanup if the invoking CLI exits.
 
 Provider CLIs are external service utilities, **not** a separate Neo Compute package.
-The Neo Compute orchestration and container service are authored in Node.js.
+Neo Compute orchestration is native Rust. The isolated container entrypoint remains JavaScript.
 
 ## Testing
 
 ```sh
-node --test test/neo-gpu.test.mjs test/neo-gpu-node.test.mjs
-node .bin/neo.mjs gpu build --dockerfile gpu/examples/hello/Dockerfile --dry-run
+cargo test --locked -p neo-harness-cli --test compute_native --test compute_gateway --test compute_transport
+neo compute build --dockerfile gpu/examples/hello/Dockerfile --dry-run
 ```
 
 Build execution on GitHub Actions and real HF/Vast GPU inference must be
@@ -98,7 +98,7 @@ provider's `libcuda.so.1`, then verify the result. On Neo Master:
 node gpu/examples/hello-neo/e2e.mjs                          # no rental
 node gpu/examples/hello-neo/e2e.mjs --live --allow-spend --build  # HF T4; publish once
 node gpu/examples/hello-neo/e2e.mjs --live --allow-spend      # HF, reuse images
-node gpu/examples/hello-neo/e2e.mjs --live --allow-spend --vast # Vast.ai, same images
+node gpu/examples/hello-neo/e2e.mjs --live --allow-spend --vast # Vast.ai, verified provider-specific image
 ```
 
 The test registers `hello-neo-job` and `hello-neo-web`, verifies real GPU

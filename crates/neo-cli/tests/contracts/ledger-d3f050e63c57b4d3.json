@@ -1,0 +1,96 @@
+{
+  "input": "finished",
+  "expected": {
+    "challenge": {
+      "version": 1,
+      "id": "f662cd7bd6a7a8c45acef6670368aff441fb46ff32609d521a7421e3ee36288d",
+      "created_at": "2026-11-23T12:00:00.000Z",
+      "correlation_id": "job/example/task/repair",
+      "cwd": "/tmp/project",
+      "handoff": "Goal: Verify local fixture\nBlocker: missing test marker\nProgress: setup complete\nAcceptance: marker verified\n",
+      "goal": "Verify local fixture",
+      "blocker": "missing test marker",
+      "progress": "setup complete",
+      "success_criteria": "marker verified"
+    },
+    "started": {
+      "version": 1,
+      "challenge_id": "f662cd7bd6a7a8c45acef6670368aff441fb46ff32609d521a7421e3ee36288d",
+      "attempt_id": "11111111-1111-1111-1111-111111111111",
+      "event": "started",
+      "at": "2026-11-23T12:00:00.000Z"
+    },
+    "id": "f662cd7bd6a7a8c45acef6670368aff441fb46ff32609d521a7421e3ee36288d",
+    "checkpoint": {
+      "event": "checkpoint",
+      "at": "2026-11-23T12:01:00.000Z",
+      "stage": "agent_execution",
+      "challenge_id": "f662cd7bd6a7a8c45acef6670368aff441fb46ff32609d521a7421e3ee36288d",
+      "attempt_id": "11111111-1111-1111-1111-111111111111"
+    },
+    "finished": {
+      "version": 1,
+      "challenge_id": "f662cd7bd6a7a8c45acef6670368aff441fb46ff32609d521a7421e3ee36288d",
+      "attempt_id": "11111111-1111-1111-1111-111111111111",
+      "event": "finished",
+      "at": "2026-11-23T12:02:00.000Z",
+      "outcome": "resolved",
+      "summary": "verified",
+      "reason": "evidence observed",
+      "verification": [
+        "marker present"
+      ],
+      "observed": {
+        "tools": [
+          "shell"
+        ],
+        "calls": 1,
+        "failures": 0
+      }
+    },
+    "list": [
+      {
+        "version": 1,
+        "id": "f662cd7bd6a7a8c45acef6670368aff441fb46ff32609d521a7421e3ee36288d",
+        "created_at": "2026-11-23T12:00:00.000Z",
+        "correlation_id": "job/example/task/repair",
+        "cwd": "/tmp/project",
+        "handoff": "Goal: Verify local fixture\nBlocker: missing test marker\nProgress: setup complete\nAcceptance: marker verified\n",
+        "goal": "Verify local fixture",
+        "blocker": "missing test marker",
+        "progress": "setup complete",
+        "success_criteria": "marker verified",
+        "last_event_at": "2026-11-23T12:02:00.000Z",
+        "attempts": [
+          {
+            "version": 1,
+            "challenge_id": "f662cd7bd6a7a8c45acef6670368aff441fb46ff32609d521a7421e3ee36288d",
+            "attempt_id": "11111111-1111-1111-1111-111111111111",
+            "event": "started",
+            "at": "2026-11-23T12:00:00.000Z"
+          },
+          {
+            "version": 1,
+            "challenge_id": "f662cd7bd6a7a8c45acef6670368aff441fb46ff32609d521a7421e3ee36288d",
+            "attempt_id": "11111111-1111-1111-1111-111111111111",
+            "event": "finished",
+            "at": "2026-11-23T12:02:00.000Z",
+            "outcome": "resolved",
+            "summary": "verified",
+            "reason": "evidence observed",
+            "verification": [
+              "marker present"
+            ],
+            "observed": {
+              "tools": [
+                "shell"
+              ],
+              "calls": 1,
+              "failures": 0
+            }
+          }
+        ]
+      }
+    ]
+  }
+}
