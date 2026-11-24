@@ -1,4 +1,4 @@
-Usage: neo project run [--url HTTPS_URL | --path ABSOLUTE_RUN_DIR] --project NAME [--dag NAME] [--source NAME] [--title TEXT] [--dry-run] [--foreground] [--no-review]
+Usage: neo project run [--url HTTPS_URL | --path ABSOLUTE_RUN_DIR] --project NAME [--dag NAME] [--source NAME] [--title TEXT] [--prefer-adapter codex|chatgpt|z] [--dry-run] [--foreground] [--no-review]
 
 Creates one ordinary DRAFT Relay Job and its durable Coordinator DAG Task in
 a single SQLite transaction, binds this private Run, then activates the Job
@@ -15,6 +15,7 @@ Options accept --name value or --name=value in any order.
 --path      Existing canonical dated Run (or a prepared URL-project Run)
 --project   Independent project Git repository beneath NEO_ROOT
 --title     Human Job title (creation only, 1–120 printable characters)
+--prefer-adapter  Soft Job routing hint for eligible model workers at creation; Script Workers remain unchanged.
 --dag       Named DAG from project.run.json graphs (defaultDag used when omitted)
             A DAG declaring dagInputs.<name>.type=discovery may start without a URL.
 --source    Project-declared source preset for a new discovery Run (sources in project.run.json).

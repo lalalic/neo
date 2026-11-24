@@ -302,6 +302,11 @@ fn bound(
     {
         return Err("existing Relay Job repository or projectRoot does not match this independent Git repository".into());
     }
+    if let Some(adapter) = &prepared.options.prefer_adapter {
+        if job_object["routingPreferences"]["adapter"].as_str() != Some(adapter.as_str()) {
+            return Err("bound Run has a different adapter preference; use Relay job update to change the existing Job".into());
+        }
+    }
     let rows = relay(&relay_args(&[
         "task", "list", "--repo", project, "--id", job,
     ]))?;
@@ -489,6 +494,9 @@ fn new_job(prepared: &Prepared, run: &Path, files: &RunFiles) -> Result<RunActio
         prepared.selected.root.to_string_lossy().to_string(),
     ];
     let mut values = values.to_vec();
+    if let Some(adapter) = &prepared.options.prefer_adapter {
+        values.extend(["--prefer-adapter".into(), adapter.clone()]);
+    }
     if prepared.options.no_review {
         values.push("--no-review".into());
     }

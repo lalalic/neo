@@ -20,6 +20,7 @@ pub struct Options {
     pub title: Option<String>,
     pub dag: Option<String>,
     pub source: Option<String>,
+    pub prefer_adapter: Option<String>,
     pub dry_run: bool,
     pub foreground: bool,
     pub no_review: bool,
@@ -58,7 +59,7 @@ pub(crate) fn parse(args: &[String]) -> Result<Options, String> {
         let (key, v) = raw.split_once('=').unwrap_or((raw.as_str(), ""));
         if !matches!(
             key,
-            "--url" | "--path" | "--project" | "--title" | "--dag" | "--source"
+            "--url" | "--path" | "--project" | "--title" | "--dag" | "--source" | "--prefer-adapter"
         ) {
             return Err(format!("unknown project run option: {raw}"));
         }
@@ -81,6 +82,12 @@ pub(crate) fn parse(args: &[String]) -> Result<Options, String> {
             "--title" => opt.title = Some(val),
             "--dag" => opt.dag = Some(val),
             "--source" => opt.source = Some(val),
+            "--prefer-adapter" => {
+                if !matches!(val.as_str(), "codex" | "chatgpt" | "z") {
+                    return Err("--prefer-adapter must be codex, chatgpt, or z".into());
+                }
+                opt.prefer_adapter = Some(val);
+            }
             _ => unreachable!(),
         }
         i += 1;

@@ -32,6 +32,7 @@ if cmd=='job:create':
       'output':{'kind':'file','path':val('--coordinator-output-path')}}
     state['jobs'][jid]={'id':jid,'repository':project,'projectRoot':val('--project-root'),
        'state':'DRAFT','task':task}
+    if '--prefer-adapter' in args:state['jobs'][jid]['routingPreferences']={'adapter':val('--prefer-adapter')}
     persist();print(json.dumps({'repository':project,'pr':0,'job':'old-id' if (root/'bad-job-id').exists() else jid,
         'state':'DRAFT','taskId':'coordinator' if (root/'bad-task-id').exists() else '17'}))
 elif cmd=='job:show':
@@ -991,5 +992,26 @@ fn declared_dag_supplies_internal_preflight_and_rejects_caller_option() {
     assert_eq!(f.state()["creates"], 1);
     let resumed = f.assert_success(&run_cli(&options));
     assert_eq!(first, resumed);
+    assert_eq!(f.state()["creates"], 1);
+}
+
+#[test]
+fn project_run_passes_soft_adapter_preference_before_activation() {
+    let f = Fixture::new();
+    let base = ["--project", "sample", "--path", f.run.to_str().unwrap()];
+    let mut bad = base.to_vec();
+    bad.push("--prefer-adapter=script");
+    assert!(!f.call(&bad).status.success());
+    assert!(!f.state_root.join("state.json").exists());
+    let mut args = base.to_vec();
+    args.push("--prefer-adapter=chatgpt");
+    assert_eq!(f.assert_success(&f.call(&args))["status"], "ACTIVE");
+    let state = f.state();
+    assert_eq!(state["jobs"]["101"]["routingPreferences"]["adapter"], "chatgpt");
+    assert_eq!(state["calls"][0], "job:create");
+    assert_eq!(f.assert_success(&f.call(&args))["jobId"], "101");
+    let mut other = base.to_vec();
+    other.push("--prefer-adapter=codex");
+    assert!(!f.call(&other).status.success());
     assert_eq!(f.state()["creates"], 1);
 }
