@@ -8,6 +8,7 @@ Evaluate **project design decisions**, not whether an agent can recite filenames
 | Project discovery | A folder under the Harness contains AGENTS.md and graph.mmd but its Git root is the Harness parent. | Do not treat it as an independent runnable Neo Project; resolve direct Git-rooted children of configured NEO_ROOT. |
 | Graph source | A Planner asks for a second list of pipeline stages in AGENTS.md. | Reference the one graph.mmd; do not replicate edges or create another DAG. |
 | Task creation | A Graph has four dependent Agents and a Job is created. | Create one Coordinator and dependency-ready Agent Tasks; no initial Planner or duplicate top-level Episode Task is required. |
+| Direct DAG Run | Owner asks to run another Vlog with an existing approved media set. | Invoke neo project run directly without Spec Kit, a spec file, reviewer or caller preflight flag; keep input checks and publication gates. |
 | Approval | An Editor requires human approval of preview media. | Suspend/resume the **same** Agent Task through Relay interactive review; no new Graph node, Git commit or approval inferred from delivery receipt. |
 | Artifact validation | A producer emits JSON passing schema, but MP4 playback is broken. | Treat JSON schema PASS as insufficient; validate actual media in the owning Stage before completion. |
 | Minimal revisions | Final Review rejects only the voiceover with unaffected video metadata. | Revise owning Stage and truly invalidated consumers; re-review complete result, do not rerun entire Graph unconditionally. |

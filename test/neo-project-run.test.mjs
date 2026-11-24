@@ -68,26 +68,24 @@ function relayStub() {
 }
 async function run(args, f, relay, extra = {}) {
   const output = [];
-  // Existing tests represent an authorized caller which completed Preflight.
-  // Negative cases invoke runProject directly with no declaration.
-  const declared = args.some(v=>v.startsWith('--preflight')) ? args : [...args, '--preflight=true'];
-  await runProject(declared, { workspace: f.workspace, runRelay: relay.runRelay, emit: value => output.push(value), now: new Date('2026-11-03T12:00:00Z'), ...extra });
+  await runProject(args, { workspace: f.workspace, runRelay: relay.runRelay, emit: value => output.push(value), now: new Date('2026-11-03T12:00:00Z'), ...extra });
   return output[0] ?? '';
 }
 
-test('new Coordinator Job needs explicit Preflight; bound resume does not', async () => {
+test('new Coordinator Job needs no caller Preflight; runner supplies Relay flag and resumes idempotently', async () => {
   const f = fixture(), relay=relayStub();
   const invoke = args => runProject(args,{workspace:f.workspace,runRelay:relay.runRelay,emit:()=>{},now:new Date('2026-11-03T12:00:00Z')});
   try {
-    for (const flag of [null,'--preflight=false','--preflight=TRUE','--preflight','--preflight=true --preflight=false']) {
+    for (const flag of ['--preflight=true','--preflight=false','--preflight']) {
       const args=['--project','vlog','--path',f.runDir,...(flag ? flag.split(' ') : [])];
-      assert.throws(()=>invoke(args),/JOB_PREFLIGHT_REQUIRED/);
+      assert.throws(()=>invoke(args),/unknown project run option/);
       assert.equal(relay.calls.length,0,'invalid preflight must not create Relay Job');
     }
-    invoke(['--project','vlog','--path',f.runDir,'--preflight=true']);
+    invoke(['--project','vlog','--path',f.runDir]);
     const created=relay.calls.filter(args=>args[0]==='job'&&args[1]==='create');
     assert.equal(created.length,1);
     assert.equal(created[0].filter(x=>x==='--preflight=true').length,1);
+    assert.equal(relay.calls.some(args=>args[0]==='review'),false);
     invoke(['--project','vlog','--path',f.runDir]);
     assert.equal(relay.calls.filter(args=>args[0]==='job'&&args[1]==='create').length,1,
       'reattachment does not need preflight or create another Job');
