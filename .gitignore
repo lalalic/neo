@@ -53,3 +53,6 @@ web-chatgpt/
 /content-distribution/
 
 /toyalive-3d/
+
+# Rust Harness build artifacts
+/target/

@@ -1,0 +1,30 @@
+[package]
+name = "neo-harness-cli"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Native Neo Harness CLI, migrated slice-by-slice from the Node.js reference"
+
+[[bin]]
+name = "neo-rs"
+path = "src/main.rs"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+uuid = { version = "=1.29.2", features = ["v4"] }
+libc = "0.2"
+ureq = { version = "=3.5.2", default-features = false, features = ["json", "rustls"] }
+getrandom = "=0.4.3"
+sha2 = "=0.10.9"
+base64 = "=0.23.1"
+flate2 = "=1.1.11"
+crc32fast = "=1.5.5"
+regex = "=1.13.1"
+url = "=2.5.8"
+chrono = { version = "=0.4.45", default-features = false, features = ["clock"] }
+tempfile = "3"
+rustls = { version = "=0.23.46", default-features = false, features = ["std", "ring", "tls12"] }
+webpki-roots = "=1.0.12"
+
+[dev-dependencies]

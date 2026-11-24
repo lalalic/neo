@@ -1,0 +1,30 @@
+Usage: neo project run [--url HTTPS_URL | --path ABSOLUTE_RUN_DIR] --project NAME [--dag NAME] [--source NAME] [--title TEXT] [--dry-run] [--foreground] [--no-review]
+
+Creates one ordinary DRAFT Relay Job and its durable Coordinator DAG Task in
+a single SQLite transaction, binds this private Run, then activates the Job
+through regular Relay job run. Returns ACTIVE without waiting for final media.
+Each Script/Model Agent is a separate durable Task. On terminal completion,
+all newly ready DAG successors start immediately when Worker capacity permits.
+Reviews, retry, recovery, Final Review and Git Merge use the ordinary Job/Task
+lifecycle. Human Preview never auto-commits Git. No Shortcut Runner, separate
+DAG scheduler, initial Planner or content-only execution mode is created.
+
+Project Runs validate the declared Graph and input; no Spec Kit or independent requirements Preflight Review is required. The runner supplies Relay's internal preflight flag. Dry-run does not create a Job.
+Options accept --name value or --name=value in any order.
+--url       HTTPS source reference for a project declaring URL input
+--path      Existing canonical dated Run (or a prepared URL-project Run)
+--project   Independent project Git repository beneath NEO_ROOT
+--title     Human Job title (creation only, 1–120 printable characters)
+--dag       Named DAG from project.run.json graphs (defaultDag used when omitted)
+            A DAG declaring dagInputs.<name>.type=discovery may start without a URL.
+--source    Project-declared source preset for a new discovery Run (sources in project.run.json).
+            Project selects the DAG, private brief filename and config. Cannot combine with --url or --path.
+--dry-run   Validate and preview without writes or Relay calls
+--foreground Run the Coordinator DAG immediately in this terminal, streaming Task events until completion
+--no-review Private Vlog render test only: approved source-use required,
+            publication blocked (not a general Final Review bypass)
+Vlog review-stages.json may opt in boolean visioner/director/producer stages;
+            opted-in stages require Task-bound approval or Request Changes.
+
+Re-running an already-bound Run verifies the stored Job/Graph/Task and returns
+its current state; it does not create another Job or restart completed work.
