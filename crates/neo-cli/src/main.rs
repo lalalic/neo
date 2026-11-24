@@ -184,15 +184,16 @@ fn run(args: &[String]) -> Result<i32, String> {
             );
             Ok(if result["status"] == "failed" { 2 } else { 0 })
         }
-        "eval" => neo_harness_cli::dynamic_extensions::eval(rest),
-        "compute" | "gpu" => neo_harness_cli::dynamic_extensions::compute(rest),
+        "eval" => neo_harness_cli::eval::run(rest),
+        "compute" => neo_harness_cli::compute::run(rest),
+        "gpu" => Err("The obsolete `neo gpu` alias was removed. Use `neo compute` instead.".into()),
         "status" | "doctor" => {
             let (text, status) = diagnostics::run(command, rest)?;
             println!("{text}");
             Ok(status)
         }
         "--help" | "-h" => {
-            println!("Neo Harness Rust preview\n\n  neo-rs agent list [--project PATH] [--source project|global|shared|agency]\n  neo-rs agent search QUERY [--project PATH] [--source ...] [--limit N]\n  neo-rs skill list [--project PATH] | package SKILL_DIR OUTPUT.zip\n  neo-rs bootstrap [--json] [--project PATH]\n  neo-rs workspace show\n  neo-rs project list | resolve NAME | setup-agent NAME\n  neo-rs project run --project NAME [--url URL | --path PATH | --source SOURCE] [--dag NAME] [--dry-run] [--foreground] [--no-review]\n  neo-rs mcp tools | call TOOL --args-file PATH | token issue|revoke ...\n  neo-rs computer-use help | call COMMAND [--args-file PATH]\n  neo-rs escalation --handoff-file PATH [--cwd DIR] [--on-needs-user-file PATH] [--correlation-id ID]\n  neo-rs eval run|list|audit (optional Node Eval extension)\n  neo-rs compute|gpu build|run|web|services|doctor|cleanup (optional Node GPU extension)\n  neo-rs package stage ABSOLUTE_NEW_DIR\n  neo-rs status | doctor\n\nNative Run create/resume, specialty Vlog review, optional project-owned JS preflight and Relay foreground attach are supported. Other commands remain unsupported; installed neo remains unchanged.");
+            println!("Neo Harness Rust preview\n\n  neo-rs agent list [--project PATH] [--source project|global|shared|agency]\n  neo-rs agent search QUERY [--project PATH] [--source ...] [--limit N]\n  neo-rs skill list [--project PATH] | package SKILL_DIR OUTPUT.zip\n  neo-rs bootstrap [--json] [--project PATH]\n  neo-rs workspace show\n  neo-rs project list | resolve NAME | setup-agent NAME\n  neo-rs project run --project NAME [--url URL | --path PATH | --source SOURCE] [--dag NAME] [--dry-run] [--foreground] [--no-review]\n  neo-rs mcp tools | call TOOL --args-file PATH | token issue|revoke ...\n  neo-rs computer-use help | call COMMAND [--args-file PATH]\n  neo-rs escalation --handoff-file PATH [--cwd DIR] [--on-needs-user-file PATH] [--correlation-id ID]\n  neo-rs eval run|list|audit (native Rust Eval using canonical Relay PromptBuilder)\n  neo-rs compute build|run|web|services|doctor|cleanup (native Rust; paid actions require explicit authorization)\n  neo-rs package stage ABSOLUTE_NEW_DIR\n  neo-rs status | doctor\n\nNative Run create/resume, specialty Vlog review, optional project-owned JS preflight and Relay foreground attach are supported. Other commands remain unsupported; installed neo remains unchanged.");
             Ok(0)
         }
         _ => Err(format!(
@@ -204,6 +205,11 @@ fn run(args: &[String]) -> Result<i32, String> {
 
 fn main() {
     let args = env::args().skip(1).collect::<Vec<_>>();
+    if args.first().is_some_and(|s| s == "__compute-watchdog") {
+        std::process::exit(args.get(1).map_or(2, |path| {
+            neo_harness_cli::compute::watchdog(std::path::Path::new(path))
+        }));
+    }
     if args
         .first()
         .is_some_and(|s| s == "__escalation-lock-guardian")

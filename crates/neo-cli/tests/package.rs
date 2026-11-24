@@ -76,11 +76,26 @@ fn clean_mac_candidate_bootstraps_and_discovers_skills_without_node_or_source_ch
     let manifest: Value = serde_json::from_slice(&stage.stdout).unwrap();
     assert_eq!(manifest["productionInstall"], false);
     assert!(manifest["trackedAssets"].as_u64().unwrap() > 100);
-    assert_eq!(manifest["optionalEvalJavascriptAssets"], 4);
-    for file in neo_harness_cli::dynamic_extensions::EVAL_ASSETS {
+    assert_eq!(manifest["computeContainerRuntimeAssets"], 4);
+    for file in [
+        "gpu/runtime/service.mjs",
+        "gpu/runtime/web.mjs",
+        "gpu/runtime/launcher.mjs",
+        "gpu/runtime/Dockerfile.wrap",
+    ] {
         assert!(
             f.package.join(file).is_file(),
-            "missing bundled JS extension file: {file}"
+            "missing Compute container wrapper asset: {file}"
+        );
+    }
+    for obsolete in [
+        "scripts/eval-project-worker-prompts.mjs",
+        "scripts/audit-project-worker-evals.mjs",
+        "gpu/cli.mjs",
+    ] {
+        assert!(
+            !f.package.join(obsolete).exists(),
+            "bundled obsolete CLI Node extension: {obsolete}"
         );
     }
     assert!(manifest["excludedExternalGitLinks"]
@@ -170,7 +185,7 @@ fn package_manifest_uses_only_tracked_assets_and_no_live_user_state() {
     let f = Fixture::new();
     assert!(f.stage().status.success());
     let list = Command::new("git")
-        .args(["ls-files", "--stage", "-z", "--", "agents", "skills", "gpu"])
+        .args(["ls-files", "--stage", "-z", "--", "agents", "skills"])
         .current_dir(&f.root)
         .output()
         .unwrap();

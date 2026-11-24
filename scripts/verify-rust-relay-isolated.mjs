@@ -13,6 +13,7 @@ import { homedir, tmpdir } from 'node:os';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { once } from 'node:events';
 import { createServer } from 'node:net';
+import { createServer as createHttpServer } from 'node:http';
 import { fileURLToPath } from 'node:url';
 
 const harnessRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -44,6 +45,7 @@ async function freePort() {
 async function main() {
   const base = mkdtempSync(join(tmpdir(), 'neo-harness-real-relay-'));
   let daemon;
+  let history;
   let logFd;
   try {
     const workspace = join(base, 'workspace');
@@ -84,6 +86,25 @@ async function main() {
     init.close();
 
     const port = await freePort();
+    // Current Rust Relay isolated-write foreground requires an explicitly
+    // caller-owned loopback EventBus history reader. It is read-only and
+    // returns no synthetic progress: SQLite/Graph remain the sole authority.
+    history=createHttpServer((request,response)=>{
+      const url=new URL(request.url,'http://127.0.0.1/');
+      if(request.method!=='GET'||url.pathname!=='/events'){
+        response.writeHead(404).end();return;
+      }
+      const job=url.searchParams.get('job')||'';
+      const payload=JSON.stringify({job_id:job,order:'desc',events:[],next_cursor:0});
+      response.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store',
+        'Content-Length':Buffer.byteLength(payload),'Connection':'close'});
+      response.end(payload);
+    });
+    await new Promise((resolve,reject)=>{
+      history.once('error',reject);
+      history.listen(0,'127.0.0.1',resolve);
+    });
+    const historyUrl=`http://127.0.0.1:${history.address().port}/`;
     const environment = {
       ...process.env,
       HOME: home,
@@ -97,6 +118,7 @@ async function main() {
     logFd = openSync(join(base, 'daemon.log'), 'w');
     daemon = spawn(join(binaries, 'agents-relayd-rust'), [
       '--isolated-write-store-dir', stores,
+      '--event-history-api', historyUrl,
       '--port', String(port), '--interval', '600000',
       '--repo', 'sample', '--workspace-root', workspace
     ], { cwd: base, env: environment, stdio: ['ignore', logFd, logFd] });
@@ -186,7 +208,11 @@ async function main() {
     }, null, 2));
   } catch (error) {
     const daemonLog = existsSync(join(base, 'daemon.log')) ? readFileSync(join(base, 'daemon.log'), 'utf8') : '';
-    process.stderr.write(`Isolated real Relay verification failed: ${error.message}\n${daemonLog.slice(-1600)}\n`);
+    // The fixture contains only synthetic Project data. Surface the
+    // authoritative CLI stderr to diagnose contract changes, not private
+    // production state (which this script never mounts or reads).
+    const cliError=error?.stderr ? String(error.stderr).slice(-1400) : '';
+    process.stderr.write(`Isolated real Relay verification failed: ${error.message}\n${cliError}\n${daemonLog.slice(-1600)}\n`);
     process.exitCode = 1;
   } finally {
     if (daemon?.exitCode === null) {
@@ -196,6 +222,10 @@ async function main() {
         daemon.kill('SIGKILL');
         await Promise.race([once(daemon, 'exit'), delay(1500)]);
       }
+    }
+    if(history){
+      history.closeAllConnections();
+      await new Promise(resolve=>history.close(resolve));
     }
     if (logFd !== undefined) closeSync(logFd);
     rmSync(base, { recursive: true, force: true });

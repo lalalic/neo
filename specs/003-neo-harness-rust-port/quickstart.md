@@ -416,3 +416,21 @@ unapproved exceptions; full release gates remain deliberately open.
   read-only CLI parity **14/14**, disposable real Rust Relay E2E passed.
 - See `checklists/review-fix-2026-11-23.md`. T020 is still explicitly open;
   production `neo` was not replaced.
+
+## 2026-11-23 native Eval / Compute upgrade (supersedes optional Node bridge)
+
+- `neo-rs eval run|list|audit` and `neo-rs compute build|run|web|services|
+  doctor|cleanup` now enter native Rust modules. The obsolete `neo gpu`
+  alias and all `dynamic_extensions` CLI Node bridges were removed on this
+  branch. The native package excludes the old JS CLI, retaining only four
+  existing Docker image runtime assets; optional project JS test workloads
+  still require their project-specified Node runner.
+- Real Rust Relay debug PromptBuilder worked with an isolated Git Project.
+  Native Eval smoke verified the output without invoking Codex. The
+  installed live Relay binary has a stale embedded path, and must be fixed
+  before release. No production or paid provider state was modified.
+- Rust **220/220**, strict Clippy/fmt, Node Compute **3/3**, live read-only
+  CLI **14/14** and isolated real Rust Relay/SQLite foreground tests pass.
+  Mock Docker, hosted GitHub, HF, Vast, token, HTTP, and WebSocket acceptance
+  passed, but the host lacks Docker and real paid-service E2E is outstanding.
+- See `contracts/native-eval-compute.md`. T020 release is still unapproved.
