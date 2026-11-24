@@ -321,6 +321,10 @@ test('package staging includes the project run entrypoint', async () => {
     execFileSync(process.execPath, [join(root, 'scripts/stage-neo-cli.mjs'), destination], { encoding: 'utf8' });
     assert.ok(existsSync(join(destination, 'agents', 'visioner.agent.md')),
       'A standalone Neo CLI must include the reusable Visioner base Agent');
+    assert.equal(existsSync(join(destination,'skills','iphone-helm')),false,
+      'The independent iPhoneHelm repository must not be included in Neo.app default distribution');
+    assert.equal(existsSync(join(destination,'skills','neo-use')),false,
+      'The legacy iPhoneHelm alias must not appear when the optional Skill is absent');
     assert.ok(existsSync(join(destination, 'scripts', 'eval-project-worker-prompts.mjs')),
       'Installed Neo Eval entry point must be present');
     assert.ok(existsSync(join(destination, 'scripts', 'audit-project-worker-evals.mjs')),
