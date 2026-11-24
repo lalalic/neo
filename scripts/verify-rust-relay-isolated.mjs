@@ -18,6 +18,7 @@ import { fileURLToPath } from 'node:url';
 
 const harnessRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const sourceRoot = process.argv[2];
+const terminal = process.argv.includes("--terminal");
 if (!sourceRoot || !isAbsolute(sourceRoot)) {
   process.stderr.write('Usage: node scripts/verify-rust-relay-isolated.mjs /absolute/agents-relay/repo\n');
   process.exit(2);
@@ -49,7 +50,8 @@ async function main() {
   let logFd;
   try {
     const workspace = join(base, 'workspace');
-    const project = join(workspace, 'sample');
+    const projectName = terminal ? 'vlog' : 'sample';
+    const project = join(workspace, projectName);
     const run = join(project, 'runs', '2026-11-23-episode');
     const stores = join(base, 'stores');
     const home = join(base, 'home');
@@ -64,7 +66,13 @@ async function main() {
 
     writeFileSync(join(project, 'AGENTS.md'), '# Isolated Neo Test\n');
     writeFileSync(join(project, 'README.md'), '# Test Project\n');
-    writeFileSync(join(project, 'graph.mmd'), 'flowchart TD\n  A[agent:writer] --> B[agent:editor]\n');
+    writeFileSync(join(project, 'graph.mmd'), terminal ? 'flowchart TD\n  A[agent:fixture]\n' : 'flowchart TD\n  A[agent:writer] --> B[agent:editor]\n');
+    if (terminal) {
+      writeFileSync(join(run,'source-manifest.json'), JSON.stringify({source_use:{approved:true,scope:'private synthetic fixture only'}}));
+      mkdirSync(join(project, 'agents/.shortcut'), {recursive:true});
+      writeFileSync(join(project,'agents/fixture.agent.md'), '---\nname: fixture\ncapabilities: [script]\n---\n# Isolated real Script Worker\n');
+      writeFileSync(join(project,'agents/.shortcut/fixture.agent.mjs'), "export async function run({input}) {return {status:'COMPLETED',output:{blackbox:true,execution:input.executionId},artifacts:{}};}\n");
+    }
     writeFileSync(join(project, 'project.run.json'), JSON.stringify({
       schemaVersion: 1,
       input: { type: 'path', path: { base: 'runs', datedRunDirectory: true } },
@@ -113,14 +121,15 @@ async function main() {
       NEO_ROOT: workspace,
       NEO_WORKSPACE_CONFIG: config,
       NEO_RELAY_EXECUTABLE: join(binaries, 'agents-relay-rust'),
-      NEO_RELAY_CONTROL_PORT: String(port)
+      NEO_RELAY_CONTROL_PORT: String(port),
+      AGENTS_RELAY_SCRIPT_NODE: process.execPath
     };
     logFd = openSync(join(base, 'daemon.log'), 'w');
     daemon = spawn(join(binaries, 'agents-relayd-rust'), [
       '--isolated-write-store-dir', stores,
       '--event-history-api', historyUrl,
       '--port', String(port), '--interval', '600000',
-      '--repo', 'sample', '--workspace-root', workspace
+      '--repo', projectName, '--workspace-root', workspace
     ], { cwd: base, env: environment, stdio: ['ignore', logFd, logFd] });
     let healthy = false;
     for (let i = 0; i < 45; i++) {
@@ -139,12 +148,12 @@ async function main() {
     const rust = join(harnessRoot, 'target/debug/neo-rs');
     // This fixture represents a creator who completed Spec Kit Specify/Clarify
     // and independent Preflight Review. New Jobs require explicit attestation.
-    const input = ['project', 'run', '--project', 'sample', '--path', run, '--preflight=true'];
+    const input = ['project', 'run', '--project', projectName, '--path', run, '--preflight=true', ...(terminal ? ['--no-review'] : [])];
     // Invalid or missing creator attestation must fail *before* the real
     // Rust Relay receives any Job creation request.
     for (const options of [
-      ['project', 'run', '--project', 'sample', '--path', run],
-      ['project', 'run', '--project', 'sample', '--path', run, '--preflight=false']
+      ['project', 'run', '--project', projectName, '--path', run],
+      ['project', 'run', '--project', projectName, '--path', run, '--preflight=false']
     ]) {
       const rejected = spawnSync(rust, options, {
         cwd: workspace, env: environment, encoding: 'utf8', timeout: 10_000
@@ -169,6 +178,48 @@ async function main() {
     assert.deepEqual(resumed, created, 'Run resume changed authoritative Job/Task');
     const after = execFileSync('git', ['-C', run, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
     assert.equal(after, before, 'Run Git HEAD changed during idempotent resume');
+    if (terminal) {
+      // No external model/reviewer and no state injection. The owned Script
+      // Worker must really run and the ordinary Relay Graph must close it.
+      const worker = spawn(rust, [...input, '--foreground'], {
+        cwd:workspace,env:environment,detached:true,stdio:['ignore','pipe','pipe']
+      });
+      let output='',errors='';
+      worker.stdout.on('data',b=>output+=b.toString());
+      worker.stderr.on('data',b=>errors+=b.toString());
+      const completion=once(worker,'exit');
+      let exit;
+      try {
+        exit=await Promise.race([completion,delay(35000).then(()=>null)]);
+        assert(exit, 'Script DAG terminal deadline exceeded: '+output.slice(-1600)+' '+errors.slice(-1000));
+        assert.equal(exit[0],0,'foreground exit failed: '+errors.slice(-1200));
+      } finally {
+        if(worker.exitCode===null&&worker.signalCode===null){
+          try {process.kill(-worker.pid,'SIGKILL')}catch{}
+          await Promise.race([completion,delay(1000)]);
+        }
+      }
+      const snapshot=new DatabaseSync(dbPath,{readOnly:true});
+      const rows=snapshot.prepare('SELECT json FROM job_snapshot').all();
+      assert.equal(rows.length,1);
+      const job=JSON.parse(rows[0].json);
+      assert.equal(job.state,'COMPLETED');
+      const child=job.tasks.find(t=>t.agentName==='fixture');
+      assert(child,'missing real Script DAG child');
+      assert.equal(child.state,'SUCCEEDED');assert.equal(child.attempt,1);
+      assert.equal(child.result.data.output.blackbox,true);
+      const events=snapshot.prepare('SELECT COUNT(*) AS n FROM workflow_event_outbox WHERE event_key LIKE ?').get('script-event/'+created.jobId+'/'+child.id+'/%').n;
+      snapshot.close();
+      assert.equal(events,2,'expected actual Script start/completion events');
+      const final=JSON.parse(execFileSync(rust,['project','run','--project',projectName,'--path',run,'--no-review'],{cwd:workspace,env:environment,encoding:'utf8',timeout:15000}));
+      assert.equal(final.status,'COMPLETED');assert.equal(final.reused,true);
+      assert.equal(final.jobId,created.jobId);assert.equal(final.taskId,created.taskId);
+      const receipt=JSON.parse(readFileSync(join(run,'neo-project-run.result.json'),'utf8'));
+      assert.equal(receipt.status,'COMPLETED');
+      assert.equal(receipt.output.nodes.A.output.blackbox,true);
+      console.log(JSON.stringify({passed:true,mode:'isolated-real-script-terminal',jobState:job.state,workerState:child.state,workerAttempts:child.attempt,events,jobIdStable:true,taskIdStable:true,preflightRejected,reviewEnabled:false,productionStateTouched:false},null,2));
+      return;
+    }
     // Attach to the same ACTIVE Coordinator via the real Rust Relay CLI.
     // Terminate only this separate terminal process group; the daemon/Job
     // remain alive and resume must continue to resolve the exact same Job.

@@ -460,13 +460,38 @@ fn live_http(request: &OAuthRequest) -> Result<OAuthResponse, String> {
     if !request.url.starts_with("https://") {
         return Err("OAuth transport requires HTTPS".into());
     }
-    let agent = ureq::Agent::config_builder()
+    let mut config = ureq::Agent::config_builder()
         .timeout_global(Some(Duration::from_secs(15)))
         .max_redirects(0)
         .max_redirects_will_error(false)
-        .http_status_as_error(false)
-        .build()
-        .new_agent();
+        .http_status_as_error(false);
+    // Explicit, caller-owned private CA is supported only for an IP-literal
+    // loopback issuer. Public/production origins always retain normal WebPKI
+    // validation. No insecure mode, redirect bypass, or global trust mutation.
+    if let Some(path) = env::var_os("NEO_MCP_LOOPBACK_CA_FILE") {
+        let url = Url::parse(&request.url).map_err(|_| "Invalid OAuth URL")?;
+        if url.host_str() != Some("127.0.0.1") {
+            return Err("Custom OAuth CA requires HTTPS 127.0.0.1 issuer".into());
+        }
+        let path = PathBuf::from(path);
+        let meta = fs::symlink_metadata(&path).map_err(|_| "Cannot read loopback OAuth CA")?;
+        if !path.is_absolute()
+            || !meta.is_file()
+            || meta.file_type().is_symlink()
+            || meta.len() > 65536
+        {
+            return Err("Invalid loopback OAuth CA file".into());
+        }
+        let pem = fs::read(path).map_err(|_| "Cannot read loopback OAuth CA")?;
+        let cert = ureq::tls::Certificate::from_pem(&pem)
+            .map_err(|_| "Invalid loopback OAuth CA certificate")?;
+        config = config.proxy(None).tls_config(
+            ureq::tls::TlsConfig::builder()
+                .root_certs(ureq::tls::RootCerts::new_with_certs(&[cert]))
+                .build(),
+        );
+    }
+    let agent = config.build().new_agent();
     let mut response = if request.method == "GET" {
         agent.get(&request.url).call()
     } else {
