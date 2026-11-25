@@ -14,7 +14,10 @@ fn run(args: &[String]) -> Result<i32, String> {
     match command.as_str() {
         "setup" => {
             let result = neo_harness_cli::setup::run(rest)?;
-            println!("{}", serde_json::to_string_pretty(&result).map_err(|e| e.to_string())?);
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&result).map_err(|e| e.to_string())?
+            );
             Ok(if result["ok"] == true { 0 } else { 1 })
         }
         "agent" => {
@@ -99,15 +102,16 @@ fn run(args: &[String]) -> Result<i32, String> {
             );
             Ok(exit)
         }
-        "mcp" if rest.first().is_some_and(|s| s == "token") => {
-            if rest[1..]
+        "token" | "mcp" if command == "token" || rest.first().is_some_and(|s| s == "token") => {
+            let token_args = if command == "token" { rest } else { &rest[1..] };
+            if token_args
                 .iter()
                 .any(|s| matches!(s.as_str(), "--help" | "-h"))
             {
-                println!("Usage: neo mcp token issue (--stdout | --output ABSOLUTE_PATH) [--origin HTTPS_URL] [--client-name NAME]\n       neo mcp token revoke --file ABSOLUTE_PATH [--origin HTTPS_URL]");
+                println!("{}", neo_harness_cli::mcp_token::help());
                 return Ok(0);
             }
-            let result = neo_harness_cli::mcp_token::run(&rest[1..])?;
+            let result = neo_harness_cli::mcp_token::run(token_args)?;
             if let Some(secret) = result
                 .get("access_token")
                 .and_then(serde_json::Value::as_str)
@@ -119,6 +123,20 @@ fn run(args: &[String]) -> Result<i32, String> {
                     serde_json::to_string_pretty(&result).map_err(|e| e.to_string())?
                 );
             }
+            Ok(0)
+        }
+        "dashboard" => {
+            let mut args = vec!["dashboard".to_string()];
+            args.extend_from_slice(rest);
+            if rest.iter().any(|s| matches!(s.as_str(), "--help" | "-h")) {
+                println!("neo dashboard [--node REGISTERED_NAME] [--origin HTTPS_URL] [--file ABSOLUTE_PATH]");
+                return Ok(0);
+            }
+            let result = neo_harness_cli::mcp_token::run(&args)?;
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&result).map_err(|e| e.to_string())?
+            );
             Ok(0)
         }
         "computer-use" => {
@@ -198,7 +216,7 @@ fn run(args: &[String]) -> Result<i32, String> {
             Ok(status)
         }
         "--help" | "-h" => {
-            println!("Neo Harness — native Rust CLI\n\n  neo agent list [--project PATH] [--source project|global|shared|agency]\n  neo agent search QUERY [--project PATH] [--source ...] [--limit N]\n  neo skill list [--project PATH] | package SKILL_DIR OUTPUT.zip\n  neo bootstrap [--json] [--project PATH]\n  neo workspace show\n  neo project list | resolve NAME | setup-agent NAME\n  neo project run --project NAME [--url URL | --path PATH | --source SOURCE] [--dag NAME] [--dry-run] [--foreground] [--no-review]\n  neo mcp tools | call TOOL --args-file PATH | token issue|revoke ...\n  neo computer-use help | call COMMAND [--args-file PATH]\n  neo escalation --handoff-file PATH [--cwd DIR] [--on-needs-user-file PATH] [--correlation-id ID]\n  neo eval run|list|audit (native Rust Eval using canonical Relay PromptBuilder)\n  neo compute build|run|web|services|doctor|cleanup (native Rust; paid actions require explicit authorization)\n  neo setup code-tools\n  neo package stage ABSOLUTE_NEW_DIR\n  neo service list | status NAME | start NAME | stop NAME | restart NAME\n  neo escalation cases | challenges | test | learn\n  neo project tts --help\n  neo status | doctor\n\nNative Run create/resume, specialty Vlog review, optional project-owned JS preflight and Relay foreground attach are supported. ");
+            println!("Neo Harness — native Rust CLI\n\n  neo agent list [--project PATH] [--source project|global|shared|agency]\n  neo agent search QUERY [--project PATH] [--source ...] [--limit N]\n  neo skill list [--project PATH] | package SKILL_DIR OUTPUT.zip\n  neo bootstrap [--json] [--project PATH]\n  neo workspace show\n  neo project list | resolve NAME | setup-agent NAME\n  neo project run --project NAME [--url URL | --path PATH | --source SOURCE] [--dag NAME] [--dry-run] [--foreground] [--no-review]\n  neo mcp tools | call TOOL --args-file PATH\n  neo token login|access|refresh|status|logout|issue|revoke ...\n  neo dashboard [--node REGISTERED_NAME]\n  neo computer-use help | call COMMAND [--args-file PATH]\n  neo escalation --handoff-file PATH [--cwd DIR] [--on-needs-user-file PATH] [--correlation-id ID]\n  neo eval run|list|audit (native Rust Eval using canonical Relay PromptBuilder)\n  neo compute build|run|web|services|doctor|cleanup (native Rust; paid actions require explicit authorization)\n  neo setup code-tools\n  neo package stage ABSOLUTE_NEW_DIR\n  neo service list | status NAME | start NAME | stop NAME | restart NAME\n  neo escalation cases | challenges | test | learn\n  neo project tts --help\n  neo status | doctor\n\nNative Run create/resume, specialty Vlog review, optional project-owned JS preflight and Relay foreground attach are supported. ");
             Ok(0)
         }
         _ => Err(format!("command '{}' not yet supported by neo", command)),

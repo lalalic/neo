@@ -246,6 +246,89 @@ fn code(value: &Value) -> i32 {
     }
 }
 
+pub(crate) fn registered_node(name: &str) -> Result<(), String> {
+    if name.is_empty()
+        || name.len() > 64
+        || !name
+            .bytes()
+            .all(|c| c.is_ascii_alphanumeric() || c == b'-' || c == b'_')
+    {
+        return Err("Invalid registered Neo node name".into());
+    }
+    let result = rpc(
+        "tools/call",
+        &json!({"name":"cluster","arguments":{"command":format!("status {name}")}}),
+        false,
+    )
+    .map_err(|_| "Cannot verify registered Neo node")?;
+    if result["isError"] == true {
+        return Err("Registered Neo node not found or unavailable".into());
+    }
+    let payload = result["content"][0]["text"]
+        .as_str()
+        .ok_or("Missing node status")?;
+    let status: Value =
+        serde_json::from_str(payload).map_err(|_| "Invalid registered node status")?;
+    if status["name"] != name || status["reachable"] != true {
+        return Err("Registered Neo node not reachable".into());
+    }
+    Ok(())
+}
+
+/// The only remote browser launch allowed by this CLI is the exact
+/// one-use Neo Dashboard handoff, through a previously registered node.
+pub(crate) fn open_dashboard_on_node(name: &str, url: &str) -> Result<(), String> {
+    if name.is_empty()
+        || name.len() > 64
+        || !name
+            .bytes()
+            .all(|c| c.is_ascii_alphanumeric() || c == b'-' || c == b'_')
+    {
+        return Err("Invalid registered Neo node name".into());
+    }
+    let parsed = url::Url::parse(url).map_err(|_| "Invalid Dashboard handoff URL")?;
+    if parsed.scheme() != "https"
+        || !parsed.username().is_empty()
+        || parsed.password().is_some()
+        || parsed.path() != "/dashboard/connect"
+        || parsed.query().is_some()
+        || !parsed.fragment().is_some_and(|s| {
+            (32..=128).contains(&s.len())
+                && s.bytes()
+                    .all(|c| c.is_ascii_alphanumeric() || c == b'-' || c == b'_')
+        })
+        || url.contains('\'')
+        || url.contains('\n')
+        || url.contains('\r')
+    {
+        return Err("Invalid Dashboard handoff URL".into());
+    }
+    let command = format!("invoke {name} exec -- run --timeout-ms 10000 -- /usr/bin/open '{url}'");
+    let result = rpc(
+        "tools/call",
+        &json!({"name":"cluster","arguments":{"command":command}}),
+        false,
+    )
+    .map_err(|_| "Registered node Dashboard launch failed")?;
+    if result["isError"] == true {
+        return Err("Registered node rejected Dashboard launch".into());
+    }
+    let payload = result["content"][0]["text"]
+        .as_str()
+        .ok_or("Missing node launch receipt")?;
+    let receipt: Value =
+        serde_json::from_str(payload).map_err(|_| "Invalid node launch receipt")?;
+    let nested = receipt["result"]
+        .as_str()
+        .ok_or("Missing remote command receipt")?;
+    let remote: Value =
+        serde_json::from_str(nested).map_err(|_| "Invalid remote command receipt")?;
+    if remote["exitCode"] != 0 || remote["timedOut"] == true {
+        return Err("Remote browser launch not confirmed".into());
+    }
+    Ok(())
+}
+
 pub fn mcp(args: &[String]) -> Result<(Value, i32), String> {
     let Some((action, rest)) = args.split_first() else {
         return Err("usage: neo mcp tools|call|token".into());

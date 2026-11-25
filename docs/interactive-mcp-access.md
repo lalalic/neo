@@ -67,3 +67,28 @@ The canonical general rules are `neo bootstrap` (including Global AGENTS.md, XCh
 Two public web-chat adapters have separate URLs and transports: **Z.ai MCP** at `docs/z-chat/bootstrap.md` → `https://neoy.qili2.com/files/z-chat/bootstrap.md`, and **DeepSeek REST GET** at `docs/deepseek/bootstrap.md` → `https://neoy.qili2.com/files/deepseek/bootstrap.md`. Keep them separate: no REST fallback in the Z.ai file and no MCP POST in the DeepSeek file. Both public documents contain no credentials, require a private owner-provided short-lived token, and after verified Neo bootstrap load the discovered `xchat-orchestrator` Skill on Neo Master. The public read-only mounts are `setup files mount z-chat /Users/chengli/Workspace/neo/docs/z-chat` and `setup files mount deepseek /Users/chengli/Workspace/neo/docs/deepseek`. A public unauthenticated GET must be verified after publishing.
 
 No remote worker should fabricate Relay source IDs or task lifecycle events in an interactive chat. No automatic refresh or permanent user session is implied.
+
+
+## Registered device credentials and Dashboard
+
+The canonical command family is now `neo token`. The historical
+`neo mcp token issue|revoke` alias remains valid, and still issues one-hour
+access tokens without retaining a refresh credential. Never provision
+external model sessions with a renewable device grant.
+
+On Neo Master, `neo token login` explicitly enrolls a local renewable
+OAuth grant in a user-owned private file (0600, private directory). Use
+`neo token status`, `neo token refresh`, or `neo token logout`. The
+`access --stdout` command refreshes near expiry and requires explicit
+secret-output consent. Rotation is serialized and persisted atomically;
+a rejected or expired refresh requires re-enrollment.
+
+`neo dashboard --node work` verifies the enabled registered node via the
+existing cluster transport, automatically enrolls a distinct node-bound
+grant on Master when needed, then opens a one-use 60-second handoff on the
+node. The node never receives the Master access code or a renewable OAuth
+credential. The resulting browser session is durable and scoped to the
+Dashboard; it expires in at most 30 days and is invalidated when the
+node is removed/re-paired or the grant is revoked. A normal browser can
+choose Remember this trusted browser during manual login. To explicitly
+revoke a node grant, use `neo token logout --node work` on Master.

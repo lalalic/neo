@@ -359,3 +359,122 @@ fn unexpected_oauth_refresh_revocation_failure_must_not_release_access_token() {
     assert!(denied.is_err());
     assert!(denied.unwrap_err().contains("refresh token"));
 }
+
+#[test]
+fn persistent_login_refreshes_atomically_without_reusing_master_secret() {
+    let tmp = tempfile::tempdir().unwrap();
+    #[cfg(unix)]
+    fs::set_permissions(tmp.path(), fs::Permissions::from_mode(0o700)).unwrap();
+    let path = tmp.path().join("device.json");
+    let make_args = |verb: &str| {
+        vec![
+            verb.into(),
+            "--file".into(),
+            path.to_string_lossy().into_owned(),
+            "--origin".into(),
+            "https://neoy.qili2.com".into(),
+        ]
+    };
+    let mut observed = Vec::new();
+    let mut call = |r: &OAuthRequest| -> Result<OAuthResponse, String> {
+        observed.push(r.clone());
+        match (r.method, r.path.as_str()) {
+            ("POST", "/register") => Ok(make(201, r#"{"client_id":"device-test"}"#, None)),
+            ("GET", "/authorize") => Ok(make(
+                200,
+                "<input type=\"hidden\" name=\"rid\" value=\"device-rid\">",
+                None,
+            )),
+            ("POST", "/authorize") => {
+                let get = observed.iter().find(|x| x.method == "GET").unwrap();
+                let u = url::Url::parse(&get.url).unwrap();
+                let state = u.query_pairs().find(|(k, _)| k == "state").unwrap().1;
+                Ok(make(302,"",Some(format!("http://127.0.0.1:8765/neo/oauth/callback?code=ok&state={state}&iss=https%3A%2F%2Fneoy.qili2.com"))))
+            }
+            ("POST", "/token") => {
+                if r.body.contains("grant_type=refresh_token") {
+                    assert!(r.body.contains("refresh_token=refresh-1"));
+                    assert!(r.body.contains("client_id=device-test"));
+                    Ok(make(
+                        200,
+                        r#"{"access_token":"access-2","refresh_token":"refresh-2","expires_in":3600}"#,
+                        None,
+                    ))
+                } else {
+                    Ok(make(
+                        200,
+                        r#"{"access_token":"access-1","refresh_token":"refresh-1","expires_in":3600}"#,
+                        None,
+                    ))
+                }
+            }
+            ("POST", "/revoke") => Ok(make(200, "", None)),
+            _ => panic!("unexpected endpoint {}", r.path),
+        }
+    };
+    let login = mcp_token::device_with(&make_args("login"), || Ok("test-master".into()), &mut call)
+        .unwrap();
+    assert_eq!(login["authenticated"], true);
+    assert!(!login.to_string().contains("refresh-1"));
+    #[cfg(unix)]
+    assert_eq!(
+        fs::metadata(&path).unwrap().permissions().mode() & 0o777,
+        0o600
+    );
+    let no_master = || Err("must not read operator again".to_string());
+    let mut access = make_args("access");
+    access.push("--stdout".into());
+    assert_eq!(
+        mcp_token::device_with(&access, no_master, &mut |_| panic!(
+            "cached access must not call network"
+        ))
+        .unwrap()["access_token"],
+        "access-1"
+    );
+    mcp_token::device_with(&make_args("refresh"), no_master, &mut call).unwrap();
+    assert_eq!(
+        mcp_token::device_with(&access, no_master, &mut |_| panic!(
+            "cached access must not call network"
+        ))
+        .unwrap()["access_token"],
+        "access-2"
+    );
+    let status = mcp_token::device_with(&make_args("status"), no_master, &mut |_| {
+        panic!("status must not call network")
+    })
+    .unwrap();
+    assert!(!status.to_string().contains("access-2"));
+    assert!(!status.to_string().contains("refresh-2"));
+    mcp_token::device_with(&make_args("logout"), no_master, &mut call).unwrap();
+    assert!(!path.exists());
+    assert_eq!(
+        observed
+            .iter()
+            .filter(|r| r.path == "/authorize" && r.method == "POST")
+            .count(),
+        1
+    );
+    assert!(observed.iter().any(|r| r.path == "/revoke"
+        && r.body.contains("revoke_grant=true")
+        && r.body.contains("refresh-2")));
+}
+#[test]
+fn canonical_token_alias_keeps_legacy_help_and_rejects_implicit_secret_output() {
+    let f = Fixture::new();
+    let output = Command::new(env!("CARGO_BIN_EXE_neo-rs"))
+        .args(["token", "--help"])
+        .env("HOME", &f.home)
+        .env("NEO_HARNESS_ROOT", &f.root)
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    assert_eq!(output.stdout, f.call(&["--help"]).stdout);
+    let output = Command::new(env!("CARGO_BIN_EXE_neo-rs"))
+        .args(["token", "access"])
+        .env("HOME", &f.home)
+        .env("NEO_HARNESS_ROOT", &f.root)
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    assert!(output.stdout.is_empty());
+}

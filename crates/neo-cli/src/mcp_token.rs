@@ -1,10 +1,12 @@
-//! Native, short-lived OAuth PKCE client for NeoY's existing OAuth gateway.
-//! No background refresh, no custom token issuer, no broker or new service.
+//! Native OAuth PKCE client for NeoY's existing OAuth gateway.
+//! Legacy issue/revoke remains one-hour and non-renewable. Explicit device
+//! login retains rotating refresh credentials for on-demand renewal.
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 #[cfg(unix)]
-use std::os::unix::fs::OpenOptionsExt;
+use std::os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt};
 use std::{
     collections::HashMap,
     env,
@@ -19,13 +21,22 @@ const DEFAULT_ORIGIN: &str = "https://neoy.qili2.com";
 const CALLBACK: &str = "http://127.0.0.1:8765/neo/oauth/callback";
 const DEFAULT_CLIENT: &str = "Neo interactive MCP client";
 const NOTE:&str="Read the private file locally. Do not paste the token into public logs, a repository, or shared bootstrap instructions.";
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct OAuthRequest {
     pub method: &'static str,
     pub path: String,
     pub url: String,
     pub content_type: Option<&'static str>,
+    pub bearer: Option<String>,
     pub body: String,
+}
+impl std::fmt::Debug for OAuthRequest {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("OAuthRequest")
+            .field("method", &self.method)
+            .field("path", &self.path)
+            .finish_non_exhaustive()
+    }
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct OAuthResponse {
@@ -53,7 +64,7 @@ pub struct Options {
     pub client_name: String,
 }
 pub fn parse(args: &[String]) -> Result<Options, String> {
-    let usage="usage: neo mcp token issue (--stdout | --output ABSOLUTE_PATH) [--origin HTTPS_URL] [--client-name NAME]\n       neo mcp token revoke --file ABSOLUTE_PATH [--origin HTTPS_URL]";
+    let usage="usage: neo token issue (--stdout | --output ABSOLUTE_PATH) [--origin HTTPS_URL] [--client-name NAME]\n       neo token revoke --file ABSOLUTE_PATH [--origin HTTPS_URL]";
     let (verb, rest) = args.split_first().ok_or(usage)?;
     let verb = match verb.as_str() {
         "issue" => Verb::Issue,
@@ -178,6 +189,7 @@ fn send<F: FnMut(&OAuthRequest) -> Result<OAuthResponse, String>>(
         url: format!("{origin}{path}"),
         body,
         content_type,
+        bearer: None,
     };
     fetch(&request)
 }
@@ -219,6 +231,37 @@ pub fn issue_with<F: FnMut(&OAuthRequest) -> Result<OAuthResponse, String>>(
     client_name: &str,
     fetch: &mut F,
 ) -> Result<Issued, String> {
+    let (grant, refresh) = issue_grant_with(origin, operator, client_name, fetch)?;
+    if let Some(refresh) = refresh {
+        revoke_secret(fetch, &grant.origin, &refresh)
+            .map_err(|_| "Neo OAuth failed to revoke its unused refresh token")?;
+    }
+    Ok(Issued {
+        access_token: grant.access_token,
+        expires_in_seconds: 3600,
+        mcp_url: format!("{}/mcp", grant.origin),
+    })
+}
+#[derive(Serialize, Deserialize)]
+struct Credential {
+    origin: String,
+    client_id: String,
+    access_token: String,
+    expires_at: u64,
+    refresh_token: String,
+}
+fn now() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs()
+}
+fn issue_grant_with<F: FnMut(&OAuthRequest) -> Result<OAuthResponse, String>>(
+    origin: &str,
+    operator: &str,
+    client_name: &str,
+    fetch: &mut F,
+) -> Result<(Credential, Option<String>), String> {
     let origin = valid_origin(origin)?;
     if operator.trim().is_empty() {
         return Err("The Neo operator credential is required on the trusted host".into());
@@ -348,24 +391,344 @@ pub fn issue_with<F: FnMut(&OAuthRequest) -> Result<OAuthResponse, String>>(
     if doc["expires_in"] != 3600 {
         return Err("Neo OAuth returned an invalid one-hour access token".into());
     }
-    let access = access.to_string();
-    if let Some(refresh) = doc["refresh_token"].as_str().filter(|s| !s.is_empty()) {
-        let revoked = send(
-            fetch,
-            &origin,
-            "POST",
-            "/revoke",
-            form(&[("token", refresh)]),
-            Some("application/x-www-form-urlencoded"),
-        )?;
-        if revoked.status != 200 {
-            return Err("Neo OAuth failed to revoke its unused refresh token".into());
+    let refresh = doc["refresh_token"]
+        .as_str()
+        .filter(|s| !s.is_empty())
+        .map(str::to_owned);
+    Ok((
+        Credential {
+            origin,
+            client_id,
+            access_token: access.to_owned(),
+            expires_at: now() + 3600,
+            refresh_token: String::new(),
+        },
+        refresh,
+    ))
+}
+
+fn revoke_secret<F: FnMut(&OAuthRequest) -> Result<OAuthResponse, String>>(
+    fetch: &mut F,
+    origin: &str,
+    secret: &str,
+) -> Result<(), String> {
+    let revoked = send(
+        fetch,
+        origin,
+        "POST",
+        "/revoke",
+        form(&[("token", secret)]),
+        Some("application/x-www-form-urlencoded"),
+    )?;
+    if revoked.status != 200 {
+        return Err(format!(
+            "Neo OAuth token revocation failed: HTTP {}",
+            revoked.status
+        ));
+    }
+    Ok(())
+}
+
+fn refresh_grant<F: FnMut(&OAuthRequest) -> Result<OAuthResponse, String>>(
+    credential: &mut Credential,
+    fetch: &mut F,
+    force: bool,
+) -> Result<bool, String> {
+    if !force && credential.expires_at > now() + 120 {
+        return Ok(false);
+    }
+    let response = send(
+        fetch,
+        &credential.origin,
+        "POST",
+        "/token",
+        form(&[
+            ("grant_type", "refresh_token"),
+            ("client_id", &credential.client_id),
+            ("refresh_token", &credential.refresh_token),
+        ]),
+        Some("application/x-www-form-urlencoded"),
+    )?;
+    if response.status != 200 {
+        return Err(format!(
+            "Neo OAuth refresh failed: HTTP {}; re-enroll if revoked or expired",
+            response.status
+        ));
+    }
+    let doc: Value =
+        serde_json::from_str(&response.body).map_err(|_| "Invalid OAuth refresh response")?;
+    let access = doc["access_token"]
+        .as_str()
+        .filter(|v| !v.is_empty())
+        .ok_or("Missing refreshed access token")?;
+    let refresh = doc["refresh_token"]
+        .as_str()
+        .filter(|v| !v.is_empty() && *v != credential.refresh_token)
+        .ok_or("Missing rotated refresh token")?;
+    let expiry = doc["expires_in"]
+        .as_u64()
+        .filter(|v| (1..=3600).contains(v))
+        .ok_or("Invalid refreshed token lifetime")?;
+    credential.access_token = access.into();
+    credential.refresh_token = refresh.into();
+    credential.expires_at = now() + expiry;
+    Ok(true)
+}
+
+const DEVICE_HELP:&str="neo token login [--origin HTTPS_URL] [--file ABSOLUTE_PATH | --node NAME] [--client-name NAME]\nneo token access --stdout [--origin HTTPS_URL] [--file ABSOLUTE_PATH]\nneo token refresh|status|logout [--origin HTTPS_URL] [--file ABSOLUTE_PATH | --node NAME]\nneo token dashboard [--origin HTTPS_URL] [--file ABSOLUTE_PATH] [--node REGISTERED_NAME]\nneo token issue|revoke ... (one-hour legacy tokens)";
+pub fn help() -> &'static str {
+    DEVICE_HELP
+}
+
+fn private_file(path: &Path) -> Result<(), String> {
+    let meta = fs::symlink_metadata(path)
+        .map_err(|_| "Cannot read private Neo OAuth credential; login first")?;
+    if !meta.is_file() || meta.file_type().is_symlink() {
+        return Err("Credential must be a regular file, not a symlink".into());
+    }
+    #[cfg(unix)]
+    if meta.permissions().mode() & 0o077 != 0 || meta.uid() != unsafe { libc::geteuid() } {
+        return Err("Credential must be owned by current user and private (0600)".into());
+    }
+    Ok(())
+}
+fn private_directory(path: &Path) -> Result<(), String> {
+    if !path.exists() {
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::DirBuilderExt;
+            let mut builder = fs::DirBuilder::new();
+            builder.recursive(true).mode(0o700);
+            builder.create(path).map_err(|e| e.to_string())?;
+        }
+        #[cfg(not(unix))]
+        fs::create_dir_all(path).map_err(|e| e.to_string())?;
+    }
+    let meta = fs::symlink_metadata(path).map_err(|e| e.to_string())?;
+    if !meta.is_dir() || meta.file_type().is_symlink() {
+        return Err("Credential directory must not be a symlink".into());
+    }
+    #[cfg(unix)]
+    if meta.permissions().mode() & 0o077 != 0 || meta.uid() != unsafe { libc::geteuid() } {
+        return Err("Credential directory must be owned by current user and private (0700)".into());
+    }
+    Ok(())
+}
+fn atomic_credential(path: &Path, credential: &Credential) -> Result<(), String> {
+    let mut temp = tempfile::NamedTempFile::new_in(path.parent().ok_or("Invalid credential path")?)
+        .map_err(|e| e.to_string())?;
+    #[cfg(unix)]
+    temp.as_file()
+        .set_permissions(fs::Permissions::from_mode(0o600))
+        .map_err(|e| e.to_string())?;
+    serde_json::to_writer(&mut temp, credential).map_err(|_| "Credential serialization failed")?;
+    temp.as_file().sync_all().map_err(|e| e.to_string())?;
+    temp.persist(path)
+        .map_err(|_| "Cannot atomically persist Neo OAuth credential")?;
+    Ok(())
+}
+fn with_credential_lock<T>(
+    path: &Path,
+    work: impl FnOnce() -> Result<T, String>,
+) -> Result<T, String> {
+    private_directory(path.parent().ok_or("Invalid credential path")?)?;
+    let lock = path.with_extension("lock");
+    let mut options = OpenOptions::new();
+    options.read(true).write(true).create(true);
+    #[cfg(unix)]
+    options.mode(0o600).custom_flags(libc::O_NOFOLLOW);
+    let handle = options
+        .open(&lock)
+        .map_err(|_| "Cannot open private credential lock")?;
+    private_file(&lock)?;
+    #[cfg(unix)]
+    {
+        use std::os::fd::AsRawFd;
+        if unsafe { libc::flock(handle.as_raw_fd(), libc::LOCK_EX) } != 0 {
+            return Err("Cannot lock OAuth credential".into());
         }
     }
-    Ok(Issued {
-        access_token: access,
-        expires_in_seconds: 3600,
-        mcp_url: format!("{origin}/mcp"),
+    let result = work();
+    drop(handle);
+    result
+}
+fn load_credential(path: &Path, origin: &str) -> Result<Credential, String> {
+    private_file(path)?;
+    let raw = fs::read(path).map_err(|_| "Cannot read OAuth credential")?;
+    if raw.len() > 65536 {
+        return Err("Credential file too large".into());
+    }
+    let c: Credential =
+        serde_json::from_slice(&raw).map_err(|_| "Invalid OAuth credential file")?;
+    if c.origin != origin
+        || c.client_id.is_empty()
+        || c.access_token.is_empty()
+        || c.refresh_token.is_empty()
+    {
+        return Err("Credential origin or content mismatch".into());
+    }
+    Ok(c)
+}
+fn device_path(origin: &str, file: Option<&str>, node: Option<&str>) -> Result<PathBuf, String> {
+    if let Some(node) = node {
+        if file.is_some()
+            || node.is_empty()
+            || node.len() > 64
+            || !node
+                .bytes()
+                .all(|c| c.is_ascii_alphanumeric() || c == b'-' || c == b'_')
+        {
+            return Err(
+                "Registered node must be a simple name; --node and --file are mutually exclusive"
+                    .into(),
+            );
+        }
+    }
+    if let Some(file) = file {
+        let path = PathBuf::from(file);
+        if !path.is_absolute() {
+            return Err("Credential path must be absolute".into());
+        }
+        return Ok(path);
+    }
+    let key = match node {
+        Some(name) => format!("{origin}\nnode:{name}"),
+        None => origin.into(),
+    };
+    let digest = URL_SAFE_NO_PAD.encode(Sha256::digest(key.as_bytes()));
+    Ok(crate::workspace::home()?
+        .join(".local/share/neo/oauth")
+        .join(format!("{digest}.json")))
+}
+fn revoke_grant<F: FnMut(&OAuthRequest) -> Result<OAuthResponse, String>>(
+    fetch: &mut F,
+    c: &Credential,
+) -> Result<(), String> {
+    let response = send(
+        fetch,
+        &c.origin,
+        "POST",
+        "/revoke",
+        form(&[("token", &c.refresh_token), ("revoke_grant", "true")]),
+        Some("application/x-www-form-urlencoded"),
+    )?;
+    if response.status != 200 {
+        return Err(format!(
+            "Neo OAuth grant revocation failed: HTTP {}",
+            response.status
+        ));
+    }
+    revoke_secret(fetch, &c.origin, &c.access_token)
+}
+
+pub fn device_with<F, G>(args: &[String], mut operator: G, fetch: &mut F) -> Result<Value, String>
+where
+    F: FnMut(&OAuthRequest) -> Result<OAuthResponse, String>,
+    G: FnMut() -> Result<String, String>,
+{
+    let verb = args.first().map(String::as_str).ok_or(DEVICE_HELP)?;
+    if !matches!(verb, "login" | "access" | "refresh" | "status" | "logout") {
+        return Err(DEVICE_HELP.into());
+    }
+    let mut fields = HashMap::new();
+    let mut stdout = false;
+    let mut i = 1;
+    while i < args.len() {
+        let k = args[i].as_str();
+        if k == "--stdout" {
+            if stdout || verb != "access" {
+                return Err(DEVICE_HELP.into());
+            }
+            stdout = true;
+            i += 1;
+            continue;
+        }
+        if !matches!(k, "--origin" | "--file" | "--client-name" | "--node")
+            || fields.contains_key(k)
+            || (k == "--client-name" && verb != "login")
+        {
+            return Err(DEVICE_HELP.into());
+        }
+        let v = args
+            .get(i + 1)
+            .filter(|v| !v.is_empty() && !v.starts_with("--"))
+            .ok_or(DEVICE_HELP)?;
+        fields.insert(k, v.as_str());
+        i += 2;
+    }
+    if verb == "access" && !stdout {
+        return Err("Access requires explicit --stdout".into());
+    }
+    let selected = fields
+        .get("--origin")
+        .map(|s| s.to_string())
+        .or_else(|| env::var("NEO_MCP_ORIGIN").ok())
+        .unwrap_or(DEFAULT_ORIGIN.into());
+    let origin = valid_origin(&selected)?;
+    let node = fields.get("--node").copied();
+    let path = device_path(&origin, fields.get("--file").copied(), node)?;
+    if node.is_some() && fields.contains_key("--client-name") {
+        return Err("Registered node client identity is derived from its registration".into());
+    }
+    with_credential_lock(&path, || {
+        if verb == "login" {
+            if fs::symlink_metadata(&path).is_ok() {
+                return Err("Credential already exists; refresh or logout first".into());
+            }
+            let base = fields
+                .get("--client-name")
+                .copied()
+                .unwrap_or("Neo registered device");
+            if base == "Z.ai interactive"
+                || base.starts_with("Neo registered node: ")
+                || base.starts_with("Neo Mobile registered device: ")
+            {
+                return Err("Reserved client name for persistent login".into());
+            }
+            let client = if let Some(node) = node {
+                format!("Neo registered node: {node}")
+            } else {
+                // Persisted grants must have distinct OAuth client identities
+                // so whole-grant revocation does not affect other devices.
+                format!(
+                    "{}: {}",
+                    base.chars().take(55).collect::<String>(),
+                    uuid::Uuid::new_v4()
+                )
+            };
+            let secret = operator()?;
+            let (mut c, refresh) = issue_grant_with(&origin, &secret, &client, fetch)?;
+            c.refresh_token = refresh.ok_or("Server did not issue a renewable credential")?;
+            if let Err(error) = atomic_credential(&path, &c) {
+                let _ = revoke_secret(fetch, &origin, &c.refresh_token);
+                let _ = revoke_secret(fetch, &origin, &c.access_token);
+                return Err(error);
+            }
+            return Ok(
+                json!({"authenticated":true,"origin":origin,"credential_file":path,"expires_at":c.expires_at}),
+            );
+        }
+        let mut c = load_credential(&path, &origin)?;
+        if verb == "logout" {
+            revoke_grant(fetch, &c)?;
+            fs::remove_file(&path).map_err(|e| e.to_string())?;
+            return Ok(json!({"revoked":true,"origin":origin}));
+        }
+        if verb == "access" || verb == "refresh" {
+            if refresh_grant(&mut c, fetch, verb == "refresh")? {
+                if let Err(error) = atomic_credential(&path, &c) {
+                    let _ = revoke_secret(fetch, &origin, &c.refresh_token);
+                    let _ = revoke_secret(fetch, &origin, &c.access_token);
+                    return Err(error);
+                }
+            }
+        }
+        if verb == "access" {
+            return Ok(json!({"access_token":c.access_token}));
+        }
+        Ok(
+            json!({"origin":origin,"credential_file":path,"expires_at":c.expires_at,"access_token_current":c.expires_at>now()}),
+        )
     })
 }
 
@@ -495,13 +858,16 @@ fn live_http(request: &OAuthRequest) -> Result<OAuthResponse, String> {
     let mut response = if request.method == "GET" {
         agent.get(&request.url).call()
     } else {
-        agent
-            .post(&request.url)
-            .header(
-                "content-type",
-                request.content_type.unwrap_or("application/json"),
-            )
-            .send(request.body.as_bytes())
+        let post = agent.post(&request.url).header(
+            "content-type",
+            request.content_type.unwrap_or("application/json"),
+        );
+        let post = if let Some(bearer) = &request.bearer {
+            post.header("authorization", format!("Bearer {bearer}"))
+        } else {
+            post
+        };
+        post.send(request.body.as_bytes())
     }
     .map_err(|_| "Neo OAuth request could not be completed")?;
     let location = response
@@ -522,6 +888,123 @@ fn live_http(request: &OAuthRequest) -> Result<OAuthResponse, String> {
         location,
     })
 }
+fn dashboard(args: &[String]) -> Result<Value, String> {
+    let mut fields: HashMap<&str, &str> = HashMap::new();
+    let mut i = 1;
+    while i < args.len() {
+        let key = args[i].as_str();
+        if !matches!(key, "--origin" | "--file" | "--node") || fields.contains_key(key) {
+            return Err(DEVICE_HELP.into());
+        }
+        let value = args
+            .get(i + 1)
+            .filter(|s| !s.is_empty() && !s.starts_with("--"))
+            .ok_or(DEVICE_HELP)?;
+        fields.insert(key, value);
+        i += 2;
+    }
+    let selected = fields
+        .get("--origin")
+        .map(|s| s.to_string())
+        .or_else(|| env::var("NEO_MCP_ORIGIN").ok())
+        .unwrap_or(DEFAULT_ORIGIN.into());
+    let origin = valid_origin(&selected)?;
+    let node = fields.get("--node").copied();
+    let file = fields.get("--file").copied();
+    let path = device_path(&origin, file, node)?;
+    let mut options = vec!["--origin".to_string(), origin.clone()];
+    if let Some(file) = file {
+        options.extend(["--file".to_string(), file.into()]);
+    }
+    if let Some(node) = node {
+        crate::mcp_local::registered_node(node)?;
+        options.extend(["--node".to_string(), node.into()]);
+        if fs::symlink_metadata(&path).is_err() {
+            if origin != DEFAULT_ORIGIN {
+                return Err(
+                    "Registered node enrollment must use the configured Master HTTPS issuer".into(),
+                );
+            }
+            let mut login = vec!["login".to_string()];
+            login.extend(options.clone());
+            device_with(&login, operator_token, &mut live_http)?;
+        }
+    }
+    let mut access_args = vec!["access".to_string(), "--stdout".to_string()];
+    access_args.extend(options);
+    let token = if node.is_some() || file.is_some() || fs::symlink_metadata(&path).is_ok() {
+        device_with(&access_args, operator_token, &mut live_http)?["access_token"]
+            .as_str()
+            .ok_or("No access token")?
+            .to_owned()
+    } else {
+        if origin != DEFAULT_ORIGIN {
+            return Err("Login to the selected HTTPS issuer first".into());
+        }
+        operator_token()?
+    };
+    let reply = live_http(&OAuthRequest {
+        method: "POST",
+        path: "/dashboard/ticket".into(),
+        url: format!("{origin}/dashboard/ticket"),
+        body: String::new(),
+        content_type: Some("application/json"),
+        bearer: Some(token),
+    })?;
+    if reply.status != 200 {
+        return Err(format!(
+            "Dashboard authentication failed: HTTP {}",
+            reply.status
+        ));
+    }
+    let doc: Value =
+        serde_json::from_str(&reply.body).map_err(|_| "Invalid Dashboard ticket response")?;
+    let ticket = doc["ticket"]
+        .as_str()
+        .filter(|s| {
+            (32..=128).contains(&s.len())
+                && s.bytes()
+                    .all(|c| c.is_ascii_alphanumeric() || c == b'-' || c == b'_')
+        })
+        .ok_or("Invalid Dashboard ticket")?;
+    if doc["expires_in"] != 60 {
+        return Err("Invalid Dashboard ticket lifetime".into());
+    }
+    let url = format!("{origin}/dashboard/connect#{ticket}");
+    if let Some(node) = fields.get("--node") {
+        crate::mcp_local::open_dashboard_on_node(node, &url)?;
+        return Ok(json!({"opened":true,"origin":origin,"node":node}));
+    }
+    #[cfg(target_os = "macos")]
+    let opener = "/usr/bin/open";
+    #[cfg(not(target_os = "macos"))]
+    let opener = "xdg-open";
+    let status = std::process::Command::new(opener)
+        .arg(&url)
+        .status()
+        .map_err(|_| "Could not open Dashboard browser")?;
+    if !status.success() {
+        return Err("Browser launch failed".into());
+    }
+    Ok(json!({"opened":true,"origin":origin}))
+}
+
 pub fn run(args: &[String]) -> Result<Value, String> {
-    execute_with(args, operator_token, &mut live_http)
+    if args.first().is_some_and(|s| s == "dashboard") {
+        return dashboard(args);
+    }
+    if args
+        .first()
+        .is_some_and(|s| matches!(s.as_str(), "issue" | "revoke"))
+    {
+        execute_with(args, operator_token, &mut live_http)
+    } else {
+        if args.first().is_some_and(|s| s == "login") {
+            if let Some(index) = args.iter().position(|s| s == "--node") {
+                let node = args.get(index + 1).ok_or("Missing registered node name")?;
+                crate::mcp_local::registered_node(node)?;
+            }
+        }
+        device_with(args, operator_token, &mut live_http)
+    }
 }
