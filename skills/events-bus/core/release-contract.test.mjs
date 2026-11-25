@@ -37,3 +37,19 @@ test('release history is durable and optional Job association can be queried',()
     assert.equal(reopened.history('737').events.length,0);
   }finally{fs.rmSync(dir,{recursive:true,force:true});}
 });
+
+test('npm artifact and failure use repository-scoped release facts without a synthetic Job',()=>{
+  const npm={type:'package.published',source:'release/markcut/'+sha,
+    data:{package:'markcut',repository:'lalalic/markcut',artifact:'@lalalic/markcut',
+      registry:'npm',version:'3.2.16',sha}};
+  const event=expandPublishEvent(npm);
+  assert.equal(event.job_id,undefined);
+  assert.equal(event.data.artifact,'@lalalic/markcut');
+  assert.equal(event.event_id,'release:markcut:'+sha+':package.published');
+  const failure=expandPublishEvent({...npm,type:'package.publish_failed',data:{...npm.data,stage:'npm publish'}});
+  assert.equal(failure.status,'failed');
+  assert.notEqual(event.event_id,failure.event_id);
+  assert.throws(()=>expandPublishEvent({...npm,data:{...npm.data,repository:'other/webhelm'}}));
+  assert.throws(()=>expandPublishEvent({...npm,data:{...npm.data,artifact:undefined}}));
+  assert.throws(()=>expandPublishEvent({...npm,data:{...npm.data,stage:'publish'}}));
+});

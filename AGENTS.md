@@ -10,6 +10,17 @@ For Neo Master public hostname additions, updates, or retirement, the source of
 truth and procedure are the [Neo.app shared-tunnel runbook](../neox/mac/NeoY/docs/shared-cloudflare-tunnel.md).
 Use the existing app-owned connector, not a Project-owned or PM2 tunnel.
 
+## Verified publication
+
+Native installations and registry publications must automatically report their
+actual verified package version and source SHA through the shared Events Bus
+publication reporter in the [Events Bus Skill](skills/events-bus/SKILL.md).
+Use the shared local .mjs reporter or approved GitHub composite Action, not
+an ad-hoc Python release reporter or fabricated Job identity. Staging/building
+an artifact alone is not proof of native installation. Remote GitHub runners
+require a separately authorized release-only ingress; keep the general Events
+Bus API and NATS private.
+
 ## Canonical execution and Git boundary
 
 Follow the [Neo Project Run Contract](skills/neo-project/references/run-contract.md) for canonical private Runs, nested local Git and source-worktree separation. Keep private media, source inputs, credentials, artifacts and receipts out of published Harness Git. Preserve original private Runs and unrelated worktrees.

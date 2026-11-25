@@ -37,16 +37,27 @@ No caller-facing `status`, `visibility`, `message`, or `progress`. The shared `c
 Publish from CLI: `events-bus publish --file event.json` (or one quoted JSON argument).
 Local worker helper: `node scripts/emit.mjs task.completed '{"verdict":"approved","head_sha":"abc"}'` with `EVENTS_BUS_EVENT_SOURCE` exported.
 
-## Native package publication
+## Package publication
 
-After verifying the installed release, publish `package.published` with source
-`release/<package>/<sha>` and data `package`, `version`, `sha`,
-`registry: "native"`, and optional `jobId` (string). No synthetic Job or
-Task identity is allowed. This uses the separate release subject, never the
-legacy npm updater subject. Query durable history at
-`GET /releases?package=<package>`; associated events also appear in Job
-history but do not change Job lifecycle. Repeat the same SHA and metadata
-to recover an uncertain publication without creating another history row.
+Every verified native installation or successful registry publication MUST
+automatically report `package.published` using the shared publication reporter
+(`lalalic/agents-relay/.github/actions/report-publication` or local
+`scripts/report-publication.mjs` from Agents Relay). Publish failures as
+`package.publish_failed` with the actual failed stage, never a success version.
+Release source is `release/<repository-basename>/<sha>`; data includes
+`package` (repository basename), `sha`, `registry` (`native` or `npm`),
+and verified `version` on success. npm also requires `repository` (owner/name)
+and `artifact` (actual npm package, including scope). Explicit `jobId` remains
+optional for legacy callers. Never synthesize a Job or Task identity.
+
+Release facts use the separate release subject, not the legacy npm updater
+subject. Query durable history with `GET /releases?package=<repository-basename>`.
+Relay may project the earliest verified release containing a completed local
+merge, with Git ancestry and timestamp evidence; this never changes lifecycle.
+Retry identical SHA, type and metadata after an uncertain receipt. A local
+publisher uses loopback; GitHub-hosted runners require a separately authorized,
+release-only HTTPS ingress. Never expose the general Events Bus API or NATS to
+the internet merely to support publication reporting.
 
 ## Generic reply events
 
