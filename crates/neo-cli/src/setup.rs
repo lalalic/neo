@@ -5,7 +5,7 @@ use std::{env, fs, io::Write, path::Path, process::Command, time::Duration};
 
 const CODEGRAPH: (&str, &str, &str) = ("codegraph", "@colbymchenry/codegraph", "1.6.4");
 const AST_GREP: (&str, &str, &str) = ("ast-grep", "@ast-grep/cli", "0.51.3");
-const RULE: &str = "- CodeGraph: Prefer CodeGraph when available for structural exploration and call/impact analysis. Use the actual Git worktree root, lazily initialize with `codegraph init --yes --local-only ROOT`, sync with `codegraph sync --quiet ROOT` after edits and use `--path ROOT` for queries. Use ast-grep when available for syntax patterns and rg for literals/fallback. If PATH lacks either tool, use its executable under ~/.local/bin. Bound outputs; verify source and git diff.";
+const RULE: &str = "- CodeGraph: Prefer CodeGraph when available for structural exploration and call/impact analysis. Use the actual Git worktree root, lazily initialize with `codegraph init --yes --local-only ROOT`, sync with `codegraph sync --quiet ROOT` after edits and use `--path ROOT` for queries. Discover commands with `codegraph --help`; prefer `explore`, `query`, `callers`, `callees`, and `impact` as appropriate. Use `ast-grep --help` for syntax-pattern searches and rg for literals/fallback. If PATH lacks either tool, use its executable under ~/.local/bin. Bound outputs; verify source and git diff.";
 
 fn exec(command: &mut Command, timeout: u64) -> Result<String, String> {
     let output =

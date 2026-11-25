@@ -4,7 +4,7 @@ For structural code discovery, use the host-local CodeGraph CLI. No Relay lifecy
 
 Run `neo setup code-tools` (Neo.app calls it during Harness setup). The native Harness installs pinned CodeGraph and ast-grep under `~/.local/bin` (ensure it is on PATH), disables CodeGraph telemetry, verifies versions, and reconciles one concise rule in `~/.agents/AGENTS.md`. It never modifies Codex global instructions. npm is needed only for missing or outdated managed tools. Setup returns a JSON receipt and a nonzero exit if any optional dependency fails; Neo.app logs that failure without blocking startup.
 
-Use the actual execution checkout, including a Relay or hotfix worktree:
+Discover commands with `codegraph --help` and `ast-grep --help`; use subcommand help for flags. Use the actual execution checkout, including a Relay or hotfix worktree:
 
 ```sh
 root=$(git rev-parse --show-toplevel)
