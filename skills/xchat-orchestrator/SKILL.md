@@ -21,6 +21,16 @@ At session start, follow `xchat-bootstrap.md`; **a normal chat needs no Project/
 
 At the start of each orchestration task, discover available skills with `neo skill list` for an unbound chat or `neo skill list --project <local_path>` for a verified task target. Target-local skills under `<local_path>/skills/` override shared/global skills for that target. Select auxiliary skills from their names and descriptions, then read only the relevant `SKILL.md` files before planning or delegating work. Do not assume a fixed skill set and do not preload every skill body. Explicit `#skill-name` selections from the user take precedence.
 
+## Code exploration through Neo Shell
+
+For XChat's own repository investigation and direct-chat HOTFIX, use CodeGraph first for structural questions (symbols, call paths, dependencies and impact), rather than broad `rg`/source-read loops. Use the exact verified execution checkout, not the primary checkout for a linked worktree. ChatGPT Web does not inherit Codex's session MCP connection or watcher; invoke the local CLI through Neo Shell.
+
+- Set `ROOT` to the verified Git worktree root. If CodeGraph is available, initialize a missing local index once with `codegraph init --yes --local-only "$ROOT"`. Do not reinitialize an existing index.
+- Without a confirmed active watcher for that exact checkout, run `codegraph sync --quiet "$ROOT"` before the first structural query of the task and again before further structural queries after edits or Git checkout changes. An active watcher makes repeated manual sync unnecessary; check freshness if uncertain.
+- Start with a bounded query such as `codegraph explore --path "$ROOT" --max-files 3 "relevant symbols"`. Use narrower `query`, `node`, `callers`, `callees`, or `impact` commands as needed (discover flags via CLI help). Treat source returned by CodeGraph as already read; inspect only missing or stale relevant lines.
+- Use ast-grep CLI for syntax patterns and `rg` for literal searches or when the graph is unavailable. Keep outputs bounded and verify the actual changes and tests. Do not let optional indexing failures block the task.
+- These are XChat's direct-tool rules, not additional managed Worker requirements. Codex Workers use their session CodeGraph MCP when available; Relay owns their worktree preparation and lifecycle.
+
 ## Task planning
 
 Before the orchestrator creates any initial or direct child Tasks, read the canonical Agents Relay planner agent at `/Users/chengli/Workspace/agents-relay/skills/agents-relay/agents/planner.agent.md` and apply its **Planning contract** to the decomposition. The planner agent owns the graph-first planning and durable Task-boundary rules; do not copy or maintain a second version of those rules in this skill.
