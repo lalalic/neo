@@ -22,7 +22,7 @@ pub trait Submission: Send {
     fn heartbeat(&self) -> Result<()> {
         Ok(())
     }
-    fn recovery_ready(&self, _response: &str) -> Result<bool> {
+    fn recovery_ready(&self, _response: &str, _next_seq: usize, _attempt: usize) -> Result<bool> {
         Ok(false)
     }
     fn remind(&self, _response: &str, _next_seq: usize, _attempt: usize) -> Result<bool> {
@@ -138,25 +138,12 @@ impl Drop for Held {
         }
     }
 }
-// Inspection stays inside the same caller-owned browser session. No arbitrary
-// sidebar matching, thread navigation, assistant-text replay or fabricated reply.
+// Recover only from the URL in the original caller-owned Session after Send.
 impl Held {
-    fn observe(&self, response: &str) -> Result<Value> {
+    fn observe_url(&self) -> Result<Value> {
         let session = self.session.as_deref().ok_or("no owned session")?;
-        let expression = format!(
-            r#"(() => {{
-            const marker = {};
-            const visible = e => !!e && e.getClientRects().length > 0;
-            const nodes = [...document.querySelectorAll('[data-message-author-role]')].filter(visible);
-            const lastUser = nodes.findLastIndex(e => e.getAttribute('data-message-author-role') === 'user');
-            const owner = lastUser >= 0 && (nodes[lastUser].innerText || '').includes(marker);
-            return {{url:location.href, owner}};
-        }})()"#,
-            json!(response)
-        );
-        let script = format!("return await js({});", json!(expression));
         let mut file = tempfile::NamedTempFile::new_in(&self.temp).map_err(|e| e.to_string())?;
-        file.write_all(script.as_bytes())
+        file.write_all(b"return (await page_info()).url;")
             .map_err(|e| e.to_string())?;
         file.flush().map_err(|e| e.to_string())?;
         let r = command_timeout(
@@ -172,20 +159,18 @@ impl Held {
             35,
         )?;
         if r["ok"] != true {
-            return Err("owned browser observation not verified".into());
+            return Err("owned browser URL observation not verified".into());
         }
         Ok(r["value"].clone())
     }
-    fn recover_receipt(&self, response: &str, project: Option<&str>) -> Result<Value> {
+    fn recover_receipt(&self, project: Option<&str>) -> Result<Value> {
         let start = Instant::now();
         while start.elapsed() < Duration::from_secs(90) {
-            if let Ok(observed) = self.observe(response) {
-                if observed["owner"] == true {
-                    if let Some((id, url)) = verified_thread_url(&observed["url"], project) {
-                        return Ok(
-                            json!({"status":"submitted","thread_id":id,"thread_url":url,"project_id":project,"verified_by":"same-session-recovery"}),
-                        );
-                    }
+            if let Ok(observed) = self.observe_url() {
+                if let Some((id, url)) = verified_thread_url(&observed, project) {
+                    return Ok(
+                        json!({"status":"submitted","thread_id":id,"thread_url":url,"project_id":project,"verified_by":"same-session-recovery"}),
+                    );
                 }
             }
             self.heartbeat()?;
@@ -225,6 +210,11 @@ fn verified_thread_url(value: &Value, project: Option<&str>) -> Option<(String, 
     u.set_fragment(None);
     Some((id, u.to_string()))
 }
+// The readiness probe and delivery use the same normal Action config.
+fn recovery_config(thread: &str, response: &str, next_seq: usize, attempt: usize) -> Value {
+    let message=format!("Finish existing request {response}. Do not repeat completed actions. Continue only unfinished work. 1. Publish the actual result to reply/models/{response} with reply.text, seq={next_seq} (skip if final text was already accepted). 2. Publish reply.completed separately with data={{}}; on actual failure use reply.failed with an error. 3. Verify the publish receipts before ending.");
+    json!({"thread_id":thread,"message":message,"mergeable":false,"idempotency_key":format!("{response}-recovery-{attempt}")})
+}
 impl Submission for Held {
     fn receipt(&self) -> &Value {
         &self.receipt
@@ -239,14 +229,14 @@ impl Submission for Held {
         }
         Ok(())
     }
-    fn recovery_ready(&self, response: &str) -> Result<bool> {
+    fn recovery_ready(&self, response: &str, next_seq: usize, attempt: usize) -> Result<bool> {
         let Some(session) = self.session.as_deref() else {
             return Ok(false);
         };
         let thread = self.receipt["thread_id"]
             .as_str()
             .ok_or("no verified thread")?;
-        let mut config = json!({"thread_id":thread,"recovery_response_id":response});
+        let mut config = recovery_config(thread, response, next_seq, attempt);
         if let Some(project) = self.receipt["project_id"].as_str() {
             config["project_id"] = json!(project);
         }
@@ -273,13 +263,12 @@ impl Submission for Held {
             .ok_or("invalid recovery readiness result".into())
     }
     fn remind(&self, response: &str, next_seq: usize, attempt: usize) -> Result<bool> {
-        // new-turn rechecks the same read-only gate before navigating.
+        // The ordinary new-turn action owns Send readiness and delivery.
         let session = self.session.as_deref().ok_or("no owned session")?;
         let thread = self.receipt["thread_id"]
             .as_str()
             .ok_or("no verified thread")?;
-        let message=format!("Finish existing request {response}. Do not repeat completed actions. Continue only unfinished work. 1. Publish the actual result to reply/models/{response} with reply.text, seq={next_seq} (skip if final text was already accepted). 2. Publish reply.completed separately with data={{}}; on actual failure use reply.failed with an error. 3. Verify the publish receipts before ending.");
-        let mut config = json!({"thread_id":thread,"message":message,"mergeable":false,"idempotency_key":format!("{response}-recovery-{attempt}"),"recovery_response_id":response});
+        let mut config = recovery_config(thread, response, next_seq, attempt);
         if let Some(p) = self.receipt["project_id"].as_str() {
             config["project_id"] = json!(p);
         }
@@ -516,7 +505,7 @@ impl Transport for WebHelm {
                 && receipt["verified_by"] == "send-clicked"
                 && held.session.is_some()
             {
-                receipt = held.recover_receipt(response, project)?;
+                receipt = held.recover_receipt(project)?;
             }
             let id = receipt["thread_id"]
                 .as_str()

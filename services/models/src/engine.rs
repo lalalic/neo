@@ -276,7 +276,8 @@ impl Engine {
             // original response terminates or the existing request limits expire.
             if last_observe.elapsed() >= Duration::from_secs(60) {
                 last_observe = Instant::now();
-                match submission.recovery_ready(&w.id) {
+                let probe_seq = r["reports"].as_array().map_or(1, |a| a.len() + 1);
+                match submission.recovery_ready(&w.id, probe_seq, recovery_count + 1) {
                     Ok(true) => {
                         // Replies can arrive while WebHelm checks readiness.
                         let latest = self.store.response(&w.id)?.ok_or("response vanished")?;
