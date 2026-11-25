@@ -1,8 +1,8 @@
-# Optional CodeGraph CLI
+# Harness code tools
 
 For structural code discovery, use the host-local CodeGraph CLI. No Relay lifecycle, model provider, or MCP changes are required.
 
-On an authorized development host, run `./scripts/install-codegraph.sh`. It installs the pinned CLI under `~/.local/bin` (ensure it is on PATH), disables anonymous telemetry, and reconciles one concise rule in `~/.agents/AGENTS.md`. It never modifies Codex global instructions.
+Run `neo setup code-tools` (Neo.app calls it during Harness setup). The native Harness installs pinned CodeGraph and ast-grep under `~/.local/bin` (ensure it is on PATH), disables CodeGraph telemetry, verifies versions, and reconciles one concise rule in `~/.agents/AGENTS.md`. It never modifies Codex global instructions. npm is needed only for missing or outdated managed tools. Setup returns a JSON receipt and a nonzero exit if any optional dependency fails; Neo.app logs that failure without blocking startup.
 
 Use the actual execution checkout, including a Relay or hotfix worktree:
 
@@ -11,6 +11,7 @@ root=$(git rev-parse --show-toplevel)
 test -f "$root/.codegraph/codegraph.db" || codegraph init --yes --local-only "$root"
 codegraph query --path "$root" --limit 8 taskNode
 codegraph callers --path "$root" --limit 8 taskNode
+ast-grep run -p 'await $FUNC($$$ARGS)' -l javascript
 codegraph explore --path "$root" --max-files 2 "taskNode"
 # After edits, before relying on relationships:
 codegraph sync --quiet "$root"
