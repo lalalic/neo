@@ -130,14 +130,14 @@ else: sys.exit(2)
             assert replay.status==200 and json.load(replay)["id"]==ident
             assert len(wait_action(1))==1
             # Stream second turn. SSE opening is delivered before terminal.
-            body={"model":"neo","stream":True,"input":[{"role":"user","id":"fixture_item_two","content":"second turn"}]}
+            body={"model":"neo","stream":True,"reasoning":{"effort":"medium"},"input":[{"role":"user","id":"fixture_item_two","content":"second turn"}]}
             with request(port,"/v1/responses",body,headers=headers) as stream:
                 assert stream.status==200
                 assert stream.readline().strip()==b"event: response.created"
                 created=json.loads(stream.readline().decode()[6:]);second=created["response"]["id"]
                 rows=wait_action(2);assert rows[1]["action"]=="new-turn"
                 assert rows[1]["config"]["thread_id"]=="fixture_thread_123"
-                assert "thinking_level" not in rows[1]["config"]
+                assert rows[1]["config"]["thinking_level"]=="medium"
                 assert rows[1]["config"]["message"]=="[USER]\nsecond turn\n[/USER]"
                 publish(nats_port,"test.models.native",second,"reply.text",{"seq":1,"text":"one"})
                 def next_delta():

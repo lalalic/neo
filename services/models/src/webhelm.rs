@@ -455,6 +455,9 @@ impl Transport for WebHelm {
             platform: self.platform.clone(),
         };
         let mut config = json!({"message":prompt,"enforcement_context":enforcement});
+        if let Some(level) = thinking {
+            config["thinking_level"] = json!(level);
+        }
         if let Some(p) = project {
             config["project_id"] = json!(p)
         }
@@ -486,9 +489,6 @@ impl Transport for WebHelm {
         } else {
             config["mode"] = json!("chat");
             config["temporary"] = json!(false);
-            if let Some(level) = thinking {
-                config["thinking_level"] = json!(level);
-            }
             if held.session.is_some() {
                 config["recover_thread_receipt"] = json!(true);
             }
