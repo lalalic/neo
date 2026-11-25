@@ -17,6 +17,7 @@ The native Rust Harness is built with `cargo build --release --locked -p neo-har
 - `services/models/` — authenticated Models Gateway and Orchestrator Chat; see [Models service](services/models/README.md).
 - `skills/mcp-wrapper/` — orchestrate external MCP providers, Relay and the Neo.app Core review service with one-call Markcut Preview wrappers.
 - `.bin/` — compatibility and packaging helpers; canonical XChat discovery/resolution scripts live under `skills/xchat-orchestrator/scripts/`.
+- Optional [CodeGraph CLI](docs/codegraph.md) — local structural code exploration with lazy, isolated Git worktree indexes.
 - `neo agent list [--project PATH]` and `neo agent search QUERY [--project PATH]` — discover context-visible project and shared Agent definitions plus Agency Agents specialist templates; templates require a project manifest before Relay dispatch.
 - `neo mcp token issue --stdout` (direct interactive copy) or `--output` (private file), plus `revoke` — provider-neutral, one-hour OAuth PKCE credentials; see `docs/interactive-mcp-access.md`.
 - `neo compute build|run|web|services|doctor|cleanup` — **native Rust** on-demand Docker module: converts a project Dockerfile into a reusable image and runs it through HF Jobs or Vast.ai. Start with the [Neo Compute Skill](skills/neo-compute/SKILL.md) and consult the [Compute service contract](compute/README.md) for details. no separate package is needed. Images and private inputs are never bundled into the Neo CLI.
