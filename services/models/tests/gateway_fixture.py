@@ -63,10 +63,18 @@ if args[:2]==["session","start"]:
  print(json.dumps({"session_id":"0123456789abcdef","workspace":"WebHelm"}))
 elif args[:2] in [["session","stop"],["session","heartbeat"]]:
  print('{"ok":true}')
+elif args[:2]==["session","exec"]:
+ script=Path(args[args.index("--code-file")+1]).read_text()
+ assert script=="return (await page_info()).url;",script
+ print(json.dumps({"ok":True,"value":"https://chatgpt.com/c/fixture_thread_123"}))
 elif args[:3]==["platform","run","chatgpt"]:
  config=json.loads(Path(args[args.index("--config")+1]).read_text())
  with open(os.environ["FIXTURE_ACTIONS"],"a") as f:f.write(json.dumps({"action":args[3],"config":config})+"\\n")
- print(json.dumps({"status":"submitted","thread_id":"fixture_thread_123","thread_url":"https://chatgpt.com/c/fixture_thread_123","verified_by":"fixture"}))
+ if args[3]=="new-thread":
+  assert config["recover_thread_receipt"] is True
+  print(json.dumps({"status":"submitted","thread_id":None,"thread_url":None,"verified_by":"send-clicked","receipt_pending":True}))
+ else:
+  print(json.dumps({"status":"submitted","thread_id":"fixture_thread_123","thread_url":"https://chatgpt.com/c/fixture_thread_123","verified_by":"fixture"}))
 else: sys.exit(2)
 """);fixture.chmod(0o700)
         nats_port=free_port();port=free_port();prefix="test.models.native.job"
@@ -93,7 +101,7 @@ else: sys.exit(2)
             assert json.load(request(port,"/v1/models"))["data"][0]["id"]=="neo"
             assert json.load(request(port,"/v1/models?client_version=0.165.0"))["models"][0]["slug"]=="neo"
             print("PASS authenticated OpenAI/Codex catalogs",flush=True)
-            body={"model":"neo","stream":False,"input":[{"role":"system","content":"DO NOT FORWARD"},{"role":"user","id":"fixture_item_one","content":"first turn"}]}
+            body={"model":"neo","stream":False,"reasoning":{"effort":"high"},"input":[{"role":"system","content":"DO NOT FORWARD"},{"role":"user","id":"fixture_item_one","content":"first turn"}]}
             headers={"thread-id":CODEX}
             with request(port,"/v1/responses",body,headers=headers) as r:
                 assert r.status==202,r.read()
@@ -108,6 +116,7 @@ else: sys.exit(2)
             rows=wait_action(1);assert rows[0]["action"]=="new-thread"
             assert rows[0]["config"]["message"]=="[USER]\nfirst turn\n[/USER]"
             assert ident in rows[0]["config"]["enforcement_context"]
+            assert rows[0]["config"]["thinking_level"]=="high"
             publish(nats_port,"test.models.native",ident,"reply.text",{"seq":1,"text":"first report"})
             publish(nats_port,"test.models.native",ident,"reply.completed",{})
             for _ in range(100):
@@ -115,7 +124,7 @@ else: sys.exit(2)
                 if result["status"]=="completed":break
                 time.sleep(.03)
             assert result["output"][0]["content"][0]["text"]=="first report",result
-            print("PASS real native NATS reply completion and durable first turn",flush=True)
+            print("PASS real native NATS reply completion and URL-only pending Thread receipt recovery",flush=True)
             # A replay must not dispatch another browser action.
             replay=request(port,"/v1/responses",body,headers=headers)
             assert replay.status==200 and json.load(replay)["id"]==ident
@@ -128,6 +137,7 @@ else: sys.exit(2)
                 created=json.loads(stream.readline().decode()[6:]);second=created["response"]["id"]
                 rows=wait_action(2);assert rows[1]["action"]=="new-turn"
                 assert rows[1]["config"]["thread_id"]=="fixture_thread_123"
+                assert "thinking_level" not in rows[1]["config"]
                 assert rows[1]["config"]["message"]=="[USER]\nsecond turn\n[/USER]"
                 publish(nats_port,"test.models.native",second,"reply.text",{"seq":1,"text":"one"})
                 def next_delta():

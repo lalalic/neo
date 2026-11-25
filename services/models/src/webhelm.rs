@@ -527,3 +527,55 @@ impl Transport for WebHelm {
         Ok(Box::new(held))
     }
 }
+
+#[cfg(test)]
+mod recovery_tests {
+    use super::*;
+
+    #[test]
+    fn recovery_accepts_only_durable_chatgpt_urls() {
+        let id = "6b0614ab-8228-83e9-81d3-e675192bc7e1";
+        assert_eq!(
+            verified_thread_url(
+                &json!(format!("https://chatgpt.com/c/{id}?prompt=ignored")),
+                None
+            ),
+            Some((id.to_owned(), format!("https://chatgpt.com/c/{id}")))
+        );
+        let project = "g-p-example123";
+        assert!(verified_thread_url(
+            &json!(format!("https://chatgpt.com/g/{project}-slug/c/{id}")),
+            Some(project)
+        )
+        .is_some());
+        for url in [
+            "https://chatgpt.com/c/local-chatgpt%3A12345678",
+            "https://chatgpt.com/c/local-chatgpt-12345678",
+            "https://evil.example/c/fixture_thread_123",
+            "https://chatgpt.com/?prompt=hi",
+        ] {
+            assert!(verified_thread_url(&json!(url), None).is_none(), "{url}");
+        }
+        assert!(verified_thread_url(
+            &json!(format!("https://chatgpt.com/g/g-p-other123/c/{id}")),
+            Some(project)
+        )
+        .is_none());
+    }
+
+    #[test]
+    fn recovery_uses_standard_new_turn_input_and_unique_key() {
+        let response = format!("resp_{}", "a".repeat(40));
+        let first = recovery_config("thread123456", &response, 1, 1);
+        let next = recovery_config("thread123456", &response, 2, 2);
+        assert_eq!(first["thread_id"], "thread123456");
+        assert!(first["message"]
+            .as_str()
+            .unwrap()
+            .contains(&format!("reply/models/{response}")));
+        assert!(next["message"].as_str().unwrap().contains("seq=2"));
+        assert_ne!(first["idempotency_key"], next["idempotency_key"]);
+        assert_eq!(first["mergeable"], false);
+        assert!(first.get("recovery_response_id").is_none());
+    }
+}
