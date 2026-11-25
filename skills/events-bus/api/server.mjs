@@ -19,6 +19,7 @@ const server = http.createServer(async (req, res) => {
   try {
     if (req.method === 'GET' && url.pathname === '/config') return json(res, 200, { natsUrl: config.natsUrl, apiUrl: config.apiUrl, dataDir: config.dataDir, subjectPrefix: config.subjectPrefix });
     if (req.method === 'GET' && url.pathname === '/health') return json(res, 200, await core.health());
+    if (req.method === 'GET' && url.pathname === '/releases') return json(res, 200, core.releaseHistory(url.searchParams.get('package'), int(url.searchParams.get('limit') ?? '100', 100)));
     const job = url.searchParams.get('job') || '';
     if (req.method === 'GET' && url.pathname === '/events') return json(res, 200, core.history(job, int(url.searchParams.get('after'), 0), int(url.searchParams.get('limit'), 100), url.searchParams.get('task'), url.searchParams.get('order') || 'asc'));
     if (req.method === 'GET' && url.pathname === '/status') return json(res, 200, core.status(job));

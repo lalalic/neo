@@ -37,6 +37,17 @@ No caller-facing `status`, `visibility`, `message`, or `progress`. The shared `c
 Publish from CLI: `events-bus publish --file event.json` (or one quoted JSON argument).
 Local worker helper: `node scripts/emit.mjs task.completed '{"verdict":"approved","head_sha":"abc"}'` with `EVENTS_BUS_EVENT_SOURCE` exported.
 
+## Native package publication
+
+After verifying the installed release, publish `package.published` with source
+`release/<package>/<sha>` and data `package`, `version`, `sha`,
+`registry: "native"`, and optional `jobId` (string). No synthetic Job or
+Task identity is allowed. This uses the separate release subject, never the
+legacy npm updater subject. Query durable history at
+`GET /releases?package=<package>`; associated events also appear in Job
+history but do not change Job lifecycle. Repeat the same SHA and metadata
+to recover an uncertain publication without creating another history row.
+
 ## Generic reply events
 
 The existing MCP `publish` tool also accepts generic reply events. No separate

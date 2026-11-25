@@ -5,6 +5,7 @@ import { connect } from '@nats-io/transport-node';
 import { safeJobId, safeTaskId } from '../mcp/validation.mjs';
 import { resolveRuntimeConfig } from './config.mjs';
 import {replySubject,validateReplyEvent} from './reply-contract.mjs';
+import {expandReleaseEvent,releasePrefix,releaseSubject,validReleasePackage} from './release-contract.mjs';
 
 export const MAX_MEMORY_EVENTS = 20_000;
 export const MAX_WAIT_MS = 30_000;
@@ -48,6 +49,7 @@ export class EventsBusCore {
     this.waiters = new Set();
     this.nc = null;
     this.subscription = null;
+    this.releaseSubscription = null;
     this.historyStat = null;
     fs.mkdirSync(this.config.dataDir, { recursive: true, mode: 0o700 });
     this.refreshHistory(true);
@@ -109,15 +111,36 @@ export class EventsBusCore {
     const nc = await this.connection();
     const decoder = new TextDecoder();
     this.subscription = nc.subscribe(`${this.config.subjectPrefix}.>`);
-    void (async () => {
-      for await (const msg of this.subscription) {
+    this.releaseSubscription = nc.subscribe(`${releasePrefix(this.config)}.>`);
+    const record = async (subscription, release) => {
+      for await (const msg of subscription) {
         try {
-          const event = JSON.parse(decoder.decode(msg.data));
-          if (!safeJobId(event?.job_id) || !safeType(event?.type)) continue;
+          let event = JSON.parse(decoder.decode(msg.data));
+          if (release) {
+            const checked = expandReleaseEvent({type:event.type,source:event.source?.id,data:event.data});
+            if (msg.subject !== releaseSubject(this.config,checked) || event.event_id !== checked.event_id) continue;
+            event = {...checked,version:1,timestamp:event.timestamp};
+          } else if (event?.kind === 'release' || !safeJobId(event?.job_id) || !safeType(event?.type)) continue;
           this.appendEvent(msg.subject, event);
         } catch {}
       }
-    })();
+    };
+    void record(this.subscription,false);
+    void record(this.releaseSubscription,true);
+    await nc.flush();
+  }
+  releaseHistory(packageName, limit=100) {
+    if (!validReleasePackage(packageName)) throw Error('invalid release package');
+    const matching=[];
+    try {
+      for (const line of fs.readFileSync(this.config.historyFile,'utf8').split(/\r?\n/)) {
+        try {
+          const row=JSON.parse(line);
+          if (row.event?.kind==='release' && row.event.data?.package===packageName) matching.push(row);
+        } catch {}
+      }
+    } catch {}
+    return {package:packageName,events:matching.slice(-Math.max(1,Math.min(500,limit))).reverse()};
   }
   rowsForJob(jobId, afterCursor = 0, limit = 100, taskId = null) {
     this.refreshHistory();
@@ -150,6 +173,14 @@ export class EventsBusCore {
     return { ok: true, server: nc.getServer(), buffered_events: this.events.length, next_cursor: this.nextCursor, config: { natsUrl: this.config.natsUrl, apiUrl: this.config.apiUrl, dataDir: this.config.dataDir, subjectPrefix: this.config.subjectPrefix } };
   }
   async publish(input, source) {
+    if(input?.kind==='release' || (typeof input?.source==='string' && input.source.startsWith('release/'))){
+      const validated=expandReleaseEvent({type:input.type,source:typeof input.source==='string'?input.source:input.source?.id,data:input.data});
+      const event={...validated,version:1,timestamp:new Date().toISOString()};
+      const subject=releaseSubject(this.config,event);
+      const nc=await this.connection();
+      nc.publish(subject,new TextEncoder().encode(JSON.stringify(event)));
+      await nc.flush();return {published:true,subject,event};
+    }
     if(input?.kind==='reply'){
       const validated=validateReplyEvent({type:input.type,source:input.source?.id,data:input.data});
       const event={...validated,version:1,event_id:crypto.randomUUID(),timestamp:new Date().toISOString()};
@@ -215,7 +246,7 @@ export class EventsBusCore {
     const terminal = this.latestTerminalForJob(jobId, afterCursor);
     return { job_id:jobId, events:rows, next_cursor:rows.at(-1)?.cursor ?? afterCursor, timed_out:rows.length === 0 && !processExited, worker_liveness:this.processLiveness(jobId), process_exited_without_terminal:processExited && !terminal, stop_wait_loop:Boolean(terminal) || processExited, end_reason:terminal ? 'terminal_event' : (processExited ? 'worker_exited' : null), terminal_event:terminal };
   }
-  async close() { try { this.subscription?.unsubscribe(); } catch {} this.subscription = null; if (this.nc) { try { await this.nc.close(); } catch {} this.nc = null; } }
+  async close() { try { this.subscription?.unsubscribe(); this.releaseSubscription?.unsubscribe(); } catch {} this.subscription = null; this.releaseSubscription = null; if (this.nc) { try { await this.nc.close(); } catch {} this.nc = null; } }
 }
 
 export function createEventsBusCore(options = {}) { return new EventsBusCore(options); }
