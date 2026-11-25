@@ -5,7 +5,7 @@
       "display_name": "Neo",
       "description": "Stateful ChatGPT agent through the Neo model gateway",
       "base_instructions": "Follow the supplied system, developer and user instructions, using your available connected tools when necessary.",
-      "default_reasoning_level": "medium",
+      "default_reasoning_level": "high",
       "supported_reasoning_levels": [
         {
           "effort": "low",

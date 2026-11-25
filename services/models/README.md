@@ -162,7 +162,7 @@ and `base_url=http://127.0.0.1:8769/v1` on Neo Master.
 The Neo Models Gateway uses WebHelm's `new-thread` and `new-turn` Actions to
 open `https://chatgpt.com/?prompt=...` or `/c/<thread_id>?prompt=...`. The
 Actions observe navigation and the Send/Stop controls, click Send **once** when
-needed, and require verified delivery. No rich-editor manipulation or injected structured `@Neo` mention is part of the default route. On both new Thread and subsequent Turns, explicitly supplied Responses `reasoning.effort` (or Chat Completions `reasoning_effort`) is mapped to the WebHelm `thinking_level` best-effort option; a missing picker or failed verification is nonfatal. When omitted, leave the current setting unchanged. Recovery reminders omit the setting. `NEO_MODEL_APP_MENTION` is an explicit opt-in to
+needed, and require verified delivery. No rich-editor manipulation or injected structured `@Neo` mention is part of the default route. On both new Thread and subsequent Turns, explicitly supplied Responses `reasoning.effort` (or Chat Completions `reasoning_effort`) is mapped to the WebHelm `thinking_level` best-effort option; a missing picker or failed verification is nonfatal. When omitted, WebHelm defaults to high. The Codex catalog also advertises high as the default. Recovery reminders explicitly pass an empty thinking_level to skip picker operations. `NEO_MODEL_APP_MENTION` is an explicit opt-in to
 structured App selection; the WebHelm Action handles this separately.
 
 **Release gate:** verify in a real Codex/ChatGPT thread that the connected

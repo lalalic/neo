@@ -99,7 +99,9 @@ else: sys.exit(2)
             stack.callback(stop,server);wait_port(port)
             assert request(port,"/v1/models",auth=False).status==401
             assert json.load(request(port,"/v1/models"))["data"][0]["id"]=="neo"
-            assert json.load(request(port,"/v1/models?client_version=0.165.0"))["models"][0]["slug"]=="neo"
+            catalog=json.load(request(port,"/v1/models?client_version=0.165.0"))["models"][0]
+            assert catalog["slug"]=="neo"
+            assert catalog["default_reasoning_level"]=="high"
             print("PASS authenticated OpenAI/Codex catalogs",flush=True)
             body={"model":"neo","stream":False,"reasoning":{"effort":"high"},"input":[{"role":"system","content":"DO NOT FORWARD"},{"role":"user","id":"fixture_item_one","content":"first turn"}]}
             headers={"thread-id":CODEX}

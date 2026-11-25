@@ -213,7 +213,7 @@ fn verified_thread_url(value: &Value, project: Option<&str>) -> Option<(String, 
 // The readiness probe and delivery use the same normal Action config.
 fn recovery_config(thread: &str, response: &str, next_seq: usize, attempt: usize) -> Value {
     let message=format!("Finish existing request {response}. Do not repeat completed actions. Continue only unfinished work. 1. Publish the actual result to reply/models/{response} with reply.text, seq={next_seq} (skip if final text was already accepted). 2. Publish reply.completed separately with data={{}}; on actual failure use reply.failed with an error. 3. Verify the publish receipts before ending.");
-    json!({"thread_id":thread,"message":message,"mergeable":false,"idempotency_key":format!("{response}-recovery-{attempt}")})
+    json!({"thread_id":thread,"message":message,"thinking_level":"","mergeable":false,"idempotency_key":format!("{response}-recovery-{attempt}")})
 }
 impl Submission for Held {
     fn receipt(&self) -> &Value {
@@ -576,6 +576,7 @@ mod recovery_tests {
         assert!(next["message"].as_str().unwrap().contains("seq=2"));
         assert_ne!(first["idempotency_key"], next["idempotency_key"]);
         assert_eq!(first["mergeable"], false);
+        assert_eq!(first["thinking_level"], "");
         assert!(first.get("recovery_response_id").is_none());
     }
 }
