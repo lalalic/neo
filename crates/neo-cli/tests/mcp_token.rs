@@ -478,3 +478,35 @@ fn canonical_token_alias_keeps_legacy_help_and_rejects_implicit_secret_output() 
     assert!(!output.status.success());
     assert!(output.stdout.is_empty());
 }
+
+#[test]
+fn removed_dashboard_commands_are_not_advertised_or_dispatched() {
+    let fixture = Fixture::new();
+    let invoke = |args: &[&str]| {
+        Command::new(env!("CARGO_BIN_EXE_neo-rs"))
+            .args(args)
+            .env("HOME", &fixture.home)
+            .env("NEO_HARNESS_ROOT", &fixture.root)
+            .output()
+            .unwrap()
+    };
+    for args in [
+        &["--help"][..],
+        &["token", "--help"],
+        &["mcp", "token", "--help"],
+    ] {
+        let result = invoke(args);
+        assert!(result.status.success());
+        assert!(!String::from_utf8_lossy(&result.stdout).contains("neo dashboard"));
+        assert!(!String::from_utf8_lossy(&result.stdout).contains("neo token dashboard"));
+    }
+    for args in [
+        &["dashboard"][..],
+        &["token", "dashboard"],
+        &["mcp", "token", "dashboard"],
+    ] {
+        let result = invoke(args);
+        assert!(!result.status.success());
+        assert!(result.stdout.is_empty());
+    }
+}

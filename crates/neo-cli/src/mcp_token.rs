@@ -27,7 +27,6 @@ pub struct OAuthRequest {
     pub path: String,
     pub url: String,
     pub content_type: Option<&'static str>,
-    pub bearer: Option<String>,
     pub body: String,
 }
 impl std::fmt::Debug for OAuthRequest {
@@ -189,7 +188,6 @@ fn send<F: FnMut(&OAuthRequest) -> Result<OAuthResponse, String>>(
         url: format!("{origin}{path}"),
         body,
         content_type,
-        bearer: None,
     };
     fetch(&request)
 }
@@ -475,7 +473,7 @@ fn refresh_grant<F: FnMut(&OAuthRequest) -> Result<OAuthResponse, String>>(
     Ok(true)
 }
 
-const DEVICE_HELP:&str="neo token login [--origin HTTPS_URL] [--file ABSOLUTE_PATH | --node NAME] [--client-name NAME]\nneo token access --stdout [--origin HTTPS_URL] [--file ABSOLUTE_PATH]\nneo token refresh|status|logout [--origin HTTPS_URL] [--file ABSOLUTE_PATH | --node NAME]\nneo token dashboard [--origin HTTPS_URL] [--file ABSOLUTE_PATH] [--node REGISTERED_NAME]\nneo token issue|revoke ... (one-hour legacy tokens)";
+const DEVICE_HELP:&str="neo token login [--origin HTTPS_URL] [--file ABSOLUTE_PATH | --node NAME] [--client-name NAME]\nneo token access --stdout [--origin HTTPS_URL] [--file ABSOLUTE_PATH]\nneo token refresh|status|logout [--origin HTTPS_URL] [--file ABSOLUTE_PATH | --node NAME]\nneo token issue|revoke ... (one-hour legacy tokens)";
 pub fn help() -> &'static str {
     DEVICE_HELP
 }
@@ -862,11 +860,6 @@ fn live_http(request: &OAuthRequest) -> Result<OAuthResponse, String> {
             "content-type",
             request.content_type.unwrap_or("application/json"),
         );
-        let post = if let Some(bearer) = &request.bearer {
-            post.header("authorization", format!("Bearer {bearer}"))
-        } else {
-            post
-        };
         post.send(request.body.as_bytes())
     }
     .map_err(|_| "Neo OAuth request could not be completed")?;
@@ -888,111 +881,7 @@ fn live_http(request: &OAuthRequest) -> Result<OAuthResponse, String> {
         location,
     })
 }
-fn dashboard(args: &[String]) -> Result<Value, String> {
-    let mut fields: HashMap<&str, &str> = HashMap::new();
-    let mut i = 1;
-    while i < args.len() {
-        let key = args[i].as_str();
-        if !matches!(key, "--origin" | "--file" | "--node") || fields.contains_key(key) {
-            return Err(DEVICE_HELP.into());
-        }
-        let value = args
-            .get(i + 1)
-            .filter(|s| !s.is_empty() && !s.starts_with("--"))
-            .ok_or(DEVICE_HELP)?;
-        fields.insert(key, value);
-        i += 2;
-    }
-    let selected = fields
-        .get("--origin")
-        .map(|s| s.to_string())
-        .or_else(|| env::var("NEO_MCP_ORIGIN").ok())
-        .unwrap_or(DEFAULT_ORIGIN.into());
-    let origin = valid_origin(&selected)?;
-    let node = fields.get("--node").copied();
-    let file = fields.get("--file").copied();
-    let path = device_path(&origin, file, node)?;
-    let mut options = vec!["--origin".to_string(), origin.clone()];
-    if let Some(file) = file {
-        options.extend(["--file".to_string(), file.into()]);
-    }
-    if let Some(node) = node {
-        crate::mcp_local::registered_node(node)?;
-        options.extend(["--node".to_string(), node.into()]);
-        if fs::symlink_metadata(&path).is_err() {
-            if origin != DEFAULT_ORIGIN {
-                return Err(
-                    "Registered node enrollment must use the configured Master HTTPS issuer".into(),
-                );
-            }
-            let mut login = vec!["login".to_string()];
-            login.extend(options.clone());
-            device_with(&login, operator_token, &mut live_http)?;
-        }
-    }
-    let mut access_args = vec!["access".to_string(), "--stdout".to_string()];
-    access_args.extend(options);
-    let token = if node.is_some() || file.is_some() || fs::symlink_metadata(&path).is_ok() {
-        device_with(&access_args, operator_token, &mut live_http)?["access_token"]
-            .as_str()
-            .ok_or("No access token")?
-            .to_owned()
-    } else {
-        if origin != DEFAULT_ORIGIN {
-            return Err("Login to the selected HTTPS issuer first".into());
-        }
-        operator_token()?
-    };
-    let reply = live_http(&OAuthRequest {
-        method: "POST",
-        path: "/dashboard/ticket".into(),
-        url: format!("{origin}/dashboard/ticket"),
-        body: String::new(),
-        content_type: Some("application/json"),
-        bearer: Some(token),
-    })?;
-    if reply.status != 200 {
-        return Err(format!(
-            "Dashboard authentication failed: HTTP {}",
-            reply.status
-        ));
-    }
-    let doc: Value =
-        serde_json::from_str(&reply.body).map_err(|_| "Invalid Dashboard ticket response")?;
-    let ticket = doc["ticket"]
-        .as_str()
-        .filter(|s| {
-            (32..=128).contains(&s.len())
-                && s.bytes()
-                    .all(|c| c.is_ascii_alphanumeric() || c == b'-' || c == b'_')
-        })
-        .ok_or("Invalid Dashboard ticket")?;
-    if doc["expires_in"] != 60 {
-        return Err("Invalid Dashboard ticket lifetime".into());
-    }
-    let url = format!("{origin}/dashboard/connect#{ticket}");
-    if let Some(node) = fields.get("--node") {
-        crate::mcp_local::open_dashboard_on_node(node, &url)?;
-        return Ok(json!({"opened":true,"origin":origin,"node":node}));
-    }
-    #[cfg(target_os = "macos")]
-    let opener = "/usr/bin/open";
-    #[cfg(not(target_os = "macos"))]
-    let opener = "xdg-open";
-    let status = std::process::Command::new(opener)
-        .arg(&url)
-        .status()
-        .map_err(|_| "Could not open Dashboard browser")?;
-    if !status.success() {
-        return Err("Browser launch failed".into());
-    }
-    Ok(json!({"opened":true,"origin":origin}))
-}
-
 pub fn run(args: &[String]) -> Result<Value, String> {
-    if args.first().is_some_and(|s| s == "dashboard") {
-        return dashboard(args);
-    }
     if args
         .first()
         .is_some_and(|s| matches!(s.as_str(), "issue" | "revoke"))

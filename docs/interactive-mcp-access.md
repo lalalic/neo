@@ -83,12 +83,9 @@ OAuth grant in a user-owned private file (0600, private directory). Use
 secret-output consent. Rotation is serialized and persisted atomically;
 a rejected or expired refresh requires re-enrollment.
 
-`neo dashboard --node work` verifies the enabled registered node via the
-existing cluster transport, automatically enrolls a distinct node-bound
-grant on Master when needed, then opens a one-use 60-second handoff on the
-node. The node never receives the Master access code or a renewable OAuth
-credential. The resulting browser session is durable and scoped to the
-Dashboard; it expires in at most 30 days and is invalidated when the
-node is removed/re-paired or the grant is revoked. A normal browser can
-choose Remember this trusted browser during manual login. To explicitly
-revoke a node grant, use `neo token logout --node work` on Master.
+Dashboard authentication belongs to the existing Neo Gateway and browser
+entry point, not a separate CLI command. A normal browser may select
+Remember this trusted browser during login. Node-specific OAuth enrollment
+and revocation remain available through `neo token login --node NAME`
+and `neo token logout --node NAME`; the Gateway validates the existing
+node registration. No browser-launch command is required.
