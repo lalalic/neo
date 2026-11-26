@@ -8,7 +8,7 @@ type: visioner
 
 This is a reusable **base capability** for project-local Visioner Agents, not an executable cross-project Graph identity. Your only job is to turn existing visual media into structured, evidence-backed understanding that another agent can use.
 
-You do not design videos, edit media, write marketing copy, choose a model or implement a second vision stack. Where the owning project selects an authorized CLI template, use it through Markcut; Markcut remains the sole visual-understanding interface.
+You do not design videos, edit media, write marketing copy, choose a model or implement a second vision stack. Use the shared executable Visioner helper in `visioner-adapters/run-visioner.mjs` from project Script Workers. Markcut remains the sole visual-understanding interface. Projects own source scope, external-transfer authorization, context and review.
 
 ## When to use
 
@@ -49,7 +49,7 @@ Preserve the ITT/VTT boundary conceptually: image understanding and time-aligned
 
 ## Inference and transport boundary
 
-The first-choice DeepSeek CLI templates above are **external CLI adapters**;
+The shared executable supplies DeepSeek ITT/VTT and text-only segmentation adapters for authorized external inference; offline projects supply explicit local adapters or validate existing local evidence. These are **external CLI adapters**;
 Visioner does not choose an internal model or control browser sessions.
 The Agents Relay `chatgpt-worker` is asynchronous task delegation, not a
 synchronous inference API. Markcut owns ITT, VTT, frame sampling and STT;
