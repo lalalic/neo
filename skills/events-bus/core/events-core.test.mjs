@@ -3,115 +3,134 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { EventsBusCore, MAX_MEMORY_EVENTS, normalizePublishEvent } from './events-core.mjs';
-import { resolveRuntimeConfig, writeRuntimeConfig, publishSubjectFor } from './config.mjs';
+import {EventsBusCore, MAX_MEMORY_EVENTS} from './events-core.mjs';
+import {transportEnvelope,validatePublicEvent} from './envelope.mjs';
+import {routeEvent,recordingBindings,acceptsRecord} from './routing.mjs';
+import {resolveRuntimeConfig,writeRuntimeConfig} from './config.mjs';
 
-test('runtime config is one discovery source for NATS and API', () => {
-  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'events-bus-config-'));
-  const env={EVENTS_BUS_DATA_DIR:dir,EVENTS_BUS_NATS_URL:'nats://127.0.0.1:5222',EVENTS_BUS_API_URL:'http://127.0.0.1:5223',EVENTS_BUS_SUBJECT_PREFIX:'test.events'};
-  const config=resolveRuntimeConfig(env); writeRuntimeConfig(config,env);
-  const discovered=resolveRuntimeConfig({EVENTS_BUS_DATA_DIR:dir});
-  assert.equal(discovered.natsUrl,'nats://127.0.0.1:5222');
-  assert.equal(discovered.apiUrl,'http://127.0.0.1:5223');
-  assert.equal(discovered.subjectPrefix,'test.events');
+function fixture(t){
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'generic-bus-'));
+  t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+  return {...resolveRuntimeConfig({EVENTS_BUS_DATA_DIR:dir}),subjectPrefix:'test.generic.'+path.basename(dir)+'.job'};
+}
+test('unknown event families and arbitrary object payloads need no domain configuration',t=>{
+  const config=fixture(t),bus=new EventsBusCore({config});
+  const input={type:'custom.notice',source:'arbitrary/source.* with spaces',data:{status:'anything',registry:'new',worker:{pid:123},extra:[1,2]}};
+  const {subject,event}=routeEvent(input,config);
+  assert.equal(subject.includes('*'),false);
+  assert.deepEqual(event.data,input.data);
+  assert.equal(event.job_id,undefined);
+  assert.equal(event.status,undefined);
+  assert.equal(bus.profile,undefined);
+  for(const bad of [{...input,type:'a.>'},{...input,source:''},{...input,data:[]},{...input,event_id:'spoof'}])assert.throws(()=>validatePublicEvent(bad));
 });
-
-test('recorder rejects same-event-id replay without new cursor, including after restart', () => {
-  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'events-bus-dedupe-'));
-  const config={...resolveRuntimeConfig({EVENTS_BUS_DATA_DIR:dir}),dataDir:dir,historyFile:path.join(dir,'events.jsonl')};
-  const source={job_id:'720',task_id:'2242',type:'task.progress',
-    status:'running',visibility:'orchestrator',message:'A Worker milestone'};
-  const first=normalizePublishEvent(source).event;
-  const core=new EventsBusCore({config});
-  assert.ok(core.appendEvent('relay.events.job.720.task.progress',first));
-  assert.equal(core.appendEvent('relay.events.job.720.task.progress',first),null);
-  assert.equal(core.history('720').events.length,1);
-  assert.equal(core.nextCursor,2);
+test('generic history filters by source, type, subject, cursor; durable receipt and dedupe',t=>{
+  const config=fixture(t);
+  const bus=new EventsBusCore({config});
+  const source='sample/alpha/123';
+  const one=routeEvent({type:'example.changed',source,data:{extra:1}},config);
+  const envelope=transportEnvelope(one.event);
+  bus.appendEvent(one.subject,envelope);
+  assert.equal(bus.appendEvent(one.subject,envelope),null);
+  const two=routeEvent({type:'example.closed',source,data:{}},config);
+  bus.appendEvent(two.subject,transportEnvelope(two.event));
+  assert.equal(bus.query({sourcePrefix:'sample/alpha/',type:'example.changed'}).events.length,1);
+  assert.equal(bus.query({source,subject:two.subject,after:1}).events.length,1);
   const reopened=new EventsBusCore({config});
-  assert.equal(reopened.appendEvent('relay.events.job.720.task.progress',first),null);
-  assert.equal(reopened.history('720').events.length,1);
-  assert.equal(reopened.nextCursor,2);
-  assert.ok(reopened.appendEvent('relay.events.job.720.task.progress',
-    {...first,event_id:'another-unique-event-id'}));
-  assert.equal(reopened.history('720').events.length,2);
-  fs.rmSync(dir,{recursive:true,force:true});
+  assert.equal(reopened.appendEvent(one.subject,envelope),null);
+  assert.equal(reopened.query({source,order:'desc',limit:1}).events[0].cursor,2);
+});
+test('generic real NATS round trip and history with no adapter',async t=>{
+  const config=fixture(t);
+  const bus=new EventsBusCore({config});
+  t.after(()=>bus.close());
+  await bus.startRecorder();
+  const input={type:'arbitrary.happened',source:'my/novel/source',data:{anything:{value:42}}};
+  const receipt=await bus.publish(input);
+  assert.ok(receipt.published);
+  for(let i=0;i<100&&!bus.query({source:input.source}).events.length;i++)await new Promise(r=>setTimeout(r,20));
+  const rows=bus.query({source:input.source,type:input.type}).events;
+  assert.equal(rows.length,1);
+  assert.deepEqual(rows[0].event.data,input.data);
+  assert.equal(rows[0].event.event_id,receipt.event.event_id);
 });
 
-test('core owns history cursor/filter semantics', () => {
-  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'events-bus-core-'));
-  const config={...resolveRuntimeConfig({EVENTS_BUS_DATA_DIR:dir}),dataDir:dir,historyFile:path.join(dir,'events.jsonl')};
-  const core=new EventsBusCore({config});
-  const one=normalizePublishEvent({job_id:'job1',task_id:'a task',type:'task.started',status:'running',visibility:'orchestrator',message:'start'}).event;
-  const two=normalizePublishEvent({job_id:'job1',task_id:'a task',type:'task.completed',status:'succeeded',visibility:'orchestrator',message:'done'}).event;
-  core.appendEvent('test.job1.task.started',one); core.appendEvent('test.job1.task.completed',two);
-  const history=core.history('job1',0,10,'a task');
-  assert.equal(history.events.length,2); assert.equal(history.next_cursor,2); assert.equal(history.order,'asc');
-  const recent=core.history('job1',0,1,'a task','desc'); assert.equal(recent.events[0].event.type,'task.completed'); assert.equal(recent.order,'desc');
-  assert.equal(core.status('job1').terminal.event.type,'task.completed');
+test('declarative routing preserves existing wire subjects without interpreting domain fields',async t=>{
+  const config=fixture(t);
+  const prefix=config.subjectPrefix.slice(0,-4);
+  const bus=new EventsBusCore({config}); t.after(()=>bus.close());
+  await bus.startRecorder();
+  const job=await bus.publish({type:'task.completed',source:'job/42/task/a/b/execution/lease',data:{verdict:'approved'}});
+  const release=await bus.publish({type:'package.published',source:'release/fixture/abcdef',data:{registry:'future-registry',arbitrary:true}},{eventId:'test-release-id'});
+  const reply=await bus.publish({type:'reply.text',source:'reply/models/test-response',data:{invalidForConsumer:true}});
+  assert.equal(job.subject,prefix+'.job.42.task.completed');
+  assert.equal(release.subject,prefix+'.release.fixture.package.published');
+  assert.equal(reply.subject,prefix+'.reply.models.test-response');
+  assert.equal(job.event.job_id,undefined);assert.equal(job.event.status,undefined);
+  assert.equal(release.event.kind,undefined);assert.equal(release.event.data.registry,'future-registry');
+  assert.equal(reply.event.channel,undefined);
+  for(let i=0;i<100&&bus.query().events.length<2;i++)await new Promise(r=>setTimeout(r,20));
+  assert.equal(bus.query().events.length,2);
+  assert.equal(bus.query({sourcePrefix:'reply/'}).events.length,0);
+  const filter=[[{path:'event.source.id',op:'prefixSegment',value:'job/42/task/a/b/execution/'}]];
+  assert.equal(bus.query({filter}).events.length,1);
+  assert.equal(bus.query({filter:[[ {path:'event.source.id',op:'prefixSegment',value:'job/42/task/a/'} ]]}).events.length,0);
+  assert.throws(()=>bus.query({filter:[[{path:'event.type',op:'eval',value:'x'}]]}));
+  assert.ok(recordingBindings(config).every(x=>!x.includes('.reply.')));
+});
+test('standalone generic bus requires no configured domain routes',t=>{
+  const config={...fixture(t),routing:{routes:[],fallbackPrefix:'{configured}.generic'}};
+  const v=routeEvent({type:'sample.event',source:'job/custom',data:{x:1}},config);
+  assert.ok(v.subject.startsWith(config.subjectPrefix+'.generic.'));
+  assert.deepEqual(v.event,{type:'sample.event',source:{id:'job/custom'},data:{x:1}});
 });
 
-test('durable history is not evicted by unrelated live-buffer traffic', () => {
-  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'events-bus-history-retention-'));
-  const historyFile=path.join(dir,'events.jsonl');
-  const config={...resolveRuntimeConfig({EVENTS_BUS_DATA_DIR:dir}),dataDir:dir,historyFile};
-  const target={cursor:1,subject:'test.quiet.progress',event:{job_id:'quiet',task_id:'target',type:'progress',status:'running',visibility:'user',message:'keep me'}};
+test('runtime config discovery and invalid saved JSON fail closed',t=>{
+  const config=fixture(t),env={EVENTS_BUS_DATA_DIR:config.dataDir};
+  writeRuntimeConfig(config,env);
+  const saved=resolveRuntimeConfig(env);
+  assert.equal(saved.subjectPrefix,config.subjectPrefix);
+  assert.deepEqual(saved.routing,config.routing);
+  assert.equal(saved.natsUrl,config.natsUrl);
+  for(const raw of ['{bad','[]','null']){
+    fs.writeFileSync(path.join(config.dataDir,'runtime.json'),raw);
+    assert.throws(()=>resolveRuntimeConfig(env),/Invalid Events Bus runtime config/);
+  }
+});
+test('durable history survives memory-window eviction and keeps receipt timestamp',t=>{
+  const config=fixture(t),source='quiet/item';
+  const target={cursor:1,subject:'test.quiet',event:{type:'quiet.changed',source:{id:source},data:{value:1},event_id:'first'}};
   const rows=[JSON.stringify(target)];
-  for(let i=0;i<MAX_MEMORY_EVENTS;i++) rows.push(JSON.stringify({cursor:i+2,subject:'test.noisy.progress',event:{job_id:'noisy',task_id:'spam',type:'progress',status:'running',visibility:'debug',message:'noise'}}));
-  fs.writeFileSync(historyFile,rows.join('\n')+'\n');
-  const core=new EventsBusCore({config});
-  assert.equal(core.events.some(row=>row.event?.job_id==='quiet'),false);
-  const history=core.history('quiet',0,10,null,'desc');
-  assert.equal(history.events.length,1);
-  assert.equal(history.events[0].event.message,'keep me');
-  assert.equal(history.next_cursor,1);
+  for(let i=0;i<MAX_MEMORY_EVENTS;i++)rows.push(JSON.stringify({cursor:i+2,subject:'test.noisy',event:{type:'noise.changed',source:{id:'noise/item'},data:{}}}));
+  fs.writeFileSync(config.historyFile,rows.join('\n')+'\n');
+  const bus=new EventsBusCore({config});
+  assert.equal(bus.events.some(row=>row.event.source?.id===source),false);
+  assert.equal(bus.query({source}).events[0].cursor,1);
+  const bogus='2000-01-01T00:00:00Z';
+  const raw={type:'quiet.changed',source:{id:source},data:{},timestamp:bogus};
+  const env=transportEnvelope(raw);
+  assert.notEqual(env.timestamp,bogus);
+  bus.appendEvent('test.quiet',raw);
+  assert.notEqual(bus.query({source,order:'desc',limit:1}).events[0].event.timestamp,bogus);
 });
 
-
-test('events bus overrides producer timestamps at publish and persists recorder receipt time', () => {
-  const bogus = '2026-10-08T04:00:00.000Z';
-  const input = {job_id:'timestamp-check',task_id:'review',type:'task.started',status:'running',visibility:'user',message:'started',timestamp:bogus};
-  const published = normalizePublishEvent(input).event;
-  assert.notEqual(published.timestamp,bogus);
-  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'events-bus-receipt-'));
-  const config={...resolveRuntimeConfig({EVENTS_BUS_DATA_DIR:dir}),dataDir:dir,historyFile:path.join(dir,'events.jsonl')};
-  const core=new EventsBusCore({config});
-  core.appendEvent('test.timestamp-check.task.started', input);
-  const stored=core.history('timestamp-check').events[0].event;
-  assert.notEqual(stored.timestamp,bogus);
-  assert.equal(JSON.parse(fs.readFileSync(config.historyFile,'utf8').trim()).event.timestamp,stored.timestamp);
-  assert.equal(stored.receivedAt,undefined);
+test('failed durable append never creates a false cursor or dedup receipt',t=>{
+  const config=fixture(t),bus=new EventsBusCore({config});
+  const event=transportEnvelope(routeEvent({type:'sample.changed',source:'sample/id',data:{}},config).event);
+  fs.mkdirSync(config.historyFile);
+  assert.throws(()=>bus.appendEvent('test.sample',event));
+  assert.equal(bus.nextCursor,1);
+  assert.equal(bus.seenEventIds.has(event.event_id),false);
+  assert.equal(bus.events.length,0);
+  fs.rmdirSync(config.historyFile);
+  assert.equal(bus.appendEvent('test.sample',event).cursor,1);
 });
-
-test('emit publishes to configured prefix without default leakage',()=>{
-  const event={job_id:'iso-553',type:'task.started'};
-  assert.equal(publishSubjectFor(event,{EVENTS_BUS_SUBJECT_PREFIX:'neo.events.private-run'}),'neo.events.private-run.iso-553.task.started');
-  assert.equal(publishSubjectFor(event,{EVENTS_BUS_DATA_DIR:fs.mkdtempSync(path.join(os.tmpdir(),'events-default-'))}),'relay.events.job.iso-553.task.started');
-  assert.throws(()=>publishSubjectFor({job_id:'iso-553'},{}),/Job ID and event type/);
-});
-
-
-test('Events Bus rejects unmigrated saved namespace and ignores retired event env names',()=>{
-  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'events-bus-migrate-'));
-  try {
-    fs.writeFileSync(path.join(dir,'runtime.json'),JSON.stringify({subjectPrefix:'neo.events.job'}));
-    assert.throws(()=>resolveRuntimeConfig({EVENTS_BUS_DATA_DIR:dir}),/coordinate migration/);
-    const runtime=resolveRuntimeConfig({EVENTS_BUS_DATA_DIR:dir,EVENTS_BUS_SUBJECT_PREFIX:'relay.events.job'});
-    assert.equal(runtime.subjectPrefix,'relay.events.job');
-    const fresh=resolveRuntimeConfig({EVENTS_BUS_DATA_DIR:fs.mkdtempSync(path.join(os.tmpdir(),'events-bus-new-')),
-      NEO_NATS_URL:'nats://legacy:4545',AGENTS_RELAY_EVENTS_SUBJECT_PREFIX:'wrong.old'});
-    assert.equal(fresh.subjectPrefix,'relay.events.job');
-    assert.equal(fresh.natsUrl,'nats://127.0.0.1:4222');
-  } finally { fs.rmSync(dir,{recursive:true,force:true}); }
-});
-
-
-test('Events Bus rejects invalid saved runtime JSON rather than silently switching subject',()=>{
-  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'events-corrupt-runtime-'));
-  try {
-    const file=path.join(dir,'runtime.json');
-    for (const payload of ['{corrupt','[]','null']) {
-      fs.writeFileSync(file,payload);
-      assert.throws(()=>resolveRuntimeConfig({EVENTS_BUS_CONFIG:file}),/Invalid Events Bus runtime config/);
-    }
-  } finally {fs.rmSync(dir,{recursive:true,force:true});}
+test('recording rejects mismatched routed sources even with legacy extensions; route conflicts fail closed',t=>{
+  const config=fixture(t);
+  const {subject,event}=routeEvent({type:'task.completed',source:'job/42/task/1/execution/lease',data:{}},config);
+  assert.equal(acceptsRecord(subject,{...event,job_id:'42'},config),true);
+  assert.equal(acceptsRecord(subject.replace('.42.','.43.'),{...event,job_id:'43'},config),false);
+  assert.equal(acceptsRecord(subject,{type:'task.completed',source:{id:'reply/models/request-123'},data:{},job_id:'42'},config),false);
+  const conflict={...config,routing:{...config.routing,routes:[...config.routing.routes,config.routing.routes[0]]}};
+  assert.throws(()=>routeEvent({type:'sample.changed',source:'sample/id',data:{}},conflict),/ambiguous/);
 });

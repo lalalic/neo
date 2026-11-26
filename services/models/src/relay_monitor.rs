@@ -28,6 +28,54 @@ fn millis(v: &Value) -> Option<i64> {
         .ok()
         .map(|t| t.timestamp_millis())
 }
+// Relay notification consumer accepts both canonical source envelopes and
+// historic Relay-generated metadata. The Relay runtime owns lifecycle state.
+fn relay_event(raw: &Value) -> Option<Value> {
+    if raw.get("job_id").is_some() {
+        if let Some(source) = raw
+            .pointer("/source/id")
+            .and_then(Value::as_str)
+            .filter(|s| s.starts_with("job/") && s.contains("/execution/"))
+        {
+            let (job, tail) = source.strip_prefix("job/")?.split_once("/task/")?;
+            let (task, execution) = tail.rsplit_once("/execution/")?;
+            if raw["job_id"] != job
+                || raw["task_id"] != task
+                || execution.is_empty()
+                || execution.contains('/')
+            {
+                return None;
+            }
+        }
+        return Some(raw.clone());
+    }
+    let source = raw.pointer("/source/id")?.as_str()?;
+    let (job, tail) = source.strip_prefix("job/")?.split_once("/task/")?;
+    let (task, execution) = tail.rsplit_once("/execution/")?;
+    if job_id(&json!(job)).is_none()
+        || task.trim().is_empty()
+        || execution.is_empty()
+        || execution.contains('/')
+    {
+        return None;
+    }
+    let mut event = raw.clone();
+    event["job_id"] = json!(job);
+    event["task_id"] = json!(task);
+    Some(event)
+}
+fn history_in_scope(raw: &Value, id: &str) -> bool {
+    job_id(&raw["job_id"]).as_deref() == Some(id)
+        || raw
+            .pointer("/source/id")
+            .and_then(Value::as_str)
+            .is_some_and(|s| s.starts_with(&format!("job/{id}/task/")))
+}
+fn relay_history_filter(id: &str) -> String {
+    json!([[{"path":"event.job_id","op":"eq","value":id}],
+           [{"path":"event.source.id","op":"prefix","value":format!("job/{id}/task/")}]])
+    .to_string()
+}
 fn job_id(v: &Value) -> Option<String> {
     let s = v
         .as_str()
@@ -295,12 +343,33 @@ impl Monitor {
             let p = fetch(
                 &self.history,
                 "/events",
-                &[("job", &id), ("order", "desc"), ("limit", "1")],
+                &[
+                    ("filter", &relay_history_filter(&id)),
+                    ("order", "desc"),
+                    ("limit", "1"),
+                ],
             )?;
-            if job_id(&p["job_id"]).as_deref() != Some(&id) || p["events"].as_array().is_none() {
+            if p["events"].as_array().is_none() || p["order"] != "desc" {
                 return Err("invalid latest event cursor".into());
             }
-            let cur = p["events"][0]["cursor"].as_u64().unwrap_or(0);
+            let rows = p["events"].as_array().unwrap();
+            if rows.len() > 1 {
+                return Err("invalid latest event cursor".into());
+            }
+            let cur = if let Some(row) = rows.first() {
+                if !history_in_scope(&row["event"], &id) {
+                    return Err("invalid history identity".into());
+                }
+                row["cursor"]
+                    .as_u64()
+                    .filter(|c| *c > 0)
+                    .ok_or("invalid latest event cursor")?
+            } else {
+                0
+            };
+            if p["next_cursor"].as_u64() != Some(cur) {
+                return Err("invalid latest event cursor".into());
+            }
             w["startCursor"] = json!(cur.max(w["startCursor"].as_u64().unwrap_or(0)));
             list.push(w);
             store::write(
@@ -379,7 +448,7 @@ impl Monitor {
                     &self.history,
                     "/events",
                     &[
-                        ("job", &id),
+                        ("filter", &relay_history_filter(&id)),
                         ("order", "asc"),
                         ("limit", "60"),
                         ("after", &cursor.to_string()),
@@ -387,7 +456,7 @@ impl Monitor {
                 )?;
                 let next = p["next_cursor"].as_u64().ok_or("invalid history cursor")?;
                 let rows = p["events"].as_array().ok_or("invalid history rows")?;
-                if job_id(&p["job_id"]).as_deref() != Some(&id) || rows.len() > 60 {
+                if p["order"] != "asc" || rows.len() > 60 {
                     return Err("invalid history identity".into());
                 }
                 let mut prev = cursor;
@@ -396,7 +465,7 @@ impl Monitor {
                         .as_u64()
                         .filter(|n| *n > prev && *n <= next)
                         .ok_or("invalid history cursor order")?;
-                    if job_id(&row["event"]["job_id"]).as_deref() != Some(&id) {
+                    if !history_in_scope(&row["event"], &id) {
                         return Err("invalid history event identity".into());
                     }
                     prev = n;
@@ -405,7 +474,12 @@ impl Monitor {
                     return Err("non-advancing history cursor".into());
                 }
                 for row in rows {
-                    self.watch_event(&row["event"])?;
+                    if let Some(event) = relay_event(&row["event"]) {
+                        if job_id(&event["job_id"]).as_deref() != Some(&id) {
+                            return Err("invalid history identity".into());
+                        }
+                        self.watch_event(&event)?;
+                    }
                 }
                 if next > cursor {
                     cursor = next;
@@ -526,7 +600,11 @@ pub fn start(base: &Path, home: &Path, cfg: nats::Config, o: Arc<Orchestrator>) 
         cfg,
         format!("{prefix}.*.>"),
         "neo-orchestrator-relay-rust",
-        move |subject, v| {
+        move |subject, raw| {
+            let Some(event) = relay_event(raw) else {
+                return Ok(());
+            };
+            let v = &event;
             let Some(id) = job_id(&v["job_id"]) else {
                 return Ok(());
             };

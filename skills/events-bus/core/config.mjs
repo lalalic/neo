@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import {fileURLToPath} from 'node:url';
 
 export const DEFAULT_DATA_DIR = path.join(os.homedir(), 'Library', 'Application Support', 'EventsBus');
 export const DEFAULT_NATS_URL = 'nats://127.0.0.1:4222';
@@ -35,6 +36,9 @@ export function resolveRuntimeConfig(env = process.env) {
   const apiHost = env.EVENTS_BUS_API_HOST || saved.apiHost || DEFAULT_API_HOST;
   const apiPort = Number(env.EVENTS_BUS_API_PORT || saved.apiPort || DEFAULT_API_PORT);
   const apiUrl = env.EVENTS_BUS_API_URL || saved.apiUrl || `http://${apiHost}:${apiPort}`;
+  const subjectPrefix=env.EVENTS_BUS_SUBJECT_PREFIX || saved.subjectPrefix || DEFAULT_SUBJECT_PREFIX;
+  const defaults=readRuntimeFile(fileURLToPath(new URL('../routing.json',import.meta.url)));
+  const routing=saved.routing??(Object.keys(defaults).length?defaults:undefined);
   return {
     version: 1,
     configPath: file,
@@ -44,7 +48,8 @@ export function resolveRuntimeConfig(env = process.env) {
     apiHost,
     apiPort,
     apiUrl,
-    subjectPrefix: env.EVENTS_BUS_SUBJECT_PREFIX || saved.subjectPrefix || DEFAULT_SUBJECT_PREFIX,
+    subjectPrefix,
+    routing,
   };
 }
 
@@ -59,13 +64,8 @@ export function writeRuntimeConfig(config, env = process.env) {
     apiUrl: config.apiUrl,
     dataDir: config.dataDir,
     subjectPrefix: config.subjectPrefix,
+    routing:config.routing,
   };
   fs.writeFileSync(target, `${JSON.stringify(payload, null, 2)}\n`, { encoding: 'utf8', mode: 0o600 });
   return target;
-}
-
-/** Resolve one canonical publish subject from the configured runtime, not a hard-coded prefix. */
-export function publishSubjectFor(event,env=process.env){
-  if(!event?.job_id||!event?.type) throw Error('publish subject needs Job ID and event type');
-  return `${resolveRuntimeConfig(env).subjectPrefix}.${event.job_id}.${event.type}`;
 }

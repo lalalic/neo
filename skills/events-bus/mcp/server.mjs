@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 import readline from "node:readline";
 import { createEventsBusCore } from "../core/events-core.mjs";
-import { expandPublishEvent } from "../core/publish-envelope.mjs";
 
 const SERVER_NAME = "events-bus-mcp";
 const SERVER_VERSION = "0.2.0";
@@ -9,32 +8,18 @@ const core = createEventsBusCore({ name: SERVER_NAME });
 
 function structuredResult(value) { return { content: [{ type: "text", text: JSON.stringify(value) }], structuredContent: value }; }
 function textResult(value, isError = false) { return { content: [{ type: "text", text: JSON.stringify(value) }], ...(isError ? { isError: true } : {}) }; }
-// Relay stores job IDs as integers; the core and NATS subjects use canonical strings.
-function normalizeJobId(value) {
-  if (Number.isSafeInteger(value) && value >= 0) return String(value);
-  return value;
-}
-function resultOrError(name, args, result) {
-  if (result?.error) diagnoseFailure(name, args, result.error, "validation");
-  return textResult(result, Boolean(result?.error));
-}
-function diagnoseFailure(name, args, reason, stage) {
-  // No event payloads or message bodies in diagnostic logs.
-  const id = name === "publish" ? args?.event?.job_id : args?.job_id;
-  const diagnostic = { component: "events-bus-mcp", operation: name, stage,
-    job_id_type: id === null ? "null" : typeof id,
-    error: String(reason).slice(0, 300) };
-  process.stderr.write(`[events-bus] ${JSON.stringify(diagnostic)}\n`);
+function diagnoseFailure(name,args,reason,stage){
+  process.stderr.write(JSON.stringify({component:"events-bus-mcp",operation:name,stage,error:String(reason).slice(0,300)})+"\n");
 }
 
 const TOOLS = [{
   name: "publish",
-  description: "Publish an event through the existing Events Bus. Job lifecycle events use source job/<job-id>/task/<task-id>/execution/<execution-id>. Replies use source reply/<channel>/<request_id> and type reply.text (data.text), reply.heartbeat, reply.completed or reply.failed (data.error). Multiple reply.text events may precede explicit reply.completed. Examples of reply channels: models, voice and family-tutor. The channel is a safe lowercase routing label. Native package publication: type package.published, source release/<package>/<sha>, data package, version, sha, registry native, optional jobId.",
+  description: "Publish an event with type, source, and opaque object data. Follow the producer and consumer protocol for source identity, business fields and terminal events.",
   inputSchema: {
     type: "object",
     properties: {
       type: { type: "string", pattern: "^[A-Za-z0-9_.-]+$" },
-      source: { type: "string", description: "Job: job/<job-id>/task/<task-id>/execution/<execution-id>; reply: reply/<channel>/<request_id>; native release: release/<package>/<sha>" },
+      source: { type: "string", description: "Producer-defined routing identity" },
       data: { type: "object" },
     },
     required: ["type", "source"],
@@ -46,7 +31,7 @@ const TOOLS = [{
 async function callTool(name, args = {}) {
   if (name !== 'publish') return textResult({ error: `unknown tool: ${name}` }, true);
   try {
-    const result = await core.publish(expandPublishEvent(args), { agent: 'mcp' });
+    const result = await core.publish(args);
     return textResult(result);
   } catch (error) {
     diagnoseFailure(name, args, error?.message || error, 'execution');

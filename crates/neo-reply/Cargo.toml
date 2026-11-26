@@ -1,0 +1,9 @@
+[package]
+name = "neo-reply"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Shared Neo Harness reply event protocol"
+
+[dependencies]
+serde_json = "1"

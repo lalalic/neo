@@ -13,8 +13,8 @@ Use the existing app-owned connector, not a Project-owned or PM2 tunnel.
 ## Verified publication
 
 Native installations and registry publications must automatically report their
-actual verified package version and source SHA through the shared Events Bus
-publication reporter in the [Events Bus Skill](skills/events-bus/SKILL.md).
+actual verified package version and source SHA through the shared Agents Relay publication reporter (the publication contract belongs
+to Agents Relay; [Events Bus](skills/events-bus/SKILL.md) is transport only).
 Use the shared local .mjs reporter or approved GitHub composite Action, not
 an ad-hoc Python release reporter or fabricated Job identity. Staging/building
 an artifact alone is not proof of native installation. Remote GitHub runners

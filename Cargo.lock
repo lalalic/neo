@@ -572,6 +572,7 @@ dependencies = [
  "chrono",
  "getrandom 0.4.3",
  "libc",
+ "neo-reply",
  "regex",
  "serde_json",
  "sha2",
@@ -579,6 +580,13 @@ dependencies = [
  "tiny_http",
  "ureq",
  "url",
+]
+
+[[package]]
+name = "neo-reply"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
 ]
 
 [[package]]

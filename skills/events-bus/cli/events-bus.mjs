@@ -4,7 +4,6 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createEventsBusCore } from '../core/events-core.mjs';
-import { expandPublishEvent } from '../core/publish-envelope.mjs';
 import { resolveRuntimeConfig, writeRuntimeConfig } from '../core/config.mjs';
 
 const [,,command,...rest]=process.argv;
@@ -15,16 +14,17 @@ const num=(name,fallback)=>Number(arg(name,fallback));
 const print=v=>process.stdout.write(`${JSON.stringify(v,null,2)}\n`);
 try {
   if (!command || command==='help' || command==='--help') {
-    process.stdout.write('events-bus config|health|publish|watch|wait|history|status|setup\n');
+    process.stdout.write('events-bus config|health|publish|history|setup\n');
   } else if (command==='config') print(config);
   else if (command==='health') print(await core.health());
-  else if (command==='history') print(core.history(arg('--job',''),num('--after',0),num('--limit',100),arg('--task')));
-  else if (command==='watch') print(await core.watch(arg('--job','')));
-  else if (command==='wait') print(await core.wait(arg('--job',''),num('--after',0),num('--timeout',25000),num('--limit',100)));
-  else if (command==='status') print(core.status(arg('--job','')));
+  else if(command==='history'){
+    const allowed=new Set(['--source','--source-prefix','--type','--subject','--filter','--after','--limit','--order']);
+    for(let i=0;i<rest.length;i+=2)if(!allowed.has(rest[i])||rest[i+1]===undefined)throw Error('invalid history option: '+rest[i]);
+    print(core.query({source:arg('--source')??undefined,sourcePrefix:arg('--source-prefix')??undefined,type:arg('--type')??undefined,subject:arg('--subject')??undefined,filter:arg('--filter')?JSON.parse(arg('--filter')):undefined,after:num('--after',0),limit:num('--limit',100),order:arg('--order','asc')}));
+  }
   else if (command==='publish') {
     const file=arg('--file'); const raw=file ? fs.readFileSync(file,'utf8') : rest.filter(x=>!x.startsWith('--') && x!==file)[0];
-    if (!raw) throw new Error('publish requires --file PATH or JSON argument with type/source/data'); print(await core.publish(expandPublishEvent(JSON.parse(raw)),{agent:'cli'}));
+    if (!raw) throw new Error('publish requires --file PATH or JSON argument with type/source/data'); print(await core.publish(JSON.parse(raw),{agent:'cli'}));
   } else if (command==='setup') {
     writeRuntimeConfig(config);
     const here=path.dirname(fileURLToPath(import.meta.url)); const api=path.resolve(here,'../api/server.mjs');

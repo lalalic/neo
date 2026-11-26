@@ -8,58 +8,16 @@ use serde_json::{json, Value};
 /// Validate exact channel/source/subject and apply one durable journal update.
 /// Text is never a terminal event. Unknown response IDs are ignored.
 pub fn apply(store: &Store, subject: &str, prefix: &str, event: &Value) -> Result<Value> {
-    let source = event["source"]["id"]
-        .as_str()
-        .ok_or("invalid reply source")?;
-    let id = source
-        .strip_prefix("reply/models/")
-        .filter(|s| response_id(s))
-        .ok_or("invalid model reply channel or response_id")?;
-    if subject != format!("{prefix}.models.{id}") {
-        return Err("reply subject mismatch".into());
+    let parsed = neo_reply::validate(subject, prefix, event)?;
+    let id = parsed.request_id;
+    if parsed.channel != "models" || !response_id(id) {
+        return Err("invalid model reply channel or response_id".into());
     }
-    let kind = event["type"].as_str().ok_or("invalid reply type")?;
-    let data = event["data"]
-        .as_object()
-        .ok_or("reply data must be object")?;
-    let keys: &[&str] = match kind {
-        "reply.text" => &["text", "seq"],
-        "reply.failed" => &["error"],
-        "reply.completed" | "reply.heartbeat" => &[],
-        _ => return Err("unsupported reply type".into()),
-    };
-    if data.keys().any(|k| !keys.contains(&k.as_str())) {
-        return Err("unsupported reply data field".into());
-    }
-    let text = if kind == "reply.text" {
-        Some(
-            event["data"]["text"]
-                .as_str()
-                .filter(|s| !s.trim().is_empty() && s.encode_utf16().count() <= 100_000)
-                .ok_or("reply.text needs bounded text")?,
-        )
-    } else {
-        None
-    };
-    let seq = if text.is_some() {
-        Some(
-            event["data"]["seq"]
-                .as_u64()
-                .filter(|n| *n > 0 && *n <= 9_007_199_254_740_991)
-                .ok_or("invalid reply sequence")?,
-        )
-    } else {
-        None
-    };
-    let error = if kind == "reply.failed" {
-        Some(
-            event["data"]["error"]
-                .as_str()
-                .filter(|s| !s.trim().is_empty() && s.encode_utf16().count() <= 1000)
-                .ok_or("actual failure reason required")?,
-        )
-    } else {
-        None
+    let (kind, seq, text, error) = match parsed.payload {
+        neo_reply::Payload::Text { seq, text } => ("reply.text", Some(seq), Some(text), None),
+        neo_reply::Payload::Heartbeat => ("reply.heartbeat", None, None, None),
+        neo_reply::Payload::Completed => ("reply.completed", None, None, None),
+        neo_reply::Payload::Failed { error } => ("reply.failed", None, None, Some(error)),
     };
     let tx = store.transaction()?;
     let Some(mut r) = tx.response(id)? else {

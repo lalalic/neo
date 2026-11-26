@@ -57,17 +57,7 @@ impl Config {
                 .into()
         });
         let job_prefix = prefix.clone();
-        let prefix = prefix
-            .strip_suffix(".job")
-            .map(|s| format!("{s}.reply"))
-            .unwrap_or_else(|| format!("{prefix}.reply"));
-        if !prefix.split('.').all(|s| {
-            !s.is_empty()
-                && s.bytes()
-                    .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-')
-        }) {
-            return Err("invalid NATS subject prefix".into());
-        }
+        let prefix = neo_reply::subject_prefix(&prefix)?;
         Ok(Self {
             url,
             prefix,

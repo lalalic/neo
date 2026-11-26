@@ -1,21 +1,12 @@
 #!/usr/bin/env node
-import { spawnSync } from 'node:child_process';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { expandPublishEvent } from '../core/publish-envelope.mjs';
-import { normalizePublishEvent } from '../core/events-core.mjs';
-import { publishSubjectFor } from '../core/config.mjs';
-
+import {createEventsBusCore} from '../core/events-core.mjs';
 const [,,type,dataJson='{}']=process.argv;
-if (!type) { console.error('usage: emit.mjs <type> [data-json]'); process.exit(2); }
 const source=process.env.EVENTS_BUS_EVENT_SOURCE;
-if (!source) { console.error('EVENTS_BUS_EVENT_SOURCE is required'); process.exit(2); }
-let event;
+if(!type||!source){console.error('usage: EVENTS_BUS_EVENT_SOURCE=source emit.mjs <type> [data-json]');process.exit(2)}
+let bus;
 try {
-  event=normalizePublishEvent(expandPublishEvent({type,source,data:JSON.parse(dataJson)})).event;
-} catch(error) { console.error(error.message); process.exit(2); }
-const subject=publishSubjectFor(event);
-const transport=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../transport/nats.mjs');
-const result=spawnSync(process.execPath,[transport,'pub',subject,JSON.stringify(event)],{encoding:'utf8',env:process.env});
-if(result.status!==0){process.stderr.write(JSON.stringify(event)+'\n');if(result.stderr)process.stderr.write(result.stderr);process.exit(result.status??1);}
-process.stdout.write(JSON.stringify(event)+'\n');
+  bus=await createEventsBusCore({name:'events-bus-emit'});
+  const receipt=await bus.publish({type,source,data:JSON.parse(dataJson)});
+  process.stdout.write(JSON.stringify(receipt.event)+'\n');
+} catch(error){console.error(error.message);process.exitCode=1}
+finally{await bus?.close()}

@@ -1,0 +1,9 @@
+{
+  "trimSuffix": ".job",
+  "routes": [
+    {"sourcePrefix":"job/","subjectPrefix":"{configured}","tokens":[1],"appendType":true,"persist":true},
+    {"sourcePrefix":"release/","subjectPrefix":"{base}.release","tokens":[1],"appendType":true,"persist":true},
+    {"sourcePrefix":"reply/","subjectPrefix":"{base}.reply","tokens":[1,2],"appendType":false,"persist":false}
+  ],
+  "fallbackPrefix":"{base}.generic"
+}

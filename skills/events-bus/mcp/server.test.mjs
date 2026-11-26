@@ -1,7 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { expandPublishEvent } from '../core/publish-envelope.mjs';
 
 test('MCP exposes publish only', () => {
   const requests = [
@@ -18,16 +17,4 @@ test('MCP exposes publish only', () => {
   assert.deepEqual(Object.keys(rows.get(1).result.tools[0].inputSchema.properties),['type','source','data']);
   assert.deepEqual(rows.get(2).result.resources,[]);
   assert.equal(rows.get(3).result.isError,true);
-});
-
-test('shared publish envelope preserves reviewer verdict exclusively in data',()=>{
-  const source='job/478/task/final-review/execution/abc';
-  const event=expandPublishEvent({type:'task.completed',source,data:{verdict:'approved',head_sha:'abc'}});
-  assert.equal(event.data.verdict,'approved');
-  assert.deepEqual(event.source,{id:source});
-  assert.equal(event.job_id,'478');
-  assert.equal(event.task_id,'final-review');
-  assert.equal(event.status,'succeeded');
-  assert.equal('progress' in event,false);
-  assert.throws(()=>expandPublishEvent({type:'task.completed',source:'bad'}),/source must/);
 });

@@ -85,7 +85,7 @@ One client conversation corresponds to one persistent ChatGPT Thread:
    `reply.failed` with `{error}` ends in `response.failed`. The Models listener
    validates the ID and sequence and writes to the existing response store.
    No model reply routes to Neo Mobile. See the canonical
-   [channel developer contract](../../skills/events-bus/references/channel-development.md).
+   [channel developer contract](../../docs/reply-protocol.md).
 6. If WebHelm submission/completion is uncertain, preserve the state, refuse
    an automatic re-submission, and return an explicit failure or pending state. A pending Send receipt can recover the original Thread from its owned browser session URL. Every 60 seconds while awaiting a terminal reply, Models invokes the existing WebHelm `validate_new_turn_ready` in the owned Thread, with the actual continuation prompt. READY permits a single same-response-ID continuation reminder for that check, with a fresh idempotency key. NOT_READY or a validation error skips the check. The ordinary new-turn action owns the final Send readiness check. No message, composer, Stop or assistant DOM inspection is added by recovery. No task replay, synthetic reply, or fixed post-reminder deadline; the existing inactivity and maximum request limits remain. An uncertain send fails closed.
 

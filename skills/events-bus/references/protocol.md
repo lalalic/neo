@@ -1,97 +1,50 @@
-# Events-bus protocol
+# Generic Events Bus transport protocol
 
-## Public publishing API
+## Publish
 
-MCP exposes **publish only**. The CLI `events-bus publish` uses the same input:
+MCP and CLI accept precisely `type`, `source`, and optional object `data`.
 
-```json
-{
-  "type": "task.completed",
-  "source": "job/478/task/final-review/execution/abc",
-  "data": {
-    "verdict": "approved",
-    "head_sha": "abc",
-    "findings": []
-  }
-}
-```
+    {"type":"example.changed","source":"example/item/123","data":{"value":42}}
 
-`type` and `source` are required. `data` defaults to `{}`. Source is the precise execution identity assigned by the launcher: `job/<job-id>/task/<task-id>/execution/<execution-id>`. Never invent this identity. Terminal Reviewer evidence belongs in `data`, not `progress`.
+The MCP gateway command facade uses `{"command":"publish","args":{...}}`.
+The trusted local HTTP POST /events accepts those fields and an optional
+`event_id` supplied by the producer to make retries identifiable.
 
-When the Neo MCP gateway exposes the command facade `events`, invoke its `publish` subcommand with the same three fields nested under `args`:
+Wire envelope contains type, source.id (the exact source), data, version,
+event_id, timestamp. No job ID, lifecycle status, reply channel, release
+registry, or other business projection is derived by the transport.
+Legacy direct NATS envelopes with producer-generated extra fields are
+recorded unchanged (apart from the receipt timestamp).
 
-```json
-{
-  "command": "publish",
-  "args": {
-    "type": "task.started",
-    "source": "job/478/task/final-review/execution/abc",
-    "data": {}
-  }
-}
-```
+## Route
 
-The public `source` is always a **string**, not `{ "id": "..." }`. Do not omit `args` or place the event fields beside `command`. The object-shaped `source.id` exists only in the internal transport envelope below.
+The configured transport routing table selects a subject prefix, source
+token indices, optional type suffix and persistence policy. A fallback
+routes arbitrary sources via an encoded token. This is routing configuration,
+not a domain schema or authorization mechanism. A standalone bus can use
+an empty route list and a fallback prefix. Neo's installed routing preserves
+existing NATS subjects for the three deployed namespaces. Live-only subjects
+are not recorded. Subscribe before dispatch; NATS core subscriptions do
+not replay. Keep NATS and HTTP private.
 
-The CLI accepts `events-bus publish --file event.json` or `events-bus publish '<json>'`. Direct local workers can use `scripts/emit.mjs <type> [data-json]` with `EVENTS_BUS_EVENT_SOURCE` set. Sandboxed workers use MCP `publish`.
+## Query
 
-## Channel reply contract (same publish tool)
+GET /events accepts optional source, sourcePrefix, type, subject, after
+(exclusive nonnegative cursor), limit (1–500), order (asc or desc), and filter
+(JSON array of OR groups, each an array of AND conditions). A condition
+has path (dot-delimited JSON field within the history row), op (eq, prefix
+or prefixSegment), and string value. prefixSegment matches exactly one
+nonempty slash-free remainder. No executable filters or regular expressions.
 
-For user-facing reply channels such as Models, Voice, Chat Gateway and Family
-Tutor, publish using the **same** `publish` tool with a `reply/<channel>/<request_id>`
-source instead of a Job source:
+Example:
 
-```json
-{"type":"reply.text","source":"reply/models/resp_0123456789abcdef0123456789abcdef01234567","data":{"seq":1,"text":"First response segment"}}
-```
+    /events?sourcePrefix=example%2F&order=desc&limit=20
 
-Follow with another `reply.text` (next sequence number) or a final
-`reply.completed` with `data:{}`. Use `reply.heartbeat` during long-running
-work and `reply.failed` with `data.error` for terminal failures. `reply.text`
-does **not** close the request. The listener for each channel validates its
-correlation ID and persists or delivers the result. Do not use Job IDs or a
-Job event to report a reply.
+The response contains events (cursor, subject, event), next_cursor and order.
+CLI history offers the corresponding --source, --source-prefix, --type,
+--subject, --filter, --after, --limit and --order flags.
+GET /config and /health expose local transport configuration and health.
 
-Reply NATS subjects use a sibling namespace to the configured Job prefix:
-`relay.events.reply.<channel>.<request_id>`. The existing job namespace, job
-recorder and Relay job lifecycle contract are unchanged. Do not treat the bus
-`published:true` receipt as proof the channel listener delivered the reply.
-
-For channel owners extending this behavior, see the [reply-channel developer contract](channel-development.md) for subscriber lifecycle, sequencing, failure and test requirements.
-
-## Internal transport compatibility
-
-The adapter `core/publish-envelope.mjs` expands those fields to the legacy internal NATS envelope:
-- `job_id`, `task_id`: parsed from `source`;
-- `source.id`: exact original `source`;
-- `status`: derived from event type, for compatibility;
-- `visibility`: defaults to `orchestrator`;
-- `message`: `data.message` when present or the event type;
-- `data`: passed through unchanged;
-- `version`, `event_id`, `timestamp`, `level`: populated by events-bus core.
-
-The caller does not supply `status`, `visibility`, `message`, `progress` or transport identifiers. Old direct NATS/HTTP producers still use the internal envelope until migrated. Existing consumers, including Agents Relay, still process the internal envelope. Do not use the presence of `status` as an independent authority for task state.
-
-## Transport, observation, history
-
-NATS subject: `relay.events.job.<job_id>.<type>`. Observe `relay.events.job.<job_id>.>`; the history service `api/server.mjs` continuously records events even if there is no MCP client.
-
-MCP has no observation tools. Authorized observers use native NATS or:
-- CLI: `events-bus watch|wait|history|status|health|config`;
-- HTTP: `GET /watch`, `/wait`, `/events`, `/status`, `/health`, `/config`.
-
-Establish observation before launching workers where continuous progress tracking matters. The owning orchestrator translates relevant events into user-facing progress. Ordinary worker completion and review approval are distinct from successful delivery of the event: the consumer must validate execution identity, current task generation and domain payload.
-
-The subject prefix defaults to `relay.events.job` and is read from
-`EVENTS_BUS_SUBJECT_PREFIX` or the saved Events Bus runtime configuration.
-The publish envelope and historic event payload IDs are **unchanged**.
-If the saved runtime configuration still selects the retired prefix, new
-code fails closed rather than silently splitting the event stream.
-Coordinate all publishers, subscribers, and history recorder using
-[the namespace cutover procedure](relay-namespace-cutover.md).
-
-## Lifecycle semantics
-
-`task.started` indicates execution began. `task.completed` and `task.failed` are task terminal outcomes; Relay owns durable transitions. Ordinary Relay Worker/Reviewer agents do not emit `task.blocked`; only the authorized Troubleshooter escalation flow may request a real user action. Carrier events such as `task.process.async_exited` are not terminal worker outcomes. The owning application defines the meaning of `data` for each event kind.
-
-The event publisher must not change a supplied execution identity, synthesize success, or leak secrets. Errors in transport publishing are not proof of failure of the underlying business operation; the caller should preserve evidence and reconcile safely.
+The bus never decides task state, process liveness, release validity or
+reply completion. Those operations belong to the corresponding consumer.
+A published:true receipt is not proof of application processing.

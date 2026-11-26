@@ -11,7 +11,8 @@ def job(id,state):
     return {"id":id,"repository":"fixture","state":state,"runtimeStatus":state,"createdAt":AT,"updatedAt":AT,"title":"not forwarded"}
 def publish(port,event):
     data=json.dumps(event).encode()
-    subject=f"{PREFIX}.{event['job_id']}.{event['type']}"
+    job_id=event.get("job_id") or event["source"]["id"].split("/")[1]
+    subject=f"{PREFIX}.{job_id}.{event['type']}"
     with socket.create_connection(("127.0.0.1",port),timeout=3) as s:
         f=s.makefile("rb");assert f.readline().startswith(b"INFO ")
         s.sendall(b'CONNECT {"verbose":false}\r\n'+f"PUB {subject} {len(data)}\r\n".encode()+data+b"\r\nPING\r\n")
@@ -36,7 +37,8 @@ def main(binary):
         monitor=state/"orchestrator-relay-events";monitor.mkdir()
         (monitor/"live-watches.json").write_text(json.dumps({"version":1,"watches":[{"repository":"fixture","jobId":"3","startCursor":0}]}))
         token=root/"token";token.write_text(TOKEN);token.chmod(0o600)
-        watch={"type":"task.completed","job_id":"3","task_id":"9","event_id":"fixture_event_123","timestamp":AT,"data":{"message":"UNTRUSTED CONTENT"}}
+        watch={"type":"task.completed","source":{"id":"job/3/task/9/execution/lease"},"event_id":"fixture_event_123","timestamp":AT,"data":{"message":"UNTRUSTED CONTENT"}}
+        malformed={"type":"task.completed","source":{"id":"job/3/task/bad"},"event_id":"fixture_bad_123","timestamp":AT,"data":{}}
         class Handler(BaseHTTPRequestHandler):
             def log_message(self,*args):pass
             def do_GET(self):
@@ -44,7 +46,8 @@ def main(binary):
                 if p.path=="/api/jobs":value={"jobs":[job("1","COMPLETED"),job("2","ACTIVE"),job("3","ACTIVE")]}
                 elif p.path=="/api/job":value=job(q["id"][0],"ACTIVE")
                 elif p.path=="/events":
-                    after=int(q.get("after",["0"])[0]);value={"job_id":"3","next_cursor":1 if after==0 else after,"events":[{"cursor":1,"event":watch}] if after==0 else []}
+                    assert json.loads(q["filter"][0])[0][0]["value"]=="3"
+                    after=int(q.get("after",["0"])[0]);value={"order":q["order"][0],"next_cursor":2 if after<2 else after,"events":[row for row in [{"cursor":1,"event":malformed},{"cursor":2,"event":watch}] if row["cursor"]>after]}
                 else:self.send_error(404);return
                 raw=json.dumps(value).encode();self.send_response(200);self.send_header("Content-Length",str(len(raw)));self.end_headers();self.wfile.write(raw)
         dashboard=ThreadingHTTPServer(("127.0.0.1",0),Handler)
@@ -63,7 +66,7 @@ def main(binary):
         assert sorted(x["requestId"].split("-")[1] for x in pending())==["terminal","watch"]
         saved=json.loads((orch/"state.json").read_text())
         assert all("UNTRUSTED CONTENT" not in x["text"] and "not forwarded" not in x["text"] for x in saved["requests"].values())
-        assert json.loads((monitor/"live-watch-cursors.json").read_text())["3"]==1
+        assert json.loads((monitor/"live-watch-cursors.json").read_text())["3"]==2
         stop(server)
         server=subprocess.Popen([binary],env=env,stdout=log,stderr=log);stack.callback(stop,server);wait_port(port)
         publish(nats,event);publish(nats,watch);time.sleep(.5)
