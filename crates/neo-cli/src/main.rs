@@ -12,11 +12,6 @@ fn run(args: &[String]) -> Result<i32, String> {
         .split_first()
         .ok_or_else(|| "usage: neo --help".to_string())?;
     match command.as_str() {
-        // Compatibility for existing Neo.app startup clients. No tools are installed.
-        "setup" if rest == ["code-tools"] => {
-            println!("{}", serde_json::json!({"ok":true,"tools":{}}));
-            Ok(0)
-        }
         "agent" => {
             let root = workspace::harness_root()?;
             workspace::validate_workspace_config()?;
