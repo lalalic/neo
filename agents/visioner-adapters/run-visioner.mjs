@@ -10,16 +10,20 @@ import { IMAGE_EXTS, VIDEO_EXTS } from './media-types.mjs';
 
 const quote = s => "'" + String(s).replaceAll("'", "'\\''") + "'";
 const modulePath = name => fileURLToPath(new URL(name, import.meta.url));
-const defaultAdapter = [process.execPath, modulePath('./deepseek-infer.mjs')];
-const defaultAgent = [process.execPath, modulePath('./deepseek-segment.mjs')].map(quote).join(' ') + ' --prompt {prompt}';
+const defaultAdapter = [process.execPath, modulePath('./codex-infer.mjs')];
+const defaultAgent = [process.execPath, modulePath('./codex-infer.mjs')].map(quote).join(' ') + ' --text --prompt {prompt}';
 
-export function inferenceArgs({adapterCommand = defaultAdapter, agentCommand = defaultAgent} = {}) {
+export function inferenceArgs({adapterCommand, agentCommand = defaultAgent} = {}) {
+  const custom = adapterCommand !== undefined;
+  adapterCommand ??= defaultAdapter;
   if (!Array.isArray(adapterCommand) || !adapterCommand.length || adapterCommand.some(s=>typeof s!=='string'||!s.trim())) throw Error('Invalid Visioner adapterCommand');
   if (typeof agentCommand!=='string' || !agentCommand.trim()) throw Error('Invalid Visioner agentCommand');
   const command = adapterCommand.map(quote).join(' ');
-  return ['--itt',command+' --input {input} --prompt {prompt_quoted}',
-    '--vtt',command+' --input {input} --prompt {prompt_quoted} --sample-interval {sample_interval}',
-    '--agent',agentCommand];
+  // Markcut's native VTT path samples chronological frames through ITT.
+  const args=['--itt',command+' --input {input} --prompt {prompt_quoted}'];
+  if(custom)args.push('--vtt',command+' --input {input} --prompt {prompt_quoted} --sample-interval {sample_interval}');
+  else if(process.env.MARKCUT_VTT_CLI)throw Error('Conflicting MARKCUT_VTT_CLI; default Visioner requires Markcut frame sampling');
+  return [...args,'--agent',agentCommand];
 }
 
 export async function runVisioner({folder, execute, cli=['markcut'], contextText='', allowInference=true,
@@ -47,7 +51,7 @@ export async function runVisioner({folder, execute, cli=['markcut'], contextText
   if(!complete(metadata)){
     if(!allowInference)throw Error('Vision metadata requires perception and inference was disabled');
     if(!externalTransferAuthorized && (adapterCommand===undefined || agentCommand===undefined))
-      throw Error('DeepSeek inference requires project-authorized external transfer or explicit local adapters');
+      throw Error('Codex inference requires project-authorized external transfer or explicit local adapters');
     const args=[...cli,'vision',folder];
     if(contextText)args.push('--instruct',contextText);
     await execute([...args,...inferenceArgs({adapterCommand,agentCommand})]);

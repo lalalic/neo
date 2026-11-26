@@ -1,21 +1,24 @@
-# Neo Visioner private WebHelm adapter
+# Neo Visioner inference adapters
 
-This adapter is owned by the Neo Visioner, **not Markcut**. It is an
-external executable for Markcut Vision's public generic CLI templates:
+The shared executable `run-visioner.mjs` owns inference configuration and metadata
+reuse; Markcut owns normalization, frame sampling, prompts, STT and segmentation.
+The default adapter `codex-infer.mjs` invokes `agents-relay route --input-file -`
+with capability facts, hard `reasoning: low`, and verified eligible Codex profiles.
+No source data or prompt goes to the routing decision engine. It runs exactly the
+selected provider/model/profile through Codex with low reasoning and a read-only
+sandbox. Semantic segmentation is text-only, with a validated JSON-object result.
+No hidden provider fallback or resubmission.
 
-```sh
-neo_root=/path/to/neo
-node /path/to/markcut/bin/markcut vision /path/to/media \
-  --itt "node $neo_root/agents/visioner-adapters/deepseek-infer.mjs --input {input} --prompt {prompt_quoted}" \
-  --vtt "node $neo_root/agents/visioner-adapters/deepseek-infer.mjs --input {input} --prompt {prompt_quoted} --sample-interval {sample_interval}" \
-  --agent "node $neo_root/agents/visioner-adapters/deepseek-segment.mjs --prompt {prompt}" \
-  --instruct "<project-owned, source-grounded context>"
-```
+Provision the dedicated `vision-low.config.toml` in CODEX_HOME (or ~/.codex)
+using an authorized, image-capable model with low reasoning. On Neo Master the
+verified profile is OpenAI `gpt-6-luna`, low. The operator may set
+`NEO_VISION_PROFILES` to a comma-separated set of other authorized, verified
+low-reasoning vision profiles; the canonical router decides among them.
+An unavailable or ineligible route fails closed. Markcut uses its built-in
+chronological VTT frame sampling via the ITT hook; an explicit custom adapter
+can override both hooks. Projects must authorize external transfer.
 
-The shared `run-visioner.mjs` helper selects these defaults when external transfer is authorized, reuses complete metadata, and delegates normalization to Markcut. Project wrappers retain source scope, context and review. Explicit local adapters are supported for offline projects. Agent chooses an authorized adapter; Markcut does not recognize
-provider-specific flags. This adapter requires `webhelm` with an authorized
-signed-in session and local `ffmpeg`/`ffprobe`. The visual adapter returns observed visual descriptions only. The text adapter calls DeepSeek new-thread with JSON response format; Markcut validates the segment timeline. Markcut still owns metadata/STT/segmentation. It reports
-errors instead of silently returning invented descriptions. Do not disclose
-private inputs to an unapproved provider or resend uncertain browser uploads.
+The optional existing WebHelm DeepSeek adapter is retained for callers that
+explicitly choose it; it is no longer the shared default.
 
-Test: `node --test agents/visioner-adapters/deepseek-infer.test.mjs`.
+Tests: `node --test agents/visioner-adapters/*.test.mjs`.

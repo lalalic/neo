@@ -49,8 +49,8 @@ Preserve the ITT/VTT boundary conceptually: image understanding and time-aligned
 
 ## Inference and transport boundary
 
-The shared executable supplies DeepSeek ITT/VTT and text-only segmentation adapters for authorized external inference; offline projects supply explicit local adapters or validate existing local evidence. These are **external CLI adapters**;
-Visioner does not choose an internal model or control browser sessions.
+The shared executable supplies Relay-routed low-reasoning Codex ITT and text-only segmentation adapters for authorized external inference; offline projects supply explicit local adapters or validate existing local evidence. These are **external CLI adapters**;
+Visioner submits capability-only routing facts to the canonical Relay worker router. The authorized eligible profiles must have verified image support and low reasoning. Codex receives the selected provider/model/profile and executes one inference without fallback.
 The Agents Relay `chatgpt-worker` is asynchronous task delegation, not a
 synchronous inference API. Markcut owns ITT, VTT, frame sampling and STT;
 for video that cannot be handled directly, use its chronological frame

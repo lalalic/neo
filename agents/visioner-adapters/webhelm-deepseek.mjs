@@ -14,7 +14,7 @@ const MODEL_VERSION = 'deepseek-contact-sheet-v2';
 const WEBHELM = process.env.NEO_VISION_WEBHELM_CLI || 'webhelm';
 const IMAGE_TILE_WIDTH = 420;
 const IMAGE_TILE_HEIGHT = 280;
-let drawtextAvailable;
+const DRAWTEXT_AVAILABLE = /\bdrawtext\b/.test(call("ffmpeg", ["-hide_banner", "-filters"], 30_000));
 
 function call(command, args, timeout = 180_000) {
   return execFileSync(command, args, { encoding: 'utf8', timeout, maxBuffer: 16 * 1024 * 1024 });
@@ -25,7 +25,7 @@ function decodeReceipt(stdout) {
   if (envelope?.result?.ok !== true) {
     throw new Error(`WebHelm DeepSeek action failed: ${envelope?.result?.error || envelope?.result?.stderr || stdout.slice(0, 400)}`);
   }
-  const reply = envelope.result.value ?? JSON.parse(envelope.result.stdout);
+  const reply = JSON.parse(envelope.result.stdout);
   if (!['completed', 'pending'].includes(reply.status)) {
     throw new Error(`Unexpected DeepSeek action status: ${reply.status || 'missing'}`);
   }
@@ -84,13 +84,12 @@ function sampleVideo(path, dir, { maxFrames, sampleInterval }) {
 /** All images are owned by the caller. We do not delete or mutate source media. */
 function createContactSheet(tiles, output) {
   if (!tiles.length) throw new Error('Cannot generate empty contact sheet');
-  drawtextAvailable ??= /\bdrawtext\b/.test(call("ffmpeg", ["-hide_banner", "-filters"], 30_000));
   const columns = Math.min(3, tiles.length);
   const args = ['-hide_banner', '-loglevel', 'error', '-y'];
   for (const tile of tiles) args.push('-i', tile.path);
   const filters = tiles.map((tile, i) => {
     const scaling = `[${i}:v]scale=${IMAGE_TILE_WIDTH - 12}:${IMAGE_TILE_HEIGHT - 12}:force_original_aspect_ratio=decrease,pad=${IMAGE_TILE_WIDTH}:${IMAGE_TILE_HEIGHT}:(ow-iw)/2:(oh-ih)/2:black`;
-    const label = drawtextAvailable ? `,drawtext=text=${tile.id}:fontcolor=white:fontsize=26:box=1:boxcolor=black@0.8:x=8:y=8` : '';
+    const label = DRAWTEXT_AVAILABLE ? `,drawtext=text=${tile.id}:fontcolor=white:fontsize=26:box=1:boxcolor=black@0.8:x=8:y=8` : '';
     return `${scaling}${label}[v${i}]`;
   });
   if (tiles.length > 1) {
@@ -194,20 +193,12 @@ export class DeepSeekSession {
       this.start();
     }
   }
-  analyze(image, prompt, workDir, timeoutSeconds = 120) {
-    return this.request('understand-image', { image, prompt }, workDir, timeoutSeconds);
-  }
-
-  completeText(prompt, workDir, timeoutSeconds = 120) {
-    return this.request('new-thread', { message: prompt, response_format: 'json' }, workDir, timeoutSeconds);
-  }
-
-  request(action, input, workDir, timeoutSeconds) {
+  analyze(image, prompt, workDir, timeoutSeconds = 180) {
     const config = join(workDir, 'deepseek-request.json');
     const invoke = (request) => {
-      writeFileSync(config, JSON.stringify(request), { mode: 0o600 });
+      writeFileSync(config, JSON.stringify(request));
       try {
-        return this.runner(WEBHELM, ['platform', 'run', 'deepseek', action, '--session-id', this.sessionId, '--config', config], (timeoutSeconds + 30) * 1000);
+        return this.runner(WEBHELM, ['platform', 'run', 'deepseek', 'understand-image', '--session-id', this.sessionId, '--config', config], (timeoutSeconds + 30) * 1000);
       } catch (error) {
         // WebHelm returns JSON diagnostics on stdout even when it exits nonzero.
         let detail = '';
@@ -218,7 +209,7 @@ export class DeepSeekSession {
         throw new Error(`DeepSeek action failed (session ${this.sessionId}): ${(detail || error.message).slice(0, 900)}. Do not resend an uncertain submission.`, { cause: error });
       }
     };
-    let response = invoke({ ...input, timeout_seconds: timeoutSeconds });
+    let response = invoke({ image, prompt, timeout_seconds: timeoutSeconds });
     let receipt;
     try { receipt = decodeReceipt(response); }
     catch (error) { throw new Error(`DeepSeek submission/result uncertain (session ${this.sessionId}): ${error.message}`); }
