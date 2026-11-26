@@ -33,7 +33,16 @@ try{
  test('Optimized Rust candidate staged with matching executable and tracked assets',()=>{
   const manifest=doc(run(release,['package','stage',target],{...env,NEO_HARNESS_ROOT:root},root));
   const rev=run('git',['rev-parse','HEAD'],env,root);assert.equal(rev.status,0);assert.equal(manifest.revision,rev.stdout.trim());
-  assert.equal(manifest.productionInstall,false);assert.equal(digest(join(target,'bin/neo')),digest(release));assert.ok(manifest.trackedAssets>100);
+  assert.equal(manifest.productionInstall,false);assert.equal(digest(join(target,'bin/neo')),digest(release));const tracked=run('git',['ls-files','--stage','-z','--','agents','skills'],env,root);
+  assert.equal(tracked.status,0);
+  const records=tracked.stdout.split('\0').filter(Boolean).map(row=>{const [meta,rel]=row.split('\t');return {mode:meta.split(' ')[0],rel};});
+  const regular=records.filter(r=>['100644','100755'].includes(r.mode));
+  assert.equal(manifest.trackedAssets,regular.length);
+  for(const {rel} of regular){
+   const blob=spawnSync('git',['show','HEAD:'+rel],{cwd:root,env,maxBuffer:24*1024*1024});
+   assert.equal(blob.status,0,rel);
+   assert.deepEqual(readFileSync(join(target,rel)),blob.stdout,rel);
+  }
   assert.ok(!existsSync(join(target,'skills/iphone-helm')));assert.ok(!existsSync(join(target,'skills/neo-use')));assert.ok(!existsSync(join(target,'.git')));assert.ok(!existsSync(join(target,'.bin/neo.mjs')));
  });
  test('Atomic private launcher switch resolves matching versioned bundle',()=>{switchTo(join(target,'bin/neo'));assert.equal(realpathSync(launcher),realpathSync(join(target,'bin/neo')));const roots=doc(run(launcher,['workspace','show'],env));assert.equal(roots.harnessRoot,realpathSync(target));assert.equal(roots.neoRoot,old.neoRoot);});
