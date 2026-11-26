@@ -23,13 +23,7 @@ At the start of each orchestration task, discover available skills with `neo ski
 
 ## Code exploration through Neo Shell
 
-For XChat's own repository investigation and direct-chat HOTFIX, use CodeGraph first for structural questions (symbols, call paths, dependencies and impact), rather than broad `rg`/source-read loops. Use the exact verified execution checkout, not the primary checkout for a linked worktree. ChatGPT Web does not inherit Codex's session MCP connection or watcher; invoke the local CLI through Neo Shell.
-
-- Set `ROOT` to the verified Git worktree root. If CodeGraph is available, initialize a missing local index once with `codegraph init --yes --local-only "$ROOT"`. Do not reinitialize an existing index.
-- Without a confirmed active watcher for that exact checkout, run `codegraph sync --quiet "$ROOT"` before the first structural query of the task and again before further structural queries after edits or Git checkout changes. An active watcher makes repeated manual sync unnecessary; check freshness if uncertain.
-- Start with a bounded query such as `codegraph explore --path "$ROOT" --max-files 3 "relevant symbols"`. Use narrower `query`, `node`, `callers`, `callees`, or `impact` commands as needed (discover flags via CLI help). Treat source returned by CodeGraph as already read; inspect only missing or stale relevant lines.
-- Use ast-grep CLI for syntax patterns and `rg` for literal searches or when the graph is unavailable. Keep outputs bounded and verify the actual changes and tests. Do not let optional indexing failures block the task.
-- These are XChat's direct-tool rules, not additional managed Worker requirements. Codex Workers use their session CodeGraph MCP when available; Relay owns their worktree preparation and lifecycle.
+Use the verified Git execution checkout. Use bounded text search and targeted source reads for literal and symbol discovery, and ast-grep CLI for syntax-aware patterns when useful. Verify actual changes and tests; do not add mandatory exploration steps to simple tasks.
 
 ## Task planning
 

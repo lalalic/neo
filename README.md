@@ -17,7 +17,7 @@ The native Rust Harness is built with `cargo build --release --locked -p neo-har
 - `services/models/` — authenticated Models Gateway and Orchestrator Chat; see [Models service](services/models/README.md).
 - `skills/mcp-wrapper/` — orchestrate external MCP providers, Relay and the Neo.app Core review service with one-call Markcut Preview wrappers.
 - `.bin/` — compatibility and packaging helpers; canonical XChat discovery/resolution scripts live under `skills/xchat-orchestrator/scripts/`.
-- [Harness code tools](docs/codegraph.md) — `neo setup code-tools` provisions CodeGraph and ast-grep for local structural exploration with lazy, isolated Git worktree indexes.
+- `neo setup code-tools` provisions pinned ast-grep for local syntax-aware code search.
 - `neo agent list [--project PATH]` and `neo agent search QUERY [--project PATH]` — discover context-visible project and shared Agent definitions plus Agency Agents specialist templates; templates require a project manifest before Relay dispatch.
 - `neo token issue --stdout` or `--output`, plus `revoke` — one-hour OAuth PKCE credentials. The old `neo mcp token` spelling remains compatible; see `docs/interactive-mcp-access.md`.
 - `neo token login|status|refresh|logout` — explicitly enrolled renewable device credentials. `neo token access --stdout` returns the current access credential only when explicitly requested, refreshing it as needed.
