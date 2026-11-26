@@ -166,22 +166,12 @@ pub fn stage(target: &Path) -> Result<Value, String> {
         fs::copy(&exe, &name).map_err(|e| e.to_string())?;
         #[cfg(unix)]
         fs::set_permissions(&name, fs::Permissions::from_mode(0o755)).map_err(|e| e.to_string())?;
-        // neo bootstrap consumes the independent Relay Prompt Parts CLI.
-        // Bundle that exact native CLI rather than requiring Relay daemon,
-        // system PATH lookup, or a checkout on a clean target Mac.
-        let native = crate::prompt_parts_client::relay_cli()?;
-        let paired = bin.join("agents-relay-rust");
-        fs::copy(native, &paired)
-            .map_err(|e| format!("Cannot bundle Relay Prompt Parts CLI: {e}"))?;
-        #[cfg(unix)]
-        fs::set_permissions(&paired, fs::Permissions::from_mode(0o755))
-            .map_err(|e| e.to_string())?;
         let (count, external) = write_committed_assets(&root, &destination)?;
         let container_assets = write_container_assets(&root, &destination)?;
         let manifest = json!({"schemaVersion":1,"name":"neo-harness-rust",
             "version":env!("CARGO_PKG_VERSION"),"revision":revision,
             "platform":env::consts::OS,"architecture":env::consts::ARCH,
-            "entrypoint":"bin/neo","promptPartsBuilder":"bin/agents-relay-rust",
+            "entrypoint":"bin/neo","promptPartsBuilder":"agents-relay",
             "promptPartsSchema":"relay.prompt-parts.v1","trackedAssets":count,
             "computeContainerRuntimeAssets":container_assets,
             "excludedExternalGitLinks":external,
@@ -191,7 +181,7 @@ pub fn stage(target: &Path) -> Result<Value, String> {
             serde_json::to_string_pretty(&manifest).map_err(|e| e.to_string())? + "\n",
         )
         .map_err(|e| e.to_string())?;
-        fs::write(destination.join("README.md"),"# Neo Harness native Rust CLI\n\nRun `bin/neo --help`. This is a local staged candidate, not an installation or production cutover. `manifest.json` lists external Git-link Skills intentionally omitted because their targets are outside the tracked Harness checkout. Compute and Eval CLI command routing is native Rust. Project-specific JS test cases and optional JS preflight scripts require their explicitly declared project Node runner. Container images still use a separately bundled internal JS runtime.\n").map_err(|e|e.to_string())?;
+        fs::write(destination.join("README.md"),"# Neo Harness native Rust CLI\n\nRun `bin/neo --help`. This is a local staged candidate, not an installation or production cutover. `manifest.json` lists external Git-link Skills intentionally omitted because their targets are outside the tracked Harness checkout. Compute and Eval CLI command routing is native Rust. Bootstrap and Eval require the independently installed Agents Relay CLI on PATH (or an absolute NEO_RELAY_EXECUTABLE override). Project-specific JS test cases and optional JS preflight scripts require their explicitly declared project Node runner. Container images still use a separately bundled internal JS runtime.\n").map_err(|e|e.to_string())?;
         Ok(manifest)
     })();
     if written.is_err() {

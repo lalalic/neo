@@ -133,7 +133,7 @@ fn skill_invalid_arguments_rejected() {
     }
 }
 #[test]
-#[ignore = "cross-repo integration: set NEO_RELAY_EXECUTABLE to the matched native Relay CLI and run --ignored"]
+#[ignore = "cross-repo integration: set NEO_RELAY_EXECUTABLE to an installed compatible Relay CLI and run --ignored"]
 fn bootstrap_json_and_markdown_contract() {
     let f = Fixture::new();
     assert!(!f.home.join(".codex").exists());
@@ -149,7 +149,7 @@ fn bootstrap_json_and_markdown_contract() {
     );
 }
 #[test]
-#[ignore = "cross-repo integration: set NEO_RELAY_EXECUTABLE to the matched native Relay CLI and run --ignored"]
+#[ignore = "cross-repo integration: set NEO_RELAY_EXECUTABLE to an installed compatible Relay CLI and run --ignored"]
 fn bootstrap_missing_rules_fail_closed() {
     let f = Fixture::new();
     fs::remove_file(f.home.join(".agents/AGENTS.md")).unwrap();
@@ -158,7 +158,7 @@ fn bootstrap_missing_rules_fail_closed() {
     assert!(result.stdout.is_empty());
 }
 #[test]
-#[ignore = "cross-repo integration: set NEO_RELAY_EXECUTABLE to the matched native Relay CLI and run --ignored"]
+#[ignore = "cross-repo integration: set NEO_RELAY_EXECUTABLE to an installed compatible Relay CLI and run --ignored"]
 fn bootstrap_and_skill_are_node_free() {
     let f = Fixture::new();
     let binary = Path::new(env!("CARGO_BIN_EXE_neo-rs"));
@@ -174,7 +174,7 @@ fn bootstrap_and_skill_are_node_free() {
 }
 
 #[test]
-fn webchat_bootstrap_fails_closed_without_the_matched_relay_cli() {
+fn webchat_bootstrap_fails_closed_without_the_independent_relay_cli() {
     let f = Fixture::new();
     let missing = f.home.join("missing-matched-relay-binary");
     let output = Command::new(env!("CARGO_BIN_EXE_neo-rs"))
@@ -189,4 +189,32 @@ fn webchat_bootstrap_fails_closed_without_the_matched_relay_cli() {
     assert!(output.stdout.is_empty());
     assert!(String::from_utf8_lossy(&output.stderr).contains("Relay Prompt Parts CLI unavailable"));
     assert!(!f.home.join(".codex").exists());
+}
+
+#[cfg(unix)]
+#[test]
+fn bootstrap_rejects_incompatible_external_relay_schema() {
+    use std::os::unix::fs::PermissionsExt;
+    let f = Fixture::new();
+    let bin = f.home.join("bin");
+    fs::create_dir_all(&bin).unwrap();
+    let relay = bin.join("agents-relay");
+    fs::write(
+        &relay,
+        "#!/bin/sh\n/bin/cat >/dev/null\nprintf '%s' '{\"schema\":\"relay.prompt-parts.v999\"}'\n",
+    )
+    .unwrap();
+    fs::set_permissions(&relay, fs::Permissions::from_mode(0o755)).unwrap();
+    let output = Command::new(env!("CARGO_BIN_EXE_neo-rs"))
+        .args(["bootstrap", "--json"])
+        .env("HOME", &f.home)
+        .env("NEO_WORKSPACE_CONFIG", &f.config)
+        .env("NEO_HARNESS_ROOT", &f.root)
+        .env_remove("NEO_RELAY_EXECUTABLE")
+        .env("PATH", &bin)
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    assert!(output.stdout.is_empty());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("incompatible Prompt Parts schema"));
 }

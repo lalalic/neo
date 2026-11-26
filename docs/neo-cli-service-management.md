@@ -34,11 +34,11 @@ The Rust CLI is the sole implementation. Build and stage the committed bundle:
 
 ```sh
 cargo build --release --locked -p neo-harness-cli --bin neo-rs
-scripts/stage-neo-with-relay.sh --relay-root /absolute/path/to/agents-relay --output /absolute/new/version-directory
+NEO_HARNESS_ROOT="$PWD" target/release/neo-rs package stage /absolute/new/version-directory
 /absolute/new/version-directory/bin/neo --help
 ```
 
-Activate the verified binary through the existing owner-controlled launcher; never overwrite an unrelated executable. Roll back by restoring the previous native bundle link. Do not alter Relay state, browser profiles or credentials. Node and Python are optional for project-owned workloads, not core runtime dependencies. The separate Neo.app installer and remote host distribution need their own native migration.
+Neo staging does not require Relay. Bootstrap and Eval require the independently installed `agents-relay` CLI on PATH (or the absolute `NEO_RELAY_EXECUTABLE` override) and a compatible JSON interface. Activate the verified binary through the existing owner-controlled launcher; never overwrite an unrelated executable. Roll back by restoring the previous native bundle link. Do not alter Relay state, browser profiles or credentials. Node and Python are optional for project-owned workloads, not core runtime dependencies. The separate Neo.app installer and remote host distribution need their own native migration.
 
 ## Acceptance
 

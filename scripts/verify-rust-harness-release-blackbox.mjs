@@ -33,7 +33,7 @@ try{
  test('Optimized Rust candidate staged with matching executable and tracked assets',()=>{
   const manifest=doc(run(release,['package','stage',target],{...env,NEO_HARNESS_ROOT:root},root));
   const rev=run('git',['rev-parse','HEAD'],env,root);assert.equal(rev.status,0);assert.equal(manifest.revision,rev.stdout.trim());
-  assert.equal(manifest.productionInstall,false);assert.equal(digest(join(target,'bin/neo')),digest(release));const tracked=run('git',['ls-files','--stage','-z','--','agents','skills'],env,root);
+  assert.equal(manifest.productionInstall,false);assert.equal(manifest.promptPartsBuilder,'agents-relay');assert.ok(!existsSync(join(target,'bin/agents-relay-rust')));assert.equal(digest(join(target,'bin/neo')),digest(release));const tracked=run('git',['ls-files','--stage','-z','--','agents','skills'],env,root);
   assert.equal(tracked.status,0);
   const records=tracked.stdout.split('\0').filter(Boolean).map(row=>{const [meta,rel]=row.split('\t');return {mode:meta.split(' ')[0],rel};});
   const regular=records.filter(r=>['100644','100755'].includes(r.mode));
@@ -49,6 +49,7 @@ try{
  // Truly omit Node and Python rather than relying on /usr/bin PATH (macOS can
  // have Python developer-tool launch stubs there). Use only explicit tools.
  symlinkSync('/usr/bin/git',join(tools,'git'));symlinkSync('/usr/bin/curl',join(tools,'curl'));
+ const relay=process.env.NEO_RELAY_EXECUTABLE||'/opt/homebrew/bin/agents-relay';assert.ok(existsSync(relay),'Independent Relay CLI required');symlinkSync(relay,join(tools,'agents-relay'));
  const bare={HOME:home,PATH:bin+':'+tools};
  test('Installed release Bootstrap without Node/Python or source-root override',()=>{const boot=doc(run(launcher,['bootstrap','--json'],bare));assert.ok(boot.agentRules.includes('Private release rehearsal'));assert.ok(boot.bootstrap.includes('XChat'));});
  test('Installed release agent, skill and project discovery with minimal PATH',()=>{const skills=doc(run(launcher,['skill','list'],bare));assert.ok(skills.some(x=>x.name==='neo-project'));assert.ok(skills.every(x=>!['iphone-helm','neo-use'].includes(x.name)));assert.ok(Array.isArray(doc(run(launcher,['agent','list','--source','shared'],bare))));assert.deepEqual(doc(run(launcher,['project','list'],bare)),[]);});

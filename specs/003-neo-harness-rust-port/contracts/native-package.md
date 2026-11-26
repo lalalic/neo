@@ -35,7 +35,7 @@ bundle/
 - `NEO_HARNESS_ROOT` remains an explicit override for development. Ordinary
   use resolves the **canonical executable** (including the real target of
   a versioned `~/.local/bin/neo` symlink) to its bundled Agents/Skills root.
-  No runtime `node`, `python`, npm or source checkout is needed for native
+  Bootstrap and Eval require the independently installed compatible `agents-relay` CLI; no Relay executable or resources are bundled. No runtime `node`, `python`, npm or source checkout is needed for native
   Bootstrap, Skill Discovery, Project Discovery, Workspace and Help.
   Explicitly configured project `.mjs` preflight remains an extension with
   its own Node runtime prerequisite.

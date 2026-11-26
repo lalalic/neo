@@ -375,7 +375,10 @@ fn builder(case: &Value, project: &Path, workspace: &Path, folder: &Path) -> Res
         );
     let response = process_guard::capture(&mut cmd, Duration::from_secs(30), 4 * 1024 * 1024)?;
     if !response.status.success() {
-        return Err(format!("Relay PromptBuilder failed for {id}"));
+        return Err(format!(
+            "Relay PromptBuilder failed for {id}: {}",
+            String::from_utf8_lossy(&response.stderr).trim()
+        ));
     }
     let built: Value =
         serde_json::from_slice(&fs::read(output).map_err(|_| "Relay Builder output unavailable")?)

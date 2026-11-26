@@ -165,7 +165,7 @@ Each Agent owns its declared output types. Store reusable schemas in `contracts/
 For structured JSON artifacts:
 1. Read the required upstream artifact and its actual version/source evidence.
 2. Produce a versioned output with source references/provenance as needed.
-3. Explicitly run `npx agents-relay artifact validate --artifact PATH --schema PATH`.
+3. Explicitly run `agents-relay artifact validate --artifact PATH --schema PATH`.
 4. Repair invalid output before handoff. Downstream Agents verify required inputs and consume the current accepted version.
 5. Keep prior output versions when later revisions could change dependent work.
 

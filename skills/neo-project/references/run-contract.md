@@ -19,7 +19,7 @@ New Relay Jobs and Coordinator Tasks use globally numeric IDs; historical Run
 bindings are verified, never silently migrated. The removed `--no-github`,
 `--github-repo` and `--pr` options are not sent by `neo project run`.
 
-**Published Relay launcher:** Without an explicit development/test override, Neo Master invokes `npx --yes --package agents-relay@latest agents-relay`, not any globally installed or local `dist/cli.js` binary. PM2 daemon uses the same published package.
+**Installed Relay CLI:** Neo invokes the independently installed native `agents-relay` CLI on PATH, or an explicit absolute `NEO_RELAY_EXECUTABLE` override. Relay owns its CLI, resources, and daemon deployment; Neo neither bundles nor installs Relay.
 
 **Git-root-only Job identity:** Every Neo Project is an independent Git repository. The runner sends `--repo LOCAL_ROOT_NAME` and `--project-root CANONICAL_GIT_ROOT`; it never sends the retired Job `--project-path`. On reattachment it checks the saved Relay Job’s `repository` and `projectRoot` against the selected independent Git root before starting or reporting a bound Run. `--path ABSOLUTE_RUN_DIR` selects private Run input, **not** a Job subproject identity. Coordinator workspace-root is an execution support path, not repository discovery.
 Final Review, local merge, and SQLite `COMPLETED` require no origin, PR or
