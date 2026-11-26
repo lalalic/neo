@@ -8,7 +8,8 @@ pub fn relay_cli() -> Result<PathBuf, String> {
         path
     } else {
         env::current_exe()
-            .map_err(|e| e.to_string())?
+            .and_then(|exe| exe.canonicalize())
+            .map_err(|e| format!("Cannot resolve native Neo executable: {e}"))?
             .parent()
             .ok_or("Neo binary directory unavailable")?
             .join("agents-relay-rust")

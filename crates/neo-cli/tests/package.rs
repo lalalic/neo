@@ -287,6 +287,23 @@ fn versioned_user_prefix_symlink_launcher_uses_its_own_bundle_assets() {
         info["harnessRoot"],
         versioned.canonicalize().unwrap().to_string_lossy().as_ref()
     );
+    let bootstrap = Command::new(&link)
+        .args(["bootstrap", "--json"])
+        .env("HOME", &f.home)
+        .env("PATH", "/usr/bin:/bin")
+        .env_remove("NEO_HARNESS_ROOT")
+        .env_remove("NEO_WORKSPACE_CONFIG")
+        .env_remove("NEO_RELAY_EXECUTABLE")
+        .current_dir(&f.workspace)
+        .output()
+        .unwrap();
+    assert!(
+        bootstrap.status.success(),
+        "{}",
+        String::from_utf8_lossy(&bootstrap.stderr)
+    );
+    let bootstrap: Value = serde_json::from_slice(&bootstrap.stdout).unwrap();
+    assert!(bootstrap.is_object());
     let skills = Command::new(&link)
         .args(["skill", "list"])
         .env("HOME", &f.home)
