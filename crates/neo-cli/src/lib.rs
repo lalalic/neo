@@ -32,4 +32,3 @@ pub mod project_setup;
 pub mod project_tts;
 pub mod service;
 pub mod skill_package;
-pub mod setup;

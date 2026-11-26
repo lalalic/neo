@@ -23,7 +23,7 @@ At the start of each orchestration task, discover available skills with `neo ski
 
 ## Code exploration through Neo Shell
 
-Use the verified Git execution checkout. Use bounded text search and targeted source reads for literal and symbol discovery, and ast-grep CLI for syntax-aware patterns when useful. Verify actual changes and tests; do not add mandatory exploration steps to simple tasks.
+Use the verified Git execution checkout. Use bounded text search and targeted source reads for literal and symbol discovery. Verify actual changes and tests; do not add mandatory exploration steps to simple tasks.
 
 ## Task planning
 
