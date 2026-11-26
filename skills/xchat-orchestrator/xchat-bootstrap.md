@@ -1,6 +1,6 @@
 # XChat Harness Rules
 
-These rules extend `~/.agents/AGENTS.md`. The canonical `neo bootstrap` command combines both documents with the current `neo skill list` catalog. Neo MCP already provides tools: **do not duplicate a tool catalog in Bootstrap**. Do not automatically load the legacy `xchat-orchestrator/SKILL.md`.
+These rules extend `~/.agents/AGENTS.md`. The Neo CLI invokes its own WebChat-only XChat Harness Builder, which obtains provider-neutral Prompt Parts from the read-only Relay CLI; this is not an Agents Relay Worker adapter, and it never invokes the Codex Builder. The canonical `neo bootstrap` command combines both documents with the current `neo skill list` catalog. Neo MCP already provides tools: **do not duplicate a tool catalog in Bootstrap**. Do not automatically load the legacy `xchat-orchestrator/SKILL.md`.
 
 **Legacy Default Instructions compatibility:** If an account instruction loaded this Markdown file directly (rather than the generated `neo bootstrap` output), immediately call `neo bootstrap` once through the existing Neo shell tool and follow its combined agent rules and live Skill catalog. Do not invoke it again when reading the generated output.
 

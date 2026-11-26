@@ -14,7 +14,7 @@ use std::{
     time::Duration,
 };
 use uuid::Uuid;
-const HELP:&str="Usage: neo eval run --project NAME [--case ID | --dag [--smoke]] [--model MODEL] [--profile CODEX_PROFILE] [--reasoning high] [--dry-run]\n       neo eval list --project NAME [--dag]\n       neo eval audit\n\nCases live at <project>/.evals/cases.json; each run saves evidence under <project>/.evals/reports/.\n";
+const HELP:&str="Usage: neo eval run --project NAME [--case ID | --dag [--smoke]] [--model MODEL] [--profile CODEX_PROFILE] [--reasoning high] [--dry-run]\n       neo eval list --project NAME [--dag]\n       neo eval audit\n       neo eval report --job-id ID [--task-id ID [--execution-id UUID]] [--project NAME] [--repo REPO] [--mode generate|latest]\n\nCases live at <project>/.evals/cases.json; each run saves evidence under <project>/.evals/reports/.\n";
 #[derive(Default)]
 struct Flags {
     project: Option<String>,
@@ -334,15 +334,6 @@ fn write_json(path: &Path, v: &Value) -> Result<(), String> {
         &serde_json::to_string_pretty(v).map_err(|e| e.to_string())?,
     )
 }
-fn relay_bin() -> Result<String, String> {
-    if let Ok(value) = env::var("NEO_RELAY_EXECUTABLE") {
-        if value.is_empty() {
-            return Err("Relay PromptBuilder CLI unavailable".into());
-        }
-        return Ok(value);
-    }
-    Ok("agents-relay".into())
-}
 fn builder(case: &Value, project: &Path, workspace: &Path, folder: &Path) -> Result<Value, String> {
     let role = case["role"].as_str().unwrap_or("");
     let id = case["id"].as_str().unwrap_or("");
@@ -371,10 +362,10 @@ fn builder(case: &Value, project: &Path, workspace: &Path, folder: &Path) -> Res
         &input,
         &json!({"projectPath":project,"agentName":role,"caseId":id,"taskInput":text}),
     )?;
-    let mut cmd = Command::new(relay_bin()?);
+    let mut cmd = Command::new(crate::prompt_parts_client::relay_cli()?);
     cmd.args(["prompt", "--eval-file"])
         .arg(&input)
-        .args(["--adapter", "codex", "--output"])
+        .args(["--adapter", "codex", "--prepare-harness", "--output"])
         .arg(&output)
         .current_dir(project)
         .env("AGENTS_RELAY_WORKSPACE_ROOT", workspace)
@@ -393,22 +384,75 @@ fn builder(case: &Value, project: &Path, workspace: &Path, folder: &Path) -> Res
         || built["mode"] != "isolated-evaluation"
         || built["agentName"] != role
         || built["adapter"] != "codex"
-        || !built["productionPrompt"]
+        || built["productionPrompt"]["system"]
             .as_str()
-            .is_some_and(|s| s.contains("## Contracts") && s.contains("## Contexts"))
-        || !built["evaluationPrompt"]
+            .is_none_or(|v| v.is_empty())
+        || built["productionPrompt"]["user"]
             .as_str()
-            .is_some_and(|s| s.contains("[Isolated prompt evaluation mode]"))
+            .is_none_or(|v| !v.contains("EVENT SOURCE (exact):"))
+        || !built["productionPrompt"]["references"].is_array()
+        || built["evaluationPrompt"]["system"]
+            .as_str()
+            .is_none_or(|v| !v.contains("Isolated Evaluation Safety Contract"))
+        || built["evaluationPrompt"]["user"]
+            .as_str()
+            .is_none_or(|v| !v.contains("[Isolated prompt evaluation mode]"))
+        || !built["evaluationPrompt"]["references"].is_array()
     {
         return Err(format!(
-            "Relay Builder returned incomplete or mismatched prompt for {id}"
+            "Relay Builder returned incomplete or mismatched layered prompt for {id}"
         ));
     }
+    native_transport_flags(&built)?;
     Ok(built)
+}
+// Read only the native transport chosen by Relay's Harness Builder.
+// Never reconstruct system/developer authority from the User Prompt.
+fn native_transport_flags(built: &Value) -> Result<Vec<String>, String> {
+    let transport = &built["evaluationTransport"];
+    if !matches!(
+        transport["nativeGlobal"].as_str(),
+        Some("AlreadyConfigured" | "LinkCreated" | "EmptyFileBackedUp")
+    ) {
+        return Err("Relay Harness Builder did not verify native Codex Global AGENTS.md".into());
+    }
+    if transport["harness"] != "codex" {
+        return Err("Eval requires the native Codex Harness transport".into());
+    }
+    let flags = transport["flags"]
+        .as_array()
+        .ok_or("Codex transport lacks flags")?;
+    if flags.len() != 4
+        || flags[0] != "-c"
+        || flags[1] != "project_doc_max_bytes=0"
+        || flags[2] != "-c"
+    {
+        return Err("Unexpected native Codex transport flags".into());
+    }
+    let declaration = flags[3]
+        .as_str()
+        .and_then(|v| v.strip_prefix("developer_instructions="))
+        .ok_or("Codex transport has no developer instructions")?;
+    let declared: String =
+        serde_json::from_str(declaration).map_err(|_| "Invalid developer instruction JSON")?;
+    if built["evaluationPrompt"]["system"] != declared {
+        return Err(
+            "Transport developer instructions do not match the evaluated effective Agent".into(),
+        );
+    }
+    flags
+        .iter()
+        .map(|f| {
+            f.as_str()
+                .map(str::to_owned)
+                .ok_or_else(|| "Invalid transport argument".into())
+        })
+        .collect()
 }
 fn codex(
     project: &Path,
     prompt: &str,
+    transport_flags: &[String],
     opts: &Flags,
     response: &Path,
 ) -> Result<(i32, String), String> {
@@ -421,7 +465,8 @@ fn codex(
             "--skip-git-repo-check",
             "-C",
         ])
-        .arg(project);
+        .arg(project)
+        .args(transport_flags);
     if let Some(profile) = &opts.profile {
         command.args(["-p", profile]);
     }
@@ -538,22 +583,27 @@ fn evaluate(opts: &Flags, list: bool) -> Result<i32, String> {
             continue;
         }
         let built = builder(case, &project, workspace, &folder)?;
-        let prompt = built["evaluationPrompt"]
+        let prompt = built["evaluationPrompt"]["user"]
             .as_str()
-            .ok_or("Relay returned no evaluation prompt")?;
-        write_report(&folder.join(format!("{id}.prompt.txt")), prompt)?;
+            .ok_or("Relay returned no evaluation User Prompt")?;
+        let transport = native_transport_flags(&built)?;
         write_report(
-            &folder.join(format!("{id}.production.prompt.txt")),
-            built["productionPrompt"].as_str().unwrap_or(""),
+            &folder.join(format!("{id}.prompt.json")),
+            &serde_json::to_string_pretty(&built["evaluationPrompt"]).map_err(|e| e.to_string())?,
+        )?;
+        write_report(
+            &folder.join(format!("{id}.production.prompt.json")),
+            &serde_json::to_string_pretty(&built["productionPrompt"]).map_err(|e| e.to_string())?,
         )?;
         if opts.dry_run {
             results.push(json!({"id":id,"role":role,"type":typ,"status":"DRY_RUN",
                 "promptCharacters":prompt.chars().count(),"builder":built["builder"],
-                "productionPromptCharacters":built["productionPrompt"].as_str().unwrap_or("").chars().count()}));
+                "productionPromptCharacters":built["productionPrompt"]["system"].as_str().unwrap_or("").chars().count()
+                   + built["productionPrompt"]["user"].as_str().unwrap_or("").chars().count()}));
             continue;
         }
         let response = folder.join(format!("{id}.response.txt"));
-        let (code, text) = codex(&project, prompt, opts, &response)?;
+        let (code, text) = codex(&project, prompt, &transport, opts, &response)?;
         let trimmed = text
             .trim()
             .trim_start_matches("```json")
@@ -727,9 +777,11 @@ pub fn run(args: &[String]) -> Result<i32, String> {
         return Ok(0);
     }
     match sub {
+        "report" => crate::eval_report::run(params),
+        "compare" => crate::eval_report::compare::run(params),
         "run" => evaluate(&options(params)?, false),
         "list" => evaluate(&options(params)?, true),
         "audit" if params.is_empty() => audit(),
-        _ => Err("usage: neo eval run|list|audit [project Eval options]".into()),
+        _ => Err("usage: neo eval run|list|audit|report|compare [options]".into()),
     }
 }

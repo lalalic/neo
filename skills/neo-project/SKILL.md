@@ -18,6 +18,21 @@ A Neo Project owns its **domain goal, independent Git repository, Agent Graph, p
 | Design the DAG, Agent Exit Gates, user-facing Markcut presentations, scripts/Shortcuts, JEL and Evals | [DAG → Agent → Script → Shortcut](recipes/dag-agent-evolution.md) |
 | Evaluate the Neo Project architecture Skill itself | [Capability eval cases](evals/cases.md) |
 
+## Agent metadata schema
+
+The canonical frontmatter schema for shared and project Agents lives in
+the installed `agents-relay` Skill's
+`contracts/agent-contract.md`, discoverable through the Harness Skills
+List. It owns `extends`, `contexts`, `required_skills` and mandatory or
+on-demand Contracts; **do not duplicate its definition here**.
+
+This Neo Project Skill owns only project-domain fields (`type`, `inputs`,
+`outputs`, `reviewers`), Graph handoffs and Exit Gates. Ordinary DAG
+Stage Agents do not load project `AGENTS.md` just because the Project
+has one. Relay Implementation and Planner explicitly declare that
+Context; project variants inherit it through normal `extends`.
+An Agent requiring additional project Context must explicitly declare it.
+
 ## Invariants
 
 - One independent Git root per project, directly beneath configured `NEO_ROOT`. Every runnable project has `README.md`, `AGENTS.md`, `graph.mmd`; run-enabled projects additionally declare `project.run.json`.

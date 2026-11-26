@@ -84,6 +84,18 @@ A video Editor **actually edits**: choose source-grounded shots, sequence/length
 
 ## Agent manifest
 
+The canonical Relay Agent frontmatter schema is in the installed
+`agents-relay` Skill's `contracts/agent-contract.md`. The Harness
+Skills List locates that Skill. Its fields include `extends`,
+`contexts`, `required_skills` (names only), and mandatory or on-demand
+Contracts. **Do not maintain a competing Schema in Neo Project.**
+
+This section adds only project-domain guidance (`type`, `inputs`,
+`outputs`, `reviewers`) and Stage Exit Gates. Ordinary Neo Project
+DAG Agents do not auto-load project `AGENTS.md`. Relay
+Implementation and Planner declare that Context explicitly and
+their inheriting project variants retain it.
+
 Create `agents/<name>.agent.md` only for project-specific behavior. Shared Agents are discovered from Neo/global layers. Frontmatter contract:
 
 ```yaml
@@ -103,6 +115,13 @@ reviewers:
 ```
 
 - `name`, `description` identify the Agent; `type` describes `worker`, `planner` or `reviewer`.
+- `type` is descriptive project metadata; it does not implicitly change
+  the Agent's parent or load AGENTS.md.
+- A Relay Job Task receives the Worker execution **Contracts** regardless
+  of `extends`. Project DAG Agents still omit `contexts` by default.
+- For mandatory Skills use `required_skills: [markcut]`; the Agent resolves
+  names against the Harness Skills List, not a path supplied by Relay.
+
 - `extends`, `mode`, `sections` may use the current supported inheritance contract.
 - To reuse an external Agency Agent, create a project-local manifest and set `extends` to the selected role SKILL.md absolute path. Relay merges it with the existing `mode` and `sections` machinery; the base name may differ from the project role name. Resolve paths before use and fail if the source is missing.
 - Optional `inputs`, `outputs` list artifact contract names. Optional `reviewers` lists specialist Agent names.

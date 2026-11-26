@@ -48,6 +48,11 @@ impl Fixture {
         Command::new(env!("CARGO_BIN_EXE_neo-rs"))
             .args(["package", "stage", self.package.to_str().unwrap()])
             .env("NEO_HARNESS_ROOT", &self.root)
+            .env(
+                "NEO_RELAY_EXECUTABLE",
+                std::env::var_os("NEO_RELAY_EXECUTABLE")
+                    .expect("Tests require matched Relay native CLI"),
+            )
             .output()
             .unwrap()
     }
@@ -65,6 +70,7 @@ impl Fixture {
 }
 
 #[test]
+#[ignore = "cross-repo integration: set NEO_RELAY_EXECUTABLE to the matched native Relay CLI and run --ignored"]
 fn clean_mac_candidate_bootstraps_and_discovers_skills_without_node_or_source_checkout() {
     let f = Fixture::new();
     let stage = f.stage();
@@ -75,6 +81,8 @@ fn clean_mac_candidate_bootstraps_and_discovers_skills_without_node_or_source_ch
     );
     let manifest: Value = serde_json::from_slice(&stage.stdout).unwrap();
     assert_eq!(manifest["productionInstall"], false);
+    assert_eq!(manifest["promptPartsSchema"], "relay.prompt-parts.v1");
+    assert!(f.package.join("bin/agents-relay-rust").is_file());
     assert!(manifest["trackedAssets"].as_u64().unwrap() > 0);
     assert!(!f.package.join("gpu").exists());
     assert!(!f.package.join("skills/chat-gateway").exists());
@@ -190,6 +198,7 @@ fn clean_mac_candidate_bootstraps_and_discovers_skills_without_node_or_source_ch
     assert!(String::from_utf8_lossy(&help.stdout).contains("native Rust CLI"));
 }
 #[test]
+#[ignore = "cross-repo integration: set NEO_RELAY_EXECUTABLE to the matched native Relay CLI and run --ignored"]
 fn distribution_rejects_existing_output_source_overlap_and_relative_paths() {
     let f = Fixture::new();
     let file = |path: &Path| {
@@ -207,6 +216,7 @@ fn distribution_rejects_existing_output_source_overlap_and_relative_paths() {
     assert!(!file(Path::new("relative")).status.success());
 }
 #[test]
+#[ignore = "cross-repo integration: set NEO_RELAY_EXECUTABLE to the matched native Relay CLI and run --ignored"]
 fn package_manifest_uses_only_tracked_assets_and_no_live_user_state() {
     let f = Fixture::new();
     assert!(f.stage().status.success());
@@ -239,6 +249,7 @@ fn package_manifest_uses_only_tracked_assets_and_no_live_user_state() {
 
 #[cfg(unix)]
 #[test]
+#[ignore = "cross-repo integration: set NEO_RELAY_EXECUTABLE to the matched native Relay CLI and run --ignored"]
 fn versioned_user_prefix_symlink_launcher_uses_its_own_bundle_assets() {
     use std::os::unix::fs::symlink;
     let f = Fixture::new();
@@ -305,6 +316,7 @@ fn versioned_user_prefix_symlink_launcher_uses_its_own_bundle_assets() {
 
 #[cfg(unix)]
 #[test]
+#[ignore = "cross-repo integration: set NEO_RELAY_EXECUTABLE to the matched native Relay CLI and run --ignored"]
 fn iphone_helm_is_optional_and_discovered_from_independently_installed_global_skill() {
     use std::os::unix::fs::symlink;
     let f = Fixture::new();

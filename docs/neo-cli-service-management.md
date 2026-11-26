@@ -34,7 +34,7 @@ The Rust CLI is the sole implementation. Build and stage the committed bundle:
 
 ```sh
 cargo build --release --locked -p neo-harness-cli --bin neo-rs
-NEO_HARNESS_ROOT="$PWD" target/release/neo-rs package stage /absolute/new/version-directory
+scripts/stage-neo-with-relay.sh --relay-root /absolute/path/to/agents-relay --output /absolute/new/version-directory
 /absolute/new/version-directory/bin/neo --help
 ```
 

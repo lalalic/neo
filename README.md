@@ -6,7 +6,7 @@ This repository is the public **Neo Harness source**: CLI, bootstrap/discovery t
 
 ## Native Rust CLI
 
-The native Rust Harness is built with `cargo build --release --locked -p neo-harness-cli --bin neo-rs`. The Neo Master deployment stages the executable and committed resources with `neo-rs package stage` in a versioned local directory. Rust is the only Harness implementation in this repository. Rollback uses a previous versioned Rust bundle. JavaScript remains only for independent workloads, container internals, Skills and test drivers; it is not a second CLI. Neo.app installer migration from its historical npm distribution is owned by the separate neox repository. See the [live-trial contract](specs/003-neo-harness-rust-port/contracts/cli-live-trial.md).
+The native Rust Harness and shared Relay Prompt Builder must be packaged together. For a staged candidate (not a live install), run `scripts/stage-neo-with-relay.sh --relay-root /absolute/path/to/agents-relay --output /absolute/new/version-directory`. This builds both native Rust executables with locked dependencies, sets the matched `NEO_RELAY_EXECUTABLE` explicitly, and stages Neo plus Relay. Standalone `cargo build --release --locked -p neo-harness-cli --bin neo-rs` remains a developer build, not a complete installable XChat Bootstrap package. Rust is the only Harness implementation in this repository. Rollback uses a previous versioned Rust bundle. JavaScript remains only for independent workloads, container internals, Skills and test drivers; it is not a second CLI. Neo.app installer migration from its historical npm distribution is owned by the separate neox repository. See the [live-trial contract](specs/003-neo-harness-rust-port/contracts/cli-live-trial.md).
 
 ## Repository
 

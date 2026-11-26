@@ -57,6 +57,9 @@ impl Fixture {
             .env("HOME", &self.home)
             .env("NEO_WORKSPACE_CONFIG", &self.config)
             .env("NEO_HARNESS_ROOT", &self.root);
+        if let Some(relay) = std::env::var_os("NEO_RELAY_EXECUTABLE") {
+            cmd.env("NEO_RELAY_EXECUTABLE", relay);
+        }
         if without_node {
             cmd.env("PATH", "");
         }
@@ -130,15 +133,23 @@ fn skill_invalid_arguments_rejected() {
     }
 }
 #[test]
+#[ignore = "cross-repo integration: set NEO_RELAY_EXECUTABLE to the matched native Relay CLI and run --ignored"]
 fn bootstrap_json_and_markdown_contract() {
     let f = Fixture::new();
+    assert!(!f.home.join(".codex").exists());
+
     let p = f.project.to_str().unwrap();
     f.assert_contract(&["bootstrap", "--json"], false, true);
     f.assert_contract(&["bootstrap", "--json", "--project", p], false, true);
     f.assert_contract(&["bootstrap"], true, true);
     f.assert_contract(&["bootstrap", "--project", p], true, true);
+    assert!(
+        !f.home.join(".codex").exists(),
+        "WebChat bootstrap must never initialize or modify Codex native state"
+    );
 }
 #[test]
+#[ignore = "cross-repo integration: set NEO_RELAY_EXECUTABLE to the matched native Relay CLI and run --ignored"]
 fn bootstrap_missing_rules_fail_closed() {
     let f = Fixture::new();
     fs::remove_file(f.home.join(".agents/AGENTS.md")).unwrap();
@@ -147,6 +158,7 @@ fn bootstrap_missing_rules_fail_closed() {
     assert!(result.stdout.is_empty());
 }
 #[test]
+#[ignore = "cross-repo integration: set NEO_RELAY_EXECUTABLE to the matched native Relay CLI and run --ignored"]
 fn bootstrap_and_skill_are_node_free() {
     let f = Fixture::new();
     let binary = Path::new(env!("CARGO_BIN_EXE_neo-rs"));
@@ -159,4 +171,22 @@ fn bootstrap_and_skill_are_node_free() {
             String::from_utf8_lossy(&result.stderr)
         );
     }
+}
+
+#[test]
+fn webchat_bootstrap_fails_closed_without_the_matched_relay_cli() {
+    let f = Fixture::new();
+    let missing = f.home.join("missing-matched-relay-binary");
+    let output = Command::new(env!("CARGO_BIN_EXE_neo-rs"))
+        .args(["bootstrap", "--json"])
+        .env("HOME", &f.home)
+        .env("NEO_WORKSPACE_CONFIG", &f.config)
+        .env("NEO_HARNESS_ROOT", &f.root)
+        .env("NEO_RELAY_EXECUTABLE", &missing)
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    assert!(output.stdout.is_empty());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("Relay Prompt Parts CLI unavailable"));
+    assert!(!f.home.join(".codex").exists());
 }

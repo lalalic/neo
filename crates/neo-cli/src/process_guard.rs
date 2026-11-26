@@ -37,7 +37,7 @@ pub fn capture(
     timeout: Duration,
     output_limit: usize,
 ) -> Result<Captured, String> {
-    capture_inner(command, None, timeout, output_limit, false)
+    capture_inner(command, None, timeout, output_limit, false, 128 * 1024)
 }
 
 /// Captures an optional short, in-memory stdin payload without putting it in
@@ -48,7 +48,18 @@ pub fn capture_with_input(
     timeout: Duration,
     output_limit: usize,
 ) -> Result<Captured, String> {
-    capture_inner(command, input, timeout, output_limit, true)
+    capture_inner(command, input, timeout, output_limit, true, 128 * 1024)
+}
+/// A separately bounded stdin route for native, source-attested Prompt Parts.
+/// Does not relax the 128 KiB default used by WebHelm/model tools.
+pub fn capture_with_input_limit(
+    command: &mut Command,
+    input: Option<&[u8]>,
+    timeout: Duration,
+    output_limit: usize,
+    input_limit: usize,
+) -> Result<Captured, String> {
+    capture_inner(command, input, timeout, output_limit, true, input_limit)
 }
 
 fn capture_inner(
@@ -57,8 +68,9 @@ fn capture_inner(
     timeout: Duration,
     output_limit: usize,
     isolated: bool,
+    input_limit: usize,
 ) -> Result<Captured, String> {
-    if input.is_some_and(|text| text.len() > 128 * 1024) {
+    if input.is_some_and(|text| text.len() > input_limit) {
         return Err("input exceeded the configured limit".into());
     }
     command

@@ -4,6 +4,7 @@ mod diagnostics;
 mod project;
 mod skill;
 mod workspace;
+mod xchat_builder;
 
 use std::env;
 

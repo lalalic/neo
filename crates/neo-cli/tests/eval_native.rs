@@ -70,6 +70,7 @@ impl Fixture {
             .env("NEO_ROOT", &self.workspace)
             .env("NEO_HARNESS_ROOT", &self.root)
             .env("NEO_RELAY_EXECUTABLE", self.bin.join("agents-relay"))
+            .env("BUILDER_FIXTURE", self.bin.join("relay-builder.json"))
             .env(
                 "PATH",
                 format!("{}:/opt/homebrew/bin:/usr/bin:/bin", self.bin.display()),
@@ -100,15 +101,50 @@ impl Fixture {
         fs::set_permissions(path, fs::Permissions::from_mode(0o755)).unwrap();
     }
     fn relay(&self) {
-        self.fake("agents-relay",r###"
+        let evaluation_system = "# Role fixture\nIsolated Evaluation Safety Contract";
+        let evaluation_user = "[Isolated prompt evaluation mode] Choose plan or run";
+        let flags = json!([
+            "-c",
+            "project_doc_max_bytes=0",
+            "-c",
+            format!(
+                "developer_instructions={}",
+                serde_json::to_string(evaluation_system).unwrap()
+            )
+        ]);
+        let payload = json!({
+            "builder":"managedWorkerInput","mode":"isolated-evaluation",
+            "agentName":"visioner","adapter":"codex",
+            "productionPrompt":{
+                "system":"# Role fixture",
+                "user":"EVENT SOURCE (exact): job/fixture/task/fixture/execution/fixture",
+                "references":[]
+            },
+            "evaluationPrompt":{
+                "system":evaluation_system,
+                "user":evaluation_user,
+                "references":[]
+            },
+            "evaluationTransport":{
+                "harness":"codex","nativeGlobal":"AlreadyConfigured","flags":flags
+            }
+        });
+        fs::write(self.bin.join("relay-builder.json"), payload.to_string()).unwrap();
+        self.fake(
+            "agents-relay",
+            r###"
 [ "$1" = prompt ] || exit 49
 out=''
+prepared=0
 while [ "$#" -gt 0 ]; do
   if [ "$1" = --output ]; then out="$2"; shift 2
+  elif [ "$1" = --prepare-harness ]; then prepared=1; shift
   else shift; fi
 done
-printf '{"builder":"managedWorkerInput","mode":"isolated-evaluation","agentName":"visioner","adapter":"codex","productionPrompt":"# Role\\n## Contracts\\n## Contexts\\n## Task\\n","evaluationPrompt":"[Isolated prompt evaluation mode] Choose plan or run"}' > "$out"
-"###);
+[ "$prepared" = 1 ] || exit 48
+cat "$BUILDER_FIXTURE" > "$out"
+"###,
+        );
     }
 }
 #[test]
@@ -175,10 +211,15 @@ fn native_eval_local_mock_codex_exec_checks_decision_and_reports_truthfully() {
         "codex",
         r#"
 last=''
+has_native=0
+has_role=0
 while [ "$#" -gt 0 ]; do
  if [ "$1" = --output-last-message ]; then last="$2"; shift 2
+ elif [ "$1" = project_doc_max_bytes=0 ]; then has_native=1; shift
+ elif [ "\${1#developer_instructions=}" != "$1" ]; then has_role=1; shift
  else shift; fi
 done
+[ "$has_native" = 1 ] && [ "$has_role" = 1 ] || exit 41
 cat >/dev/null
 printf '%s' '{"decision":"plan","actions":["inspect docs"],"reason":"fixture"}' > "$last"
 "#,
@@ -223,6 +264,8 @@ fn native_eval_missing_case_or_relay_binary_fails_closed() {
     assert!(
         String::from_utf8_lossy(&missing.stderr).contains("spawn error")
             || String::from_utf8_lossy(&missing.stderr).contains("Relay PromptBuilder")
+            || String::from_utf8_lossy(&missing.stderr)
+                .contains("Relay Prompt Parts CLI unavailable")
     );
 }
 

@@ -166,12 +166,23 @@ pub fn stage(target: &Path) -> Result<Value, String> {
         fs::copy(&exe, &name).map_err(|e| e.to_string())?;
         #[cfg(unix)]
         fs::set_permissions(&name, fs::Permissions::from_mode(0o755)).map_err(|e| e.to_string())?;
+        // neo bootstrap consumes the independent Relay Prompt Parts CLI.
+        // Bundle that exact native CLI rather than requiring Relay daemon,
+        // system PATH lookup, or a checkout on a clean target Mac.
+        let native = crate::prompt_parts_client::relay_cli()?;
+        let paired = bin.join("agents-relay-rust");
+        fs::copy(native, &paired)
+            .map_err(|e| format!("Cannot bundle Relay Prompt Parts CLI: {e}"))?;
+        #[cfg(unix)]
+        fs::set_permissions(&paired, fs::Permissions::from_mode(0o755))
+            .map_err(|e| e.to_string())?;
         let (count, external) = write_committed_assets(&root, &destination)?;
         let container_assets = write_container_assets(&root, &destination)?;
         let manifest = json!({"schemaVersion":1,"name":"neo-harness-rust",
             "version":env!("CARGO_PKG_VERSION"),"revision":revision,
             "platform":env::consts::OS,"architecture":env::consts::ARCH,
-            "entrypoint":"bin/neo","trackedAssets":count,
+            "entrypoint":"bin/neo","promptPartsBuilder":"bin/agents-relay-rust",
+            "promptPartsSchema":"relay.prompt-parts.v1","trackedAssets":count,
             "computeContainerRuntimeAssets":container_assets,
             "excludedExternalGitLinks":external,
             "productionInstall":false});
