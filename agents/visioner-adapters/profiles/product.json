@@ -1,0 +1,5 @@
+{
+  "stt": "uvx --from openai-whisper whisper \"{input}\" --model turbo --output_format vtt --output_dir \"{output}\" --word_timestamps True --max_line_count 1 --max_line_width 14",
+  "itt": "agents-relay infer --reasoning low --eligible-profiles \"${NEO_VISION_PROFILES:-vision-low}\" --capability vision --input {input} --prompt {prompt_quoted}",
+  "agent": "agents-relay infer --reasoning low --eligible-profiles \"${NEO_VISION_PROFILES:-vision-low}\" --capability text --format json --prompt {prompt}"
+}

@@ -39,6 +39,8 @@ Use **Markcut Vision** as the canonical media-understanding interface:
 
 `npx @lalalic/markcut vision <folder>`
 
+Visioner always uses the Harness [product Markcut profile](visioner-adapters/README.md#markcut-execution-profiles) for source understanding. The shared helper owns that selection; do not substitute the prototype profile or explore providers.
+
 The current CLI owns media extraction, normalization, perception, segmentation, speech-to-text integration, VTT frame sampling, prompt handling, and generated vision metadata/artifacts. Load the discovered **markcut** skill before calling this interface. Read the existing `metadata.json` and reuse each source's `perception.desc` before requesting any missing inference. Use supported options such as `--instruct`, `--pick`, prompt overrides, VTT sampling, or STT control only when the task requires them.
 
 ### Optional shared ElevenLabs STT adapter
@@ -49,7 +51,7 @@ Preserve the ITT/VTT boundary conceptually: image understanding and time-aligned
 
 ## Inference and transport boundary
 
-The shared executable supplies Relay-routed low-reasoning Codex ITT and text-only segmentation adapters for authorized external inference; offline projects supply explicit local adapters or validate existing local evidence. These are **external CLI adapters**;
+The shared executable uses native `agents-relay infer` for Relay-routed low-reasoning ITT and text-only segmentation for authorized external inference; offline projects supply explicit local adapters or validate existing local evidence. These are **external CLI adapters**;
 Visioner submits capability-only routing facts to the canonical Relay worker router. The authorized eligible profiles must have verified image support and low reasoning. Codex receives the selected provider/model/profile and executes one inference without fallback.
 The Agents Relay `chatgpt-worker` is asynchronous task delegation, not a
 synchronous inference API. Markcut owns ITT, VTT, frame sampling and STT;

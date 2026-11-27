@@ -10,24 +10,31 @@ import { IMAGE_EXTS, VIDEO_EXTS } from './media-types.mjs';
 
 const quote = s => "'" + String(s).replaceAll("'", "'\\''") + "'";
 const modulePath = name => fileURLToPath(new URL(name, import.meta.url));
-const defaultAdapter = [process.execPath, modulePath('./codex-infer.mjs')];
-const defaultAgent = [process.execPath, modulePath('./codex-infer.mjs')].map(quote).join(' ') + ' --text --prompt {prompt}';
+export function resolveMarkcutProfile(name) {
+  if (!['prototype','product'].includes(name)) throw Error('Unknown Neo Markcut profile: '+name);
+  return modulePath('./profiles/'+name+'.json');
+}
 
-export function inferenceArgs({adapterCommand, agentCommand = defaultAgent} = {}) {
-  const custom = adapterCommand !== undefined;
-  adapterCommand ??= defaultAdapter;
-  if (!Array.isArray(adapterCommand) || !adapterCommand.length || adapterCommand.some(s=>typeof s!=='string'||!s.trim())) throw Error('Invalid Visioner adapterCommand');
-  if (typeof agentCommand!=='string' || !agentCommand.trim()) throw Error('Invalid Visioner agentCommand');
-  const command = adapterCommand.map(quote).join(' ');
-  // Markcut's native VTT path samples chronological frames through ITT.
-  const args=['--itt',command+' --input {input} --prompt {prompt_quoted}'];
-  if(custom)args.push('--vtt',command+' --input {input} --prompt {prompt_quoted} --sample-interval {sample_interval}');
-  else if(process.env.MARKCUT_VTT_CLI)throw Error('Conflicting MARKCUT_VTT_CLI; default Visioner requires Markcut frame sampling');
-  return [...args,'--agent',agentCommand];
+// Explicit caller adapters are compatibility overrides, not a second default.
+function customInferenceArgs({adapterCommand, agentCommand}) {
+  const args=[];
+  if(adapterCommand!==undefined){
+    if (!Array.isArray(adapterCommand) || !adapterCommand.length || adapterCommand.some(s=>typeof s!=='string'||!s.trim())) throw Error('Invalid Visioner adapterCommand');
+    const command=adapterCommand.map(quote).join(' ');
+    args.push('--itt',command+' --input {input} --prompt {prompt_quoted}',
+      '--vtt',command+' --input {input} --prompt {prompt_quoted} --sample-interval {sample_interval}');
+  }
+  if(agentCommand!==undefined){
+    if(typeof agentCommand!=='string'||!agentCommand.trim())throw Error('Invalid Visioner agentCommand');
+    args.push('--agent',agentCommand);
+  }
+  return args;
 }
 
 export async function runVisioner({folder, execute, cli=['markcut'], contextText='', allowInference=true,
-  adapterCommand, agentCommand, externalTransferAuthorized=false}) {
+  adapterCommand, agentCommand, profile='product', externalTransferAuthorized=false}) {
+  if(profile!=='product')throw Error('Visioner requires the product Markcut profile');
+  const profileArgs=['--profile',resolveMarkcutProfile('product')];
   const files = readdirSync(folder).filter(file=>
     [...IMAGE_EXTS,...VIDEO_EXTS].includes(extname(file).toLowerCase()) && statSync(join(folder,file)).isFile()).sort();
   if (!files.length) throw Error('Media folder has no images or videos');
@@ -54,11 +61,11 @@ export async function runVisioner({folder, execute, cli=['markcut'], contextText
       throw Error('Codex inference requires project-authorized external transfer or explicit local adapters');
     const args=[...cli,'vision',folder];
     if(contextText)args.push('--instruct',contextText);
-    await execute([...args,...inferenceArgs({adapterCommand,agentCommand})]);
+    await execute([...args,...profileArgs,...customInferenceArgs({adapterCommand,agentCommand})]);
     invoked=true;metadata=await read();
   }
   if(!normalized(metadata)){
-    await execute([...cli,'vision',folder,'--normalize-only']);
+    await execute([...cli,'vision',folder,'--normalize-only',...profileArgs]);
     invoked=true;metadata=await read();
   }
   if(!complete(metadata))throw Error('Markcut Vision metadata incomplete: missing source descriptions or segments');

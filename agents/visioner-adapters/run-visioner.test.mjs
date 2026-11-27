@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import {mkdtempSync,writeFileSync,readFileSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {runVisioner,inferenceArgs} from './run-visioner.mjs';
+import {runVisioner,resolveMarkcutProfile} from './run-visioner.mjs';
 
-test('fresh inference passes generic Markcut hooks, preserves exact context and fails closed for offline requests',async t=>{
+test('fresh inference always selects product, preserves exact context and fails closed for offline requests',async t=>{
  const folder=mkdtempSync(join(tmpdir(),'shared-visioner-'));t.after(()=>rmSync(folder,{recursive:true,force:true}));
  writeFileSync(join(folder,'a.mov'),'fixture');
  const calls=[];const execute=async args=>{
@@ -16,11 +16,29 @@ test('fresh inference passes generic Markcut hooks, preserves exact context and 
  await assert.rejects(runVisioner(base),/authorized external transfer/);
  assert.equal(calls.length,0);
  const r=await runVisioner({...base,externalTransferAuthorized:true});
- assert.deepEqual(calls[0],['markcut','vision',folder,'--instruct',base.contextText,...inferenceArgs()]);
- assert.match(calls[0][calls[0].indexOf('--itt')+1],/codex-infer\.mjs/);
- assert.match(calls[0][calls[0].indexOf('--agent')+1],/codex-infer\.mjs.*--text --prompt \{prompt\}/);
- assert.ok(!calls[0].includes("--vtt"));
+ assert.deepEqual(calls[0],['markcut','vision',folder,'--instruct',base.contextText,'--profile',resolveMarkcutProfile('product')]);
  assert.equal(r.markcut.invoked,true);
  assert.equal((await runVisioner(base)).markcut.reused,true);
  assert.equal(calls.length,1);
+});
+
+test('Visioner rejects prototype; product profile preserves authorized direct overrides',async t=>{
+ const folder=mkdtempSync(join(tmpdir(),'shared-visioner-profile-'));t.after(()=>rmSync(folder,{recursive:true,force:true}));
+ writeFileSync(join(folder,'a.png'),'fixture');
+ const calls=[];const execute=async args=>{
+  calls.push(args);writeFileSync(join(folder,'metadata.json'),JSON.stringify({'a.png':{normalized:null,perception:{desc:'test'}}}));
+ };
+ const path=resolveMarkcutProfile('product'), config=JSON.parse(readFileSync(path,'utf8'));
+ assert.match(config.itt,/agents-relay infer.*--capability vision --input \{input\} --prompt \{prompt_quoted\}/);
+ assert.match(config.agent,/agents-relay.*infer.*text.*json.*--prompt \{prompt\}/);
+ assert.equal(config.extends,undefined); assert.match(config.stt,/--model turbo/);
+ const prototype=JSON.parse(readFileSync(resolveMarkcutProfile('prototype'),'utf8'));
+ assert.equal(prototype.extends,'prototype');
+ assert.equal(prototype.itt,config.itt); assert.equal(prototype.agent,config.agent);
+ for(const inherited of ['tts','vtt','tti','ttv','editCli'])assert.equal(Object.hasOwn(config,inherited),false);
+ await assert.rejects(runVisioner({folder,execute,profile:'prototype',externalTransferAuthorized:true}),/requires the product/);
+ assert.equal(calls.length,0);
+ const options={adapterCommand:['local-vision'],agentCommand:'local-agent {prompt}'};
+ await runVisioner({folder,execute,...options});
+ assert.deepEqual(calls.at(-1),['markcut','vision',folder,'--profile',path,'--itt',"'local-vision' --input {input} --prompt {prompt_quoted}",'--vtt',"'local-vision' --input {input} --prompt {prompt_quoted} --sample-interval {sample_interval}",'--agent',options.agentCommand]);
 });

@@ -1,0 +1,5 @@
+{
+  "extends": "prototype",
+  "itt": "agents-relay infer --reasoning low --eligible-profiles \"${NEO_VISION_PROFILES:-vision-low}\" --capability vision --input {input} --prompt {prompt_quoted}",
+  "agent": "agents-relay infer --reasoning low --eligible-profiles \"${NEO_VISION_PROFILES:-vision-low}\" --capability text --format json --prompt {prompt}"
+}
