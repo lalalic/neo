@@ -212,7 +212,7 @@ fn verified_thread_url(value: &Value, project: Option<&str>) -> Option<(String, 
 }
 // The readiness probe and delivery use the same normal Action config.
 fn recovery_config(thread: &str, response: &str, next_seq: usize, attempt: usize) -> Value {
-    let message=format!("Finish existing request {response}. Do not repeat completed actions. Continue only unfinished work. 1. Publish the actual result to reply/models/{response} with reply.text, seq={next_seq} (skip if final text was already accepted). 2. Publish reply.completed separately with data={{}}; on actual failure use reply.failed with an error. 3. Verify the publish receipts before ending.");
+    let message=format!("Continue the existing request {response} from your current progress. If the task is unfinished, continue executing it until completion, including any required tool calls or reading attachments. Do not report a final result prematurely or repeat completed actions. Once the task is complete, publish only remaining actual result text to reply/models/{response} using reply.text, seq={next_seq}, with data={{\"seq\":{next_seq},\"text\":\"actual result\"}}; increment seq for further fragments. Do not repeat accepted fragments; skip reply.text if all final text was already accepted. Then publish reply.completed separately with data={{}}. If an unrecoverable failure prevents task completion, publish reply.failed with data={{\"error\":\"actual reason\"}} instead. Verify all publish receipts before ending. Report via Events Bus only, not chat.");
     json!({"thread_id":thread,"message":message,"thinking_level":"","mergeable":false,"idempotency_key":format!("{response}-recovery-{attempt}")})
 }
 impl Submission for Held {
