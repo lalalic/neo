@@ -275,21 +275,26 @@ fn html(report: &Value) -> String {
     h.push_str(r##"<h2>Human findings</h2><p>Record evidence line / Task, issue, proposed owner and decision. Download separate private review JSON; the source report remains unchanged.</p><textarea id=notes placeholder='Evidence / finding / proposed change'></textarea><select id=verdict><option>NOT_REVIEWED</option><option>PASS</option><option>CHANGE_REQUIRED</option><option>UNKNOWN</option></select><button id=save>Save review JSON</button><script>document.querySelector('#filter').oninput=e=>document.querySelectorAll('tr.file').forEach(r=>r.hidden=!r.textContent.toLowerCase().includes(e.target.value.toLowerCase()));document.querySelectorAll('a[href^="#call-"]').forEach(a=>a.onclick=()=>{let d=document.getElementById(a.hash.slice(1));if(d){d.open=true;let p=d.parentElement;if(p.tagName==='DETAILS')p.open=true}});document.querySelector('#save').onclick=()=>{let data={source:location.pathname,reviewedAt:new Date().toISOString(),verdict:document.querySelector('#verdict').value,findings:document.querySelector('#notes').value};let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));a.download='agent-review.json';a.click();URL.revokeObjectURL(a.href)};</script>"##);
     h
 }
-fn private_report(root: &Path, report: &Value, rendered: &str) -> Result<PathBuf, String> {
-    // Refuse redirected report roots: all reports remain project-private.
-    let mut p = root.to_path_buf();
-    for name in [".evals", "reports"] {
-        p.push(name);
-        match fs::symlink_metadata(&p) {
+fn private_report(base: &Path, report: &Value, rendered: &str) -> Result<PathBuf, String> {
+    // Refuse redirected report roots. Non-Neo repository reports live outside
+    // Git in a private per-user directory.
+    for p in [base.parent().ok_or("Invalid report directory")?, base] {
+        match fs::symlink_metadata(p) {
             Ok(m) if m.is_dir() && !m.file_type().is_symlink() => {}
             Ok(_) => return Err("unsafe report directory".into()),
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-                fs::create_dir(&p).map_err(|e| e.to_string())?
+                let mut builder = fs::DirBuilder::new();
+                #[cfg(unix)]
+                {
+                    use std::os::unix::fs::DirBuilderExt;
+                    builder.mode(0o700);
+                }
+                builder.create(p).map_err(|e| e.to_string())?
             }
             Err(e) => return Err(e.to_string()),
         }
     }
-    let p = p.join(format!(
+    let p = base.join(format!(
         "execution-{}-{}",
         chrono::Utc::now().format("%Y%m%dT%H%M%SZ"),
         uuid::Uuid::new_v4().simple()
@@ -325,17 +330,17 @@ fn private_report(root: &Path, report: &Value, rendered: &str) -> Result<PathBuf
 // snapshot is never reused as a Job report; historical reports without a
 // recorded selection are intentionally not guessed.
 fn latest_report(
+    base: &Path,
     root: &Path,
     job: &Value,
     opt: &BTreeMap<String, String>,
 ) -> Result<PathBuf, String> {
-    let base = root.join(".evals/reports");
-    for p in [root.join(".evals"), base.clone()] {
-        if !fs::symlink_metadata(&p).is_ok_and(|m| m.is_dir() && !m.file_type().is_symlink()) {
+    for p in [base.parent().ok_or("Invalid report directory")?, base] {
+        if !fs::symlink_metadata(p).is_ok_and(|m| m.is_dir() && !m.file_type().is_symlink()) {
             return Err("No saved report for this scope".into());
         }
     }
-    let mut dirs = fs::read_dir(&base)
+    let mut dirs = fs::read_dir(base)
         .map_err(|_| "No saved report for this scope")?
         .flatten()
         .filter(|e| e.file_name().to_string_lossy().starts_with("execution-"))
@@ -411,12 +416,27 @@ pub fn run(args: &[String]) -> Result<i32, String> {
         .canonicalize()
         .map_err(|_| "Job project unavailable")?;
     let ws = workspace::load()?;
-    if root.parent() != Some(ws.neo_root.as_path())
-        || !root.join(".git").exists()
-        || !root.join("AGENTS.md").is_file()
+    // Relay Jobs also target ordinary Git repositories (including Relay and
+    // Neo themselves). Verify the exact canonical Git root supplied by Relay;
+    // never use a browser-supplied path or write trace artifacts into those repos.
+    let mut git = Command::new("git");
+    git.arg("-C").arg(&root).args(["rev-parse", "--show-toplevel"]);
+    let result = process_guard::capture(&mut git, Duration::from_secs(10), 16 * 1024)?;
+    let actual = String::from_utf8_lossy(&result.stdout);
+    if !result.status.success()
+        || PathBuf::from(actual.trim()).canonicalize().ok().as_ref() != Some(&root)
     {
-        return Err("Job project is not an independent configured Neo project".into());
+        return Err("Job project is not an independent Git repository".into());
     }
+    let base = if root.parent() == Some(ws.neo_root.as_path())
+        && ["AGENTS.md", "README.md", "graph.mmd"].iter().all(|name| root.join(name).is_file()) {
+        root.join(".evals/reports")
+    } else {
+        workspace::home()?
+            .canonicalize()
+            .map_err(|_| "Home unavailable")?
+            .join(".neo-execution-reports/reports")
+    };
     if opt
         .get("--project")
         .is_some_and(|p| root.file_name().and_then(|n| n.to_str()) != Some(p))
@@ -436,7 +456,7 @@ pub fn run(args: &[String]) -> Result<i32, String> {
         return Err("report format must be receipt or viewer".into());
     }
     if opt.get("--mode").is_some_and(|m| m == "latest") {
-        let dir = latest_report(&root, &job, &opt)?;
+        let dir = latest_report(&base, &root, &job, &opt)?;
         let data = fs::read(dir.join("report.json")).map_err(|_| "Saved report unavailable")?;
         let report: Value = serde_json::from_slice(&data).map_err(|_| "Invalid saved report")?;
         print_receipt(
@@ -469,7 +489,7 @@ pub fn run(args: &[String]) -> Result<i32, String> {
         return Err("no matching Task".into());
     }
     let report = json!({"schema":"neo.execution-report.v1","capturedAt":chrono::Utc::now().to_rfc3339(),"selection":{"taskId":selected,"executionId":opt.get("--execution-id")},"truth":{"behavior":"raw JSONL","lifecycle":"Relay readback","fileInventory":"conservative operand analysis, not filesystem audit","reasons":"inferred; human review required"},"job":{"id":id,"title":excerpt(s(&job,"title"),400),"state":job["state"],"projectRoot":root,"repository":job["repository"],"recordedSpanMs":duration(&job["createdAt"],&job["updatedAt"])},"tasks":tasks});
-    let dir = private_report(&root, &report, &html(&report))?;
+    let dir = private_report(&base, &report, &html(&report))?;
     print_receipt(
         &dir,
         &report,
