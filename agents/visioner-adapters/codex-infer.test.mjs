@@ -20,7 +20,7 @@ test('uses shared router with low reasoning and no private prompt or paths; pins
    }
    assert.equal(cmd,'codex');assert.equal(args[args.indexOf('-p')+1],'vision-low');assert.equal(args[args.indexOf('-m')+1],'gpt-6-luna');
    assert.ok(args.includes('model_reasoning_effort="low"'));assert.ok(args.includes('read-only'));assert.ok(args.includes(a)&&args.includes(b));
-   assert.ok(opts.input.includes('private prompt'));owned=opts.cwd;
+   assert.ok(opts.input.includes('private prompt'));assert.equal(opts.timeout,undefined);owned=opts.cwd;
    writeFileSync(args[args.indexOf('-o')+1],'Observed red and blue.');return {status:0};
  };
  assert.equal(inferCodex({prompt:'private prompt',inputs:[a,b],profiles:'vision-low',runner,report:()=>{}}),'Observed red and blue.');
