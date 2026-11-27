@@ -1,0 +1,4 @@
+{
+  "extends": "./product.json",
+  "stt": "node \"$(neo workspace show | node -p 'JSON.parse(require(\"node:fs\").readFileSync(0,\"utf8\")).harnessRoot')/skills/elevenlabs-stt/scripts/scribe.mjs\" --input \"{input}\" --output-dir \"{output}\" --confirm-cloud-upload"
+}

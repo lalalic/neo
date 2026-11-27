@@ -50,7 +50,7 @@ interface, not semantic inference. Provider credentials and source transfer
 permission remain prerequisites; product FLUX generation requires compatible
 local resources. Direct CLI template flags override the selected file.
 
-Visioner always uses the product profile for source understanding. Prototype
+Visioner always uses the product profile for source understanding. The specialized `product-elevenlabs.json` profile extends product and changes only STT to ElevenLabs Scribe v3. It is selected directly by authorized project callers (see the [Scribe Skill](../../skills/elevenlabs-stt/SKILL.md)); it must not be selected before source-specific cloud and cost authorization. Prototype
 is for Editor/draft work, not Visioner. Project Shortcuts need not pass a profile;
 explicit `profile: 'product'` is accepted and other profiles are rejected.
 Authorized direct adapter overrides and valid metadata reuse remain supported.

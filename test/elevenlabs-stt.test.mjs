@@ -82,7 +82,7 @@ test('unknown HTTP billing status is not automatically retried',async t=>{
  await assert.rejects(transcribeFile({input:f.file,outputDir:f.out,confirmCloudUpload:true,apiKey:'test',fetchImpl:async()=>{calls++;throw Error('network');}}),/unknown_billing_status/);
  assert.equal(calls,1);
 });
-test('Neo shared Visioner offers Scribe only as an opt-in Markcut --stt adapter',async()=>{
+test('Neo shared Visioner offers Scribe through an authorized product-derived profile',async()=>{
  const root=new URL('../',import.meta.url);
  const {readFile}=await import('node:fs/promises');
  const visioner=await readFile(new URL('agents/visioner.agent.md',root),'utf8');
@@ -92,5 +92,9 @@ test('Neo shared Visioner offers Scribe only as an opt-in Markcut --stt adapter'
  assert.match(visioner,/elevenlabs-stt/);
  assert.match(skill,/scribe_v3/);
  assert.match(skill,/--confirm-cloud-upload/);
+ const profile=JSON.parse(await readFile(new URL("agents/visioner-adapters/profiles/product-elevenlabs.json",root),"utf8"));
+ assert.deepEqual(Object.keys(profile).sort(),["extends","stt"]);
+ assert.equal(profile.extends,"./product.json");
+ assert.match(profile.stt,/scribe\.mjs.*--input "\{input\}".*--output-dir "\{output\}".*--confirm-cloud-upload/);
 
 });
