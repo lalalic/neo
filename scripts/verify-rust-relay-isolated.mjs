@@ -25,7 +25,7 @@ if (!sourceRoot || !isAbsolute(sourceRoot)) {
   process.stderr.write('Usage: node scripts/verify-rust-relay-isolated.mjs /absolute/agents-relay/repo\n');
   process.exit(2);
 }
-const original = join(homedir(), '.local/share/agents-relay/live/bin');
+const original = process.env.NEO_TEST_RELAY_BIN_DIR || join(homedir(), '.local/share/agents-relay/live/bin');
 for (const file of [
   join(original, 'agents-relay-rust'),
   join(original, 'agents-relayd-rust'),
@@ -52,7 +52,7 @@ async function main() {
   let logFd;
   try {
     const workspace = join(base, 'workspace');
-    const projectName = terminal ? 'vlog' : 'sample';
+    const projectName = 'sample';
     const project = join(workspace, projectName);
     const run = join(project, 'runs', '2026-11-23-episode');
     const stores = join(base, 'stores');
@@ -65,20 +65,21 @@ async function main() {
     copyFileSync(join(sourceRoot, 'rust/target/debug/owned-process-supervisor'), join(binaries, 'owned-process-supervisor'));
     for (const name of ['agents-relay-rust', 'agents-relayd-rust', 'owned-process-supervisor']) chmodSync(join(binaries, name), 0o755);
     cpSync(join(sourceRoot, 'workflow'), join(base, 'workflow'), { recursive: true });
+    cpSync(join(sourceRoot, 'skills/agents-relay'), join(base, 'skills/agents-relay'), { recursive: true });
 
     writeFileSync(join(project, 'AGENTS.md'), '# Isolated Neo Test\n');
     writeFileSync(join(project, 'README.md'), '# Test Project\n');
     writeFileSync(join(project, 'graph.mmd'), terminal ? 'flowchart TD\n  A[agent:fixture]\n' : 'flowchart TD\n  A[agent:writer] --> B[agent:editor]\n');
     if (terminal) {
-      writeFileSync(join(run,'source-manifest.json'), JSON.stringify({source_use:{approved:true,scope:'private synthetic fixture only'}}));
       mkdirSync(join(project, 'agents/.shortcut'), {recursive:true});
-      writeFileSync(join(project,'agents/fixture.agent.md'), '---\nname: fixture\ncapabilities: [script]\n---\n# Isolated real Script Worker\n');
-      writeFileSync(join(project,'agents/.shortcut/fixture.agent.mjs'), "export async function run({input}) {return {status:'COMPLETED',output:{blackbox:true,execution:input.executionId},artifacts:{}};}\n");
+      writeFileSync(join(project,'agents/fixture.agent.md'), '---\nname: fixture\ninteractive_review: true\ncapabilities: [script]\n---\n# Isolated real Script Worker\n');
+      writeFileSync(join(project,'agents/.shortcut/fixture.agent.mjs'), "export async function run({input}) {return {status:'COMPLETED',output:{blackbox:true,execution:input.executionId,interactiveReviewEnabled:input.interactiveReviewEnabled},artifacts:{}};}\n");
     }
     writeFileSync(join(project, 'project.run.json'), JSON.stringify({
       schemaVersion: 1,
       input: { type: 'path', path: { base: 'runs', datedRunDirectory: true } },
-      versioning: { mode: 'local-git', template: 'run-template' }
+      versioning: { mode: 'local-git', template: 'run-template' },
+      ...(terminal ? {reviewEnabled:false} : {})
     }));
     mkdirSync(join(project, 'run-template'));
     writeFileSync(join(project, 'run-template/.gitignore'), '.neo-project-run.json\nsource-reference.json\nneo-project-run.*\n');
@@ -104,8 +105,8 @@ async function main() {
       if(request.method!=='GET'||url.pathname!=='/events'){
         response.writeHead(404).end();return;
       }
-      const job=url.searchParams.get('job')||'';
-      const payload=JSON.stringify({job_id:job,order:'desc',events:[],next_cursor:0});
+      const order=url.searchParams.get('order')||'desc';
+      const payload=JSON.stringify({order,events:[],next_cursor:Number(url.searchParams.get('after')||0)});
       response.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store',
         'Content-Length':Buffer.byteLength(payload),'Connection':'close'});
       response.end(payload);
@@ -129,7 +130,8 @@ async function main() {
       NEO_WORKSPACE_CONFIG: config,
       NEO_RELAY_EXECUTABLE: relayWrapper,
       NEO_RELAY_CONTROL_PORT: String(port),
-      AGENTS_RELAY_SCRIPT_NODE: process.execPath
+      AGENTS_RELAY_SCRIPT_NODE: process.execPath,
+      AGENTS_RELAY_RESOURCE_ROOT: base
     };
     logFd = openSync(join(base, 'daemon.log'), 'w');
     daemon = spawn(join(binaries, 'agents-relayd-rust'), [
@@ -227,16 +229,20 @@ async function main() {
       assert(child,'missing real Script DAG child');
       assert.equal(child.state,'SUCCEEDED');assert.equal(child.attempt,1);
       assert.equal(child.result.data.output.blackbox,true);
+      assert.equal(job.interactiveReviewEnabled,false);
+      assert.equal(child.interactiveReviewEnabled,false);
+      assert.equal(child.result.data.output.interactiveReviewEnabled,false);
+      assert.equal(child.interactiveInvocation,undefined);
       const events=snapshot.prepare('SELECT COUNT(*) AS n FROM workflow_event_outbox WHERE event_key LIKE ?').get('script-event/'+created.jobId+'/'+child.id+'/%').n;
       snapshot.close();
       assert.equal(events,2,'expected actual Script start/completion events');
-      const final=JSON.parse(execFileSync(rust,['project','run','--project',projectName,'--path',run,'--no-review'],{cwd:workspace,env:environment,encoding:'utf8',timeout:15000}));
+      const final=JSON.parse(execFileSync(rust,['project','run','--project',projectName,'--path',run],{cwd:workspace,env:environment,encoding:'utf8',timeout:15000}));
       assert.equal(final.status,'COMPLETED');assert.equal(final.reused,true);
       assert.equal(final.jobId,created.jobId);assert.equal(final.taskId,created.taskId);
       const receipt=JSON.parse(readFileSync(join(run,'neo-project-run.result.json'),'utf8'));
       assert.equal(receipt.status,'COMPLETED');
       assert.equal(receipt.output.nodes.A.output.blackbox,true);
-      console.log(JSON.stringify({passed:true,mode:'isolated-real-script-terminal',jobState:job.state,workerState:child.state,workerAttempts:child.attempt,events,jobIdStable:true,taskIdStable:true,preflightRejected,reviewEnabled:false,productionStateTouched:false},null,2));
+      console.log(JSON.stringify({passed:true,mode:'isolated-real-script-terminal',jobState:job.state,workerState:child.state,workerAttempts:child.attempt,events,jobIdStable:true,taskIdStable:true,preflightRejected,reviewEnabled:job.reviewEnabled,interactiveReviewEnabled:job.interactiveReviewEnabled,workerInteractiveReviewEnabled:child.result.data.output.interactiveReviewEnabled,productionStateTouched:false},null,2));
       return;
     }
     if (reliability) {

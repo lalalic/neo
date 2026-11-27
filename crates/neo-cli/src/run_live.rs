@@ -302,8 +302,15 @@ fn bound(
     {
         return Err("existing Relay Job repository or projectRoot does not match this independent Git repository".into());
     }
+    if let Some(wanted) = prepared.options.interactive_review {
+        if (job_object["interactiveReviewEnabled"] == true) != wanted {
+            return Err("Bound Job has a different Interactive Review policy; existing Job policy cannot be changed on resume".into());
+        }
+    }
     for (flag, value) in &prepared.options.routing_preferences {
-        let key = flag.strip_prefix("--prefer-").expect("validated preference flag");
+        let key = flag
+            .strip_prefix("--prefer-")
+            .expect("validated preference flag");
         if job_object["routingPreferences"][key].as_str() != Some(value.as_str()) {
             return Err(format!("bound Run has a different {key} preference; use Relay job update to change the existing Job"));
         }
@@ -397,14 +404,10 @@ fn job_title(project: &str, run: &Path) -> String {
     let p = project
         .split(['-', '_'])
         .map(|word| {
-            if word == "vlog" {
-                "Vlog".to_string()
-            } else {
-                let mut c = word.chars();
-                c.next()
-                    .map(|first| first.to_uppercase().collect::<String>() + c.as_str())
-                    .unwrap_or_default()
-            }
+            let mut c = word.chars();
+            c.next()
+                .map(|first| first.to_uppercase().collect::<String>() + c.as_str())
+                .unwrap_or_default()
         })
         .collect::<Vec<_>>()
         .join(" ");
@@ -498,8 +501,13 @@ fn new_job(prepared: &Prepared, run: &Path, files: &RunFiles) -> Result<RunActio
     for (flag, value) in &prepared.options.routing_preferences {
         values.extend([flag.clone(), value.clone()]);
     }
-    if prepared.options.no_review {
+    if !prepared.review_enabled {
         values.push("--no-review".into());
+    }
+    if prepared.interactive_review_enabled {
+        values.push("--interactive-review".into());
+    } else {
+        values.push("--no-interactive-review".into());
     }
     let created = relay(&values)?;
     let job_id = identifier(&created, "Job create", true)?;

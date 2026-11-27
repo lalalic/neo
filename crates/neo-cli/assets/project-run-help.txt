@@ -1,4 +1,4 @@
-Usage: neo project run [--url HTTPS_URL | --path ABSOLUTE_RUN_DIR] --project NAME [--dag NAME] [--source NAME] [--title TEXT] [--prefer-adapter codex] [--prefer-provider NAME] [--prefer-model ID] [--prefer-profile NAME] [--prefer-reasoning EFFORT] [--dry-run] [--foreground] [--no-review]
+Usage: neo project run [--url HTTPS_URL | --path ABSOLUTE_RUN_DIR] --project NAME [--dag NAME] [--source NAME] [--title TEXT] [--prefer-adapter codex] [--prefer-provider NAME] [--prefer-model ID] [--prefer-profile NAME] [--prefer-reasoning EFFORT] [--dry-run] [--foreground] [--review | --no-review]
 
 Creates one ordinary DRAFT Relay Job and its durable Coordinator DAG Task in
 a single SQLite transaction, binds this private Run, then activates the Job
@@ -28,10 +28,9 @@ Options accept --name value or --name=value in any order.
             Project selects the DAG, private brief filename and config. Cannot combine with --url or --path.
 --dry-run   Validate and preview without writes or Relay calls
 --foreground Run the Coordinator DAG immediately in this terminal, streaming Task events until completion
---no-review Private Vlog render test only: approved source-use required,
-            publication blocked (not a general Final Review bypass)
-Vlog review-stages.json may opt in boolean visioner/director/producer stages;
-            opted-in stages require Task-bound approval or Request Changes.
+--review / --no-review Enable / disable Relay Interactive Review for this Job.
+Default: project interactiveReviewEnabled, otherwise false. Agents opt in through interactive_review: true.
+Independent Job Review uses the Project's reviewEnabled declaration (default true).
 
 Re-running an already-bound Run verifies the stored Job/Graph/Task and returns
 its current state; it does not create another Job or restart completed work.

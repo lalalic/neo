@@ -31,7 +31,7 @@ if cmd=='job:create':
       'agentGraph':pathlib.Path(val('--coordinator-graph-file')).read_text(),
       'output':{'kind':'file','path':val('--coordinator-output-path')}}
     state['jobs'][jid]={'id':jid,'repository':project,'projectRoot':val('--project-root'),
-       'state':'DRAFT','task':task}
+       'state':'DRAFT','task':task,'interactiveReviewEnabled':'--interactive-review' in args}
     prefs={k:val('--prefer-'+k) for k in ('adapter','provider','model','profile','reasoning') if '--prefer-'+k in args}
     if prefs:state['jobs'][jid]['routingPreferences']=prefs
     persist();print(json.dumps({'repository':project,'pr':0,'job':'old-id' if (root/'bad-job-id').exists() else jid,
@@ -465,129 +465,78 @@ fn bound_source_evidence_tampering_is_rejected_without_second_job() {
 }
 
 #[test]
-fn private_vlog_no_review_requires_authorized_manifest_and_matches_node_bytes() {
-    let a = Fixture::new_named("vlog");
-    let b = Fixture::new_named("vlog");
-    for f in [&a, &b] {
-        put(
-            &f.run.join("source-manifest.json"),
-            r#"{"source_use":{"approved":true,"scope":"private only"}}"#,
-        );
-    }
-    let args_a = [
-        "--project",
-        "vlog",
-        "--path",
-        a.run.to_str().unwrap(),
-        "--no-review",
-    ];
-    let args_b = [
-        "--project",
-        "vlog",
-        "--path",
-        b.run.to_str().unwrap(),
-        "--no-review",
-    ];
-    let one = a.assert_success(&a.call(&args_a));
-    let two = b.assert_success(&b.call(&args_b));
-    assert_eq!(one["status"], "ACTIVE");
-    assert_eq!(two["status"], "ACTIVE");
-    for name in [
-        "source-reference.json",
-        "neo-project-run.objective.md",
-        "neo-project-run.input.md",
-        "review-mode.json",
-    ] {
-        let rust = fs::read_to_string(a.run.join(name))
-            .unwrap()
-            .replace(a.run.to_str().unwrap(), "<RUN>");
-        let peer = fs::read_to_string(b.run.join(name))
-            .unwrap()
-            .replace(b.run.to_str().unwrap(), "<RUN>");
-        assert_eq!(rust, peer, "Vlog policy file parity: {name}");
-    }
-    let mode: Value =
-        serde_json::from_slice(&fs::read(a.run.join("review-mode.json")).unwrap()).unwrap();
-    assert_eq!(mode["publicationAllowed"], false);
-    assert_eq!(mode["reviewStatus"], "UNREVIEWED");
-    #[cfg(unix)]
-    assert_eq!(
-        fs::metadata(a.run.join("review-mode.json"))
-            .unwrap()
-            .permissions()
-            .mode()
-            & 0o777,
-        0o600
-    );
-    let reread = a.assert_success(&a.call(&args_a));
-    assert_eq!(reread["jobId"], one["jobId"]);
-    assert_eq!(a.state()["creates"], 1);
-    let denied = a.call(&["--project", "vlog", "--path", a.run.to_str().unwrap()]);
-    assert!(!denied.status.success());
-}
-
-#[test]
-fn private_vlog_no_review_rejects_missing_approval_before_relay() {
-    for content in [
-        None,
-        Some(r#"{"source_use":{"approved":false,"scope":"private"}}"#),
-        Some(r#"{"source_use":{"approved":true,"scope":"public"}}"#),
-    ] {
-        let f = Fixture::new_named("vlog");
-        if let Some(value) = content {
-            put(&f.run.join("source-manifest.json"), value);
-        }
-        let args = [
-            "--project",
-            "vlog",
-            "--path",
-            f.run.to_str().unwrap(),
-            "--no-review",
-        ];
-        {
-            let result = f.call(&args);
-            assert!(
-                !result.status.success(),
-                "rejected manifest should not create a Job"
+fn interactive_switch_is_independent_of_final_review_and_bound_on_resume() {
+    for project in ["sample", "alternate"] {
+        for (flag, enabled) in [("--review", true), ("--no-review", false)] {
+            let f = Fixture::new_named(project);
+            put(
+                &f.workspace.join(project).join("project.run.json"),
+                r#"{"schemaVersion":1,"input":{"type":"path","path":{"base":"runs","datedRunDirectory":true}},"reviewEnabled":false}"#,
             );
-            assert!(!f.run.join(".neo-project-run.json").exists());
+            let args = [
+                "--project",
+                project,
+                "--path",
+                f.run.to_str().unwrap(),
+                flag,
+            ];
+            let result = f.assert_success(&f.call(&args));
+            assert_eq!(result["status"], "ACTIVE");
+            let state = f.state();
+            let argv = state["create_args"].as_array().unwrap();
+            assert!(argv.iter().any(|v| v == "--no-review"));
+            assert_eq!(argv.iter().any(|v| v == "--interactive-review"), enabled);
+            assert_eq!(
+                argv.iter().any(|v| v == "--no-interactive-review"),
+                !enabled
+            );
+            for name in [
+                "review-stages.json",
+                "source-manifest.json",
+                "review-mode.json",
+            ] {
+                assert!(!f.run.join(name).exists());
+            }
+            assert_eq!(f.assert_success(&f.call(&args))["jobId"], result["jobId"]);
+            let opposite = if enabled { "--no-review" } else { "--review" };
+            assert!(!f
+                .call(&[
+                    "--project",
+                    project,
+                    "--path",
+                    f.run.to_str().unwrap(),
+                    opposite
+                ])
+                .status
+                .success());
+            assert_eq!(f.state()["creates"], 1);
         }
     }
 }
 
 #[test]
-fn stage_review_flags_are_exact_deterministic_contract_and_reject_unconfigured_agents() {
-    let a = Fixture::new();
-    let b = Fixture::new();
-    for f in [&a, &b] {
-        put(
-            &f.workspace.join("sample/project.run.json"),
-            r#"{"schemaVersion":1,"input":{"type":"path","path":{"base":"runs","datedRunDirectory":true}},"reviewableDags":{"growth":["writer"]},"defaultDag":"growth","graphs":{"growth":"graph.mmd"}}"#,
-        );
-        put(&f.run.join("review-stages.json"), r#"{"writer":true}"#);
+fn interactive_review_default_override_and_mutual_exclusion() {
+    for (default, flag, enabled) in [
+        (true, None, true),
+        (true, Some("--no-review"), false),
+        (false, Some("--review"), true),
+        (false, None, false),
+    ] {
+        let f = Fixture::new();
+        put(&f.workspace.join("sample/project.run.json"),&json!({"schemaVersion":1,"input":{"type":"path","path":{"base":"runs","datedRunDirectory":true}},"interactiveReviewEnabled":default}).to_string());
+        let mut args = vec!["--project", "sample", "--path", f.run.to_str().unwrap()];
+        let mut conflict = args.clone();
+        conflict.extend(["--review", "--no-review"]);
+        assert!(!f.call(&conflict).status.success());
+        if let Some(flag) = flag {
+            args.push(flag);
+        }
+        f.assert_success(&f.call(&args));
+        let state = f.state();
+        let argv = state["create_args"].as_array().unwrap();
+        assert_eq!(argv.iter().any(|v| v == "--interactive-review"), enabled);
+        assert!(!argv.iter().any(|v| v == "--no-review"));
     }
-    let args_a = ["--project", "sample", "--path", a.run.to_str().unwrap()];
-    let args_b = ["--project", "sample", "--path", b.run.to_str().unwrap()];
-    a.assert_success(&a.call(&args_a));
-    b.assert_success(&b.call(&args_b));
-    for name in ["neo-project-run.objective.md", "neo-project-run.input.md"] {
-        let rust = fs::read_to_string(a.run.join(name))
-            .unwrap()
-            .replace(a.run.to_str().unwrap(), "<RUN>");
-        let peer = fs::read_to_string(b.run.join(name))
-            .unwrap()
-            .replace(b.run.to_str().unwrap(), "<RUN>");
-        assert_eq!(rust, peer, "Review text parity: {name}");
-        assert!(rust.contains("MANDATORY STAGE-BY-STAGE HUMAN REVIEWS"));
-    }
-    let f = Fixture::new();
-    put(
-        &f.workspace.join("sample/project.run.json"),
-        r#"{"schemaVersion":1,"input":{"type":"path","path":{"base":"runs","datedRunDirectory":true}},"reviewableDags":{"growth":["writer"]},"defaultDag":"growth","graphs":{"growth":"graph.mmd"}}"#,
-    );
-    put(&f.run.join("review-stages.json"), r#"{"unknown":true}"#);
-    assert!(!f.run().status.success());
-    assert!(!f.run.join(".neo-project-run.json").exists());
 }
 
 #[test]
@@ -605,7 +554,7 @@ fn recovering_unbound_discovery_source_preserves_exact_source_and_graph() {
         );
         put(
             &f.workspace.join("sample/project.run.json"),
-            r#"{"schemaVersion":1,"input":{"type":"url","schemes":["https"],"resumePath":true,"preparedPath":true},"graphs":{"growth":"graph-growth.mmd"},"defaultDag":"growth","dagInputs":{"growth":{"type":"discovery","domain":"general"}},"sources":{"topic":{"dag":"growth","config":"config/topic.json","runFile":"source-brief.json"}}}"#,
+            r#"{"schemaVersion":1,"input":{"type":"url","schemes":["https"],"resumePath":true,"preparedPath":true,"preparedPathRequiredFiles":["input/source.json","evidence/input.json"]},"graphs":{"growth":"graph-growth.mmd"},"defaultDag":"growth","dagInputs":{"growth":{"type":"discovery","domain":"general"}},"sources":{"topic":{"dag":"growth","config":"config/topic.json","runFile":"source-brief.json"}}}"#,
         );
         put(&f.state_root.join("fail-job-create"), "test interruption");
     }
@@ -856,13 +805,13 @@ fn prepared_url_project_run_reuses_original_private_evidence() {
     for f in [&rust, &peer] {
         put(
             &f.workspace.join("sample/project.run.json"),
-            r#"{"schemaVersion":1,"input":{"type":"url","schemes":["https"],"resumePath":true,"preparedPath":true}}"#,
+            r#"{"schemaVersion":1,"input":{"type":"url","schemes":["https"],"resumePath":true,"preparedPath":true,"preparedPathRequiredFiles":["input/source.json","evidence/input.json"]}}"#,
         );
         put(
-            &f.run.join("campaign.json"),
+            &f.run.join("input/source.json"),
             r#"{"schemaVersion":1,"intent":"review"}"#,
         );
-        put(&f.run.join("evidence/original-source.json"), "{}");
+        put(&f.run.join("evidence/input.json"), "{}");
     }
     let a = rust.assert_success(&rust.run());
     let b = peer.assert_success(&peer.run());
@@ -883,70 +832,34 @@ fn prepared_url_project_run_reuses_original_private_evidence() {
 }
 
 #[test]
-fn vlog_publisher_review_and_six_stage_growth_policy_are_node_equivalent() {
-    for project in ["vlog", "growth"] {
-        let rust = Fixture::new_named(project);
-        let peer = Fixture::new_named(project);
-        for f in [&rust, &peer] {
-            if project == "vlog" {
-                put(
-                    &f.workspace.join("vlog/project.run.json"),
-                    r#"{"schemaVersion":1,"input":{"type":"path","path":{"base":"runs","datedRunDirectory":true}},"publicationReview":"publisher-explicit-authorization"}"#,
-                );
-                put(
-                    &f.run.join("review-stages.json"),
-                    r#"{"visioner":true,"director":true,"producer":true}"#,
-                );
-            } else {
-                let names = [
-                    "growth-researcher",
-                    "growth-strategist",
-                    "growth-writer",
-                    "growth-editor",
-                    "growth-operator",
-                    "growth-analyst",
-                ];
-                let graph = format!(
-                    "flowchart TD\n {}\n",
-                    names
-                        .iter()
-                        .map(|n| format!(" [agent:{n}]"))
-                        .collect::<Vec<_>>()
-                        .join(" --> ")
-                );
-                put(&f.workspace.join("growth/graph-growth.mmd"), &graph);
-                let config = json!({"schemaVersion":1,"input":{"type":"path","path":{"base":"runs","datedRunDirectory":true}},
-                    "graphs":{"review":"graph-growth.mmd"},"defaultDag":"review","reviewableDags":{"review":names}});
-                put(
-                    &f.workspace.join("growth/project.run.json"),
-                    &serde_json::to_string(&config).unwrap(),
-                );
-                let stages = names
-                    .iter()
-                    .map(|s| (s.to_string(), json!(true)))
-                    .collect::<serde_json::Map<_, _>>();
-                put(
-                    &f.run.join("review-stages.json"),
-                    &serde_json::to_string(&stages).unwrap(),
-                );
-            }
+fn prepared_path_requires_project_declared_real_confined_evidence() {
+    for invalid in ["missing", "partial", "symlink", "traversal"] {
+        let f = Fixture::new();
+        let files = if invalid == "traversal" {
+            json!(["../outside.json"])
+        } else {
+            json!(["input/source.json", "evidence/input.json"])
+        };
+        let config = json!({"schemaVersion":1,"input":{"type":"url","schemes":["https"],"resumePath":true,"preparedPath":true,"preparedPathRequiredFiles":files}});
+        put(
+            &f.workspace.join("sample/project.run.json"),
+            &config.to_string(),
+        );
+        if invalid == "partial" || invalid == "symlink" {
+            put(&f.run.join("input/source.json"), "{}");
         }
-        let args_a = ["--project", project, "--path", rust.run.to_str().unwrap()];
-        let args_b = ["--project", project, "--path", peer.run.to_str().unwrap()];
-        rust.assert_success(&rust.call(&args_a));
-        peer.assert_success(&peer.call(&args_b));
-        for file in ["neo-project-run.objective.md", "neo-project-run.input.md"] {
-            let native = fs::read_to_string(rust.run.join(file))
-                .unwrap()
-                .replace(rust.run.to_str().unwrap(), "<RUN>");
-            let refer = fs::read_to_string(peer.run.join(file))
-                .unwrap()
-                .replace(peer.run.to_str().unwrap(), "<RUN>");
-            assert_eq!(
-                native, refer,
-                "multi-stage approval policy parity for {project}:{file}"
-            );
+        #[cfg(unix)]
+        if invalid == "symlink" {
+            let outside = f.workspace.join("outside.json");
+            put(&outside, "{}");
+            fs::create_dir_all(f.run.join("evidence")).unwrap();
+            std::os::unix::fs::symlink(outside, f.run.join("evidence/input.json")).unwrap();
         }
+        assert!(
+            !f.run().status.success(),
+            "accepted invalid evidence {invalid}"
+        );
+        assert!(!f.run.join(".neo-project-run.json").exists());
     }
 }
 
@@ -1005,10 +918,21 @@ fn project_run_passes_all_soft_routing_preferences_before_activation() {
     assert!(!f.call(&bad).status.success());
     assert!(!f.state_root.join("state.json").exists());
     let mut args = base.to_vec();
-    args.extend(["--prefer-adapter=codex", "--prefer-profile", "neo", "--prefer-provider=neo-local", "--prefer-model", "neo", "--prefer-reasoning=high"]);
+    args.extend([
+        "--prefer-adapter=codex",
+        "--prefer-profile",
+        "neo",
+        "--prefer-provider=neo-local",
+        "--prefer-model",
+        "neo",
+        "--prefer-reasoning=high",
+    ]);
     assert_eq!(f.assert_success(&f.call(&args))["status"], "ACTIVE");
     let state = f.state();
-    assert_eq!(state["jobs"]["101"]["routingPreferences"], json!({"adapter":"codex","profile":"neo","provider":"neo-local","model":"neo","reasoning":"high"}));
+    assert_eq!(
+        state["jobs"]["101"]["routingPreferences"],
+        json!({"adapter":"codex","profile":"neo","provider":"neo-local","model":"neo","reasoning":"high"})
+    );
     assert_eq!(state["calls"][0], "job:create");
     assert_eq!(f.assert_success(&f.call(&args))["jobId"], "101");
     let mut other = base.to_vec();

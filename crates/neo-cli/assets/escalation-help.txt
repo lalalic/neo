@@ -8,7 +8,7 @@ Usage:
   neo agent list [--project PATH] [--source project|shared|global|agency]
   neo agent search QUERY [--project PATH] [--source ...] [--limit N]
   neo project list|resolve NAME|setup-agent NAME
-  neo project run [--url HTTPS_URL | --path ABSOLUTE_RUN_DIR] --project NAME [--dag NAME] [--title TEXT] [--dry-run] [--foreground] [--no-review]
+  neo project run [--url HTTPS_URL | --path ABSOLUTE_RUN_DIR] --project NAME [--dag NAME] [--title TEXT] [--dry-run] [--foreground] [--review | --no-review]
   neo compute build|run|web|services|doctor|cleanup [options]  On-demand Docker compute
   neo workspace show
   neo skill list [--project PATH]|package SKILL_DIR OUTPUT.zip

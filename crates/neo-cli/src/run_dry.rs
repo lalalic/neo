@@ -23,7 +23,7 @@ pub struct Options {
     pub routing_preferences: Vec<(String, String)>,
     pub dry_run: bool,
     pub foreground: bool,
-    pub no_review: bool,
+    pub interactive_review: Option<bool>,
 }
 fn valid_identifier(s: &str) -> bool {
     let mut chars = s.chars();
@@ -44,14 +44,23 @@ pub(crate) fn parse(args: &[String]) -> Result<Options, String> {
             i += 1;
             continue;
         }
-        if raw == "--dry-run" || raw == "--foreground" || raw == "--no-review" {
+        if matches!(
+            raw.as_str(),
+            "--dry-run" | "--foreground" | "--review" | "--no-review"
+        ) {
             if !flags.insert(raw.as_str()) {
                 return Err(format!("{raw} may be specified only once"));
             }
             match raw.as_str() {
                 "--dry-run" => opt.dry_run = true,
                 "--foreground" => opt.foreground = true,
-                _ => opt.no_review = true,
+                "--review" | "--no-review" => {
+                    if opt.interactive_review.is_some() {
+                        return Err("Choose only one of --review or --no-review".into());
+                    }
+                    opt.interactive_review = Some(raw == "--review");
+                }
+                _ => unreachable!(),
             }
             i += 1;
             continue;
@@ -59,9 +68,17 @@ pub(crate) fn parse(args: &[String]) -> Result<Options, String> {
         let (key, v) = raw.split_once('=').unwrap_or((raw.as_str(), ""));
         if !matches!(
             key,
-            "--url" | "--path" | "--project" | "--title" | "--dag" | "--source"
-                | "--prefer-adapter" | "--prefer-provider" | "--prefer-model"
-                | "--prefer-profile" | "--prefer-reasoning"
+            "--url"
+                | "--path"
+                | "--project"
+                | "--title"
+                | "--dag"
+                | "--source"
+                | "--prefer-adapter"
+                | "--prefer-provider"
+                | "--prefer-model"
+                | "--prefer-profile"
+                | "--prefer-reasoning"
         ) {
             return Err(format!("unknown project run option: {raw}"));
         }
@@ -84,8 +101,8 @@ pub(crate) fn parse(args: &[String]) -> Result<Options, String> {
             "--title" => opt.title = Some(val),
             "--dag" => opt.dag = Some(val),
             "--source" => opt.source = Some(val),
-            "--prefer-adapter" | "--prefer-provider" | "--prefer-model"
-            | "--prefer-profile" | "--prefer-reasoning" => {
+            "--prefer-adapter" | "--prefer-provider" | "--prefer-model" | "--prefer-profile"
+            | "--prefer-reasoning" => {
                 if key == "--prefer-adapter" && val != "codex" {
                     return Err("--prefer-adapter must be codex; use --prefer-profile neo for Neo-backed execution".into());
                 }
@@ -115,9 +132,6 @@ pub(crate) fn parse(args: &[String]) -> Result<Options, String> {
     }
     if opt.foreground && opt.dry_run {
         return Err("--foreground cannot be combined with --dry-run".into());
-    }
-    if opt.no_review && (opt.project.as_deref() != Some("vlog") || opt.path.is_none()) {
-        return Err("--no-review is only supported for a private canonical Vlog run".into());
     }
     if let Some(title) = opt.title.take() {
         let trimmed = title.trim();
@@ -312,11 +326,8 @@ fn source_preset(sel: &SelectedProject, name: &str) -> Result<(String, String, S
     let run_file = entry["runFile"].as_str().unwrap_or("");
     let reserved = [
         "source-reference.json",
-        "review-stages.json",
-        "review-mode.json",
-        "source-manifest.json",
-        "fixture-policy.json",
-        "campaign.json",
+        "neo-project-run.objective.md",
+        "neo-project-run.input.md",
         "neo-project-run.result.json",
     ];
     let config_valid = config.starts_with("config/")
@@ -357,33 +368,51 @@ fn source_preset(sel: &SelectedProject, name: &str) -> Result<(String, String, S
     }
     Ok((name.to_string(), dag.to_string(), run_file.to_string()))
 }
-fn check_reviewable(sel: &SelectedProject, dag: Option<&str>, graph: &Path) -> Result<(), String> {
-    let reviewable = sel
+// For an unbound prepared URL Run, the Project declares its evidence files.
+// Missing all files can identify a discovery Run; partial evidence is an error.
+fn prepared_evidence(sel: &SelectedProject, run: &Path) -> Result<bool, String> {
+    let files = sel
         .declaration
-        .get("reviewableDags")
-        .and_then(Value::as_object)
-        .and_then(|map| dag.and_then(|d| map.get(d)));
-    let Some(value) = reviewable else {
-        return Ok(());
-    };
-    let Some(stages) = value.as_array() else {
-        return Err("invalid reviewableDags entry for selected Graph".into());
-    };
-    let content = fs::read_to_string(graph).map_err(|e| e.to_string())?;
+        .pointer("/input/preparedPathRequiredFiles")
+        .and_then(Value::as_array)
+        .filter(|a| !a.is_empty())
+        .ok_or("preparedPath requires nonempty input.preparedPathRequiredFiles")?;
     let mut seen = HashSet::new();
-    if stages.is_empty()
-        || stages.iter().any(|s| {
-            let Some(name) = s.as_str() else {
-                return true;
-            };
-            !valid_identifier(name)
-                || !seen.insert(name)
-                || !content.contains(&format!("[agent:{name}]"))
-        })
-    {
-        return Err("invalid reviewableDags entry for selected Graph".into());
+    let mut present = 0;
+    for entry in files {
+        let rel = entry.as_str().ok_or("invalid preparedPath evidence file")?;
+        let path = Path::new(rel);
+        if rel.is_empty()
+            || path.is_absolute()
+            || rel.contains('\\')
+            || !rel
+                .split('/')
+                .all(|c| !c.is_empty() && c != "." && c != "..")
+            || !seen.insert(rel)
+        {
+            return Err("invalid preparedPath evidence file".into());
+        }
+        let file = run.join(path);
+        match fs::symlink_metadata(&file) {
+            Ok(meta) => {
+                let real = file.canonicalize().map_err(|e| e.to_string())?;
+                if !meta.is_file()
+                    || meta.file_type().is_symlink()
+                    || !inside(run, &real)
+                    || meta.len() == 0
+                {
+                    return Err(format!("invalid preparedPath evidence: {rel}"));
+                }
+                present += 1;
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+            Err(e) => return Err(e.to_string()),
+        }
     }
-    Ok(())
+    if present != 0 && present != files.len() {
+        return Err("incomplete preparedPath evidence".into());
+    }
+    Ok(present == files.len())
 }
 fn preflight(sel: &SelectedProject) -> Result<(), String> {
     let Some(script) = sel.declaration.pointer("/preflight/script") else {
@@ -443,8 +472,8 @@ pub struct Prepared {
     pub source: Option<(String, String, String)>,
     pub run_dir: Option<PathBuf>,
     pub discovery: bool,
-    pub discovery_domain: Option<String>,
-    pub reviewable: Option<Vec<String>>,
+    pub interactive_review_enabled: bool,
+    pub review_enabled: bool,
     pub preview: Value,
 }
 
@@ -488,7 +517,17 @@ pub fn prepare(args: &[String]) -> Result<Prepared, String> {
             ));
         }
     }
-    check_reviewable(&selected, dag.as_deref(), &graph)?;
+    let interactive_default = match selected.declaration.get("interactiveReviewEnabled") {
+        None => false,
+        Some(v) => v
+            .as_bool()
+            .ok_or("interactiveReviewEnabled must be boolean")?,
+    };
+    let interactive_review_enabled = options.interactive_review.unwrap_or(interactive_default);
+    let review_enabled = match selected.declaration.get("reviewEnabled") {
+        None => true,
+        Some(v) => v.as_bool().ok_or("reviewEnabled must be boolean")?,
+    };
     let dag_input = selected
         .declaration
         .get("dagInputs")
@@ -496,12 +535,6 @@ pub fn prepare(args: &[String]) -> Result<Prepared, String> {
         .and_then(|m| dag.as_deref().and_then(|k| m.get(k)));
     let discovery_allowed = dag_input.is_some_and(|v| v["type"] == "discovery");
     if let Some(value) = dag_input {
-        if value
-            .get("domain")
-            .is_some_and(|d| d != "video" && d != "general")
-        {
-            return Err("unsupported named DAG discovery domain".into());
-        }
         if !value.is_object() || !discovery_allowed {
             return Err("unsupported named DAG input configuration".into());
         }
@@ -515,15 +548,23 @@ pub fn prepare(args: &[String]) -> Result<Prepared, String> {
     if source.is_some() && !discovery_allowed {
         return Err("project source requires a discovery-enabled DAG".into());
     }
-    if is_path && selected.declaration["input"]["type"] == "url" {
-        let run_dir = run_dir.as_ref().unwrap();
-        if !run_dir.join(".neo-project-run.json").exists()
-            && (selected.declaration["input"]["preparedPath"] != true
-                || (!discovery_allowed
-                    && (!run_dir.join("campaign.json").exists()
-                        || !run_dir.join("evidence/original-source.json").exists())))
-        {
-            return Err("URL project --path accepts only an existing bound Run, unless preparedPath is enabled with canonical source evidence".into());
+    let mut prepared_discovery = false;
+    if let Some(run) = run_dir
+        .as_ref()
+        .filter(|r| !r.join(".neo-project-run.json").exists())
+    {
+        if selected.declaration["input"]["type"] == "url" {
+            let enabled = selected.declaration["input"]["preparedPath"] == true;
+            if !enabled {
+                return Err("URL project --path accepts only an existing bound Run, unless preparedPath is enabled with canonical source evidence".into());
+            }
+            let evidence = prepared_evidence(&selected, run)?;
+            if !evidence && !discovery_allowed {
+                return Err("URL project --path requires declared preparedPath evidence".into());
+            }
+            prepared_discovery = discovery_allowed && !evidence;
+        } else {
+            prepared_discovery = discovery_allowed;
         }
     }
     preflight(&selected)?;
@@ -545,28 +586,6 @@ pub fn prepare(args: &[String]) -> Result<Prepared, String> {
         result["source"] = json!(name);
         result["sourceBrief"] = json!(run_file);
     }
-    let discovery_domain = dag_input
-        .and_then(|v| v.get("domain"))
-        .and_then(Value::as_str)
-        .map(str::to_string);
-    let prepared_discovery = is_path
-        && discovery_allowed
-        && run_dir.as_ref().is_some_and(|p| {
-            !p.join(".neo-project-run.json").exists() && !p.join("campaign.json").exists()
-        });
-    let reviewable = selected
-        .declaration
-        .get("reviewableDags")
-        .and_then(Value::as_object)
-        .and_then(|m| dag.as_deref().and_then(|name| m.get(name)))
-        .and_then(Value::as_array)
-        .map(|stages| {
-            stages
-                .iter()
-                .filter_map(Value::as_str)
-                .map(str::to_string)
-                .collect()
-        });
     Ok(Prepared {
         options,
         selected,
@@ -575,8 +594,8 @@ pub fn prepare(args: &[String]) -> Result<Prepared, String> {
         source,
         run_dir,
         discovery: discovery || prepared_discovery,
-        discovery_domain,
-        reviewable,
+        interactive_review_enabled,
+        review_enabled,
         preview: result,
     })
 }

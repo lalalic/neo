@@ -246,11 +246,11 @@ fn discovery_source_and_named_dag_are_project_owned() {
 fn url_project_prepared_path_and_run_git_preflight_are_side_effect_free() {
     let f = Fixture::new();
     let prepared = f.source.join("runs/2026-11-07-prepared");
-    write(&prepared.join("campaign.json"), "{}");
-    write(&prepared.join("evidence/original-source.json"), "{}");
+    write(&prepared.join("input/source.json"), "{}");
+    write(&prepared.join("evidence/input.json"), "{}");
     write(
         &f.source.join("project.run.json"),
-        r#"{"schemaVersion":1,"input":{"type":"url","schemes":["https"],"resumePath":true,"preparedPath":true},"versioning":{"mode":"local-git","template":"run-template"}}"#,
+        r#"{"schemaVersion":1,"input":{"type":"url","schemes":["https"],"resumePath":true,"preparedPath":true,"preparedPathRequiredFiles":["input/source.json","evidence/input.json"]},"versioning":{"mode":"local-git","template":"run-template"}}"#,
     );
     let path = prepared.to_str().unwrap();
     let missing = f.call(&[
