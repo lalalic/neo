@@ -67,3 +67,9 @@ consent. Preserve unrelated work and private evidence. Record reusable lessons
 in the owning policy/Agent/Contract, replacing stale guidance rather than
 appending incident histories. Consult
 [historical lessons](docs/agent-execution-learnings.md) on demand.
+
+## Source navigation
+
+Design, Planner, Implementation and Reviewer use this entry and only relevant current references. Use the discovered `code-intelligence` Skill for targeted implementation evidence; use the actual checkout and tests to resolve discrepancies. Do not bulk-read source or historical evidence.
+
+For Models/Orchestrator Chat and delivery events, read [Models Orchestrator](docs/models-orchestrator.md) and [Reply protocol](docs/reply-protocol.md). For local escalation and CLI service lifecycle use [Escalation](docs/local-escalation.md) and [Service management](docs/neo-cli-service-management.md). Historical learning is evidence, not current policy.
