@@ -10,7 +10,7 @@ test('fresh inference always selects product, preserves exact context and fails 
  writeFileSync(join(folder,'a.mov'),'fixture');
  const calls=[];const execute=async args=>{
    calls.push(args);
-   writeFileSync(join(folder,'metadata.json'),JSON.stringify({'a.mov':{normalized:null,perception:{desc:'test',segments:{'0to1000':{description:'test'}}}}}));
+   writeFileSync(join(folder,'metadata.json'),JSON.stringify({'a.mov':{normalized:null,orientation:{status:'upright'},perception:{desc:'test',segments:{'0to1000':{description:'test'}}}}}));
  };
  const base={folder,execute,contextText:'context with ` and $()'};
  await assert.rejects(runVisioner(base),/authorized external transfer/);
@@ -26,7 +26,7 @@ test('Visioner rejects prototype; product profile preserves authorized direct ov
  const folder=mkdtempSync(join(tmpdir(),'shared-visioner-profile-'));t.after(()=>rmSync(folder,{recursive:true,force:true}));
  writeFileSync(join(folder,'a.png'),'fixture');
  const calls=[];const execute=async args=>{
-  calls.push(args);writeFileSync(join(folder,'metadata.json'),JSON.stringify({'a.png':{normalized:null,perception:{desc:'test'}}}));
+  calls.push(args);writeFileSync(join(folder,'metadata.json'),JSON.stringify({'a.png':{normalized:null,orientation:{status:'upright'},perception:{desc:'test'}}}));
  };
  const path=resolveMarkcutProfile('product'), config=JSON.parse(readFileSync(path,'utf8'));
  assert.match(config.itt,/agents-relay infer.*--capability vision --input \{input\} --prompt \{prompt_quoted\}/);

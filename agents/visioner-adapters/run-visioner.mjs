@@ -1,6 +1,6 @@
 /** Shared executable Visioner. Projects own input scope, transfer authorization,
  * domain context, review and project-specific output contracts. Markcut owns
- * perception, segmentation and normalization. No provider fallback on failure.
+ * perception, segmentation, normalization and source preparation. No provider fallback on failure.
  */
 import { existsSync, readdirSync, statSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
@@ -46,6 +46,10 @@ export async function runVisioner({folder, execute, cli=['markcut'], contextText
       (!VIDEO_EXTS.has(extname(file).toLowerCase()) || (item.perception.segments &&
         typeof item.perception.segments==='object'&&!Array.isArray(item.perception.segments)));
   });
+  // A legacy perception cache without the full Vision preparation receipt
+  // must go through Markcut once; never reimplement preparation here.
+  const prepared = metadata => files.every(file=>
+    ['upright','corrected','uncertain'].includes(metadata[file]?.orientation?.status));
   const normalized = metadata => files.every(file=>{
     const item=metadata[file];
     return item && Object.hasOwn(item,'normalized') && (item.normalized===null ||
@@ -55,7 +59,7 @@ export async function runVisioner({folder, execute, cli=['markcut'], contextText
   if(!Array.isArray(cli)||!cli.length||cli.some(s=>typeof s!=='string'))throw Error('Invalid Markcut CLI');
   if(typeof execute!=='function')throw Error('Visioner requires Markcut command runner');
   let metadata=await read(), invoked=false;
-  if(!complete(metadata)){
+  if(!complete(metadata)||!prepared(metadata)){
     if(!allowInference)throw Error('Vision metadata requires perception and inference was disabled');
     if(!externalTransferAuthorized && (adapterCommand===undefined || agentCommand===undefined))
       throw Error('Codex inference requires project-authorized external transfer or explicit local adapters');
@@ -69,5 +73,6 @@ export async function runVisioner({folder, execute, cli=['markcut'], contextText
     invoked=true;metadata=await read();
   }
   if(!complete(metadata))throw Error('Markcut Vision metadata incomplete: missing source descriptions or segments');
+  if(!prepared(metadata))throw Error('Markcut Vision source preparation incomplete');
   return {path,metadata,markcut:{invoked,reused:!invoked}};
 }

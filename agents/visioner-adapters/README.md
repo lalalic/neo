@@ -56,4 +56,10 @@ explicit `profile: 'product'` is accepted and other profiles are rejected.
 Authorized direct adapter overrides and valid metadata reuse remain supported.
 Fresh routed inference requires project authorization for external transfer.
 
+Full Markcut Vision prepares authorized independent working copies in place,
+including semantic orientation correction and refreshed proxies. There is no
+project-level switch or second implementation. Legacy metadata without the
+Markcut preparation result must pass through full Vision once; normalization
+alone does not establish that result. Keep external capture archives separate.
+
 Tests: `node --test agents/visioner-adapters/*.test.mjs`.
