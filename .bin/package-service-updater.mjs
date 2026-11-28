@@ -6,13 +6,14 @@ import { fileURLToPath } from 'node:url';
 import { spawn, spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { resolveRuntimeConfig } from '../skills/events-bus/core/config.mjs';
+import { startNativeReleaseUpdater } from './native-release-updater.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const neoRoot = resolve(here, '..');
 const natsTransport = resolve(neoRoot, 'skills/events-bus/transport/nats.mjs');
 const SERVICE_NAME = 'neo/package-service-updater';
 const LEGACY_SERVICE_NAME = 'neo-package-service-updater';
-const { natsUrl: NATS_URL, subjectPrefix: SUBJECT_PREFIX } = resolveRuntimeConfig();
+const { natsUrl: NATS_URL, subjectPrefix: SUBJECT_PREFIX, apiUrl } = resolveRuntimeConfig();
 const POLL_INTERVAL_MS = 2000;
 const PULLABLE_TIMEOUT_MS = 5 * 60 * 1000;
 const ONLINE_TIMEOUT_MS = 60 * 1000;
@@ -29,6 +30,7 @@ function sleep(ms) {
 export function publicationFromEvent(event) {
   if (!event || event.type !== 'package.published' || event.status !== 'succeeded') return null;
   const data = event.data && typeof event.data === 'object' ? event.data : {};
+  if (data.registry === 'native') return null;
   if (typeof data.package !== 'string' || !data.package || typeof data.version !== 'string' || !data.version) return null;
   return {
     jobId: typeof event.job_id === 'string' ? event.job_id : '',
@@ -244,6 +246,7 @@ export async function handlePublicationEvent(event, dependencies = {}) {
 }
 
 async function daemon() {
+  const nativeTimer = await startNativeReleaseUpdater({apiUrl});
   const child = spawn(process.execPath, [natsTransport, 'sub', `${SUBJECT_PREFIX}.*.package.published`], {
     stdio: ['ignore', 'pipe', 'inherit'],
     env: { ...process.env, EVENTS_BUS_NATS_URL: NATS_URL },
@@ -272,6 +275,7 @@ async function daemon() {
     child.once('error', reject);
     child.once('exit', value => resolveExit(value ?? 1));
   });
+  clearInterval(nativeTimer);
   if (code !== 0) throw new Error(`events subscription exited with code ${code}`);
 }
 
