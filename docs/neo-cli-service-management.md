@@ -43,3 +43,50 @@ Neo staging does not require Relay. Bootstrap and Eval require the independently
 ## Acceptance
 
 Run the Rust workspace tests, native black-box suites, isolated native package smoke and production read-only discovery. Container workload tests remain independent. Real provider rentals, UI mutations and remote-host rollout require separate verification and authorization.
+
+## Agents Relay native automatic release
+
+The existing `neo/package-service-updater` can opt into native Agents Relay
+publication and activation. It reconciles durable Events Bus history every
+15 seconds, keeping its cursor and pending work in
+`~/.local/state/neo/native-auto-release.json`. It verifies the completed
+Job and merged SHA using the Relay CLI and invokes the existing release
+scripts; it does not change Job lifecycle. Publication and activation are
+separate. Activation uses the native release idle/process gate, verifies
+the served SHA and assets, and retains the existing rollback behavior.
+Active Jobs are never paused or cancelled automatically. Retries back off
+to at most two minutes; the updater resumes pending work after restart.
+
+Create `~/.config/neo/native-auto-release.json` (owner-only permissions)
+with canonical local paths and an explicit Events Bus starting cursor:
+
+```json
+{
+  "repositoryRoot": "/absolute/Workspace/agents-relay",
+  "packageRoot": "/absolute/.local/share/agents-relay",
+  "autoPublish": true,
+  "autoLive": true,
+  "livePolicy": "when-idle",
+  "startAfter": 12345
+}
+```
+
+The example cursor must be replaced with the current durable Events Bus
+cursor (GET `/events?order=desc&limit=1`). Only new merge events after that
+boundary are eligible; to release an already-completed Job, set
+`seedJobId` to its decimal-string ID on first enablement. If deliberately
+including a reviewed post-merge hotfix, also pin the exact authorized
+current main SHA as `seedSha`; the Job's merged SHA must be its ancestor.
+Otherwise publication requires main to match a completed Job's merge SHA.
+The publisher and activator also fence the selected SHA and prior live
+revision. A later verified native publication can cover older merged Jobs.
+No arbitrary commands or repository paths are taken from events.
+Native publications are separate from the existing npm watcher.
+
+Set both switches false (or remove the opt-in config) to stop new automated
+actions; do not delete pending state or change its cursor to retry. The
+existing PM2 service logs pending errors; verify release receipts and
+`/api/version` for successful activation. Use
+`serviceman restart --skill neo --service package-service-updater --apply`
+after deploying updated updater source. No other repository is opted in by
+default.
