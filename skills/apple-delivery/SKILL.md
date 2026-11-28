@@ -1,11 +1,28 @@
 ---
 name: apple-delivery
-description: Release iOS apps from any Neo Project to authorized internal TestFlight groups using a shared App Store Connect API-key CLI. Includes certificate/provisioning checks, deterministic build bump, encryption export compliance, tester assignment and verified release state. Use for TestFlight, App Store Connect builds, signing or Missing Compliance on Neox/ToyAlive/other apps.
+description: Directly build, sign and install iOS apps on a paired physical iPhone without TestFlight, or release iOS apps from any Neo Project to authorized internal TestFlight groups using a shared App Store Connect API-key CLI. Includes certificate/provisioning checks, deterministic build bump, encryption export compliance, tester assignment and verified release state. Use for TestFlight, App Store Connect builds, signing or Missing Compliance on Neox/ToyAlive/other apps.
 ---
 
 # Apple Delivery
 
-Goal: make an authorized iOS build available to its **existing internal TestFlight testers** with one repeatable, auditable flow. Do not confuse a compiled archive, uploaded binary, Apple `VALID`, internal beta availability, or an installed iPhone build.
+Goal: install an authorized development build directly on a physical iPhone for testing, or make an authorized iOS build available to its **existing internal TestFlight testers** with one repeatable, auditable flow. Do not confuse a compiled archive, uploaded binary, Apple `VALID`, internal beta availability, or an installed iPhone build.
+
+## Direct physical iPhone install (development / QA)
+
+For local app testing, use the direct install workflow **before considering TestFlight**. From an iOS project root with `apple-delivery.json`:
+
+```bash
+scripts/testflight.py install --dry-run
+scripts/testflight.py install --launch
+# If multiple eligible devices are connected, explicitly select the intended one:
+scripts/testflight.py install --device COREDEVICE_ID --launch
+# Reuse a previously built, signed app matching this project's bundle/version/build:
+scripts/testflight.py install --app /absolute/path/to/App.app --launch
+```
+
+Projects without a wrapper use `python3 /path/to/discovered/apple-delivery/apple_delivery.py --project /absolute/project/path install --launch`. The installed Skill path comes from `neo skill list --project PATH`. This command does not use an App Store Connect key, bump versions, upload, or modify tester groups. It requires an already paired physical iPhone with Developer Mode enabled and Xcode development signing. The default expects exactly one eligible iPhone. `--allow-provisioning-updates` is an explicit opt-in to Xcode automatic provisioning changes, not a default.
+
+The command probes actual private-key signing before compilation, builds for `generic/platform=iOS` (not an iPhone destination, which can fail on developer disk image mounting), verifies the signed bundle identity, installs via `xcrun devicectl`, and checks the exact installed bundle/version/build. Private logs and build products are under the project's ignored `runs/device-install-*`. No uninstall, simulator substitution, credential extraction, ACL changes or automatic TestFlight fallback. For a signing error `errSecInternalComponent`, inspect the legitimate Keychain access prompt, unlock the login Keychain using Keychain Access if needed, and retry the command. A transient signing error during build permits one incremental retry only after a fresh signing probe succeeds. An install timeout is uncertain: inspect the device app inventory before trying again. A launch acknowledgement is not UI evidence; use `iphone-helm` on the authorized physical device for acceptance, and deploy the matching backend separately when required.
 
 ## Capabilities
 

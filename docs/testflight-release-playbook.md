@@ -12,6 +12,10 @@ Cross-project release memory, verified during the 2026-11-05 Neox AI internal Te
 
 For Neox and ToyAlive, use one shared [`apple-delivery` Skill](../skills/apple-delivery/SKILL.md) and a project-owned `apple-delivery.json`. The skill CLI owns deterministic preflight, API-key signing, build number bump, upload, previously reviewed encryption classification (`ITSAppUsesNonExemptEncryption` or Apple Modify a build), and existing internal group linkage. Continue to enforce the independent website/phone verification gates below.
 
+## Direct installation is separate from release
+
+For local iPhone testing, follow the direct-install manual in [apple-delivery](../skills/apple-delivery/SKILL.md#direct-physical-iphone-install-development--qa): `scripts/testflight.py install --launch`. It probes development signing, builds for generic iOS, installs using CoreDevice, and verifies the installed version. Do not use TestFlight to work around a local Keychain or device connection failure. No App Store Connect upload or build-number bump is needed for this path.
+
 ## Mandatory workflow for every authorized iOS/TestFlight release
 
 1. **Preflight identity/build.** Read the repository's release policy, selected build scheme, bundle ID, Apple team, entitlements, distribution audience, and app-specific approval. Check the existing store builds first; the next CFBundleVersion must be strictly greater than prior builds. Preserve source-to-archive-to-upload identity.

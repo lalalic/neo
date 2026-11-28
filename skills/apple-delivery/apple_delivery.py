@@ -2,6 +2,7 @@
 """Reusable Apple TestFlight delivery for Neo Projects. Stdlib + macOS Xcode/openssl only.
 
 Usage:
+  apple-delivery --project ~/Workspace/neox install [--device DEVICE_ID]
   apple-delivery doctor --project ~/Workspace/neox
   apple-delivery release --project ~/Workspace/neox --archive path/to/existing.xcarchive
   apple-delivery release --project ~/Workspace/toyalive --bump
@@ -25,6 +26,7 @@ import stat
 import subprocess
 import sys
 import time
+import tempfile
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -336,7 +338,7 @@ def check_signing(cfg):
     return matched
 
 
-def run_logged(command, outfile, env=None, timeout=1200):
+def run_logged(command, outfile, env=None, timeout=1200, operation="Signing/export"):
     outfile.parent.mkdir(parents=True, exist_ok=True)
     log('RUN: '+command[0]+' → '+outfile.name+' (details in private run directory)')
     with outfile.open('w') as f:
@@ -350,7 +352,7 @@ def run_logged(command, outfile, env=None, timeout=1200):
             except subprocess.TimeoutExpired:
                 os.killpg(proc.pid, signal.SIGKILL)
                 proc.wait()
-            raise ReleaseError('Signing/export timed out after '+str(timeout)+'s. Check Keychain access prompt for Apple Distribution identity; see '+str(outfile))
+            raise ReleaseError(operation+' timed out after '+str(timeout)+'s. Check device connection or authorized Keychain access prompt as applicable; see '+str(outfile))
     if code:
         errors = []
         for line in outfile.read_text(errors='replace').splitlines():
@@ -411,11 +413,143 @@ def report_status(apple, version, build, assign=False, resolve_compliance=False)
     return False
 
 
+
+def device_json(arguments, timeout=30):
+    """Use CoreDevice's structured output rather than human-readable tables."""
+    with tempfile.TemporaryDirectory(prefix='apple-device-') as tmp:
+        path=Path(tmp)/'result.json'
+        try:
+            subprocess.run(['xcrun','devicectl',*arguments,'--json-output',str(path)],
+                           capture_output=True,check=True,timeout=timeout)
+        except subprocess.TimeoutExpired as exc:
+            raise ReleaseError('CoreDevice query timed out. Check the paired iPhone connection and unlock state.') from exc
+        return json.loads(path.read_text())['result']
+
+
+def select_iphone(devices, requested=None):
+    candidates=[d for d in devices if d.get('hardwareProperties',{}).get('deviceType')=='iPhone'
+                and d.get('connectionProperties',{}).get('pairingState')=='paired'
+                and d.get('connectionProperties',{}).get('transportType') in ('localNetwork','wired','usb')
+                and d.get('deviceProperties',{}).get('developerModeStatus')=='enabled'
+                and d.get('identifier')]
+    if requested:
+        candidates=[d for d in candidates if d['identifier']==requested]
+    if len(candidates)!=1:
+        raise ReleaseError('Expected exactly one connected, paired iPhone with Developer Mode enabled; use --device COREDEVICE_ID to select one.')
+    return candidates[0]['identifier']
+
+
+def development_signing_probe():
+    """Check private-key *use*, not just certificate presence; no key export."""
+    output=subprocess.run(['security','find-identity','-v','-p','codesigning'],
+                          capture_output=True,text=True,check=True,timeout=20).stdout
+    identities=[m.group(1) for line in output.splitlines()
+                if (m:=re.search(r'\b([A-F0-9]{40}) "Apple Development:[^"]+"\s*$',line))]
+    if not identities:
+        raise ReleaseError('No valid Apple Development signing identity. Configure the development certificate and profile in Xcode.')
+    with tempfile.TemporaryDirectory(prefix='apple-signing-probe-') as tmp:
+        probe=Path(tmp)/'probe'
+        # A fresh Mach-O is preferable to copying an Apple platform binary.
+        subprocess.run(['xcrun','clang','-x','c','-','-o',str(probe)],input=b'int main(void){return 0;}\n',
+                       capture_output=True,check=True,timeout=30)
+        for identity in identities:
+            try:
+                result=subprocess.run(['codesign','--force','--sign',identity,'--timestamp=none',str(probe)],
+                                      capture_output=True,timeout=20)
+                if result.returncode==0:
+                    log('SIGNING: Apple Development private-key signing probe passed.')
+                    return
+            except subprocess.TimeoutExpired:
+                break
+    raise ReleaseError('Development signing blocked (Keychain/private-key access). Unlock the login Keychain in Keychain Access, approve the legitimate codesign prompt, then rerun install. Do not export keys, change ACLs or switch to TestFlight.')
+
+
+def device_app_identity(app, cfg):
+    with (app/'Info.plist').open('rb') as f:
+        info=plistlib.load(f)
+    if info.get('CFBundleIdentifier')!=cfg['bundle_id']:
+        raise ReleaseError('Built app bundle ID does not match configured target')
+    if not (app/'embedded.mobileprovision').is_file():
+        raise ReleaseError('Device app lacks an embedded provisioning profile')
+    return str(info['CFBundleShortVersionString']),str(info['CFBundleVersion'])
+
+
+def direct_install(cfg, args):
+    device=select_iphone(device_json(['list','devices'])['devices'],args.device)
+    version,build=stored_version(cfg)
+    log('TARGET: '+cfg['bundle_id']+' '+version+' ('+build+') on paired iPhone')
+    if not args.app:
+        development_signing_probe()
+    if args.dry_run:
+        if args.app:
+            app=args.app.expanduser().resolve()
+            if device_app_identity(app,cfg)!=(version,build):
+                raise ReleaseError('Existing app version/build differs from project')
+            subprocess.run(['codesign','--verify','--deep','--strict',str(app)],check=True,timeout=60)
+        log('DRY RUN: local preflight passed; no build, install, version bump or upload.')
+        return 0
+    runs=ROOT/'runs'
+    runs.mkdir(exist_ok=True)
+    run_dir=Path(tempfile.mkdtemp(prefix='device-install-',dir=runs))
+    if args.app:
+        app=args.app.expanduser().resolve()
+    else:
+        subprocess.run(['xcodegen','generate'],cwd=ROOT,check=True,timeout=60,stdout=subprocess.DEVNULL)
+        derived=run_dir/'DerivedData'
+        command=['xcodebuild','-project',cfg['project'],'-scheme',cfg['scheme'],
+                 '-configuration','Debug','-destination','generic/platform=iOS',
+                 '-derivedDataPath',str(derived),'DEVELOPMENT_TEAM='+cfg['team_id'],
+                 'CODE_SIGN_STYLE=Automatic','CODE_SIGN_IDENTITY=Apple Development']
+        if args.allow_provisioning_updates:
+            command.append('-allowProvisioningUpdates')
+        command.append('build')
+        try:
+            run_logged(command,run_dir/'build.log',timeout=1800,operation='development build/signing')
+        except ReleaseError as exc:
+            if 'errSecInternalComponent' not in (run_dir/'build.log').read_text(errors='replace'):
+                raise
+            # One bounded retry only after fresh evidence that signing works.
+            log('SIGNING: errSecInternalComponent; checking private-key access before one incremental retry.')
+            development_signing_probe()
+            run_logged(command,run_dir/'build-retry.log',timeout=1800,operation='development build/signing')
+        matches=[]
+        for candidate in (derived/'Build/Products/Debug-iphoneos').glob('*.app'):
+            with (candidate/'Info.plist').open('rb') as f:
+                if plistlib.load(f).get('CFBundleIdentifier')==cfg['bundle_id']:
+                    matches.append(candidate)
+        if len(matches)!=1:
+            raise ReleaseError('Expected exactly one built app with the configured bundle ID')
+        app=matches[0]
+    if device_app_identity(app,cfg)!=(version,build):
+        raise ReleaseError('Built app version/build differs from project')
+    subprocess.run(['codesign','--verify','--deep','--strict',str(app)],check=True,timeout=60)
+    # Revalidate the selected device after a potentially long build.
+    select_iphone(device_json(['list','devices'])['devices'],device)
+    run_logged(['xcrun','devicectl','device','install','app','--device',device,str(app)],
+               run_dir/'install.log',timeout=180,operation='iPhone installation')
+    inventory=device_json(['device','info','apps','--device',device])
+    matches=[a for a in inventory['apps'] if a.get('bundleIdentifier')==cfg['bundle_id']]
+    if inventory.get('deviceIdentifier')!=device or len(matches)!=1 or (
+            str(matches[0].get('version')),str(matches[0].get('bundleVersion')))!=(version,build):
+        raise ReleaseError('Installation returned but exact iPhone app/version readback did not match')
+    log('INSTALLED: '+cfg['bundle_id']+' '+version+' ('+build+') verified on iPhone; no TestFlight upload.')
+    if args.launch:
+        run_logged(['xcrun','devicectl','device','process','launch','--device',device,cfg['bundle_id']],
+                   run_dir/'launch.log',timeout=60,operation='iPhone app launch')
+        log('LAUNCHED: app launch acknowledged; UI/E2E verification is separate.')
+    return 0
+
 def main(argv=None):
     parser=argparse.ArgumentParser(description=__doc__,formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument('--project',type=Path,default=Path.cwd(),help='Application project root with apple-delivery.json')
     parser.add_argument('--config',type=Path,help='Optional per-app config path (default: <project>/apple-delivery.json)')
     sub=parser.add_subparsers(dest='action',required=True)
+    install=sub.add_parser('install',help='Build, development-sign, install and verify on a paired physical iPhone (no TestFlight).')
+    install.add_argument('--device',help='Exact CoreDevice identifier; default requires exactly one eligible iPhone')
+    install.add_argument('--app',type=Path,help='Install an already signed matching .app instead of building')
+    install.add_argument('--dry-run',action='store_true',help='Check device/signing only; do not build or install')
+    install.add_argument('--launch',action='store_true',help='Launch app after verified installation')
+    install.add_argument('--allow-provisioning-updates',action='store_true',help='Explicitly permit Xcode automatic provisioning updates')
     doctor=sub.add_parser('doctor',help='Check credentials, App Store identity, build numbers and cached signing (read-only).')
     doctor.add_argument('--offline',action='store_true',help='Skip Apple network for local diagnostics')
     release=sub.add_parser('release',help='Archive and upload through API-key signing, then read back Apple state.')
@@ -434,6 +568,8 @@ def main(argv=None):
         raise ReleaseError('Project does not exist: '+str(ROOT))
     config_path=(args.config.expanduser().resolve() if args.config else ROOT/'apple-delivery.json')
     cfg=load_config(config_path)
+    if args.action=='install':
+        return direct_install(cfg,args)
     p8=key_path(cfg)
     if args.action in ('doctor','release'):
         version,build=stored_version(cfg)
@@ -517,6 +653,6 @@ def main(argv=None):
 if __name__=='__main__':
     try:
         sys.exit(main())
-    except (ReleaseError, OSError, subprocess.CalledProcessError, ValueError, KeyError) as exc:
-        print('TESTFLIGHT ERROR: '+str(exc),file=sys.stderr)
+    except (ReleaseError, OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired, ValueError, KeyError) as exc:
+        print('APPLE DELIVERY ERROR: '+str(exc),file=sys.stderr)
         sys.exit(1)
