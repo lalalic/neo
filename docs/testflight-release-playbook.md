@@ -14,7 +14,7 @@ For Neox and ToyAlive, use one shared [`apple-delivery` Skill](../skills/apple-d
 
 ## Direct installation is separate from release
 
-For local iPhone testing, follow the direct-install manual in [apple-delivery](../skills/apple-delivery/SKILL.md#direct-physical-iphone-install-development--qa): `scripts/testflight.py install --launch`. It probes development signing, builds for generic iOS, installs using CoreDevice, and verifies the installed version. Do not use TestFlight to work around a local Keychain or device connection failure. No App Store Connect upload or build-number bump is needed for this path.
+For local iPhone testing, follow the direct-install manual in [apple-delivery](../skills/apple-delivery/SKILL.md#direct-physical-iphone-install-development--qa): `scripts/testflight.py install --launch`. It probes development signing, builds for generic iOS, installs using CoreDevice, and verifies the installed version. If no authorized physical iPhone is available, use the authorized internal TestFlight release flow instead, according to the project delivery policy. Do not use TestFlight to work around a local Keychain, build, installation or automation failure on an available device. Record physical-device acceptance as NOT_RUN until verified. No App Store Connect upload or build-number bump is needed for this path.
 
 ## Mandatory workflow for every authorized iOS/TestFlight release
 

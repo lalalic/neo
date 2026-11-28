@@ -7,6 +7,12 @@ description: Directly build, sign and install iOS apps on a paired physical iPho
 
 Goal: install an authorized development build directly on a physical iPhone for testing, or make an authorized iOS build available to its **existing internal TestFlight testers** with one repeatable, auditable flow. Do not confuse a compiled archive, uploaded binary, Apple `VALID`, internal beta availability, or an installed iPhone build.
 
+## Delivery choice: physical device first
+
+For an iOS development delivery or verification request, check for the authorized, paired physical iPhone first. If available, directly install the exact intended revision using `install --launch` and verify the requested behavior on the real device. Do not upload to TestFlight merely because a local build, signing, installation, or UI automation check fails; diagnose that blocker and report it accurately. If multiple devices are available, select the authorized target explicitly.
+
+If no authorized physical iPhone is available, use `release --bump` for the project's configured existing internal TestFlight group, when authorized by the project delivery policy and the user's request. Follow all release, signing, compliance and tester-assignment gates below; verify the exact build's internal availability. A successful upload or internal distribution is not physical-device verification: record real-device acceptance as NOT_RUN until it can actually be performed. Do not publish externally. The installer itself never automatically switches to the release command.
+
 ## Direct physical iPhone install (development / QA)
 
 For local app testing, use the direct install workflow **before considering TestFlight**. From an iOS project root (e.g. Neox or ToyAlive) with its optional `apple-delivery.json` and project wrapper:
