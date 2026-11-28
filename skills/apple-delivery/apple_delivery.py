@@ -61,6 +61,59 @@ def load_config(path=CONFIG_PATH):
     return cfg
 
 
+
+def install_config(path, args):
+    """Local development does not require App Store Connect registration."""
+    cfg=json.loads(path.read_text()) if path.is_file() else {}
+    if not isinstance(cfg,dict):
+        raise ReleaseError('Installation configuration must be a JSON object')
+    for key,arg in [('bundle_id','bundle_id'),('scheme','scheme'),('team_id','team_id'),
+                    ('project','xcode_project'),('workspace','workspace'),('configuration','configuration'),
+                    ('generator','generator')]:
+        value=getattr(args,arg,None)
+        if value is not None:
+            cfg[key]=value
+            if key=='workspace': cfg.pop('project',None)
+            if key=='project': cfg.pop('workspace',None)
+    required=('bundle_id',) if args.app else ('bundle_id','scheme')
+    for key in required:
+        if not isinstance(cfg.get(key),str) or not cfg[key].strip():
+            raise ReleaseError('Local install requires '+key+' (config or CLI option)')
+    if not args.app:
+        if bool(cfg.get('project'))==bool(cfg.get('workspace')):
+            raise ReleaseError('Local build requires exactly one Xcode project or workspace')
+        for key in ('project','workspace'):
+            if cfg.get(key):
+                value=Path(cfg[key])
+                if value.is_absolute() or '..' in value.parts or value.suffix!=('.xcodeproj' if key=='project' else '.xcworkspace'):
+                    raise ReleaseError(key+' must be a relative Xcode project/workspace path')
+    source=cfg.get('version_source')
+    if source is not None or cfg.get('version_file') is not None:
+        if source not in ('plist','xcodegen-yaml') or not cfg.get('version_file'):
+            raise ReleaseError('Specify both valid version_source and version_file, or omit both for built Info.plist readback')
+        path=Path(cfg['version_file'])
+        if path.is_absolute() or '..' in path.parts:
+            raise ReleaseError('version_file must be a relative project path')
+    if cfg.get('generator','auto') not in ('auto','xcodegen','none'):
+        raise ReleaseError('generator must be auto, xcodegen, or none')
+    configuration=cfg.get('configuration','Debug')
+    if not isinstance(configuration,str) or not configuration or Path(configuration).name!=configuration or configuration in ('.','..'):
+        raise ReleaseError('Invalid Xcode configuration name')
+    return cfg
+
+
+def local_build_command(cfg, derived, allow_updates):
+    selector='workspace' if cfg.get('workspace') else 'project'
+    command=['xcodebuild','-'+selector,cfg[selector],'-scheme',cfg['scheme'],
+             '-configuration',cfg.get('configuration','Debug'),'-destination','generic/platform=iOS',
+             '-derivedDataPath',str(derived)]
+    if cfg.get('team_id'):
+        command.append('DEVELOPMENT_TEAM='+cfg['team_id'])
+    # Respect the project's existing manual/automatic signing configuration.
+    if allow_updates:
+        command.append('-allowProvisioningUpdates')
+    return command+['build']
+
 def key_path(cfg):
     # Private material must never be stored in the repo or copied into logs.
     directory = Path(os.environ.get('ASC_PRIVATE_KEYS_DIR', '~/.private_keys')).expanduser()
@@ -476,14 +529,15 @@ def device_app_identity(app, cfg):
 
 def direct_install(cfg, args):
     device=select_iphone(device_json(['list','devices'])['devices'],args.device)
-    version,build=stored_version(cfg)
-    log('TARGET: '+cfg['bundle_id']+' '+version+' ('+build+') on paired iPhone')
+    expected=stored_version(cfg) if cfg.get('version_source') else None
+    log('TARGET: '+cfg['bundle_id']+(' '+expected[0]+' ('+expected[1]+')' if expected else ' (version from built Info.plist)')+' on paired iPhone')
     if not args.app:
         development_signing_probe()
     if args.dry_run:
         if args.app:
             app=args.app.expanduser().resolve()
-            if device_app_identity(app,cfg)!=(version,build):
+            identity=device_app_identity(app,cfg)
+            if expected is not None and identity!=expected:
                 raise ReleaseError('Existing app version/build differs from project')
             subprocess.run(['codesign','--verify','--deep','--strict',str(app)],check=True,timeout=60)
         log('DRY RUN: local preflight passed; no build, install, version bump or upload.')
@@ -494,15 +548,11 @@ def direct_install(cfg, args):
     if args.app:
         app=args.app.expanduser().resolve()
     else:
-        subprocess.run(['xcodegen','generate'],cwd=ROOT,check=True,timeout=60,stdout=subprocess.DEVNULL)
+        generator=cfg.get('generator','auto')
+        if generator=='xcodegen' or (generator=='auto' and (ROOT/'project.yml').is_file()):
+            subprocess.run(['xcodegen','generate'],cwd=ROOT,check=True,timeout=60,stdout=subprocess.DEVNULL)
         derived=run_dir/'DerivedData'
-        command=['xcodebuild','-project',cfg['project'],'-scheme',cfg['scheme'],
-                 '-configuration','Debug','-destination','generic/platform=iOS',
-                 '-derivedDataPath',str(derived),'DEVELOPMENT_TEAM='+cfg['team_id'],
-                 'CODE_SIGN_STYLE=Automatic','CODE_SIGN_IDENTITY=Apple Development']
-        if args.allow_provisioning_updates:
-            command.append('-allowProvisioningUpdates')
-        command.append('build')
+        command=local_build_command(cfg,derived,args.allow_provisioning_updates)
         try:
             run_logged(command,run_dir/'build.log',timeout=1800,operation='development build/signing')
         except ReleaseError as exc:
@@ -513,14 +563,15 @@ def direct_install(cfg, args):
             development_signing_probe()
             run_logged(command,run_dir/'build-retry.log',timeout=1800,operation='development build/signing')
         matches=[]
-        for candidate in (derived/'Build/Products/Debug-iphoneos').glob('*.app'):
+        for candidate in (derived/'Build/Products'/(cfg.get('configuration','Debug')+'-iphoneos')).glob('*.app'):
             with (candidate/'Info.plist').open('rb') as f:
                 if plistlib.load(f).get('CFBundleIdentifier')==cfg['bundle_id']:
                     matches.append(candidate)
         if len(matches)!=1:
             raise ReleaseError('Expected exactly one built app with the configured bundle ID')
         app=matches[0]
-    if device_app_identity(app,cfg)!=(version,build):
+    version,build=device_app_identity(app,cfg)
+    if expected is not None and (version,build)!=expected:
         raise ReleaseError('Built app version/build differs from project')
     subprocess.run(['codesign','--verify','--deep','--strict',str(app)],check=True,timeout=60)
     # Revalidate the selected device after a potentially long build.
@@ -545,6 +596,14 @@ def main(argv=None):
     parser.add_argument('--config',type=Path,help='Optional per-app config path (default: <project>/apple-delivery.json)')
     sub=parser.add_subparsers(dest='action',required=True)
     install=sub.add_parser('install',help='Build, development-sign, install and verify on a paired physical iPhone (no TestFlight).')
+    install.add_argument('--bundle-id',help='Expected application bundle identifier (overrides config)')
+    install.add_argument('--scheme',help='Xcode app build scheme (overrides config)')
+    install.add_argument('--team-id',help='Apple development team (optional if Xcode project already configures it)')
+    container=install.add_mutually_exclusive_group()
+    container.add_argument('--xcode-project',help='Relative .xcodeproj path (overrides config)')
+    container.add_argument('--workspace',help='Relative .xcworkspace path (overrides config)')
+    install.add_argument('--configuration',help='Xcode configuration (default Debug)')
+    install.add_argument('--generator',choices=('auto','none','xcodegen'),help='Project generator (default auto: XcodeGen only if project.yml exists)')
     install.add_argument('--device',help='Exact CoreDevice identifier; default requires exactly one eligible iPhone')
     install.add_argument('--app',type=Path,help='Install an already signed matching .app instead of building')
     install.add_argument('--dry-run',action='store_true',help='Check device/signing only; do not build or install')
@@ -567,9 +626,11 @@ def main(argv=None):
     if not ROOT.is_dir():
         raise ReleaseError('Project does not exist: '+str(ROOT))
     config_path=(args.config.expanduser().resolve() if args.config else ROOT/'apple-delivery.json')
-    cfg=load_config(config_path)
     if args.action=='install':
-        return direct_install(cfg,args)
+        if args.config and not config_path.is_file():
+            raise ReleaseError('Explicit configuration file does not exist: '+str(config_path))
+        return direct_install(install_config(config_path,args),args)
+    cfg=load_config(config_path)
     p8=key_path(cfg)
     if args.action in ('doctor','release'):
         version,build=stored_version(cfg)

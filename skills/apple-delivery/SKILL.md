@@ -9,7 +9,7 @@ Goal: install an authorized development build directly on a physical iPhone for 
 
 ## Direct physical iPhone install (development / QA)
 
-For local app testing, use the direct install workflow **before considering TestFlight**. From an iOS project root with `apple-delivery.json`:
+For local app testing, use the direct install workflow **before considering TestFlight**. From an iOS project root (e.g. Neox or ToyAlive) with its optional `apple-delivery.json` and project wrapper:
 
 ```bash
 scripts/testflight.py install --dry-run
@@ -20,7 +20,18 @@ scripts/testflight.py install --device COREDEVICE_ID --launch
 scripts/testflight.py install --app /absolute/path/to/App.app --launch
 ```
 
-Projects without a wrapper use `python3 /path/to/discovered/apple-delivery/apple_delivery.py --project /absolute/project/path install --launch`. The installed Skill path comes from `neo skill list --project PATH`. This command does not use an App Store Connect key, bump versions, upload, or modify tester groups. It requires an already paired physical iPhone with Developer Mode enabled and Xcode development signing. The default expects exactly one eligible iPhone. `--allow-provisioning-updates` is an explicit opt-in to Xcode automatic provisioning changes, not a default.
+The same script supports ordinary Xcode projects and workspaces, including apps never registered with App Store Connect. Without a wrapper or config, invoke the global Skill script directly:
+
+```bash
+python3 ~/.agents/skills/apple-delivery/apple_delivery.py --project /path/to/app install \
+  --xcode-project App.xcodeproj --scheme App --bundle-id com.example.app --launch
+# For a workspace, replace --xcode-project with --workspace App.xcworkspace.
+# Or install an already signed device bundle:
+python3 ~/.agents/skills/apple-delivery/apple_delivery.py install \
+  --app /path/to/App.app --bundle-id com.example.app --launch
+```
+
+Discover the current Skill with `neo skill list --project PATH`. Local-only config needs only `bundle_id`, `scheme`, and `project` or `workspace`; a prebuilt app needs only its expected bundle ID. `team_id`, `configuration` (default Debug), `generator` (auto, none, xcodegen), and the existing paired `version_source`/`version_file` fields are optional. If versions are not configured, read them from the built Info.plist and compare with device inventory. Preserve project signing settings; XcodeGen is used automatically only when project.yml exists, or explicitly selected. No App Store Connect registration, API credentials, distribution certificate, or export classification is required for local installation. The default expects exactly one eligible paired iPhone with Developer Mode enabled. `--allow-provisioning-updates` explicitly opts in to automatic provisioning changes. Release retains its full configuration and authorization gates.
 
 The command probes actual private-key signing before compilation, builds for `generic/platform=iOS` (not an iPhone destination, which can fail on developer disk image mounting), verifies the signed bundle identity, installs via `xcrun devicectl`, and checks the exact installed bundle/version/build. Private logs and build products are under the project's ignored `runs/device-install-*`. No uninstall, simulator substitution, credential extraction, ACL changes or automatic TestFlight fallback. For a signing error `errSecInternalComponent`, inspect the legitimate Keychain access prompt, unlock the login Keychain using Keychain Access if needed, and retry the command. A transient signing error during build permits one incremental retry only after a fresh signing probe succeeds. An install timeout is uncertain: inspect the device app inventory before trying again. A launch acknowledgement is not UI evidence; use `iphone-helm` on the authorized physical device for acceptance, and deploy the matching backend separately when required.
 

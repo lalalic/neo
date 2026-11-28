@@ -85,3 +85,37 @@ class DeviceInstallTests(unittest.TestCase):
             self.assertEqual(run.call_args_list[0].args[0],run.call_args_list[1].args[0])
             self.assertIn('generic/platform=iOS',run.call_args_list[0].args[0])
             self.assertNotIn('-allowProvisioningUpdates',run.call_args_list[0].args[0])
+
+    def test_local_config_does_not_require_release_registration(self):
+        import json
+        path=self.root/'local.json'
+        path.write_text(json.dumps({'bundle_id':'com.example.app','project':'Example.xcodeproj','scheme':'Example'}))
+        cfg=tf.install_config(path,SimpleNamespace(app=None))
+        self.assertNotIn('app_id',cfg)
+        self.assertNotIn('version_source',cfg)
+        command=tf.local_build_command(cfg,self.root/'derived',False)
+        self.assertEqual(command[:5],['xcodebuild','-project','Example.xcodeproj','-scheme','Example'])
+        self.assertFalse(any('CODE_SIGN_STYLE' in arg for arg in command))
+        with self.assertRaises(tf.ReleaseError): tf.load_config(path)
+
+    def test_workspace_cli_without_config(self):
+        args=SimpleNamespace(app=None,bundle_id='com.example.app',workspace='App.xcworkspace',scheme='App',configuration='Development',generator='none')
+        cfg=tf.install_config(self.root/'absent.json',args)
+        command=tf.local_build_command(cfg,self.root/'derived',True)
+        self.assertEqual(command[:5],['xcodebuild','-workspace','App.xcworkspace','-scheme','App'])
+        self.assertIn('Development',command)
+        self.assertIn('-allowProvisioningUpdates',command)
+
+    def test_existing_app_without_release_config(self):
+        args=SimpleNamespace(app=self.app,bundle_id=self.cfg['bundle_id'],device=None,dry_run=False,launch=False,allow_provisioning_updates=False)
+        cfg=tf.install_config(self.root/'absent.json',args)
+        with patch.object(tf,'device_json',side_effect=[{'devices':[phone()]},{'devices':[phone()]},self.inventory]), \
+             patch.object(tf.subprocess,'run'), patch.object(tf,'run_logged') as run:
+            self.assertEqual(tf.direct_install(cfg,args),0)
+            self.assertEqual(run.call_count,1)
+            self.assertIn('install',run.call_args.args[0])
+
+    def test_invalid_local_project_path(self):
+        for path in ('../App.xcodeproj','/tmp/App.xcodeproj','App.txt'):
+            with self.assertRaises(tf.ReleaseError):
+                tf.install_config(self.root/'absent.json',SimpleNamespace(app=None,bundle_id='com.example.app',scheme='App',xcode_project=path))
