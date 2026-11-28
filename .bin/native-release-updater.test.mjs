@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { initialState, validateConfig, mergeCandidate, nativeCandidate, reconcile } from './native-release-updater.mjs';
+import { initialState, validateConfig, mergeCandidate, nativeCandidate, reconcile, releaseEnvironment } from './native-release-updater.mjs';
 const a='a'.repeat(40), b='b'.repeat(40), c='c'.repeat(40);
 const config={repositoryRoot:'/tmp/agents-relay',packageRoot:'/tmp/packages',startAfter:10,autoPublish:true,autoLive:true,livePolicy:'when-idle'};
 const merge=(jobId,sha)=>({type:'job.merge.succeeded',job_id:jobId,source:{id:'job/'+jobId+'/task/merge/execution/attempt-0'},data:{mergedCommitSha:sha}});
@@ -66,4 +66,10 @@ test('publish failure and main change never lose pending job',async()=>{
   assert.equal(f.saved.jobs['765'],b);assert.equal(f.live,a);
   const g=fixture();g.add('765',b);g.event(merge('765',b),11);let calls=0;g.io.main=async()=>++calls===1?b:c;
   await g.run();assert.deepEqual(g.actions,[]);
+});
+
+test('non-login daemon can resolve Rustup without discarding existing PATH',()=>{
+  assert.equal(releaseEnvironment({PATH:'/usr/bin'},'/home/test').PATH,'/home/test/.cargo/bin:/usr/bin');
+  assert.equal(releaseEnvironment({PATH:'/usr/bin',CARGO_HOME:'/opt/rust'},'/home/test').PATH,'/opt/rust/bin:/usr/bin');
+  assert.throws(()=>releaseEnvironment({CARGO_HOME:'relative'},'/home/test'));
 });

@@ -1,7 +1,7 @@
 // Local opt-in native release automation. Relay owns Jobs; its release scripts
 // own publication, package validation, idle/process fencing and rollback.
 import { readFile, writeFile, rename, mkdir, realpath } from 'node:fs/promises';
-import { dirname, join, basename, isAbsolute } from 'node:path';
+import { dirname, join, basename, isAbsolute, delimiter } from 'node:path';
 import { homedir } from 'node:os';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -137,6 +137,12 @@ export async function reconcile(c, s, io) {
   s.lastLiveSha = actual;
   await io.save(s);
 }
+// PM2's non-login environment does not necessarily include Rustup's bin.
+export function releaseEnvironment(env = process.env, home = homedir()) {
+  const cargoHome = env.CARGO_HOME || join(home, '.cargo');
+  if (!isAbsolute(cargoHome)) throw Error('CARGO_HOME must be absolute');
+  return {...env, PATH: [join(cargoHome, 'bin'), env.PATH].filter(Boolean).join(delimiter)};
+}
 export async function startNativeReleaseUpdater({ apiUrl, log = console, configPath = file, storePath = stateFile } = {}) {
   const endpoint = new URL(apiUrl);
   const localEndpoint = endpoint.protocol === 'http:' && ['127.0.0.1','localhost','[::1]'].includes(endpoint.hostname)
@@ -157,7 +163,7 @@ export async function startNativeReleaseUpdater({ apiUrl, log = console, configP
       let s;
       try { s = await get(storePath); }
       catch(e) { if (e.code !== 'ENOENT') throw e; s = initialState(c); }
-      const command = async (cmd,args,timeout=30000) => (await exec(cmd,args,{cwd:c.repositoryRoot,timeout,maxBuffer:64*1024*1024})).stdout.trim();
+      const command = async (cmd,args,timeout=30000) => (await exec(cmd,args,{cwd:c.repositoryRoot,timeout,maxBuffer:64*1024*1024,env:releaseEnvironment()})).stdout.trim();
       const git = (...args) => command('git',args);
       if (await git('rev-parse','--show-toplevel') !== c.repositoryRoot) throw Error('Configured root is not Git root');
       const json = async url => {
